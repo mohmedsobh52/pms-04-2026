@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { QuotationCostChart } from "./QuotationCostChart";
 import {
   Table,
   TableBody,
@@ -586,6 +587,12 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                                   </TableBody>
                                 </Table>
                               </div>
+                              
+                              {/* Pie Chart for cost distribution */}
+                              <QuotationCostChart 
+                                items={quotation.ai_analysis.items} 
+                                currency={quotation.currency}
+                              />
                             </div>
                           )}
 

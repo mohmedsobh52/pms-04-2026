@@ -8,6 +8,7 @@ import { SavedProjects } from "@/components/SavedProjects";
 import { SaveProjectDialog } from "@/components/SaveProjectDialog";
 import { QuotationUpload } from "@/components/QuotationUpload";
 import { QuotationComparison } from "@/components/QuotationComparison";
+import { ComprehensiveReport } from "@/components/ComprehensiveReport";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -450,7 +451,7 @@ const Index = () => {
               {analysisData && (
                 <div className="space-y-4">
                   {user && (
-                    <div className="flex justify-end">
+                    <div className="flex flex-col sm:flex-row gap-3 justify-end">
                       <SaveProjectDialog
                         analysisData={analysisData}
                         wbsData={wbsData}
@@ -459,6 +460,13 @@ const Index = () => {
                     </div>
                   )}
                   <AnalysisResults data={analysisData} wbsData={wbsData} />
+                  
+                  {/* Comprehensive Report Section */}
+                  <ComprehensiveReport
+                    projectName={selectedFile?.name?.replace(/\.[^/.]+$/, "") || "مشروع BOQ"}
+                    analysisData={analysisData}
+                    wbsData={wbsData}
+                  />
                 </div>
               )}
 
