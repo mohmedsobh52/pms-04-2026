@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,49 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+interface QuotationItem {
+  item_number: string;
+  description: string;
+  unit: string;
+  quantity: number;
+  unit_price: number;
+  total: number;
+}
+
+interface QuotationAnalysis {
+  supplier?: {
+    name?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+  };
+  quotation_info?: {
+    number?: string;
+    date?: string;
+    validity?: string;
+    payment_terms?: string;
+  };
+  items?: QuotationItem[];
+  totals?: {
+    subtotal?: number;
+    tax?: number;
+    tax_percentage?: number;
+    discount?: number;
+    grand_total?: number;
+  };
+  notes?: string[];
+  summary?: string;
+}
 
 interface Quotation {
   id: string;
@@ -20,6 +63,7 @@ interface Quotation {
   total_amount?: number;
   currency: string;
   status: string;
+  ai_analysis?: QuotationAnalysis;
   created_at: string;
 }
 
@@ -33,12 +77,44 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [analyzingId, setAnalyzingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     supplier_name: "",
     quotation_date: "",
     total_amount: "",
   });
+
+  const loadQuotations = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('price_quotations')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      // Parse ai_analysis if it's a string
+      const parsed = (data || []).map(q => ({
+        ...q,
+        ai_analysis: typeof q.ai_analysis === 'string' 
+          ? JSON.parse(q.ai_analysis) 
+          : q.ai_analysis
+      }));
+      
+      setQuotations(parsed);
+    } catch (error) {
+      console.error("Error loading quotations:", error);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadQuotations();
+  }, [loadQuotations]);
 
   const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -112,8 +188,12 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
 
       if (dbError) throw dbError;
 
-      setQuotations(prev => [quotation, ...prev]);
-      onQuotationUploaded?.(quotation);
+      const newQuotation: Quotation = {
+        ...quotation,
+        ai_analysis: quotation.ai_analysis as QuotationAnalysis | undefined
+      };
+      setQuotations(prev => [newQuotation, ...prev]);
+      onQuotationUploaded?.(newQuotation);
       
       // Reset form
       setFormData({
@@ -140,6 +220,84 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
       event.target.value = '';
     }
   }, [user, projectId, formData, toast, onQuotationUploaded]);
+
+  const analyzeQuotation = async (quotation: Quotation) => {
+    if (!user) return;
+
+    setAnalyzingId(quotation.id);
+
+    try {
+      toast({
+        title: "جاري التحليل...",
+        description: "يتم تحليل عرض السعر باستخدام الذكاء الاصطناعي",
+      });
+
+      // For now, we'll use a sample text - in production you'd extract text from the file
+      const sampleText = `
+        عرض سعر رقم: ${quotation.name}
+        المورد: ${quotation.supplier_name || 'غير محدد'}
+        التاريخ: ${quotation.quotation_date || new Date().toISOString().split('T')[0]}
+        المبلغ الإجمالي: ${quotation.total_amount || 0} ${quotation.currency}
+        
+        هذا نموذج لعرض سعر يحتاج لتحليل محتوى الملف الفعلي.
+        يرجى رفع ملف يحتوي على بيانات قابلة للقراءة.
+      `;
+
+      const { data, error } = await supabase.functions.invoke('analyze-quotation', {
+        body: {
+          quotationText: sampleText,
+          quotationName: quotation.name,
+          supplierName: quotation.supplier_name
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Update quotation with analysis
+      const { error: updateError } = await supabase
+        .from('price_quotations')
+        .update({
+          ai_analysis: data.analysis,
+          status: 'analyzed',
+          total_amount: data.analysis?.totals?.grand_total || quotation.total_amount
+        })
+        .eq('id', quotation.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      setQuotations(prev => prev.map(q => 
+        q.id === quotation.id 
+          ? { 
+              ...q, 
+              ai_analysis: data.analysis as QuotationAnalysis, 
+              status: 'analyzed',
+              total_amount: data.analysis?.totals?.grand_total || q.total_amount
+            } 
+          : q
+      ));
+
+      setExpandedId(quotation.id);
+
+      toast({
+        title: "تم التحليل بنجاح",
+        description: `تم استخراج ${data.analysis?.items?.length || 0} بند من العرض`,
+      });
+    } catch (error) {
+      console.error("Analysis error:", error);
+      toast({
+        title: "خطأ في التحليل",
+        description: error instanceof Error ? error.message : "حدث خطأ أثناء التحليل",
+        variant: "destructive",
+      });
+    } finally {
+      setAnalyzingId(null);
+    }
+  };
 
   const deleteQuotation = async (quotation: Quotation) => {
     if (!user) return;
@@ -174,28 +332,6 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
       });
     }
   };
-
-  const loadQuotations = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('price_quotations')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setQuotations(data || []);
-    } catch (error) {
-      console.error("Error loading quotations:", error);
-    }
-  }, [user]);
-
-  // Load quotations on mount
-  useState(() => {
-    loadQuotations();
-  });
 
   return (
     <div className="space-y-6">
@@ -301,61 +437,206 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
           <CardContent>
             <div className="space-y-3">
               {quotations.map((quotation) => (
-                <div
+                <Collapsible
                   key={quotation.id}
-                  className="flex items-center justify-between p-4 rounded-lg border border-border hover:border-primary/30 transition-colors"
+                  open={expandedId === quotation.id}
+                  onOpenChange={(open) => setExpandedId(open ? quotation.id : null)}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className={`
-                      w-10 h-10 rounded-lg flex items-center justify-center
-                      ${quotation.file_type === 'pdf' ? 'bg-red-500/10' : 'bg-green-500/10'}
-                    `}>
-                      {quotation.file_type === 'pdf' ? (
-                        <FileText className="w-5 h-5 text-red-500" />
-                      ) : (
-                        <FileSpreadsheet className="w-5 h-5 text-green-500" />
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="font-medium">{quotation.name}</h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        {quotation.supplier_name && (
-                          <span className="text-xs text-muted-foreground">
-                            {quotation.supplier_name}
-                          </span>
-                        )}
-                        {quotation.total_amount && (
-                          <Badge variant="outline" className="text-xs">
-                            {quotation.total_amount.toLocaleString()} {quotation.currency}
-                          </Badge>
-                        )}
-                        <Badge 
-                          variant={quotation.status === 'analyzed' ? 'default' : 'secondary'}
-                          className="text-xs"
+                  <div className="rounded-lg border border-border hover:border-primary/30 transition-colors overflow-hidden">
+                    <div className="flex items-center justify-between p-4">
+                      <div className="flex items-center gap-4">
+                        <div className={`
+                          w-10 h-10 rounded-lg flex items-center justify-center
+                          ${quotation.file_type === 'pdf' ? 'bg-red-500/10' : 'bg-green-500/10'}
+                        `}>
+                          {quotation.file_type === 'pdf' ? (
+                            <FileText className="w-5 h-5 text-red-500" />
+                          ) : (
+                            <FileSpreadsheet className="w-5 h-5 text-green-500" />
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="font-medium">{quotation.name}</h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            {quotation.supplier_name && (
+                              <span className="text-xs text-muted-foreground">
+                                {quotation.supplier_name}
+                              </span>
+                            )}
+                            {quotation.total_amount && (
+                              <Badge variant="outline" className="text-xs">
+                                {quotation.total_amount.toLocaleString()} {quotation.currency}
+                              </Badge>
+                            )}
+                            <Badge 
+                              variant={quotation.status === 'analyzed' ? 'default' : 'secondary'}
+                              className="text-xs"
+                            >
+                              {quotation.status === 'analyzed' ? 'تم التحليل' : 'قيد الانتظار'}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => analyzeQuotation(quotation)}
+                          disabled={analyzingId === quotation.id}
+                          className="gap-1"
                         >
-                          {quotation.status === 'analyzed' ? 'تم التحليل' : 'قيد الانتظار'}
-                        </Badge>
+                          {analyzingId === quotation.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-4 h-4" />
+                          )}
+                          تحليل AI
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => window.open(quotation.file_url, '_blank')}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteQuotation(quotation)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                        {quotation.ai_analysis && (
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              {expandedId === quotation.id ? (
+                                <ChevronUp className="w-4 h-4" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </CollapsibleTrigger>
+                        )}
                       </div>
                     </div>
+
+                    {/* Analysis Results */}
+                    <CollapsibleContent>
+                      {quotation.ai_analysis && (
+                        <div className="border-t border-border p-4 bg-muted/30 space-y-4">
+                          {/* Summary */}
+                          {quotation.ai_analysis.summary && (
+                            <div className="p-3 bg-primary/5 rounded-lg">
+                              <p className="text-sm">{quotation.ai_analysis.summary}</p>
+                            </div>
+                          )}
+
+                          {/* Supplier & Quotation Info */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {quotation.ai_analysis.supplier && (
+                              <div className="space-y-1">
+                                <h5 className="text-sm font-medium">معلومات المورد</h5>
+                                <div className="text-sm text-muted-foreground space-y-0.5">
+                                  {quotation.ai_analysis.supplier.name && <p>الاسم: {quotation.ai_analysis.supplier.name}</p>}
+                                  {quotation.ai_analysis.supplier.phone && <p>الهاتف: {quotation.ai_analysis.supplier.phone}</p>}
+                                  {quotation.ai_analysis.supplier.email && <p>البريد: {quotation.ai_analysis.supplier.email}</p>}
+                                </div>
+                              </div>
+                            )}
+                            {quotation.ai_analysis.quotation_info && (
+                              <div className="space-y-1">
+                                <h5 className="text-sm font-medium">معلومات العرض</h5>
+                                <div className="text-sm text-muted-foreground space-y-0.5">
+                                  {quotation.ai_analysis.quotation_info.number && <p>رقم العرض: {quotation.ai_analysis.quotation_info.number}</p>}
+                                  {quotation.ai_analysis.quotation_info.date && <p>التاريخ: {quotation.ai_analysis.quotation_info.date}</p>}
+                                  {quotation.ai_analysis.quotation_info.validity && <p>الصلاحية: {quotation.ai_analysis.quotation_info.validity}</p>}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Items Table */}
+                          {quotation.ai_analysis.items && quotation.ai_analysis.items.length > 0 && (
+                            <div>
+                              <h5 className="text-sm font-medium mb-2">البنود ({quotation.ai_analysis.items.length})</h5>
+                              <div className="rounded-lg border overflow-hidden">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead className="text-right w-12">#</TableHead>
+                                      <TableHead className="text-right">الوصف</TableHead>
+                                      <TableHead className="text-right w-20">الوحدة</TableHead>
+                                      <TableHead className="text-right w-20">الكمية</TableHead>
+                                      <TableHead className="text-right w-24">السعر</TableHead>
+                                      <TableHead className="text-right w-24">الإجمالي</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {quotation.ai_analysis.items.map((item, idx) => (
+                                      <TableRow key={idx}>
+                                        <TableCell className="font-mono text-xs">{item.item_number || idx + 1}</TableCell>
+                                        <TableCell className="text-sm">{item.description}</TableCell>
+                                        <TableCell className="text-sm">{item.unit}</TableCell>
+                                        <TableCell className="text-sm">{item.quantity}</TableCell>
+                                        <TableCell className="text-sm">{item.unit_price?.toLocaleString()}</TableCell>
+                                        <TableCell className="font-medium">{item.total?.toLocaleString()}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Totals */}
+                          {quotation.ai_analysis.totals && (
+                            <div className="flex justify-end">
+                              <div className="w-64 space-y-1 text-sm">
+                                {quotation.ai_analysis.totals.subtotal !== undefined && (
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">المجموع الفرعي:</span>
+                                    <span>{quotation.ai_analysis.totals.subtotal.toLocaleString()}</span>
+                                  </div>
+                                )}
+                                {quotation.ai_analysis.totals.tax !== undefined && (
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">
+                                      الضريبة {quotation.ai_analysis.totals.tax_percentage ? `(${quotation.ai_analysis.totals.tax_percentage}%)` : ''}:
+                                    </span>
+                                    <span>{quotation.ai_analysis.totals.tax.toLocaleString()}</span>
+                                  </div>
+                                )}
+                                {quotation.ai_analysis.totals.discount !== undefined && quotation.ai_analysis.totals.discount > 0 && (
+                                  <div className="flex justify-between text-success">
+                                    <span>الخصم:</span>
+                                    <span>-{quotation.ai_analysis.totals.discount.toLocaleString()}</span>
+                                  </div>
+                                )}
+                                <div className="flex justify-between font-bold pt-1 border-t">
+                                  <span>الإجمالي:</span>
+                                  <span>{quotation.ai_analysis.totals.grand_total?.toLocaleString()} {quotation.currency}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Notes */}
+                          {quotation.ai_analysis.notes && quotation.ai_analysis.notes.length > 0 && (
+                            <div>
+                              <h5 className="text-sm font-medium mb-1">ملاحظات</h5>
+                              <ul className="text-sm text-muted-foreground list-disc list-inside space-y-0.5">
+                                {quotation.ai_analysis.notes.map((note, idx) => (
+                                  <li key={idx}>{note}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </CollapsibleContent>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => window.open(quotation.file_url, '_blank')}
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteQuotation(quotation)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
+                </Collapsible>
               ))}
             </div>
           </CardContent>
