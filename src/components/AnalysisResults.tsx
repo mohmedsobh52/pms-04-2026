@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Download, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3 } from "lucide-react";
+import { Download, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { DataCharts } from "./DataCharts";
+import { ProjectTimeline } from "./ProjectTimeline";
+
 interface BOQItem {
   item_number: string;
   description: string;
@@ -40,7 +42,7 @@ interface AnalysisResultsProps {
 }
 
 export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
-  const [activeTab, setActiveTab] = useState<"items" | "wbs" | "summary" | "charts">("items");
+  const [activeTab, setActiveTab] = useState<"items" | "wbs" | "summary" | "charts" | "timeline">("items");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   const toggleCategory = (category: string) => {
@@ -95,6 +97,7 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
     { id: "wbs", label: "WBS", icon: <Layers className="w-4 h-4" /> },
     { id: "summary", label: "الملخص", icon: <DollarSign className="w-4 h-4" /> },
     { id: "charts", label: "الرسوم", icon: <BarChart3 className="w-4 h-4" /> },
+    { id: "timeline", label: "الجدول الزمني", icon: <CalendarDays className="w-4 h-4" /> },
   ] as const;
 
   return (
@@ -243,6 +246,10 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
 
         {activeTab === "charts" && data.items && (
           <DataCharts items={data.items} summary={data.summary} />
+        )}
+
+        {activeTab === "timeline" && wbsData?.wbs && (
+          <ProjectTimeline wbsData={wbsData.wbs} />
         )}
       </div>
     </div>
