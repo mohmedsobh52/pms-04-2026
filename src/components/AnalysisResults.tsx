@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Download, ChevronDown, ChevronUp, Package, Layers, DollarSign } from "lucide-react";
+import { Download, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
+import { DataCharts } from "./DataCharts";
 interface BOQItem {
   item_number: string;
   description: string;
@@ -40,7 +40,7 @@ interface AnalysisResultsProps {
 }
 
 export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
-  const [activeTab, setActiveTab] = useState<"items" | "wbs" | "summary">("items");
+  const [activeTab, setActiveTab] = useState<"items" | "wbs" | "summary" | "charts">("items");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   const toggleCategory = (category: string) => {
@@ -94,6 +94,7 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
     { id: "items", label: "العناصر", icon: <Package className="w-4 h-4" /> },
     { id: "wbs", label: "WBS", icon: <Layers className="w-4 h-4" /> },
     { id: "summary", label: "الملخص", icon: <DollarSign className="w-4 h-4" /> },
+    { id: "charts", label: "الرسوم", icon: <BarChart3 className="w-4 h-4" /> },
   ] as const;
 
   return (
@@ -238,6 +239,10 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === "charts" && data.items && (
+          <DataCharts items={data.items} summary={data.summary} />
         )}
       </div>
     </div>
