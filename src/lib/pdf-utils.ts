@@ -58,20 +58,25 @@ export async function extractTextFromPDF(file: File): Promise<string> {
       }
     }
     
-    // Clean up the text
+    // Clean up the text - remove all binary/control characters first
     extractedText = extractedText
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "") // Remove control characters
       .replace(/\\n/g, "\n")
       .replace(/\\r/g, "")
+      .replace(/\\t/g, " ")
       .replace(/\\(\d{3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
       .replace(/\s+/g, " ")
       .trim();
     
-    // CRITICAL: Check for binary data before returning
-    const invalidCharCount = (extractedText.match(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g) || []).length;
-    const invalidRatio = invalidCharCount / (extractedText.length || 1);
+    // After cleaning, check if we have enough valid text
+    const hasArabic = /[\u0600-\u06FF]/.test(extractedText);
+    const hasEnglish = /[a-zA-Z]/.test(extractedText);
+    const hasNumbers = /\d/.test(extractedText);
+    const wordCount = extractedText.split(/\s+/).filter(w => w.length > 2).length;
     
-    if (invalidRatio > 0.05 || extractedText.length < 50) {
-      console.log(`Extraction failed: ${extractedText.length} chars, ${(invalidRatio * 100).toFixed(1)}% invalid`);
+    // If after cleaning we still don't have useful content
+    if (extractedText.length < 50 || (!hasArabic && !hasEnglish) || wordCount < 10) {
+      console.log(`Extraction failed: ${extractedText.length} chars, ${wordCount} words`);
       
       // Return a clear error message, not the binary data
       return `[فشل استخراج النص]
@@ -91,7 +96,7 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 4. الصقه في المربع أدناه`;
     }
     
-    console.log(`Successfully extracted ${extractedText.length} characters`);
+    console.log(`Successfully extracted ${extractedText.length} characters, ${wordCount} words`);
     return extractedText;
     
   } catch (error) {
