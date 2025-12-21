@@ -12,17 +12,24 @@ export async function extractTextFromPDF(file: File): Promise<string> {
     const arrayBuffer = await file.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
     
-    // Use simple text extraction from PDF binary
-    const decoder = new TextDecoder("utf-8", { fatal: false });
-    const content = decoder.decode(uint8Array);
+    // Try UTF-8 first, then Windows-1256 (Arabic encoding)
+    let content = "";
+    try {
+      const utf8Decoder = new TextDecoder("utf-8", { fatal: false });
+      content = utf8Decoder.decode(uint8Array);
+    } catch {
+      // Fallback to Windows-1256 for Arabic PDFs
+      const arabicDecoder = new TextDecoder("windows-1256", { fatal: false });
+      content = arabicDecoder.decode(uint8Array);
+    }
     
     let extractedText = "";
     
-    // Method 1: Extract text from PDF stream objects
+    // Method 1: Extract text from PDF stream objects (most reliable)
     const streamMatches = content.match(/stream[\s\S]*?endstream/g);
     if (streamMatches) {
       for (const stream of streamMatches) {
-        // Look for text showing operators (Tj, TJ, ')
+        // Look for text showing operators (Tj, TJ)
         const textOps = stream.match(/\(([^)]*)\)\s*Tj/g);
         if (textOps) {
           const texts = textOps.map(op => {
@@ -32,7 +39,7 @@ export async function extractTextFromPDF(file: File): Promise<string> {
           extractedText += texts.join(' ') + '\n';
         }
         
-        // Look for TJ arrays
+        // Look for TJ arrays (multiple text segments)
         const tjArrays = stream.match(/\[([^\]]*)\]\s*TJ/g);
         if (tjArrays) {
           for (const arr of tjArrays) {
@@ -46,27 +53,47 @@ export async function extractTextFromPDF(file: File): Promise<string> {
       }
     }
     
-    // Method 2: Extract text from parentheses patterns
+    // Method 2: Extract text from parentheses patterns (fallback)
     if (extractedText.length < 100) {
       const textMatches = content.match(/\(([^)]+)\)/g);
       if (textMatches) {
         const filtered = textMatches
           .map(match => match.slice(1, -1))
           .filter(t => t.length > 1 && /[\u0600-\u06FFa-zA-Z0-9]/.test(t))
-          .filter(t => !t.startsWith('/') && !t.includes('<<'));
+          .filter(t => !t.startsWith('/') && !t.includes('<<') && !t.includes('endobj'));
         extractedText = filtered.join(" ");
       }
     }
     
-    // Clean up the text - remove all binary/control characters first
+    // Method 3: Extract text from content streams more aggressively
+    if (extractedText.length < 100) {
+      const btMatches = content.match(/BT[\s\S]*?ET/g);
+      if (btMatches) {
+        for (const bt of btMatches) {
+          const textParts = bt.match(/\(([^)]*)\)/g);
+          if (textParts) {
+            extractedText += textParts.map(p => p.slice(1, -1)).join(' ') + ' ';
+          }
+        }
+      }
+    }
+    
+    // Clean up the text - handle Arabic properly
     extractedText = extractedText
       .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "") // Remove control characters
       .replace(/\\n/g, "\n")
       .replace(/\\r/g, "")
       .replace(/\\t/g, " ")
-      .replace(/\\(\d{3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
+      .replace(/\\(\d{3})/g, (_, oct) => {
+        // Handle octal encoding for Arabic characters
+        const charCode = parseInt(oct, 8);
+        return String.fromCharCode(charCode);
+      })
       .replace(/\s+/g, " ")
       .trim();
+    
+    console.log("Raw extracted text length:", extractedText.length);
+    console.log("First 200 chars:", extractedText.substring(0, 200));
     
     // After cleaning, check if we have enough valid text
     const hasArabic = /[\u0600-\u06FF]/.test(extractedText);
