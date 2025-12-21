@@ -66,30 +66,37 @@ export async function extractTextFromPDF(file: File): Promise<string> {
       .replace(/\s+/g, " ")
       .trim();
     
-    console.log(`Extracted ${extractedText.length} characters`);
+    // CRITICAL: Check for binary data before returning
+    const invalidCharCount = (extractedText.match(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g) || []).length;
+    const invalidRatio = invalidCharCount / (extractedText.length || 1);
     
-    if (extractedText.length < 50) {
-      return `[تعذر استخراج النص تلقائياً]
+    if (invalidRatio > 0.05 || extractedText.length < 50) {
+      console.log(`Extraction failed: ${extractedText.length} chars, ${(invalidRatio * 100).toFixed(1)}% invalid`);
+      
+      // Return a clear error message, not the binary data
+      return `[فشل استخراج النص]
 
 ملف: ${file.name}
 الحجم: ${(file.size / 1024).toFixed(2)} KB
 
-💡 هذا الملف قد يحتوي على:
-- صور ممسوحة ضوئياً (Scanned)
+💡 هذا الملف يحتوي على:
+- صور ممسوحة ضوئياً (Scanned PDF)
 - نص في شكل صور
 - تنسيق PDF محمي
 
 🔧 الحل:
-1. افتح ملف PDF وحدد النص باستخدام Ctrl+A
-2. انسخ النص (Ctrl+C) والصقه في المربع أدناه
-3. أو استخدم ملف Excel/Word مباشرة`;
+1. افتح ملف PDF
+2. حدد النص بالماوس (Ctrl+A)
+3. انسخه (Ctrl+C)
+4. الصقه في المربع أدناه`;
     }
     
+    console.log(`Successfully extracted ${extractedText.length} characters`);
     return extractedText;
     
   } catch (error) {
     console.error("PDF extraction error:", error);
-    throw new Error(`فشل في استخراج النص: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`);
+    throw new Error(`فشل في قراءة الملف: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`);
   }
 }
 
