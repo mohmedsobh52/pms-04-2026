@@ -44,7 +44,17 @@ const Index = () => {
       const text = await extractTextFromPDF(file);
       const validation = validateExtractedText(text);
       
-      if (validation.isValid) {
+      if (validation.isBinary) {
+        // Binary data detected - don't use this text at all
+        setExtractionStatus("failed");
+        setShowManualInput(true);
+        setManualText("");
+        toast({
+          title: "تعذر قراءة الملف",
+          description: "ملف PDF يحتوي على صور أو نص غير قابل للتحديد. يرجى الإدخال يدوياً",
+          variant: "destructive",
+        });
+      } else if (validation.isValid) {
         setExtractedText(text);
         setExtractionStatus("success");
         updateStepStatus("extract", "complete");
@@ -55,7 +65,9 @@ const Index = () => {
       } else {
         setExtractionStatus("failed");
         setShowManualInput(true);
-        setManualText(text.includes("[") ? "" : text); // Only set if it's actual content
+        // Only set manual text if it's not an error message
+        const cleanText = text.includes("[تعذر") || text.includes("[لم يتم") ? "" : text;
+        setManualText(cleanText);
         toast({
           title: "استخراج جزئي",
           description: validation.issues.join(" - ") + ". يرجى المراجعة أو الإدخال يدوياً",
