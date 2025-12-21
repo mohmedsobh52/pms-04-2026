@@ -93,6 +93,14 @@ export async function extractTextFromPDF(file: File): Promise<string> {
   }
 }
 
+// Check if text contains binary data
+export function containsBinaryData(text: string): boolean {
+  // Check for control characters (binary data indicators)
+  const invalidCharCount = (text.match(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g) || []).length;
+  const invalidRatio = invalidCharCount / text.length;
+  return invalidRatio > 0.05; // More than 5% invalid chars means binary
+}
+
 // Validate extracted text quality
 export function validateExtractedText(text: string): {
   isValid: boolean;
@@ -100,8 +108,36 @@ export function validateExtractedText(text: string): {
   hasNumbers: boolean;
   wordCount: number;
   issues: string[];
+  isBinary: boolean;
 } {
   const issues: string[] = [];
+  
+  // Check for binary data first
+  const isBinary = containsBinaryData(text);
+  if (isBinary) {
+    issues.push("النص يحتوي على بيانات ثنائية غير صالحة");
+    return {
+      isValid: false,
+      hasArabic: false,
+      hasNumbers: false,
+      wordCount: 0,
+      issues,
+      isBinary: true,
+    };
+  }
+  
+  // Check for error messages from extraction
+  if (text.includes("[تعذر استخراج النص") || text.includes("[لم يتم العثور")) {
+    issues.push("فشل استخراج النص من الملف");
+    return {
+      isValid: false,
+      hasArabic: false,
+      hasNumbers: false,
+      wordCount: 0,
+      issues,
+      isBinary: false,
+    };
+  }
   
   // Check for Arabic text
   const arabicPattern = /[\u0600-\u06FF]/;
@@ -132,5 +168,6 @@ export function validateExtractedText(text: string): {
     hasNumbers,
     wordCount,
     issues,
+    isBinary: false,
   };
 }
