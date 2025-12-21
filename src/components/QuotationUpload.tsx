@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { QuotationCostChart } from "./QuotationCostChart";
+import { CostAnalysis } from "./CostAnalysis";
 import {
   Table,
   TableBody,
@@ -478,41 +479,50 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        {/* Analysis Button */}
                         <Button
-                          variant="outline"
+                          variant={quotation.status === 'analyzed' ? 'secondary' : 'default'}
                           size="sm"
                           onClick={() => analyzeQuotation(quotation)}
                           disabled={analyzingId === quotation.id}
-                          className="gap-1"
+                          className="gap-1.5"
                         >
                           {analyzingId === quotation.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           ) : (
-                            <Sparkles className="w-4 h-4" />
+                            <Sparkles className="w-3.5 h-3.5" />
                           )}
-                          تحليل AI
+                          <span className="hidden sm:inline">تحليل AI</span>
                         </Button>
+                        
+                        {/* View File */}
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => window.open(quotation.file_url, '_blank')}
+                          title="عرض الملف"
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
+                        
+                        {/* Delete */}
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => deleteQuotation(quotation)}
-                          className="text-destructive hover:text-destructive"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          title="حذف"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
+                        
+                        {/* Expand/Collapse */}
                         {quotation.ai_analysis && (
                           <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="icon">
+                            <Button variant="outline" size="icon" className="border-primary/30">
                               {expandedId === quotation.id ? (
-                                <ChevronUp className="w-4 h-4" />
+                                <ChevronUp className="w-4 h-4 text-primary" />
                               ) : (
                                 <ChevronDown className="w-4 h-4" />
                               )}
@@ -559,31 +569,38 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
 
                           {/* Items Table */}
                           {quotation.ai_analysis.items && quotation.ai_analysis.items.length > 0 && (
-                            <div>
-                              <h5 className="text-sm font-medium mb-2">البنود ({quotation.ai_analysis.items.length})</h5>
+                            <div className="space-y-4">
+                              <h5 className="text-sm font-medium mb-2 flex items-center gap-2">
+                                <DollarSign className="w-4 h-4 text-primary" />
+                                البنود ({quotation.ai_analysis.items.length})
+                              </h5>
                               <div className="rounded-lg border overflow-hidden">
                                 <Table>
                                   <TableHeader>
-                                    <TableRow>
-                                      <TableHead className="text-right w-12">#</TableHead>
-                                      <TableHead className="text-right">الوصف</TableHead>
-                                      <TableHead className="text-right w-20">الوحدة</TableHead>
-                                      <TableHead className="text-right w-20">الكمية</TableHead>
-                                      <TableHead className="text-right w-24">السعر</TableHead>
-                                      <TableHead className="text-right w-24">الإجمالي</TableHead>
+                                    <TableRow className="bg-muted/50">
+                                      <TableHead className="text-right w-12 font-bold">#</TableHead>
+                                      <TableHead className="text-right font-bold">الوصف</TableHead>
+                                      <TableHead className="text-right w-20 font-bold">الوحدة</TableHead>
+                                      <TableHead className="text-right w-24 font-bold">الكمية</TableHead>
+                                      <TableHead className="text-right w-28 font-bold">سعر البند</TableHead>
+                                      <TableHead className="text-right w-32 font-bold bg-primary/10">الإجمالي</TableHead>
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
-                                    {quotation.ai_analysis.items.map((item, idx) => (
-                                      <TableRow key={idx}>
-                                        <TableCell className="font-mono text-xs">{item.item_number || idx + 1}</TableCell>
-                                        <TableCell className="text-sm">{item.description}</TableCell>
-                                        <TableCell className="text-sm">{item.unit}</TableCell>
-                                        <TableCell className="text-sm">{item.quantity}</TableCell>
-                                        <TableCell className="text-sm">{item.unit_price?.toLocaleString()}</TableCell>
-                                        <TableCell className="font-medium">{item.total?.toLocaleString()}</TableCell>
-                                      </TableRow>
-                                    ))}
+                                    {quotation.ai_analysis.items.map((item, idx) => {
+                                      const calculatedTotal = (item.quantity || 0) * (item.unit_price || 0);
+                                      const displayTotal = item.total || calculatedTotal;
+                                      return (
+                                        <TableRow key={idx} className="hover:bg-muted/30">
+                                          <TableCell className="font-mono text-xs font-medium">{item.item_number || idx + 1}</TableCell>
+                                          <TableCell className="text-sm">{item.description}</TableCell>
+                                          <TableCell className="text-sm text-center">{item.unit || '-'}</TableCell>
+                                          <TableCell className="text-sm font-medium text-center">{item.quantity?.toLocaleString() || '-'}</TableCell>
+                                          <TableCell className="text-sm font-medium">{item.unit_price?.toLocaleString() || '-'} {quotation.currency}</TableCell>
+                                          <TableCell className="font-bold text-primary bg-primary/5">{displayTotal?.toLocaleString()} {quotation.currency}</TableCell>
+                                        </TableRow>
+                                      );
+                                    })}
                                   </TableBody>
                                 </Table>
                               </div>
@@ -593,6 +610,21 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                                 items={quotation.ai_analysis.items} 
                                 currency={quotation.currency}
                               />
+                              
+                              {/* Cost Analysis */}
+                              <div className="mt-4 p-4 bg-muted/20 rounded-lg border">
+                                <CostAnalysis 
+                                  items={quotation.ai_analysis.items.map(item => ({
+                                    item_number: item.item_number,
+                                    description: item.description,
+                                    unit: item.unit,
+                                    quantity: item.quantity,
+                                    unit_price: item.unit_price,
+                                    total_price: item.total
+                                  }))} 
+                                  currency={quotation.currency}
+                                />
+                              </div>
                             </div>
                           )}
 
