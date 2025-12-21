@@ -1,0 +1,4 @@
+project_id = "brbgdvesterjvwduvsrf"
+
+[functions.analyze-boq]
+verify_jwt = false
