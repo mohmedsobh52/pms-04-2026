@@ -1,8 +1,3 @@
-import * as pdfjsLib from 'pdfjs-dist';
-
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js`;
-
 export interface PDFExtractionResult {
   text: string;
   pageCount: number;
@@ -17,122 +12,85 @@ export async function extractTextFromPDF(file: File): Promise<string> {
     const arrayBuffer = await file.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
     
-    // Load the PDF document
-    const loadingTask = pdfjsLib.getDocument({
-      data: uint8Array,
-      useSystemFonts: true,
-    });
+    // Use simple text extraction from PDF binary
+    const decoder = new TextDecoder("utf-8", { fatal: false });
+    const content = decoder.decode(uint8Array);
     
-    const pdf = await loadingTask.promise;
-    console.log(`PDF loaded: ${pdf.numPages} pages`);
+    let extractedText = "";
     
-    let fullText = "";
-    
-    // Extract text from each page
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      try {
-        const page = await pdf.getPage(pageNum);
-        const textContent = await page.getTextContent();
-        
-        // Combine text items with proper spacing
-        const pageText = textContent.items
-          .map((item: any) => {
-            if ('str' in item) {
-              return item.str;
-            }
-            return '';
-          })
-          .join(' ');
-        
-        if (pageText.trim()) {
-          fullText += `\n--- صفحة ${pageNum} ---\n${pageText}\n`;
+    // Method 1: Extract text from PDF stream objects
+    const streamMatches = content.match(/stream[\s\S]*?endstream/g);
+    if (streamMatches) {
+      for (const stream of streamMatches) {
+        // Look for text showing operators (Tj, TJ, ')
+        const textOps = stream.match(/\(([^)]*)\)\s*Tj/g);
+        if (textOps) {
+          const texts = textOps.map(op => {
+            const match = op.match(/\(([^)]*)\)/);
+            return match ? match[1] : '';
+          });
+          extractedText += texts.join(' ') + '\n';
         }
         
-        console.log(`Page ${pageNum}: extracted ${pageText.length} characters`);
-      } catch (pageError) {
-        console.warn(`Error extracting page ${pageNum}:`, pageError);
+        // Look for TJ arrays
+        const tjArrays = stream.match(/\[([^\]]*)\]\s*TJ/g);
+        if (tjArrays) {
+          for (const arr of tjArrays) {
+            const textParts = arr.match(/\(([^)]*)\)/g);
+            if (textParts) {
+              const texts = textParts.map(p => p.slice(1, -1));
+              extractedText += texts.join('') + ' ';
+            }
+          }
+        }
+      }
+    }
+    
+    // Method 2: Extract text from parentheses patterns
+    if (extractedText.length < 100) {
+      const textMatches = content.match(/\(([^)]+)\)/g);
+      if (textMatches) {
+        const filtered = textMatches
+          .map(match => match.slice(1, -1))
+          .filter(t => t.length > 1 && /[\u0600-\u06FFa-zA-Z0-9]/.test(t))
+          .filter(t => !t.startsWith('/') && !t.includes('<<'));
+        extractedText = filtered.join(" ");
       }
     }
     
     // Clean up the text
-    fullText = fullText
-      .replace(/\s+/g, ' ')
-      .replace(/\n\s+\n/g, '\n\n')
+    extractedText = extractedText
+      .replace(/\\n/g, "\n")
+      .replace(/\\r/g, "")
+      .replace(/\\(\d{3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
+      .replace(/\s+/g, " ")
       .trim();
     
-    console.log(`Total extracted: ${fullText.length} characters`);
+    console.log(`Extracted ${extractedText.length} characters`);
     
-    if (fullText.length < 50) {
-      return `[لم يتم العثور على نص كافٍ في ملف PDF]
-      
-ملف: ${file.name}
-عدد الصفحات: ${pdf.numPages}
+    if (extractedText.length < 50) {
+      return `[تعذر استخراج النص تلقائياً]
 
-💡 نصيحة: إذا كان الملف يحتوي على صور أو نص ممسوح ضوئياً، يُرجى:
-1. نسخ المحتوى يدوياً من Excel أو Word
-2. أو استخدام ملف PDF يحتوي على نص قابل للتحديد`;
+ملف: ${file.name}
+الحجم: ${(file.size / 1024).toFixed(2)} KB
+
+💡 هذا الملف قد يحتوي على:
+- صور ممسوحة ضوئياً (Scanned)
+- نص في شكل صور
+- تنسيق PDF محمي
+
+🔧 الحل:
+1. افتح ملف PDF وحدد النص باستخدام Ctrl+A
+2. انسخ النص (Ctrl+C) والصقه في المربع أدناه
+3. أو استخدم ملف Excel/Word مباشرة`;
     }
     
-    return fullText;
+    return extractedText;
     
   } catch (error) {
     console.error("PDF extraction error:", error);
-    
-    // Fallback to simple extraction
-    try {
-      return await simpleExtraction(file);
-    } catch {
-      throw new Error(`فشل في استخراج النص من ملف PDF: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`);
-    }
+    throw new Error(`فشل في استخراج النص: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`);
   }
-}
-
-// Fallback simple extraction for compatibility
-async function simpleExtraction(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    
-    reader.onload = async (event) => {
-      try {
-        const arrayBuffer = event.target?.result as ArrayBuffer;
-        const uint8Array = new Uint8Array(arrayBuffer);
-        
-        const decoder = new TextDecoder("utf-8", { fatal: false });
-        const content = decoder.decode(uint8Array);
-        
-        // Extract readable text patterns from PDF
-        let text = "";
-        const textMatches = content.match(/\(([^)]+)\)/g);
-        if (textMatches) {
-          text = textMatches
-            .map(match => match.slice(1, -1))
-            .filter(t => t.length > 1 && /[\u0600-\u06FFa-zA-Z0-9]/.test(t))
-            .join(" ");
-        }
-        
-        // Clean up
-        text = text
-          .replace(/\\n/g, "\n")
-          .replace(/\\r/g, "")
-          .replace(/\s+/g, " ")
-          .trim();
-        
-        if (text.length < 50) {
-          resolve(`[تعذر استخراج النص - يرجى النسخ اليدوي]
-
-ملف: ${file.name}
-الحجم: ${(file.size / 1024).toFixed(2)} KB`);
-        } else {
-          resolve(text);
-        }
-      } catch (error) {
-        reject(error);
-      }
-    };
-    
-    reader.onerror = () => reject(new Error("فشل في قراءة الملف"));
-    reader.readAsArrayBuffer(file);
-  });
 }
 
 // Validate extracted text quality
