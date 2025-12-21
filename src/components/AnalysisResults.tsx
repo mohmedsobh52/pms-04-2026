@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { DataCharts } from "./DataCharts";
@@ -92,6 +92,25 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
     URL.revokeObjectURL(url);
   };
 
+  const exportToJSON = () => {
+    const exportData = {
+      analysis_type: data.analysis_type,
+      items: data.items || [],
+      wbs: wbsData?.wbs || [],
+      summary: data.summary || {},
+      exported_at: new Date().toISOString(),
+    };
+
+    const jsonContent = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonContent], { type: "application/json;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "boq_analysis.json";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const tabs = [
     { id: "items", label: "العناصر", icon: <Package className="w-4 h-4" /> },
     { id: "wbs", label: "WBS", icon: <Layers className="w-4 h-4" /> },
@@ -121,10 +140,16 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
               </button>
             ))}
           </div>
-          <Button variant="outline" size="sm" onClick={exportToCSV} className="gap-2">
-            <Download className="w-4 h-4" />
-            تصدير CSV
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={exportToJSON} className="gap-2">
+              <FileJson className="w-4 h-4" />
+              تصدير JSON
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportToCSV} className="gap-2">
+              <Download className="w-4 h-4" />
+              تصدير CSV
+            </Button>
+          </div>
         </div>
       </div>
 
