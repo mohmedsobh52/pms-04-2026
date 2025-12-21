@@ -1,14 +1,21 @@
 import { useState, useCallback } from "react";
-import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
+import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User } from "lucide-react";
 import { FileUpload } from "@/components/FileUpload";
 import { WorkflowStatus, defaultWorkflowSteps, type WorkflowStep, type StepStatus } from "@/components/WorkflowStatus";
 import { AnalysisResults } from "@/components/AnalysisResults";
+import { SavedProjects } from "@/components/SavedProjects";
+import { SaveProjectDialog } from "@/components/SaveProjectDialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { extractTextFromPDF, validateExtractedText } from "@/lib/pdf-utils";
+
 const Index = () => {
+  const navigate = useNavigate();
+  const { user, loading: authLoading, signOut } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedText, setExtractedText] = useState<string>("");
@@ -203,11 +210,32 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground">تحليل جداول الكميات بالذكاء الاصطناعي</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="status-badge status-complete">
-                <span className="pulse-dot bg-success" />
-                متصل
-              </span>
+            <div className="flex items-center gap-3">
+              {authLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : user ? (
+                <>
+                  <span className="text-sm text-muted-foreground hidden sm:block">
+                    {user.email}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => signOut()}
+                    className="gap-2"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span className="hidden sm:inline">خروج</span>
+                  </Button>
+                </>
+              ) : (
+                <Link to="/auth">
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <LogIn className="w-4 h-4" />
+                    تسجيل الدخول
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -417,13 +445,39 @@ const Index = () => {
               )}
 
               {analysisData && (
-                <AnalysisResults data={analysisData} wbsData={wbsData} />
+                <div className="space-y-4">
+                  {user && (
+                    <div className="flex justify-end">
+                      <SaveProjectDialog
+                        analysisData={analysisData}
+                        wbsData={wbsData}
+                        fileName={selectedFile?.name}
+                      />
+                    </div>
+                  )}
+                  <AnalysisResults data={analysisData} wbsData={wbsData} />
+                </div>
               )}
             </div>
 
             {/* Right Column - Workflow Status */}
             <div className="space-y-6">
               <WorkflowStatus steps={workflowSteps} />
+
+              {/* Saved Projects - only for logged in users */}
+              {user && (
+                <SavedProjects
+                  onLoadProject={(analysisData, wbsData) => {
+                    setAnalysisData(analysisData);
+                    setWbsData(wbsData);
+                    updateStepStatus("upload", "complete");
+                    updateStepStatus("extract", "complete");
+                    updateStepStatus("analyze", "complete");
+                    updateStepStatus("wbs", "complete");
+                    updateStepStatus("export", "complete");
+                  }}
+                />
+              )}
 
               {/* Features Card */}
               <div className="glass-card p-6">
@@ -434,6 +488,7 @@ const Index = () => {
                     { icon: <Sparkles className="w-4 h-4" />, text: "تحليل بالذكاء الاصطناعي" },
                     { icon: <GitMerge className="w-4 h-4" />, text: "إنشاء WBS تلقائي" },
                     { icon: <Download className="w-4 h-4" />, text: "تصدير إلى CSV/Excel" },
+                    { icon: <Save className="w-4 h-4" />, text: "حفظ المشاريع" },
                   ].map((feature, idx) => (
                     <div key={idx} className="flex items-center gap-3 text-sm">
                       <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
