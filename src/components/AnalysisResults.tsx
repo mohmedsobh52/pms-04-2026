@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { DataCharts } from "./DataCharts";
 import { ProjectTimeline } from "./ProjectTimeline";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface BOQItem {
   item_number: string;
@@ -255,6 +257,217 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
     URL.revokeObjectURL(url);
   };
 
+  const exportToPDF = () => {
+    if (!data.items) return;
+
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    // Add Arabic font support - use built-in fonts
+    doc.setFont("helvetica");
+    
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+
+    // Header with gradient-like background
+    doc.setFillColor(59, 130, 246); // Primary blue
+    doc.rect(0, 0, pageWidth, 45, 'F');
+    
+    // Logo circle
+    doc.setFillColor(255, 255, 255);
+    doc.circle(pageWidth - 25, 22, 12, 'F');
+    doc.setFillColor(59, 130, 246);
+    doc.setFontSize(14);
+    doc.setTextColor(59, 130, 246);
+    doc.text("BOQ", pageWidth - 25, 24, { align: 'center' });
+
+    // Title
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("BOQ Analysis Report", margin, 20);
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Bill of Quantities - Professional Report", margin, 30);
+    
+    // Date
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })}`, margin, 38);
+
+    // Summary section
+    let yPos = 55;
+    
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Project Summary", margin, yPos);
+    
+    yPos += 8;
+    
+    // Summary boxes
+    const boxWidth = (pageWidth - margin * 2 - 10) / 3;
+    const boxHeight = 25;
+    
+    // Box 1: Total Items
+    doc.setFillColor(239, 246, 255);
+    doc.roundedRect(margin, yPos, boxWidth, boxHeight, 3, 3, 'F');
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text("Total Items", margin + 5, yPos + 8);
+    doc.setFontSize(18);
+    doc.setTextColor(59, 130, 246);
+    doc.setFont("helvetica", "bold");
+    doc.text(String(data.summary?.total_items || data.items.length), margin + 5, yPos + 20);
+    
+    // Box 2: Total Value
+    doc.setFillColor(240, 253, 244);
+    doc.roundedRect(margin + boxWidth + 5, yPos, boxWidth, boxHeight, 3, 3, 'F');
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont("helvetica", "normal");
+    doc.text("Total Value", margin + boxWidth + 10, yPos + 8);
+    doc.setFontSize(14);
+    doc.setTextColor(34, 197, 94);
+    doc.setFont("helvetica", "bold");
+    const totalValue = data.summary?.total_value || 0;
+    doc.text(`${totalValue.toLocaleString()} ${data.summary?.currency || 'SAR'}`, margin + boxWidth + 10, yPos + 20);
+    
+    // Box 3: Categories
+    doc.setFillColor(254, 249, 195);
+    doc.roundedRect(margin + (boxWidth + 5) * 2, yPos, boxWidth, boxHeight, 3, 3, 'F');
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont("helvetica", "normal");
+    doc.text("Categories", margin + (boxWidth + 5) * 2 + 5, yPos + 8);
+    doc.setFontSize(18);
+    doc.setTextColor(202, 138, 4);
+    doc.setFont("helvetica", "bold");
+    doc.text(String(data.summary?.categories?.length || 0), margin + (boxWidth + 5) * 2 + 5, yPos + 20);
+
+    yPos += boxHeight + 15;
+
+    // BOQ Items Table
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Bill of Quantities", margin, yPos);
+    
+    yPos += 5;
+
+    // Table data
+    const tableData = data.items.map((item, index) => [
+      String(index + 1),
+      item.item_number || '-',
+      item.description?.substring(0, 40) + (item.description?.length > 40 ? '...' : '') || '-',
+      item.unit || '-',
+      String(item.quantity || 0),
+      item.unit_price ? item.unit_price.toLocaleString() : '-',
+      item.total_price ? item.total_price.toLocaleString() : '-',
+    ]);
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['#', 'Item No.', 'Description', 'Unit', 'Qty', 'Unit Price', 'Total']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontSize: 9,
+        fontStyle: 'bold',
+        halign: 'center',
+      },
+      bodyStyles: {
+        fontSize: 8,
+        textColor: [30, 41, 59],
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 10 },
+        1: { halign: 'center', cellWidth: 20 },
+        2: { halign: 'left', cellWidth: 55 },
+        3: { halign: 'center', cellWidth: 15 },
+        4: { halign: 'center', cellWidth: 15 },
+        5: { halign: 'right', cellWidth: 25 },
+        6: { halign: 'right', cellWidth: 25 },
+      },
+      margin: { left: margin, right: margin },
+      didDrawPage: (data) => {
+        // Footer on each page
+        doc.setFillColor(248, 250, 252);
+        doc.rect(0, pageHeight - 15, pageWidth, 15, 'F');
+        doc.setFontSize(8);
+        doc.setTextColor(100, 116, 139);
+        doc.text(
+          `Page ${doc.getCurrentPageInfo().pageNumber}`,
+          pageWidth / 2,
+          pageHeight - 6,
+          { align: 'center' }
+        );
+        doc.text('BOQ Analyzer - Professional Report', margin, pageHeight - 6);
+        doc.text(new Date().toLocaleDateString(), pageWidth - margin, pageHeight - 6, { align: 'right' });
+      },
+    });
+
+    // Add WBS section if available
+    if (wbsData?.wbs && wbsData.wbs.length > 0) {
+      doc.addPage();
+      
+      // WBS Header
+      doc.setFillColor(124, 58, 237); // Purple
+      doc.rect(0, 0, pageWidth, 30, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text("Work Breakdown Structure (WBS)", margin, 18);
+      
+      const wbsData_ = wbsData.wbs.map(item => [
+        item.code,
+        '  '.repeat(item.level - 1) + item.title,
+        String(item.level),
+        item.parent_code || '-',
+      ]);
+
+      autoTable(doc, {
+        startY: 40,
+        head: [['Code', 'Title', 'Level', 'Parent']],
+        body: wbsData_,
+        theme: 'striped',
+        headStyles: {
+          fillColor: [124, 58, 237],
+          textColor: 255,
+          fontSize: 10,
+          fontStyle: 'bold',
+        },
+        bodyStyles: {
+          fontSize: 9,
+          textColor: [30, 41, 59],
+        },
+        columnStyles: {
+          0: { cellWidth: 25 },
+          1: { cellWidth: 100 },
+          2: { halign: 'center', cellWidth: 20 },
+          3: { halign: 'center', cellWidth: 25 },
+        },
+        margin: { left: margin, right: margin },
+      });
+    }
+
+    // Save PDF
+    doc.save('boq_professional_report.pdf');
+  };
+
   const tabs = [
     { id: "items", label: "العناصر", icon: <Package className="w-4 h-4" /> },
     { id: "wbs", label: "WBS", icon: <Layers className="w-4 h-4" /> },
@@ -285,6 +498,10 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
             ))}
           </div>
           <div className="flex gap-2 flex-wrap">
+            <Button variant="default" size="sm" onClick={exportToPDF} className="gap-2 bg-gradient-to-r from-primary to-accent">
+              <FileDown className="w-4 h-4" />
+              PDF
+            </Button>
             <Button variant="outline" size="sm" onClick={exportToExcel} className="gap-2">
               <FileSpreadsheet className="w-4 h-4" />
               Excel
