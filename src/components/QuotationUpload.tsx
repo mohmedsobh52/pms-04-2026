@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { QuotationCostChart } from "./QuotationCostChart";
 import { CostAnalysis } from "./CostAnalysis";
+import { extractTextFromPDF } from "@/lib/pdf-utils";
 import {
   Table,
   TableBody,
@@ -231,23 +232,44 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
     try {
       toast({
         title: "جاري التحليل...",
-        description: "يتم تحليل عرض السعر باستخدام الذكاء الاصطناعي",
+        description: "يتم تحميل وتحليل عرض السعر باستخدام الذكاء الاصطناعي",
       });
 
-      // For now, we'll use a sample text - in production you'd extract text from the file
-      const sampleText = `
-        عرض سعر رقم: ${quotation.name}
-        المورد: ${quotation.supplier_name || 'غير محدد'}
-        التاريخ: ${quotation.quotation_date || new Date().toISOString().split('T')[0]}
-        المبلغ الإجمالي: ${quotation.total_amount || 0} ${quotation.currency}
+      let extractedText = "";
+
+      // Download the file and extract text
+      try {
+        const response = await fetch(quotation.file_url);
+        const blob = await response.blob();
+        const file = new File([blob], quotation.file_name, { type: blob.type });
         
-        هذا نموذج لعرض سعر يحتاج لتحليل محتوى الملف الفعلي.
-        يرجى رفع ملف يحتوي على بيانات قابلة للقراءة.
-      `;
+        if (quotation.file_type === 'pdf') {
+          extractedText = await extractTextFromPDF(file);
+        } else {
+          // For Excel files, we need to read as text or use xlsx library
+          const text = await file.text();
+          extractedText = text;
+        }
+      } catch (fetchError) {
+        console.error("Error fetching file:", fetchError);
+        // Fallback to basic info
+        extractedText = `عرض سعر: ${quotation.name}\nالمورد: ${quotation.supplier_name || 'غير محدد'}\nالمبلغ: ${quotation.total_amount || 0} ${quotation.currency}`;
+      }
+
+      // If extraction failed, show error
+      if (extractedText.includes("[فشل استخراج النص]") || extractedText.length < 50) {
+        toast({
+          title: "تعذر استخراج النص",
+          description: "الملف يحتوي على صور أو نص غير قابل للقراءة. يرجى رفع ملف PDF نصي.",
+          variant: "destructive",
+        });
+        setAnalyzingId(null);
+        return;
+      }
 
       const { data, error } = await supabase.functions.invoke('analyze-quotation', {
         body: {
-          quotationText: sampleText,
+          quotationText: extractedText,
           quotationName: quotation.name,
           supplierName: quotation.supplier_name
         }
