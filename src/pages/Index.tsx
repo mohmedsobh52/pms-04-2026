@@ -66,7 +66,7 @@ const Index = () => {
         setExtractionStatus("failed");
         setShowManualInput(true);
         // Only set manual text if it's not an error message
-        const cleanText = text.includes("[تعذر") || text.includes("[لم يتم") ? "" : text;
+        const cleanText = text.includes("[فشل") || text.includes("[تعذر") || text.includes("[لم يتم") ? "" : text;
         setManualText(cleanText);
         toast({
           title: "استخراج جزئي",
