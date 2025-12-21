@@ -134,7 +134,7 @@ export function validateExtractedText(text: string): {
   }
   
   // Check for error messages from extraction
-  if (text.includes("[تعذر استخراج النص") || text.includes("[لم يتم العثور")) {
+  if (text.includes("[فشل استخراج النص]") || text.includes("[تعذر استخراج النص") || text.includes("[لم يتم العثور")) {
     issues.push("فشل استخراج النص من الملف");
     return {
       isValid: false,
