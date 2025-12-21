@@ -1,11 +1,14 @@
 import { useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User } from "lucide-react";
+import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale } from "lucide-react";
 import { FileUpload } from "@/components/FileUpload";
 import { WorkflowStatus, defaultWorkflowSteps, type WorkflowStep, type StepStatus } from "@/components/WorkflowStatus";
 import { AnalysisResults } from "@/components/AnalysisResults";
 import { SavedProjects } from "@/components/SavedProjects";
 import { SaveProjectDialog } from "@/components/SaveProjectDialog";
+import { QuotationUpload } from "@/components/QuotationUpload";
+import { QuotationComparison } from "@/components/QuotationComparison";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -456,6 +459,30 @@ const Index = () => {
                     </div>
                   )}
                   <AnalysisResults data={analysisData} wbsData={wbsData} />
+                </div>
+              )}
+
+              {/* Quotations Section */}
+              {user && (
+                <div className="glass-card p-6 animate-slide-up">
+                  <Tabs defaultValue="upload" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 mb-4">
+                      <TabsTrigger value="upload" className="gap-2">
+                        <Receipt className="w-4 h-4" />
+                        رفع عروض الأسعار
+                      </TabsTrigger>
+                      <TabsTrigger value="compare" className="gap-2">
+                        <Scale className="w-4 h-4" />
+                        مقارنة العروض
+                      </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="upload">
+                      <QuotationUpload />
+                    </TabsContent>
+                    <TabsContent value="compare">
+                      <QuotationComparison />
+                    </TabsContent>
+                  </Tabs>
                 </div>
               )}
             </div>
