@@ -144,6 +144,7 @@ Return ONLY a valid JSON object with relevant analysis results.`;
           { role: "user", content: userPrompt },
         ],
         temperature: 0.1,
+        response_format: { type: "json_object" },
       }),
     });
 
@@ -175,29 +176,52 @@ Return ONLY a valid JSON object with relevant analysis results.`;
     }
 
     console.log("AI response received, parsing...");
-    console.log("Response preview:", content.slice(0, 200));
+    console.log("Full AI response:", content);
 
-    // Extract JSON from response
+    // Extract JSON from response with improved handling
     let result: AnalysisResult;
     try {
-      // Try to parse directly
+      // Try to parse directly first
       result = JSON.parse(content);
-    } catch {
-      // Try to extract JSON from markdown code block
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (jsonMatch) {
-        result = JSON.parse(jsonMatch[1].trim());
-      } else {
-        // Try to find JSON object in the response
-        const jsonStart = content.indexOf("{");
-        const jsonEnd = content.lastIndexOf("}");
-        if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-          const jsonStr = content.slice(jsonStart, jsonEnd + 1);
-          result = JSON.parse(jsonStr);
+      console.log("Successfully parsed JSON directly");
+    } catch (directParseError) {
+      console.log("Direct parse failed, trying extraction methods...");
+      
+      try {
+        // Try to extract JSON from markdown code block
+        const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch) {
+          console.log("Found JSON in markdown code block");
+          result = JSON.parse(jsonMatch[1].trim());
         } else {
-          console.error("Could not find JSON in response:", content.slice(0, 500));
-          throw new Error("Could not parse AI response as JSON");
+          // Try to find JSON object in the response by matching braces
+          const jsonStart = content.indexOf("{");
+          const jsonEnd = content.lastIndexOf("}");
+          
+          if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+            const jsonStr = content.slice(jsonStart, jsonEnd + 1);
+            console.log("Extracted JSON string:", jsonStr.slice(0, 200));
+            
+            try {
+              result = JSON.parse(jsonStr);
+              console.log("Successfully parsed extracted JSON");
+            } catch (parseError) {
+              console.error("Failed to parse extracted JSON:", parseError);
+              console.error("Extracted string:", jsonStr);
+              throw new Error(`فشل تحليل استجابة الذكاء الاصطناعي. يرجى المحاولة مرة أخرى.`);
+            }
+          } else {
+            console.error("Could not find JSON structure in response");
+            console.error("Response content:", content);
+            throw new Error(`الاستجابة لا تحتوي على JSON صالح. يرجى المحاولة مرة أخرى.`);
+          }
         }
+      } catch (extractError) {
+        console.error("All JSON extraction methods failed");
+        console.error("Original error:", directParseError);
+        console.error("Extraction error:", extractError);
+        console.error("Full response:", content);
+        throw new Error(`تعذر معالجة استجابة الذكاء الاصطناعي. يرجى المحاولة مرة أخرى.`);
       }
     }
 
