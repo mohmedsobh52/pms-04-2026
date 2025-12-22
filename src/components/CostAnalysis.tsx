@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { Calculator, TrendingUp, Users, Package, Wrench, Building2, AlertCircle, Sparkles, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Calculator, TrendingUp, Users, Package, Wrench, Building2, AlertCircle, Sparkles, Loader2, Edit2, Save, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -69,9 +70,18 @@ interface CostAnalysisProps {
 export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<CostAnalysisResult | null>(null);
+  const [editedResult, setEditedResult] = useState<CostAnalysisResult | null>(null);
   const [selectedItem, setSelectedItem] = useState<number | null>(null);
+  const [editingItem, setEditingItem] = useState<number | null>(null);
   const [aiProvider, setAiProvider] = useState<'lovable' | 'openai' | 'genspark' | 'manus' | 'all'>('all');
   const { toast } = useToast();
+
+  // Initialize editedResult when analysisResult changes
+  useEffect(() => {
+    if (analysisResult) {
+      setEditedResult(JSON.parse(JSON.stringify(analysisResult)));
+    }
+  }, [analysisResult]);
 
   const runCostAnalysis = async () => {
     if (!items || items.length === 0) {
@@ -87,7 +97,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
     try {
       const { data, error } = await supabase.functions.invoke("analyze-costs", {
         body: { 
-          items: items.slice(0, 10), // Limit to first 10 items for performance
+          items: items.slice(0, 10),
           ai_provider: aiProvider,
           analysis_type: "detailed"
         },
@@ -116,6 +126,140 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
   const formatNumber = (num: number) => {
     return num?.toLocaleString('ar-SA') || '0';
   };
+
+  const recalculateItemTotals = (item: CostBreakdownItem): CostBreakdownItem => {
+    const materialsTotal = item.materials?.items?.reduce((sum, m) => sum + (m.total || 0), 0) || 0;
+    const laborTotal = item.labor?.items?.reduce((sum, l) => sum + (l.total || 0), 0) || 0;
+    const equipmentTotal = item.equipment?.items?.reduce((sum, e) => sum + (e.total || 0), 0) || 0;
+    
+    const totalDirect = materialsTotal + laborTotal + equipmentTotal + (item.subcontractor || 0);
+    const totalIndirect = (item.overhead || 0) + (item.admin || 0) + (item.insurance || 0) + (item.contingency || 0);
+    const profitAmount = (totalDirect + totalIndirect) * ((item.profit_margin || 10) / 100);
+    const totalCost = totalDirect + totalIndirect + profitAmount;
+
+    return {
+      ...item,
+      materials: { ...item.materials, total: materialsTotal },
+      labor: { ...item.labor, total: laborTotal },
+      equipment: { ...item.equipment, total: equipmentTotal },
+      total_direct: totalDirect,
+      total_indirect: totalIndirect,
+      profit_amount: profitAmount,
+      total_cost: totalCost,
+      unit_price: totalCost,
+    };
+  };
+
+  const recalculateSummary = (costAnalysis: CostBreakdownItem[]): CostAnalysisResult['summary'] => {
+    const totalMaterials = costAnalysis.reduce((sum, item) => sum + (item.materials?.total || 0), 0);
+    const totalLabor = costAnalysis.reduce((sum, item) => sum + (item.labor?.total || 0), 0);
+    const totalEquipment = costAnalysis.reduce((sum, item) => sum + (item.equipment?.total || 0), 0);
+    const totalSubcontractor = costAnalysis.reduce((sum, item) => sum + (item.subcontractor || 0), 0);
+    const totalDirect = costAnalysis.reduce((sum, item) => sum + (item.total_direct || 0), 0);
+    const totalIndirect = costAnalysis.reduce((sum, item) => sum + (item.total_indirect || 0), 0);
+    const totalProfit = costAnalysis.reduce((sum, item) => sum + (item.profit_amount || 0), 0);
+    const grandTotal = costAnalysis.reduce((sum, item) => sum + (item.total_cost || 0), 0);
+
+    return {
+      total_materials: totalMaterials,
+      total_labor: totalLabor,
+      total_equipment: totalEquipment,
+      total_subcontractor: totalSubcontractor,
+      total_direct_costs: totalDirect,
+      total_indirect_costs: totalIndirect,
+      total_profit: totalProfit,
+      grand_total: grandTotal,
+      key_insights: editedResult?.summary?.key_insights || [],
+    };
+  };
+
+  const handleEditItem = (idx: number) => {
+    setEditingItem(idx);
+    setSelectedItem(idx);
+  };
+
+  const handleSaveItem = (idx: number) => {
+    if (!editedResult) return;
+    
+    const updatedCostAnalysis = [...editedResult.cost_analysis];
+    updatedCostAnalysis[idx] = recalculateItemTotals(updatedCostAnalysis[idx]);
+    
+    const updatedSummary = recalculateSummary(updatedCostAnalysis);
+    
+    setEditedResult({
+      ...editedResult,
+      cost_analysis: updatedCostAnalysis,
+      summary: updatedSummary,
+    });
+    
+    setEditingItem(null);
+    toast({
+      title: "Saved",
+      description: "Cost breakdown updated successfully",
+    });
+  };
+
+  const handleCancelEdit = () => {
+    if (analysisResult) {
+      setEditedResult(JSON.parse(JSON.stringify(analysisResult)));
+    }
+    setEditingItem(null);
+  };
+
+  const updateMaterialItem = (itemIdx: number, matIdx: number, field: string, value: number) => {
+    if (!editedResult) return;
+    
+    const updatedResult = { ...editedResult };
+    const material = updatedResult.cost_analysis[itemIdx].materials.items[matIdx];
+    
+    if (field === 'quantity') {
+      material.quantity = value;
+      material.total = value * material.unit_price;
+    } else if (field === 'unit_price') {
+      material.unit_price = value;
+      material.total = material.quantity * value;
+    }
+    
+    setEditedResult(updatedResult);
+  };
+
+  const updateLaborItem = (itemIdx: number, labIdx: number, field: string, value: number) => {
+    if (!editedResult) return;
+    
+    const updatedResult = { ...editedResult };
+    const labor = updatedResult.cost_analysis[itemIdx].labor.items[labIdx];
+    
+    if (field === 'hours') {
+      labor.hours = value;
+      labor.total = value * labor.hourly_rate;
+    } else if (field === 'hourly_rate') {
+      labor.hourly_rate = value;
+      labor.total = labor.hours * value;
+    }
+    
+    setEditedResult(updatedResult);
+  };
+
+  const updateIndirectCost = (itemIdx: number, field: string, value: number) => {
+    if (!editedResult) return;
+    
+    const updatedResult = { ...editedResult };
+    (updatedResult.cost_analysis[itemIdx] as any)[field] = value;
+    
+    setEditedResult(updatedResult);
+  };
+
+  const finalizeAnalysis = () => {
+    if (!editedResult) return;
+    
+    setAnalysisResult(JSON.parse(JSON.stringify(editedResult)));
+    toast({
+      title: "Finalized",
+      description: "Cost analysis has been finalized with your adjustments",
+    });
+  };
+
+  const displayResult = editedResult || analysisResult;
 
   return (
     <div className="space-y-6">
@@ -170,8 +314,16 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
       </div>
 
       {/* Analysis Results */}
-      {analysisResult && (
+      {displayResult && (
         <div className="space-y-6 animate-slide-up">
+          {/* Finalize Button */}
+          <div className="flex justify-end">
+            <Button onClick={finalizeAnalysis} variant="default" className="gap-2">
+              <Check className="w-4 h-4" />
+              Finalize Analysis
+            </Button>
+          </div>
+
           {/* Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
@@ -181,7 +333,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                   <span className="text-xs text-muted-foreground">Materials</span>
                 </div>
                 <p className="text-xl font-bold text-blue-600">
-                  {formatNumber(analysisResult.summary?.total_materials || 0)}
+                  {formatNumber(displayResult.summary?.total_materials || 0)}
                 </p>
                 <p className="text-xs text-muted-foreground">{currency}</p>
               </CardContent>
@@ -194,7 +346,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                   <span className="text-xs text-muted-foreground">Labor</span>
                 </div>
                 <p className="text-xl font-bold text-green-600">
-                  {formatNumber(analysisResult.summary?.total_labor || 0)}
+                  {formatNumber(displayResult.summary?.total_labor || 0)}
                 </p>
                 <p className="text-xs text-muted-foreground">{currency}</p>
               </CardContent>
@@ -207,7 +359,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                   <span className="text-xs text-muted-foreground">Equipment</span>
                 </div>
                 <p className="text-xl font-bold text-orange-600">
-                  {formatNumber(analysisResult.summary?.total_equipment || 0)}
+                  {formatNumber(displayResult.summary?.total_equipment || 0)}
                 </p>
                 <p className="text-xs text-muted-foreground">{currency}</p>
               </CardContent>
@@ -220,7 +372,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                   <span className="text-xs text-muted-foreground">Grand Total</span>
                 </div>
                 <p className="text-xl font-bold text-purple-600">
-                  {formatNumber(analysisResult.summary?.grand_total || 0)}
+                  {formatNumber(displayResult.summary?.grand_total || 0)}
                 </p>
                 <p className="text-xs text-muted-foreground">{currency}</p>
               </CardContent>
@@ -237,13 +389,13 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               {[
-                { label: "Materials", value: analysisResult.summary?.total_materials || 0, color: "bg-blue-500" },
-                { label: "Labor", value: analysisResult.summary?.total_labor || 0, color: "bg-green-500" },
-                { label: "Equipment", value: analysisResult.summary?.total_equipment || 0, color: "bg-orange-500" },
-                { label: "Indirect Costs", value: analysisResult.summary?.total_indirect_costs || 0, color: "bg-gray-500" },
-                { label: "Profit", value: analysisResult.summary?.total_profit || 0, color: "bg-purple-500" },
+                { label: "Materials", value: displayResult.summary?.total_materials || 0, color: "bg-blue-500" },
+                { label: "Labor", value: displayResult.summary?.total_labor || 0, color: "bg-green-500" },
+                { label: "Equipment", value: displayResult.summary?.total_equipment || 0, color: "bg-orange-500" },
+                { label: "Indirect Costs", value: displayResult.summary?.total_indirect_costs || 0, color: "bg-gray-500" },
+                { label: "Profit", value: displayResult.summary?.total_profit || 0, color: "bg-purple-500" },
               ].map((item, idx) => {
-                const total = analysisResult.summary?.grand_total || 1;
+                const total = displayResult.summary?.grand_total || 1;
                 const percentage = (item.value / total) * 100;
                 return (
                   <div key={idx} className="space-y-1">
@@ -263,21 +415,28 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
           {/* Detailed Items */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Item Details</CardTitle>
+              <CardTitle className="text-base flex items-center justify-between">
+                <span>Item Details</span>
+                <Badge variant="outline" className="text-xs">
+                  Click to edit values
+                </Badge>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {analysisResult.cost_analysis?.map((item, idx) => (
+                {displayResult.cost_analysis?.map((item, idx) => (
                   <div
                     key={idx}
-                    className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                    className={`p-4 rounded-lg border transition-all ${
                       selectedItem === idx
                         ? "border-primary bg-primary/5"
                         : "border-border hover:border-primary/50"
                     }`}
-                    onClick={() => setSelectedItem(selectedItem === idx ? null : idx)}
                   >
-                    <div className="flex items-center justify-between">
+                    <div 
+                      className="flex items-center justify-between cursor-pointer"
+                      onClick={() => setSelectedItem(selectedItem === idx ? null : idx)}
+                    >
                       <div>
                         <h4 className="font-medium">{item.item_description}</h4>
                         <div className="flex gap-2 mt-1">
@@ -289,13 +448,50 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                           </Badge>
                         </div>
                       </div>
-                      <div className="text-left">
-                        <p className="font-bold text-primary">
-                          {formatNumber(item.total_cost)} {currency}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Unit Price: {formatNumber(item.unit_price)}
-                        </p>
+                      <div className="text-left flex items-center gap-3">
+                        <div>
+                          <p className="font-bold text-primary">
+                            {formatNumber(item.total_cost)} {currency}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Unit Price: {formatNumber(item.unit_price)}
+                          </p>
+                        </div>
+                        {editingItem !== idx ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditItem(idx);
+                            }}
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                        ) : (
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSaveItem(idx);
+                              }}
+                            >
+                              <Save className="w-4 h-4 text-green-500" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCancelEdit();
+                              }}
+                            >
+                              <X className="w-4 h-4 text-red-500" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -310,9 +506,31 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                             </h5>
                             <div className="bg-muted/50 rounded-lg p-3 space-y-2">
                               {item.materials.items.map((mat, midx) => (
-                                <div key={midx} className="flex justify-between text-sm">
-                                  <span>{mat.name} ({mat.quantity} {mat.unit})</span>
-                                  <span>{formatNumber(mat.total)} {currency}</span>
+                                <div key={midx} className="flex justify-between items-center text-sm gap-2">
+                                  <span className="flex-1">{mat.name}</span>
+                                  {editingItem === idx ? (
+                                    <>
+                                      <Input
+                                        type="number"
+                                        value={mat.quantity}
+                                        onChange={(e) => updateMaterialItem(idx, midx, 'quantity', parseFloat(e.target.value) || 0)}
+                                        className="w-20 h-8 text-xs"
+                                      />
+                                      <span className="text-xs text-muted-foreground">{mat.unit} ×</span>
+                                      <Input
+                                        type="number"
+                                        value={mat.unit_price}
+                                        onChange={(e) => updateMaterialItem(idx, midx, 'unit_price', parseFloat(e.target.value) || 0)}
+                                        className="w-24 h-8 text-xs"
+                                      />
+                                      <span className="w-24 text-right font-medium">{formatNumber(mat.total)} {currency}</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="text-muted-foreground">({mat.quantity} {mat.unit} × {mat.unit_price})</span>
+                                      <span>{formatNumber(mat.total)} {currency}</span>
+                                    </>
+                                  )}
                                 </div>
                               ))}
                               <div className="border-t pt-2 font-medium flex justify-between">
@@ -332,9 +550,31 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                             </h5>
                             <div className="bg-muted/50 rounded-lg p-3 space-y-2">
                               {item.labor.items.map((lab, lidx) => (
-                                <div key={lidx} className="flex justify-between text-sm">
-                                  <span>{lab.role} ({lab.hours} hrs × {lab.hourly_rate})</span>
-                                  <span>{formatNumber(lab.total)} {currency}</span>
+                                <div key={lidx} className="flex justify-between items-center text-sm gap-2">
+                                  <span className="flex-1">{lab.role}</span>
+                                  {editingItem === idx ? (
+                                    <>
+                                      <Input
+                                        type="number"
+                                        value={lab.hours}
+                                        onChange={(e) => updateLaborItem(idx, lidx, 'hours', parseFloat(e.target.value) || 0)}
+                                        className="w-20 h-8 text-xs"
+                                      />
+                                      <span className="text-xs text-muted-foreground">hrs ×</span>
+                                      <Input
+                                        type="number"
+                                        value={lab.hourly_rate}
+                                        onChange={(e) => updateLaborItem(idx, lidx, 'hourly_rate', parseFloat(e.target.value) || 0)}
+                                        className="w-24 h-8 text-xs"
+                                      />
+                                      <span className="w-24 text-right font-medium">{formatNumber(lab.total)} {currency}</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="text-muted-foreground">({lab.hours} hrs × {lab.hourly_rate})</span>
+                                      <span>{formatNumber(lab.total)} {currency}</span>
+                                    </>
+                                  )}
                                 </div>
                               ))}
                               <div className="border-t pt-2 font-medium flex justify-between">
@@ -351,22 +591,49 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                             <Building2 className="w-4 h-4 text-gray-500" />
                             Indirect Costs
                           </h5>
-                          <div className="bg-muted/50 rounded-lg p-3 grid grid-cols-2 gap-2 text-sm">
-                            <div className="flex justify-between">
-                              <span>Overhead</span>
-                              <span>{formatNumber(item.overhead)} {currency}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>Admin</span>
-                              <span>{formatNumber(item.admin)} {currency}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>Insurance</span>
-                              <span>{formatNumber(item.insurance)} {currency}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>Contingency</span>
-                              <span>{formatNumber(item.contingency)} {currency}</span>
+                          <div className="bg-muted/50 rounded-lg p-3 grid grid-cols-2 gap-3 text-sm">
+                            {[
+                              { label: 'Overhead', field: 'overhead' },
+                              { label: 'Admin', field: 'admin' },
+                              { label: 'Insurance', field: 'insurance' },
+                              { label: 'Contingency', field: 'contingency' },
+                            ].map(({ label, field }) => (
+                              <div key={field} className="flex justify-between items-center gap-2">
+                                <span>{label}</span>
+                                {editingItem === idx ? (
+                                  <Input
+                                    type="number"
+                                    value={(item as any)[field] || 0}
+                                    onChange={(e) => updateIndirectCost(idx, field, parseFloat(e.target.value) || 0)}
+                                    className="w-28 h-8 text-xs"
+                                  />
+                                ) : (
+                                  <span>{formatNumber((item as any)[field])} {currency}</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Profit Margin */}
+                        <div>
+                          <h5 className="text-sm font-medium mb-2 flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-purple-500" />
+                            Profit Margin
+                          </h5>
+                          <div className="bg-muted/50 rounded-lg p-3">
+                            <div className="flex justify-between items-center gap-2">
+                              <span>Margin (%)</span>
+                              {editingItem === idx ? (
+                                <Input
+                                  type="number"
+                                  value={item.profit_margin || 10}
+                                  onChange={(e) => updateIndirectCost(idx, 'profit_margin', parseFloat(e.target.value) || 0)}
+                                  className="w-28 h-8 text-xs"
+                                />
+                              ) : (
+                                <span>{item.profit_margin || 10}%</span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -396,17 +663,17 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
           </Card>
 
           {/* Key Insights */}
-          {analysisResult.summary?.key_insights?.length > 0 && (
+          {displayResult.summary?.key_insights?.length > 0 && (
             <Card className="border-primary/20 bg-primary/5">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-primary" />
-                  AI Insights ({analysisResult.ai_provider})
+                  AI Insights ({displayResult.ai_provider})
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2">
-                  {analysisResult.summary.key_insights.map((insight, idx) => (
+                  {displayResult.summary.key_insights.map((insight, idx) => (
                     <li key={idx} className="flex items-start gap-2 text-sm">
                       <span className="text-primary">•</span>
                       {insight}
@@ -420,28 +687,17 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
       )}
 
       {/* Empty State */}
-      {!analysisResult && !isAnalyzing && (
+      {!displayResult && !isAnalyzing && (
         <Card className="border-dashed">
-          <CardContent className="py-12 text-center">
-            <Calculator className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="font-display text-lg font-semibold mb-2">Detailed Cost Analysis</h3>
+          <CardContent className="p-8 text-center">
+            <Calculator className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="font-medium mb-2">No Cost Analysis Yet</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Click "Analyze Costs" to get comprehensive breakdown of direct and indirect costs
+              Run cost analysis to get detailed breakdown for each BOQ item
             </p>
-            <div className="flex justify-center gap-4 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Package className="w-3 h-3" /> Materials
-              </span>
-              <span className="flex items-center gap-1">
-                <Users className="w-3 h-3" /> Labor
-              </span>
-              <span className="flex items-center gap-1">
-                <Wrench className="w-3 h-3" /> Equipment
-              </span>
-              <span className="flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" /> Profit
-              </span>
-            </div>
+            <Button onClick={runCostAnalysis} disabled={!items?.length}>
+              Start Analysis
+            </Button>
           </CardContent>
         </Card>
       )}
