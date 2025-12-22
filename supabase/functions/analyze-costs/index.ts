@@ -256,22 +256,61 @@ Respond with valid JSON only.`;
 
     console.log("AI response received, parsing...");
 
-    let result;
-    try {
-      result = JSON.parse(content);
-    } catch (e) {
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    // Helper function to clean and extract JSON
+    const extractAndParseJSON = (text: string): any => {
+      // First, try to parse directly
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        // Continue with extraction attempts
+      }
+
+      // Try to extract from markdown code blocks
+      const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (jsonMatch) {
-        result = JSON.parse(jsonMatch[1].trim());
-      } else {
-        const jsonStart = content.indexOf("{");
-        const jsonEnd = content.lastIndexOf("}");
-        if (jsonStart !== -1 && jsonEnd !== -1) {
-          result = JSON.parse(content.slice(jsonStart, jsonEnd + 1));
-        } else {
-          throw new Error("Could not parse AI response");
+        try {
+          return JSON.parse(jsonMatch[1].trim());
+        } catch (e) {
+          // Continue with other methods
         }
       }
+
+      // Find the first { and last } and try to parse
+      const jsonStart = text.indexOf("{");
+      const jsonEnd = text.lastIndexOf("}");
+      if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+        let jsonStr = text.slice(jsonStart, jsonEnd + 1);
+        
+        // Clean common issues
+        jsonStr = jsonStr
+          .replace(/,\s*}/g, '}')  // Remove trailing commas before }
+          .replace(/,\s*]/g, ']')  // Remove trailing commas before ]
+          .replace(/[\x00-\x1F\x7F]/g, ' ')  // Remove control characters
+          .replace(/\n\s*\n/g, '\n')  // Remove empty lines
+          .replace(/"\s*\n\s*"/g, '", "')  // Fix broken string arrays
+          .replace(/}\s*{/g, '},{')  // Fix missing commas between objects
+          .replace(/]\s*\[/g, '],[')  // Fix missing commas between arrays
+          .replace(/:\s*,/g, ': null,')  // Replace empty values with null
+          .replace(/:\s*}/g, ': null}');  // Replace empty values at end
+        
+        try {
+          return JSON.parse(jsonStr);
+        } catch (e) {
+          console.error("JSON parsing failed after cleaning, raw content:", text.substring(0, 500));
+          throw new Error(`Could not parse AI response: ${e instanceof Error ? e.message : 'Invalid JSON'}`);
+        }
+      }
+
+      throw new Error("Could not find valid JSON in AI response");
+    };
+
+    let result;
+    try {
+      result = extractAndParseJSON(content);
+      console.log("Successfully parsed AI response");
+    } catch (e) {
+      console.error("Failed to parse AI response:", e);
+      throw e;
     }
 
     console.log(`Cost analysis complete using ${providerUsed}`);
