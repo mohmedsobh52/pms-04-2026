@@ -223,7 +223,7 @@ Respond with valid JSON only.`;
         throw new Error("No AI API keys configured");
       }
 
-      console.log("Using Lovable AI (Gemini Pro for better Arabic support)...");
+      console.log("Using Lovable AI (Gemini Flash for cost analysis)...");
       response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -231,14 +231,13 @@ Respond with valid JSON only.`;
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-pro",
+          model: "google/gemini-2.5-flash",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
           temperature: 0.1,
-          max_tokens: 8000,
-          response_format: { type: "json_object" },
+          max_tokens: 16000,
         }),
       });
       providerUsed = 'lovable';
@@ -294,22 +293,30 @@ Respond with valid JSON only.`;
       if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
         let jsonStr = text.slice(jsonStart, jsonEnd + 1);
         
+        // Check if JSON looks incomplete (common signs)
+        const openBraces = (jsonStr.match(/{/g) || []).length;
+        const closeBraces = (jsonStr.match(/}/g) || []).length;
+        const openBrackets = (jsonStr.match(/\[/g) || []).length;
+        const closeBrackets = (jsonStr.match(/]/g) || []).length;
+        
+        if (openBraces !== closeBraces || openBrackets !== closeBrackets) {
+          console.error("JSON appears incomplete - unmatched braces/brackets");
+          throw new Error("Incomplete JSON response from AI - response was truncated");
+        }
+        
         // Clean common issues
         jsonStr = jsonStr
           .replace(/,\s*}/g, '}')  // Remove trailing commas before }
           .replace(/,\s*]/g, ']')  // Remove trailing commas before ]
           .replace(/[\x00-\x1F\x7F]/g, ' ')  // Remove control characters
-          .replace(/\n\s*\n/g, '\n')  // Remove empty lines
-          .replace(/"\s*\n\s*"/g, '", "')  // Fix broken string arrays
-          .replace(/}\s*{/g, '},{')  // Fix missing commas between objects
-          .replace(/]\s*\[/g, '],[')  // Fix missing commas between arrays
           .replace(/:\s*,/g, ': null,')  // Replace empty values with null
           .replace(/:\s*}/g, ': null}');  // Replace empty values at end
         
         try {
           return JSON.parse(jsonStr);
         } catch (e) {
-          console.error("JSON parsing failed after cleaning, raw content:", text.substring(0, 500));
+          console.error("JSON parsing failed after cleaning. First 500 chars:", text.substring(0, 500));
+          console.error("Last 200 chars:", text.substring(Math.max(0, text.length - 200)));
           throw new Error(`Could not parse AI response: ${e instanceof Error ? e.message : 'Invalid JSON'}`);
         }
       }
