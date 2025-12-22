@@ -58,14 +58,27 @@ serve(async (req) => {
 
     console.log(`Analyzing costs for ${items.length} items using ${ai_provider} in ${outputLanguage}...`);
 
+    // Build examples based on language selection
+    const exampleMaterialName = isArabic ? 'خرسانة جاهزة' : 'Ready Mix Concrete';
+    const exampleLaborRole = isArabic ? 'نجار' : 'Carpenter';
+    const exampleEquipmentName = isArabic ? 'رافعة شوكية' : 'Forklift';
+    const exampleDuration = isArabic ? '5 أيام' : '5 days';
+    const exampleItemDesc = isArabic ? 'أعمال الخرسانة المسلحة' : 'Reinforced Concrete Works';
+    const exampleRecommendation = isArabic ? 'يُنصح بالتفاوض على أسعار المواد' : 'Consider negotiating material prices';
+    const exampleInsight = isArabic ? 'تكاليف المواد تشكل النسبة الأكبر' : 'Material costs represent the largest portion';
+
     const systemPrompt = `You are an expert construction cost analyst. Analyze the provided items and provide a comprehensive cost breakdown.
 
-IMPORTANT INSTRUCTIONS:
-1. You will receive text that may be in Arabic or English - read and understand it carefully
-2. Extract quantities, units, and descriptions accurately
-3. Use market prices from Saudi Arabia/Gulf region
-4. Calculate ALL costs in Saudi Riyals (SAR)
-5. ALL output text (descriptions, recommendations, insights) must be in ${outputLanguage}
+CRITICAL LANGUAGE INSTRUCTION:
+- The input text may be in Arabic or English - understand it regardless of language
+- ALL your output text MUST be in ${outputLanguage} ONLY
+- Do NOT mix languages in your response
+- Translate any Arabic input to ${outputLanguage} in your output
+
+OTHER INSTRUCTIONS:
+1. Extract quantities, units, and descriptions accurately
+2. Use market prices from Saudi Arabia/Gulf region
+3. Calculate ALL costs in Saudi Riyals (SAR)
 
 The analysis should include:
 
@@ -83,21 +96,21 @@ The analysis should include:
 
 3. Profit Margin: typically 10-15%
 
-Return JSON in the following format:
+Return JSON in the following format (ALL text values must be in ${outputLanguage}):
 {
   "cost_analysis": [
     {
-      "item_description": "Item Description in ${outputLanguage}",
+      "item_description": "${exampleItemDesc}",
       "materials": {
-        "items": [{"name": "${isArabic ? 'اسم المادة' : 'Material Name'}", "quantity": 100, "unit": "m³", "unit_price": 500, "total": 50000}],
+        "items": [{"name": "${exampleMaterialName}", "quantity": 100, "unit": "m³", "unit_price": 500, "total": 50000}],
         "total": 50000
       },
       "labor": {
-        "items": [{"role": "${isArabic ? 'نجار' : 'Carpenter'}", "hours": 40, "hourly_rate": 50, "total": 2000}],
+        "items": [{"role": "${exampleLaborRole}", "hours": 40, "hourly_rate": 50, "total": 2000}],
         "total": 2000
       },
       "equipment": {
-        "items": [{"name": "${isArabic ? 'رافعة' : 'Crane'}", "duration": "${isArabic ? '5 أيام' : '5 days'}", "daily_rate": 1000, "total": 5000}],
+        "items": [{"name": "${exampleEquipmentName}", "duration": "${exampleDuration}", "daily_rate": 1000, "total": 5000}],
         "total": 5000
       },
       "subcontractor": 0,
@@ -111,7 +124,7 @@ Return JSON in the following format:
       "total_indirect": 13110,
       "total_cost": 77121,
       "unit_price": 771.21,
-      "recommendations": ["${isArabic ? 'توصية' : 'Recommendation'} 1", "${isArabic ? 'توصية' : 'Recommendation'} 2"]
+      "recommendations": ["${exampleRecommendation}"]
     }
   ],
   "summary": {
@@ -123,12 +136,12 @@ Return JSON in the following format:
     "total_indirect_costs": 0,
     "total_profit": 0,
     "grand_total": 0,
-    "key_insights": ["${isArabic ? 'ملاحظة' : 'Insight'} 1", "${isArabic ? 'ملاحظة' : 'Insight'} 2"]
+    "key_insights": ["${exampleInsight}"]
   }
 }
 
 Use current market prices from Saudi Arabia/Gulf region. All costs in SAR.
-CRITICAL: Return ONLY valid JSON. No explanatory text before or after. All text must be in ${outputLanguage}.`;
+CRITICAL: Return ONLY valid JSON. No explanatory text before or after. ALL text values must be in ${outputLanguage} only.`;
 
     const userPrompt = `Analyze detailed costs for the following construction items:
 
