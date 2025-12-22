@@ -69,83 +69,82 @@ serve(async (req) => {
     const exampleRecommendation = isArabic ? 'يُنصح بالتفاوض على أسعار المواد' : 'Consider negotiating material prices';
     const exampleInsight = isArabic ? 'تكاليف المواد تشكل النسبة الأكبر' : 'Material costs represent the largest portion';
 
-    const systemPrompt = `You are a PROFESSIONAL PDF PARSER for Lovable, specialized in construction cost analysis and Bill of Quantities (BOQ).
+    const systemPrompt = `You are a BOQ (Bill of Quantities) EXPERT and PDF/Table Analyst for Lovable.
 
-=== CORE MISSION ===
-YOUR TASK IS TO RECOVER MEANING, NOT CHARACTERS.
-Think like a human reader, not a text extractor.
+=== 1) LANGUAGE & TEXT QUALITY ===
+- Detect document language(s) automatically (Arabic/English/Mixed)
+- If extracted text is corrupted (encoding issues/strange symbols like Ø, Ù, Ã, Â):
+  * Attempt to recover readable text using context
+  * Arabic UTF-8 corruption patterns: Ø§Ù„ → ال، Ø®Ø±Ø³Ø§Ù†Ø© → خرسانة
+  * NEVER output corrupted characters - discard them entirely
+- If file appears scanned, simulate OCR extraction focusing on tables and line items
+- Common Arabic BOQ terms: خرسانة، حديد، تسليح، أعمال، كمية، سعر، إجمالي، وحدة، بند
 
-=== LANGUAGE DETECTION (Even from corrupted text) ===
-1. Detect the ORIGINAL language even if text is heavily corrupted
-2. Arabic indicators (even in corrupted form):
-   - Presence of: ال، و، في، من، إلى، على، أن، ما، هذا، التي، الذي
-   - Scattered Arabic letters: ا، ب، ت، ث، ج، ح، خ، د، ذ، ر، ز، س، ش، ص، ض، ط، ظ، ع، غ، ف، ق، ك، ل، م، ن، ه، و، ي
-   - UTF-8 corruption patterns: Ø, Ù, Ã, Â (these indicate Arabic text was corrupted)
-   - Right-to-left number patterns in tables
-3. English indicators: Latin alphabet patterns, common construction terms
+=== 2) BOQ EXTRACTION (CORE OUTPUT) ===
+Extract ALL BOQ line items into clean structured format with these columns:
 
-=== ARABIC TEXT RECOVERY (CRITICAL) ===
-When Arabic text appears corrupted:
-1. REBUILD Arabic words even if letters are separated or replaced
-2. Common Arabic construction terms to recognize:
-   - خرسانة (concrete), حديد (steel/iron), أعمال (works)
-   - تسليح (reinforcement), بناء (construction), مواد (materials)
-   - كمية (quantity), سعر (price), إجمالي (total)
-   - متر مربع (m²), متر مكعب (m³), طن (ton)
-3. Recognize corrupted patterns like:
-   - "Ø®Ø±Ø³Ø§Ù†Ø©" → خرسانة
-   - "Ø£Ø¹Ù…Ø§Ù„" → أعمال
-4. Use context and numbers to infer meaning
+| Column (EN)    | Column (AR)      | Description                           |
+|----------------|------------------|---------------------------------------|
+| item_no        | رقم البند        | Item number/sequence                  |
+| description    | الوصف            | Item description (CLEAN text only)    |
+| unit           | الوحدة           | Unit of measurement                   |
+| quantity       | الكمية           | Quantity                              |
+| rate           | سعر الوحدة       | Unit rate/price                       |
+| amount         | الإجمالي         | Total amount                          |
+| section        | القسم            | Section/category (if available)       |
+| notes          | ملاحظات          | Notes/remarks (if available)          |
 
-=== STRICT CLEANUP RULES ===
-❌ NEVER output these artifacts:
-   - Ø, Ù, Ã, Â, ¿, ½, ¾, ±, ², ³
-   - Sequences like: Ø§Ù„, Ø£, Ø¹, etc.
-   - Any unreadable character sequences
-   - Broken or incomplete words
+=== 3) VALIDATION & FIXES ===
+- Normalize units: m, m², m³, kg, ton, lot, pcs, ls (lump sum), nr (number)
+- Detect MISSING values (qty/rate/amount) and flag them with "MISSING"
+- Check arithmetic: Amount ≈ Quantity × Rate (flag if >5% difference)
+- Identify duplicates or repeated descriptions
+- Flag abnormal quantities (negative, zero where unexpected, extremely large)
 
-✅ ONLY output:
-   - Clean Arabic text (if Arabic document)
-   - Clean English text (if English document)
-   - Numbers and proper units
-   - Professional, human-readable content
+=== 4) INSIGHTS TO PROVIDE ===
+A) Summary:
+   - Total items count
+   - Total BOQ value (sum of amounts)
+   - Key sections and their subtotals
 
-=== MEANING RECOVERY STRATEGY ===
-1. Look at NUMBERS first - quantities, prices, totals
-2. Look at STRUCTURE - tables, rows, columns, headers
-3. Look at PATTERNS - repeating formats indicate similar items
-4. INFER meaning from context:
-   - Number patterns (1, 2, 3...) = item sequence
-   - Large numbers near text = likely prices
-   - Small numbers with units = likely quantities
-5. Use construction domain knowledge to fill gaps
+B) Top Analysis:
+   - Top 10 highest-cost items (if amounts exist)
+   - Cost distribution by section/category
 
-=== OUTPUT LANGUAGE ===
-- ALL output MUST be in ${outputLanguage}
-- If source is Arabic → translate descriptions to ${outputLanguage}
-- If source is English → translate descriptions to ${outputLanguage}
-- NEVER mix languages in output
+C) Risk Flags:
+   - Unclear/corrupted descriptions
+   - Missing units or quantities
+   - Abnormal quantities (e.g., negative, zero, extremely large)
+   - Arithmetic inconsistencies (Amount ≠ Qty × Rate)
+   - Duplicate items
+   - Inconsistent pricing (same item, different rates)
 
-=== COST ANALYSIS REQUIREMENTS ===
-Use Saudi Arabia/Gulf region market prices.
-All costs in Saudi Riyals (SAR).
+=== 5) OUTPUT RULES ===
+❌ NEVER output corrupted/unreadable text
+❌ NEVER output encoding artifacts: Ø, Ù, Ã, Â, ¿, ½, etc.
+✅ Respond in ${outputLanguage}
+✅ Use clean, professional language
+✅ All costs in Saudi Riyals (SAR)
 
-Direct Costs:
-- Materials: with quantities and unit prices
-- Labor: types, hours, wages
-- Equipment: duration, rates
-- Subcontractors
-
-Indirect Costs:
-- Overhead: 8-12%
-- Administrative: 3-5%
-- Insurance: 2-3%
-- Contingency: 5-10%
-
-Profit: 10-15%
-
-=== JSON OUTPUT FORMAT ===
+=== 6) JSON OUTPUT FORMAT ===
 {
+  "boq_items": [
+    {
+      "item_no": "1",
+      "description": "${exampleItemDesc}",
+      "unit": "m³",
+      "quantity": 100,
+      "rate": 500,
+      "amount": 50000,
+      "section": "${isArabic ? 'أعمال الخرسانة' : 'Concrete Works'}",
+      "notes": "",
+      "validation": {
+        "arithmetic_ok": true,
+        "has_missing_values": false,
+        "flags": []
+      }
+    }
+  ],
   "cost_analysis": [
     {
       "item_description": "${exampleItemDesc}",
@@ -176,6 +175,9 @@ Profit: 10-15%
     }
   ],
   "summary": {
+    "total_items_count": 0,
+    "total_boq_value": 0,
+    "sections": [{"name": "${isArabic ? 'أعمال الخرسانة' : 'Concrete Works'}", "subtotal": 0, "items_count": 0}],
     "total_materials": 0,
     "total_labor": 0,
     "total_equipment": 0,
@@ -185,16 +187,26 @@ Profit: 10-15%
     "total_profit": 0,
     "grand_total": 0,
     "key_insights": ["${exampleInsight}"]
-  }
+  },
+  "top_10_items": [{"item_no": "1", "description": "", "amount": 0}],
+  "risks": [
+    {
+      "type": "missing_value",
+      "item_no": "",
+      "description": "${isArabic ? 'قيمة مفقودة' : 'Missing value'}",
+      "severity": "medium"
+    }
+  ],
+  "detected_language": "ar"
 }
 
 CRITICAL: Return ONLY valid JSON. NO encoding artifacts. ALL text in ${outputLanguage}.`;
 
-    const userPrompt = `=== PROFESSIONAL PDF PARSING REQUEST ===
+    const userPrompt = `=== BOQ ANALYSIS REQUEST ===
 
-YOU ARE A MEANING RECOVERY SYSTEM, NOT A TEXT COPIER.
+You are a BOQ Expert analyzing the following document.
 
-DOCUMENT CONTENT (may contain encoding issues):
+DOCUMENT CONTENT (may contain encoding issues - recover meaning, not characters):
 ${items.map((item: any, idx: number) => `
 [ITEM ${idx + 1}]
 Raw Text: ${item.description || item.item_description || 'Unknown'}
@@ -202,25 +214,32 @@ Quantity: ${item.quantity || 1} ${item.unit || 'unit'}
 ${item.total_price ? `Price: ${item.total_price} SAR` : ''}
 `).join('\n')}
 
-=== YOUR TASK ===
+=== EXTRACTION REQUIREMENTS ===
 
-1. DETECT the original language (Arabic/English) - even from corrupted text
-2. REBUILD meaning from corrupted characters:
-   - If you see Ø, Ù, Ã patterns → This is corrupted Arabic UTF-8
-   - Reconstruct Arabic words from context and patterns
-   - Use construction domain knowledge
-3. DISCARD all unreadable strings completely
-4. NEVER show encoding artifacts in your output
-5. OUTPUT clean, professional analysis in ${outputLanguage}
-
-=== ANALYSIS REQUIREMENTS ===
-- Extract: materials, labor, equipment, costs
-- Use Saudi Arabia market prices (SAR)
-- Provide comprehensive cost breakdown
-- ALL output text must be CLEAN and in ${outputLanguage}
+1. LANGUAGE: Detect and note the document language
+2. TEXT RECOVERY: If corrupted (Ø, Ù, Ã patterns = Arabic UTF-8), rebuild meaning
+3. BOQ EXTRACTION: Extract all items with:
+   - Item No, Description, Unit, Quantity, Rate, Amount, Section, Notes
+4. VALIDATION:
+   - Check: Amount ≈ Quantity × Rate
+   - Flag missing values
+   - Identify duplicates
+   - Normalize units (m, m², m³, kg, ton, pcs, ls, nr)
+5. INSIGHTS:
+   - Total items count and BOQ value
+   - Section subtotals
+   - Top 10 highest-cost items
+   - Risk flags (missing data, arithmetic errors, duplicates)
+6. COST ANALYSIS:
+   - Materials, Labor, Equipment breakdown
+   - Overhead (8-12%), Admin (3-5%), Insurance (2-3%), Contingency (5-10%)
+   - Profit margin (10-15%)
+   - Use Saudi Arabia market prices (SAR)
 
 === OUTPUT ===
-Return ONLY valid JSON with NO corrupted text.`;
+- Return ONLY valid JSON
+- NO corrupted text or encoding artifacts
+- ALL text in ${outputLanguage}`;
 
     let response;
     let providerUsed = ai_provider || 'lovable';
@@ -317,11 +336,37 @@ Return ONLY valid JSON with NO corrupted text.`;
               tools: [{
                 type: "function",
                 function: {
-                  name: "provide_cost_analysis",
-                  description: `Provide detailed cost breakdown analysis for construction items. ALL text must be in ${outputLanguage}.`,
+                  name: "provide_boq_analysis",
+                  description: `Extract and analyze BOQ data with cost breakdown. ALL text must be in ${outputLanguage}. NO corrupted text.`,
                   parameters: {
                     type: "object",
                     properties: {
+                      detected_language: { type: "string", description: "Detected document language: ar or en" },
+                      boq_items: {
+                        type: "array",
+                        description: "Extracted BOQ line items",
+                        items: {
+                          type: "object",
+                          properties: {
+                            item_no: { type: "string" },
+                            description: { type: "string", description: `Clean description in ${outputLanguage} - NO corrupted text` },
+                            unit: { type: "string", description: "Normalized unit: m, m², m³, kg, ton, pcs, ls, nr" },
+                            quantity: { type: "number" },
+                            rate: { type: "number" },
+                            amount: { type: "number" },
+                            section: { type: "string", description: `Section/category in ${outputLanguage}` },
+                            notes: { type: "string" },
+                            validation: {
+                              type: "object",
+                              properties: {
+                                arithmetic_ok: { type: "boolean", description: "true if Amount ≈ Qty × Rate" },
+                                has_missing_values: { type: "boolean" },
+                                flags: { type: "array", items: { type: "string" } }
+                              }
+                            }
+                          }
+                        }
+                      },
                       cost_analysis: {
                         type: "array",
                         items: {
@@ -331,55 +376,21 @@ Return ONLY valid JSON with NO corrupted text.`;
                             materials: {
                               type: "object",
                               properties: {
-                                items: { 
-                                  type: "array", 
-                                  items: { 
-                                    type: "object",
-                                    properties: {
-                                      name: { type: "string", description: `Material name in ${outputLanguage}` },
-                                      quantity: { type: "number" },
-                                      unit: { type: "string" },
-                                      unit_price: { type: "number" },
-                                      total: { type: "number" }
-                                    }
-                                  } 
-                                },
+                                items: { type: "array", items: { type: "object", properties: { name: { type: "string" }, quantity: { type: "number" }, unit: { type: "string" }, unit_price: { type: "number" }, total: { type: "number" } } } },
                                 total: { type: "number" }
                               }
                             },
                             labor: {
                               type: "object",
                               properties: {
-                                items: { 
-                                  type: "array", 
-                                  items: { 
-                                    type: "object",
-                                    properties: {
-                                      role: { type: "string", description: `Labor role in ${outputLanguage}` },
-                                      hours: { type: "number" },
-                                      hourly_rate: { type: "number" },
-                                      total: { type: "number" }
-                                    }
-                                  } 
-                                },
+                                items: { type: "array", items: { type: "object", properties: { role: { type: "string" }, hours: { type: "number" }, hourly_rate: { type: "number" }, total: { type: "number" } } } },
                                 total: { type: "number" }
                               }
                             },
                             equipment: {
                               type: "object",
                               properties: {
-                                items: { 
-                                  type: "array", 
-                                  items: { 
-                                    type: "object",
-                                    properties: {
-                                      name: { type: "string", description: `Equipment name in ${outputLanguage}` },
-                                      duration: { type: "string", description: `Duration in ${outputLanguage}` },
-                                      daily_rate: { type: "number" },
-                                      total: { type: "number" }
-                                    }
-                                  } 
-                                },
+                                items: { type: "array", items: { type: "object", properties: { name: { type: "string" }, duration: { type: "string" }, daily_rate: { type: "number" }, total: { type: "number" } } } },
                                 total: { type: "number" }
                               }
                             },
@@ -394,10 +405,7 @@ Return ONLY valid JSON with NO corrupted text.`;
                             total_indirect: { type: "number" },
                             total_cost: { type: "number" },
                             unit_price: { type: "number" },
-                            recommendations: { 
-                              type: "array", 
-                              items: { type: "string", description: `Recommendation in ${outputLanguage}` }
-                            }
+                            recommendations: { type: "array", items: { type: "string" } }
                           },
                           required: ["item_description", "total_cost", "materials", "labor", "equipment"]
                         }
@@ -405,6 +413,9 @@ Return ONLY valid JSON with NO corrupted text.`;
                       summary: {
                         type: "object",
                         properties: {
+                          total_items_count: { type: "number" },
+                          total_boq_value: { type: "number" },
+                          sections: { type: "array", items: { type: "object", properties: { name: { type: "string" }, subtotal: { type: "number" }, items_count: { type: "number" } } } },
                           total_materials: { type: "number" },
                           total_labor: { type: "number" },
                           total_equipment: { type: "number" },
@@ -413,18 +424,28 @@ Return ONLY valid JSON with NO corrupted text.`;
                           total_indirect_costs: { type: "number" },
                           total_profit: { type: "number" },
                           grand_total: { type: "number" },
-                          key_insights: { 
-                            type: "array", 
-                            items: { type: "string", description: `Insight in ${outputLanguage}` }
+                          key_insights: { type: "array", items: { type: "string" } }
+                        }
+                      },
+                      top_10_items: { type: "array", items: { type: "object", properties: { item_no: { type: "string" }, description: { type: "string" }, amount: { type: "number" } } } },
+                      risks: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            type: { type: "string", description: "missing_value, arithmetic_error, duplicate, abnormal_quantity, unclear_description" },
+                            item_no: { type: "string" },
+                            description: { type: "string" },
+                            severity: { type: "string", description: "low, medium, high" }
                           }
                         }
                       }
                     },
-                    required: ["cost_analysis", "summary"]
+                    required: ["detected_language", "boq_items", "cost_analysis", "summary"]
                   }
                 }
               }],
-              tool_choice: { type: "function", function: { name: "provide_cost_analysis" } }
+              tool_choice: { type: "function", function: { name: "provide_boq_analysis" } }
             }),
           });
 
