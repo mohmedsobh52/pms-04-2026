@@ -5,18 +5,43 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface BOQItem {
+  item_no: string;
+  description: string;
+  unit: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+  section_trade: string;
+  remarks: string | null;
+  validation_status: "valid" | "warning" | "error";
+  validation_notes: string[];
+}
+
+interface ValidationIssue {
+  item_no: string;
+  issue_type: "missing_data" | "arithmetic_error" | "inconsistent_unit" | "duplicate" | "unclear_description";
+  severity: "low" | "medium" | "high";
+  description: string;
+  recommendation: string;
+}
+
+interface SectionSummary {
+  section: string;
+  item_count: number;
+  total_amount: number;
+  percentage_of_total: number;
+}
+
 interface AnalysisResult {
   analysis_type: string;
-  items: Array<{
-    item_number: string;
-    description: string;
-    unit: string;
-    quantity: number;
-    unit_price?: number;
-    total_price?: number;
-    category?: string;
-    notes?: string;
-  }>;
+  document_info: {
+    detected_language: string;
+    file_type: string;
+    encoding_quality: string;
+    total_pages_estimated: number;
+  };
+  items: BOQItem[];
   wbs?: Array<{
     code: string;
     title: string;
@@ -24,12 +49,78 @@ interface AnalysisResult {
     parent_code?: string;
     items: string[];
   }>;
-  summary?: {
-    total_items: number;
-    total_value?: number;
-    categories: string[];
-    currency?: string;
+  validation: {
+    total_issues: number;
+    issues: ValidationIssue[];
+    data_quality_score: number;
+    arithmetic_check_passed: number;
+    arithmetic_check_failed: number;
   };
+  analysis: {
+    total_items: number;
+    total_value: number;
+    currency: string;
+    sections_summary: SectionSummary[];
+    high_value_items: BOQItem[];
+    data_quality_issues: string[];
+    risks: string[];
+  };
+  executive_summary: string;
+}
+
+// Standard unit normalization map
+const UNIT_NORMALIZATION: { [key: string]: string } = {
+  // Length
+  "meter": "m", "meters": "m", "metre": "m", "metres": "m", "متر": "m", "م": "m",
+  "linear meter": "L.M", "linear metres": "L.M", "lm": "L.M", "l.m": "L.M", "م.ط": "L.M",
+  // Area
+  "square meter": "m²", "square meters": "m²", "sqm": "m²", "sq.m": "m²", "م2": "m²", "م٢": "m²", "متر مربع": "m²",
+  // Volume
+  "cubic meter": "m³", "cubic meters": "m³", "cum": "m³", "cu.m": "m³", "م3": "m³", "م٣": "m³", "متر مكعب": "m³",
+  // Weight
+  "kilogram": "kg", "kilograms": "kg", "kgs": "kg", "كجم": "kg", "كيلوجرام": "kg",
+  "ton": "ton", "tons": "ton", "tonne": "ton", "tonnes": "ton", "طن": "ton",
+  // Count
+  "piece": "pcs", "pieces": "pcs", "pc": "pcs", "nos": "pcs", "no": "pcs", "number": "pcs", "عدد": "pcs", "قطعة": "pcs",
+  "each": "ea", "unit": "ea", "وحدة": "ea",
+  // Lump sum
+  "lump sum": "L.S", "lumpsum": "L.S", "ls": "L.S", "l.s": "L.S", "مقطوعية": "L.S", "جملة": "L.S",
+  "lot": "lot", "مجموعة": "lot",
+  // Time
+  "day": "day", "days": "day", "يوم": "day",
+  "month": "month", "months": "month", "شهر": "month",
+  // Other
+  "trip": "trip", "trips": "trip", "رحلة": "trip",
+  "set": "set", "sets": "set", "طقم": "set",
+};
+
+function normalizeUnit(unit: string): string {
+  if (!unit) return "N/A";
+  const normalized = unit.toLowerCase().trim();
+  return UNIT_NORMALIZATION[normalized] || unit.trim();
+}
+
+function detectLanguage(text: string): string {
+  const arabicPattern = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/g;
+  const englishPattern = /[a-zA-Z]/g;
+  
+  const arabicCount = (text.match(arabicPattern) || []).length;
+  const englishCount = (text.match(englishPattern) || []).length;
+  
+  if (arabicCount > englishCount * 2) return "Arabic";
+  if (englishCount > arabicCount * 2) return "English";
+  return "Mixed (Arabic/English)";
+}
+
+function assessEncodingQuality(text: string): string {
+  const corruptedPatterns = /[\ufffd\u0000-\u0008\u000b\u000c\u000e-\u001f]/g;
+  const corruptedCount = (text.match(corruptedPatterns) || []).length;
+  const ratio = corruptedCount / text.length;
+  
+  if (ratio < 0.01) return "Excellent";
+  if (ratio < 0.05) return "Good";
+  if (ratio < 0.1) return "Fair - Some text corruption detected";
+  return "Poor - Significant text corruption";
 }
 
 serve(async (req) => {
@@ -38,28 +129,25 @@ serve(async (req) => {
   }
 
   try {
-    const { text, analysis_type, language = 'en' } = await req.json();
+    const { text, analysis_type, language = 'en', file_type = 'pdf' } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const isArabic = language === 'ar';
-    const outputLanguage = isArabic ? 'Arabic' : 'English';
-
-    // Validate that text is readable
+    // Validate input
     if (!text || typeof text !== "string" || text.length < 10) {
       return new Response(
         JSON.stringify({ 
-          error: isArabic ? "النص المُدخل قصير جداً أو غير صالح" : "Input text is too short or invalid",
-          suggestion: isArabic ? "يرجى إدخال نص BOQ يدوياً أو استخدام ملف PDF يحتوي على نص قابل للتحديد" : "Please enter BOQ text manually or use a PDF with selectable text"
+          error: "Input text is too short or invalid",
+          suggestion: "Please enter BOQ text manually or use a PDF with selectable text"
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Check if text contains too many invalid characters (binary data)
+    // Check for binary data
     const invalidCharCount = (text.match(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g) || []).length;
     const invalidRatio = invalidCharCount / text.length;
     
@@ -67,93 +155,158 @@ serve(async (req) => {
       console.log(`Text appears to be binary data. Invalid char ratio: ${invalidRatio}`);
       return new Response(
         JSON.stringify({ 
-          error: isArabic ? "لا يمكن قراءة محتوى الملف" : "Cannot read file content",
-          suggestion: isArabic ? "يبدو أن ملف PDF يحتوي على صور أو نص غير قابل للتحديد. يرجى إدخال النص يدوياً." : "The PDF appears to contain images or non-selectable text. Please enter text manually."
+          error: "Cannot read file content",
+          suggestion: "The file appears to contain scanned images or non-selectable text. Please use OCR or enter text manually."
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Starting ${analysis_type} analysis with ${text.length} characters in ${outputLanguage}...`);
+    // Detect document properties
+    const detectedLanguage = detectLanguage(text);
+    const encodingQuality = assessEncodingQuality(text);
+    const outputLanguage = language === 'ar' ? 'Arabic' : 'English';
 
-    let systemPrompt = "";
-    let userPrompt = "";
+    console.log(`Starting professional BOQ analysis...`);
+    console.log(`File Type: ${file_type} | Language: ${detectedLanguage} | Encoding: ${encodingQuality}`);
+    console.log(`Text length: ${text.length} characters`);
 
-    switch (analysis_type) {
-      case "extract_items":
-        systemPrompt = `You are a BOQ (Bill of Quantities) expert specialized in construction cost estimation.
-CRITICAL: You MUST extract ALL pricing information including unit prices and total prices.
-IMPORTANT: ALL output text (descriptions, categories, notes) must be in ${outputLanguage}.
+    const systemPrompt = `You are a professional Quantity Surveyor and BOQ Analyst with expertise in construction cost estimation.
 
-Analyze the document carefully to find:
-1. Item numbers/codes
-2. Descriptions (translate to ${outputLanguage} if needed)
-3. Units (${isArabic ? 'م، م²، م³، كجم، عدد، طن' : 'm, m², m³, kg, pcs, ton'}, etc.)
-4. Quantities (numbers)
-5. Unit prices
-6. Total prices (total = quantity × unit_price)
-7. Categories (group similar items)
+## YOUR ROLE
+Analyze BOQ (Bill of Quantities) documents with precision and accuracy, extracting all relevant information while identifying data quality issues.
 
-Return ONLY a valid JSON object with this structure:
+## DOCUMENT INFORMATION
+- Detected Language: ${detectedLanguage}
+- File Type: ${file_type}
+- Encoding Quality: ${encodingQuality}
+
+## EXTRACTION REQUIREMENTS
+
+### 1. BOQ Line Items
+Extract ALL line items with the following fields:
+- item_no: Item number/code (e.g., "1.1", "A-001", "01.02.03")
+- description: Full item description (clean, readable text)
+- unit: Normalized unit (m, m², m³, kg, pcs, ton, L.S, L.M, ea, lot, day, month, trip, set)
+- quantity: Numeric quantity
+- rate: Unit rate/price
+- amount: Total amount (should equal quantity × rate)
+- section_trade: Category/section (e.g., Earthworks, Concrete, Steel, MEP, Finishing)
+- remarks: Any notes or specifications
+
+### 2. Unit Normalization
+Standardize units:
+- Length: m, L.M (linear meter)
+- Area: m²
+- Volume: m³
+- Weight: kg, ton
+- Count: pcs, ea
+- Lump sum: L.S, lot
+- Time: day, month
+
+### 3. Validation Checks
+For each item, verify:
+- Amount ≈ Quantity × Rate (within 1% tolerance)
+- All required fields are present
+- Unit is valid and normalized
+- Description is clear and not duplicated
+
+### 4. Section/Trade Categories
+Group items into standard construction trades:
+- Site Preparation & Earthworks
+- Foundations & Substructure
+- Concrete Works
+- Steel & Metal Works
+- Masonry & Blockwork
+- Roofing & Waterproofing
+- Doors & Windows
+- Finishes (Flooring, Wall, Ceiling)
+- MEP - Electrical
+- MEP - Plumbing
+- MEP - HVAC
+- External Works
+- Preliminaries & General
+
+## OUTPUT FORMAT (JSON)
 {
-  "analysis_type": "extract_items",
+  "analysis_type": "professional_boq_analysis",
+  "document_info": {
+    "detected_language": "${detectedLanguage}",
+    "file_type": "${file_type}",
+    "encoding_quality": "${encodingQuality}",
+    "total_pages_estimated": number
+  },
   "items": [
     {
-      "item_number": "string",
-      "description": "string (in ${outputLanguage})",
-      "unit": "string",
+      "item_no": "string",
+      "description": "string (clean, in ${outputLanguage})",
+      "unit": "string (normalized)",
       "quantity": number,
-      "unit_price": number (REQUIRED - estimate if not explicitly stated based on typical construction costs),
-      "total_price": number (REQUIRED - calculate as quantity × unit_price),
-      "category": "string (in ${outputLanguage}, e.g., ${isArabic ? 'أعمال الحفر, الخرسانة, الكهرباء, السباكة, التشطيبات' : 'Excavation, Concrete, Electrical, Plumbing, Finishes'})",
-      "notes": "string or null (in ${outputLanguage})"
+      "rate": number,
+      "amount": number,
+      "section_trade": "string",
+      "remarks": "string or null",
+      "validation_status": "valid" | "warning" | "error",
+      "validation_notes": ["array of validation notes"]
     }
   ],
-  "summary": {
+  "validation": {
+    "total_issues": number,
+    "issues": [
+      {
+        "item_no": "string",
+        "issue_type": "missing_data" | "arithmetic_error" | "inconsistent_unit" | "duplicate" | "unclear_description",
+        "severity": "low" | "medium" | "high",
+        "description": "string",
+        "recommendation": "string"
+      }
+    ],
+    "data_quality_score": number (0-100),
+    "arithmetic_check_passed": number,
+    "arithmetic_check_failed": number
+  },
+  "analysis": {
     "total_items": number,
-    "total_value": number (REQUIRED - sum of all total_prices),
-    "categories": ["array of unique category names in ${outputLanguage}"],
-    "currency": "${isArabic ? 'ر.س' : 'SAR'}" (or detect from document),
-    "average_item_value": number (total_value / total_items)
-  }
+    "total_value": number,
+    "currency": "SAR" or detected currency,
+    "sections_summary": [
+      {
+        "section": "string",
+        "item_count": number,
+        "total_amount": number,
+        "percentage_of_total": number
+      }
+    ],
+    "high_value_items": [top 10 items by amount],
+    "data_quality_issues": ["list of quality concerns"],
+    "risks": ["list of identified risks"]
+  },
+  "executive_summary": "2-3 paragraph summary of the BOQ analysis in ${outputLanguage}"
 }
 
-IMPORTANT RULES:
-- ALL text output must be in ${outputLanguage}
-- If prices are not explicitly stated, make reasonable estimates based on typical Saudi/Gulf construction costs
-- Always calculate total_price = quantity × unit_price
-- Always provide total_value in summary
-- Group items into logical categories
-- Return ONLY valid JSON, no markdown or explanation`;
-        userPrompt = `Extract ALL BOQ items with PRICES from this construction document. Output all text in ${outputLanguage}. Look for quantities, rates, and totals:\n\n${text.slice(0, 20000)}`;
-        break;
+## CRITICAL RULES
+1. Do NOT output corrupted or unreadable text - clean it up or mark as [UNREADABLE]
+2. Respond in ${outputLanguage}
+3. Prioritize accuracy over completeness
+4. Flag any suspicious or inconsistent data
+5. Calculate percentages and totals accurately
+6. If rate/amount is missing, estimate based on typical construction costs and mark as "estimated"
+7. Return ONLY valid JSON, no markdown or explanation`;
 
-      case "create_wbs":
-        systemPrompt = `You are a project management expert specializing in Work Breakdown Structure (WBS) creation.
-IMPORTANT: ALL output text (titles, descriptions) must be in ${outputLanguage}.
-Analyze the BOQ text and create a hierarchical WBS structure.
-Return ONLY a valid JSON object (no markdown, no code blocks, no explanation) with this structure:
-{
-  "analysis_type": "create_wbs",
-  "wbs": [
-    {
-      "code": "string (e.g., 1, 1.1, 1.1.1)",
-      "title": "string (in ${outputLanguage})",
-      "level": number (1, 2, or 3),
-      "parent_code": "string or null",
-      "items": ["array of related item numbers"]
-    }
-  ]
-}
-Create a logical hierarchy grouping related work items together. All titles must be in ${outputLanguage}. Return ONLY valid JSON.`;
-        userPrompt = `Create a WBS structure from this BOQ. Output all text in ${outputLanguage}:\n\n${text.slice(0, 15000)}`;
-        break;
+    const userPrompt = `Analyze this BOQ document as a professional Quantity Surveyor. Extract all items, validate data, and provide comprehensive analysis.
 
-      default:
-        systemPrompt = `You are a document analysis expert. Analyze the provided text and extract structured information.
-Return ONLY a valid JSON object with relevant analysis results.`;
-        userPrompt = `Analyze this document:\n\n${text.slice(0, 15000)}`;
-    }
+DOCUMENT CONTENT:
+${text.slice(0, 30000)}
+
+${text.length > 30000 ? `\n[Document truncated - ${text.length - 30000} additional characters not shown]` : ''}
+
+Please provide:
+1. Complete extraction of all BOQ items with normalized units
+2. Validation of arithmetic (Amount = Qty × Rate)
+3. Summary by section/trade
+4. Top 10 high-value cost drivers
+5. Data quality issues and risks
+6. Executive summary`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -162,7 +315,7 @@ Return ONLY a valid JSON object with relevant analysis results.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-pro",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -200,56 +353,64 @@ Return ONLY a valid JSON object with relevant analysis results.`;
     }
 
     console.log("AI response received, parsing...");
-    console.log("Full AI response:", content);
 
-    // Extract JSON from response with improved handling
     let result: AnalysisResult;
     try {
-      // Try to parse directly first
       result = JSON.parse(content);
-      console.log("Successfully parsed JSON directly");
     } catch (directParseError) {
       console.log("Direct parse failed, trying extraction methods...");
       
       try {
-        // Try to extract JSON from markdown code block
         const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
         if (jsonMatch) {
-          console.log("Found JSON in markdown code block");
           result = JSON.parse(jsonMatch[1].trim());
         } else {
-          // Try to find JSON object in the response by matching braces
           const jsonStart = content.indexOf("{");
           const jsonEnd = content.lastIndexOf("}");
           
           if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
             const jsonStr = content.slice(jsonStart, jsonEnd + 1);
-            console.log("Extracted JSON string:", jsonStr.slice(0, 200));
-            
-            try {
-              result = JSON.parse(jsonStr);
-              console.log("Successfully parsed extracted JSON");
-            } catch (parseError) {
-              console.error("Failed to parse extracted JSON:", parseError);
-              console.error("Extracted string:", jsonStr);
-              throw new Error(`فشل تحليل استجابة الذكاء الاصطناعي. يرجى المحاولة مرة أخرى.`);
-            }
+            result = JSON.parse(jsonStr);
           } else {
-            console.error("Could not find JSON structure in response");
-            console.error("Response content:", content);
-            throw new Error(`الاستجابة لا تحتوي على JSON صالح. يرجى المحاولة مرة أخرى.`);
+            throw new Error("Could not find JSON structure in response");
           }
         }
       } catch (extractError) {
         console.error("All JSON extraction methods failed");
-        console.error("Original error:", directParseError);
-        console.error("Extraction error:", extractError);
-        console.error("Full response:", content);
-        throw new Error(`تعذر معالجة استجابة الذكاء الاصطناعي. يرجى المحاولة مرة أخرى.`);
+        throw new Error("Failed to process AI response. Please try again.");
       }
     }
 
-    console.log(`Analysis complete: ${result.items?.length || result.wbs?.length || 0} items found`);
+    // Post-process: normalize units and recalculate if needed
+    if (result.items) {
+      result.items = result.items.map(item => {
+        const normalizedUnit = normalizeUnit(item.unit);
+        const calculatedAmount = item.quantity * item.rate;
+        const amountDiff = Math.abs(calculatedAmount - item.amount);
+        const tolerance = item.amount * 0.01; // 1% tolerance
+        
+        const validationNotes: string[] = item.validation_notes || [];
+        let validationStatus = item.validation_status || "valid";
+        
+        if (amountDiff > tolerance && item.amount > 0) {
+          validationNotes.push(`Arithmetic discrepancy: Qty(${item.quantity}) × Rate(${item.rate}) = ${calculatedAmount.toFixed(2)}, but Amount = ${item.amount}`);
+          validationStatus = "warning";
+        }
+        
+        return {
+          ...item,
+          unit: normalizedUnit,
+          validation_status: validationStatus as "valid" | "warning" | "error",
+          validation_notes: validationNotes
+        };
+      });
+    }
+
+    console.log(`Professional BOQ analysis complete:`);
+    console.log(`- Total items: ${result.items?.length || 0}`);
+    console.log(`- Total value: ${result.analysis?.total_value || 0}`);
+    console.log(`- Validation issues: ${result.validation?.total_issues || 0}`);
+    console.log(`- Data quality score: ${result.validation?.data_quality_score || 'N/A'}%`);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
