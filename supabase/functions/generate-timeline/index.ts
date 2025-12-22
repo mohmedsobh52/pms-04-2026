@@ -27,6 +27,41 @@ interface P6Request {
   statusDate?: string;
   actualProgress?: { [activityId: string]: number };
   actualCosts?: { [activityId: string]: number };
+  generateResourceLoading?: boolean;
+}
+
+interface ResourceAssignment {
+  activity_id: string;
+  activity_name: string;
+  wbs_code: string;
+  resource_type: "Labor" | "Equipment" | "Materials";
+  resource_name: string;
+  units_per_day: number;
+  total_quantity: number;
+  unit: string;
+  productivity_rate: string;
+  start_day: number;
+  end_day: number;
+}
+
+interface ResourcePeakPeriod {
+  period: string;
+  period_number: number;
+  resource_type: string;
+  resource_name: string;
+  peak_demand: number;
+  unit: string;
+  activities_contributing: string[];
+}
+
+interface ResourceConflict {
+  period: string;
+  resource_name: string;
+  required_quantity: number;
+  typical_available: number;
+  overload_percent: number;
+  conflicting_activities: string[];
+  recommendation: string;
 }
 
 interface CashFlowPeriod {
@@ -75,7 +110,8 @@ serve(async (req) => {
       generateEVM = false,
       statusDate,
       actualProgress = {},
-      actualCosts = {}
+      actualCosts = {},
+      generateResourceLoading = false
     }: P6Request = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -87,6 +123,7 @@ serve(async (req) => {
     console.log("Project:", projectName, "| Type:", projectType, "| TCV:", totalContractValue, currency);
     console.log("Cash Flow:", generateCashFlow ? `Yes (${cashFlowPeriod})` : "No");
     console.log("EVM Analysis:", generateEVM ? `Yes (Status: ${statusDate || 'Current'})` : "No");
+    console.log("Resource Loading:", generateResourceLoading ? "Yes" : "No");
 
     const systemPrompt = `You are a Project Cost Control Engineer and Primavera P6 Planning Expert.
 
@@ -279,6 +316,17 @@ Requirements:
         actualCosts
       );
       result.evm_analysis = evmAnalysis;
+    }
+
+    // Generate Resource Loading if requested
+    if (generateResourceLoading && result.activities) {
+      const resourceLoading = generateResourceLoadingAnalysis(
+        result.activities,
+        projectType,
+        cashFlowPeriod,
+        workingDaysPerWeek
+      );
+      result.resource_loading = resourceLoading;
     }
 
     return new Response(
@@ -755,4 +803,397 @@ function generateSCurveDescription(periods: EVMPeriod[], bac: number, currency: 
   }
 
   return description;
+}
+
+// Resource database for typical construction activities
+const RESOURCE_DATABASE: { [key: string]: { labor: any[], equipment: any[], materials: any[] } } = {
+  // Earthworks / Site Preparation
+  earthworks: {
+    labor: [
+      { name: "General Laborer", units_per_day: 8, unit: "Man-Days", productivity: "10 m³/day per laborer" },
+      { name: "Equipment Operator", units_per_day: 2, unit: "Man-Days", productivity: "50 m³/day per operator" }
+    ],
+    equipment: [
+      { name: "Excavator (20T)", units_per_day: 1, unit: "Equipment-Days", productivity: "200 m³/day" },
+      { name: "Dump Truck", units_per_day: 3, unit: "Equipment-Days", productivity: "150 m³/day total" },
+      { name: "Bulldozer", units_per_day: 1, unit: "Equipment-Days", productivity: "300 m²/day" }
+    ],
+    materials: [
+      { name: "Backfill Material", units_per_day: 50, unit: "m³", productivity: "Per day consumption" }
+    ]
+  },
+  // Foundation / Concrete
+  foundation: {
+    labor: [
+      { name: "Concrete Worker", units_per_day: 12, unit: "Man-Days", productivity: "15 m³/day crew" },
+      { name: "Steel Fixer", units_per_day: 8, unit: "Man-Days", productivity: "500 kg/day crew" },
+      { name: "Carpenter (Formwork)", units_per_day: 6, unit: "Man-Days", productivity: "20 m²/day crew" }
+    ],
+    equipment: [
+      { name: "Concrete Pump", units_per_day: 1, unit: "Equipment-Days", productivity: "60 m³/day" },
+      { name: "Concrete Mixer Truck", units_per_day: 4, unit: "Trips", productivity: "8 m³ per trip" },
+      { name: "Vibrator", units_per_day: 3, unit: "Equipment-Days", productivity: "Continuous" }
+    ],
+    materials: [
+      { name: "Ready-Mix Concrete", units_per_day: 30, unit: "m³", productivity: "Per day pour" },
+      { name: "Reinforcement Steel", units_per_day: 2000, unit: "kg", productivity: "Per day installation" },
+      { name: "Formwork Plywood", units_per_day: 50, unit: "m²", productivity: "Per day setup" }
+    ]
+  },
+  // Structural / Steel
+  structural: {
+    labor: [
+      { name: "Structural Welder", units_per_day: 6, unit: "Man-Days", productivity: "30 joints/day crew" },
+      { name: "Steel Erector", units_per_day: 8, unit: "Man-Days", productivity: "2 tons/day crew" },
+      { name: "Rigger", units_per_day: 4, unit: "Man-Days", productivity: "Supporting role" }
+    ],
+    equipment: [
+      { name: "Tower Crane", units_per_day: 1, unit: "Equipment-Days", productivity: "50 lifts/day" },
+      { name: "Mobile Crane (50T)", units_per_day: 1, unit: "Equipment-Days", productivity: "30 lifts/day" },
+      { name: "Welding Machine", units_per_day: 6, unit: "Equipment-Days", productivity: "Per welder" }
+    ],
+    materials: [
+      { name: "Structural Steel", units_per_day: 5000, unit: "kg", productivity: "Per day erection" },
+      { name: "High-Strength Bolts", units_per_day: 200, unit: "pcs", productivity: "Per day installation" }
+    ]
+  },
+  // Masonry / Block Work
+  masonry: {
+    labor: [
+      { name: "Mason", units_per_day: 6, unit: "Man-Days", productivity: "8 m²/day per mason" },
+      { name: "Mason Helper", units_per_day: 6, unit: "Man-Days", productivity: "Supporting role" }
+    ],
+    equipment: [
+      { name: "Mortar Mixer", units_per_day: 1, unit: "Equipment-Days", productivity: "2 m³/day" },
+      { name: "Scaffolding Set", units_per_day: 1, unit: "Sets", productivity: "Per work area" }
+    ],
+    materials: [
+      { name: "Concrete Blocks", units_per_day: 300, unit: "pcs", productivity: "Per day laying" },
+      { name: "Mortar Mix", units_per_day: 1, unit: "m³", productivity: "Per day consumption" },
+      { name: "Sand", units_per_day: 2, unit: "m³", productivity: "Per day consumption" }
+    ]
+  },
+  // MEP (Mechanical, Electrical, Plumbing)
+  mep: {
+    labor: [
+      { name: "Electrician", units_per_day: 4, unit: "Man-Days", productivity: "100 m cable/day" },
+      { name: "Plumber", units_per_day: 4, unit: "Man-Days", productivity: "30 m pipe/day" },
+      { name: "HVAC Technician", units_per_day: 4, unit: "Man-Days", productivity: "1 unit/day" }
+    ],
+    equipment: [
+      { name: "Pipe Threading Machine", units_per_day: 1, unit: "Equipment-Days", productivity: "100 threads/day" },
+      { name: "Cable Pulling Machine", units_per_day: 1, unit: "Equipment-Days", productivity: "500 m/day" }
+    ],
+    materials: [
+      { name: "Electrical Cable", units_per_day: 200, unit: "m", productivity: "Per day installation" },
+      { name: "PVC Pipes", units_per_day: 100, unit: "m", productivity: "Per day installation" },
+      { name: "Duct Work", units_per_day: 50, unit: "m²", productivity: "Per day installation" }
+    ]
+  },
+  // Finishing Works
+  finishing: {
+    labor: [
+      { name: "Painter", units_per_day: 4, unit: "Man-Days", productivity: "40 m²/day per painter" },
+      { name: "Tile Setter", units_per_day: 3, unit: "Man-Days", productivity: "15 m²/day per setter" },
+      { name: "Plasterer", units_per_day: 4, unit: "Man-Days", productivity: "25 m²/day per plasterer" },
+      { name: "Carpenter (Doors/Windows)", units_per_day: 2, unit: "Man-Days", productivity: "3 units/day" }
+    ],
+    equipment: [
+      { name: "Spray Painting Machine", units_per_day: 1, unit: "Equipment-Days", productivity: "200 m²/day" },
+      { name: "Tile Cutting Machine", units_per_day: 1, unit: "Equipment-Days", productivity: "Supporting" }
+    ],
+    materials: [
+      { name: "Paint", units_per_day: 20, unit: "Liters", productivity: "Per day application" },
+      { name: "Ceramic Tiles", units_per_day: 50, unit: "m²", productivity: "Per day installation" },
+      { name: "Plaster", units_per_day: 500, unit: "kg", productivity: "Per day application" }
+    ]
+  },
+  // Default for unmatched activities
+  default: {
+    labor: [
+      { name: "General Laborer", units_per_day: 5, unit: "Man-Days", productivity: "Varies by task" },
+      { name: "Skilled Worker", units_per_day: 3, unit: "Man-Days", productivity: "Varies by task" }
+    ],
+    equipment: [
+      { name: "General Equipment", units_per_day: 1, unit: "Equipment-Days", productivity: "As required" }
+    ],
+    materials: [
+      { name: "General Materials", units_per_day: 1, unit: "Lot", productivity: "As required" }
+    ]
+  }
+};
+
+function categorizeActivity(activityName: string): string {
+  const name = activityName.toLowerCase();
+  
+  if (name.includes("excavat") || name.includes("earthwork") || name.includes("grading") || 
+      name.includes("site prep") || name.includes("clearing") || name.includes("backfill")) {
+    return "earthworks";
+  }
+  if (name.includes("foundation") || name.includes("concrete") || name.includes("footing") || 
+      name.includes("slab") || name.includes("pour") || name.includes("rebar")) {
+    return "foundation";
+  }
+  if (name.includes("steel") || name.includes("structural") || name.includes("column") || 
+      name.includes("beam") || name.includes("erect") || name.includes("frame")) {
+    return "structural";
+  }
+  if (name.includes("masonry") || name.includes("block") || name.includes("brick") || 
+      name.includes("wall") || name.includes("partition")) {
+    return "masonry";
+  }
+  if (name.includes("electrical") || name.includes("plumbing") || name.includes("hvac") || 
+      name.includes("mep") || name.includes("mechanical") || name.includes("wiring") ||
+      name.includes("pipe") || name.includes("duct")) {
+    return "mep";
+  }
+  if (name.includes("paint") || name.includes("finish") || name.includes("tile") || 
+      name.includes("plaster") || name.includes("ceiling") || name.includes("floor") ||
+      name.includes("door") || name.includes("window") || name.includes("cladding")) {
+    return "finishing";
+  }
+  
+  return "default";
+}
+
+function generateResourceLoadingAnalysis(
+  activities: any[],
+  projectType: string,
+  period: "weekly" | "monthly",
+  workingDaysPerWeek: number
+) {
+  if (!activities || activities.length === 0) {
+    return { assignments: [], peak_periods: [], conflicts: [], summary: {} };
+  }
+
+  // Calculate total project duration
+  let maxEndDay = 0;
+  activities.forEach(activity => {
+    const startDay = activity.startDay || 0;
+    const duration = activity.duration_days || 0;
+    const endDay = startDay + duration;
+    if (endDay > maxEndDay) maxEndDay = endDay;
+  });
+
+  const daysPerPeriod = period === "weekly" ? workingDaysPerWeek : workingDaysPerWeek * 4;
+  const totalPeriods = Math.ceil(maxEndDay / daysPerPeriod) || 1;
+
+  // Generate resource assignments for each activity
+  const assignments: ResourceAssignment[] = [];
+  
+  activities.forEach(activity => {
+    const activityId = activity.activity_id || "";
+    const activityName = activity.activity_name || "";
+    const wbsCode = activity.wbs_code || "";
+    const duration = activity.duration_days || 1;
+    const startDay = activity.startDay || 0;
+    const endDay = startDay + duration;
+    
+    // Skip milestones
+    if (activity.is_milestone) return;
+    
+    // Categorize activity and get resources
+    const category = categorizeActivity(activityName);
+    const resources = RESOURCE_DATABASE[category] || RESOURCE_DATABASE.default;
+    
+    // Duration multiplier (longer activities may need more resources)
+    const durationMultiplier = duration > 20 ? 1.2 : duration > 10 ? 1.0 : 0.8;
+    
+    // Add labor resources
+    resources.labor.forEach((labor: any) => {
+      const unitsPerDay = Math.round(labor.units_per_day * durationMultiplier);
+      assignments.push({
+        activity_id: activityId,
+        activity_name: activityName,
+        wbs_code: wbsCode,
+        resource_type: "Labor",
+        resource_name: labor.name,
+        units_per_day: unitsPerDay,
+        total_quantity: unitsPerDay * duration,
+        unit: labor.unit,
+        productivity_rate: labor.productivity,
+        start_day: startDay,
+        end_day: endDay
+      });
+    });
+    
+    // Add equipment resources
+    resources.equipment.forEach((equip: any) => {
+      assignments.push({
+        activity_id: activityId,
+        activity_name: activityName,
+        wbs_code: wbsCode,
+        resource_type: "Equipment",
+        resource_name: equip.name,
+        units_per_day: equip.units_per_day,
+        total_quantity: equip.units_per_day * duration,
+        unit: equip.unit,
+        productivity_rate: equip.productivity,
+        start_day: startDay,
+        end_day: endDay
+      });
+    });
+    
+    // Add material resources
+    resources.materials.forEach((mat: any) => {
+      assignments.push({
+        activity_id: activityId,
+        activity_name: activityName,
+        wbs_code: wbsCode,
+        resource_type: "Materials",
+        resource_name: mat.name,
+        units_per_day: mat.units_per_day,
+        total_quantity: mat.units_per_day * duration,
+        unit: mat.unit,
+        productivity_rate: mat.productivity,
+        start_day: startDay,
+        end_day: endDay
+      });
+    });
+  });
+
+  // Calculate resource demand per period
+  const periodDemand: { [key: string]: { [resource: string]: { demand: number; unit: string; activities: string[] } } } = {};
+  
+  for (let i = 0; i < totalPeriods; i++) {
+    const periodStartDay = i * daysPerPeriod;
+    const periodEndDay = (i + 1) * daysPerPeriod;
+    const periodLabel = period === "weekly" ? `Week ${i + 1}` : `Month ${i + 1}`;
+    periodDemand[periodLabel] = {};
+    
+    assignments.forEach(assignment => {
+      // Check if assignment overlaps with this period
+      if (assignment.end_day > periodStartDay && assignment.start_day < periodEndDay) {
+        const resourceKey = `${assignment.resource_type}:${assignment.resource_name}`;
+        
+        if (!periodDemand[periodLabel][resourceKey]) {
+          periodDemand[periodLabel][resourceKey] = { demand: 0, unit: assignment.unit, activities: [] };
+        }
+        
+        periodDemand[periodLabel][resourceKey].demand += assignment.units_per_day;
+        if (!periodDemand[periodLabel][resourceKey].activities.includes(assignment.activity_name)) {
+          periodDemand[periodLabel][resourceKey].activities.push(assignment.activity_name);
+        }
+      }
+    });
+  }
+
+  // Identify peak demand periods
+  const peakPeriods: ResourcePeakPeriod[] = [];
+  const resourcePeaks: { [resource: string]: { period: string; demand: number; unit: string; activities: string[] } } = {};
+  
+  Object.entries(periodDemand).forEach(([periodLabel, resources]) => {
+    const periodNum = parseInt(periodLabel.replace(/\D/g, ""));
+    
+    Object.entries(resources).forEach(([resourceKey, data]) => {
+      const [resourceType, resourceName] = resourceKey.split(":");
+      
+      if (!resourcePeaks[resourceKey] || data.demand > resourcePeaks[resourceKey].demand) {
+        resourcePeaks[resourceKey] = {
+          period: periodLabel,
+          demand: data.demand,
+          unit: data.unit,
+          activities: data.activities
+        };
+      }
+    });
+  });
+  
+  Object.entries(resourcePeaks).forEach(([resourceKey, data]) => {
+    const [resourceType, resourceName] = resourceKey.split(":");
+    const periodNum = parseInt(data.period.replace(/\D/g, ""));
+    
+    peakPeriods.push({
+      period: data.period,
+      period_number: periodNum,
+      resource_type: resourceType,
+      resource_name: resourceName,
+      peak_demand: data.demand,
+      unit: data.unit,
+      activities_contributing: data.activities
+    });
+  });
+
+  // Identify potential resource conflicts (when demand exceeds typical availability)
+  const conflicts: ResourceConflict[] = [];
+  const typicalAvailability: { [key: string]: number } = {
+    "General Laborer": 20,
+    "Skilled Worker": 15,
+    "Concrete Worker": 15,
+    "Steel Fixer": 10,
+    "Carpenter (Formwork)": 8,
+    "Mason": 10,
+    "Electrician": 8,
+    "Plumber": 8,
+    "Painter": 6,
+    "Equipment Operator": 5,
+    "Excavator (20T)": 2,
+    "Tower Crane": 1,
+    "Concrete Pump": 2,
+    "Mobile Crane (50T)": 2
+  };
+  
+  Object.entries(periodDemand).forEach(([periodLabel, resources]) => {
+    Object.entries(resources).forEach(([resourceKey, data]) => {
+      const [resourceType, resourceName] = resourceKey.split(":");
+      const available = typicalAvailability[resourceName] || 10;
+      
+      if (data.demand > available * 1.2) { // 20% overload threshold
+        const overloadPercent = ((data.demand - available) / available) * 100;
+        
+        conflicts.push({
+          period: periodLabel,
+          resource_name: resourceName,
+          required_quantity: data.demand,
+          typical_available: available,
+          overload_percent: Math.round(overloadPercent),
+          conflicting_activities: data.activities,
+          recommendation: overloadPercent > 50 
+            ? `Critical: Consider rescheduling activities or acquiring additional ${resourceName}s`
+            : `Warning: Monitor ${resourceName} availability closely`
+        });
+      }
+    });
+  });
+
+  // Sort conflicts by severity
+  conflicts.sort((a, b) => b.overload_percent - a.overload_percent);
+
+  // Calculate summary statistics
+  const laborAssignments = assignments.filter(a => a.resource_type === "Labor");
+  const equipmentAssignments = assignments.filter(a => a.resource_type === "Equipment");
+  const materialAssignments = assignments.filter(a => a.resource_type === "Materials");
+
+  const totalLaborDays = laborAssignments.reduce((sum, a) => sum + a.total_quantity, 0);
+  const peakLabor = Math.max(...Object.values(periodDemand).map(p => 
+    Object.entries(p)
+      .filter(([k]) => k.startsWith("Labor:"))
+      .reduce((sum, [, v]) => sum + v.demand, 0)
+  ));
+
+  return {
+    project_type: projectType,
+    total_activities: activities.filter(a => !a.is_milestone).length,
+    project_duration_days: maxEndDay,
+    period_type: period,
+    total_periods: totalPeriods,
+    assignments: assignments,
+    peak_periods: peakPeriods.sort((a, b) => b.peak_demand - a.peak_demand),
+    conflicts: conflicts,
+    period_demand: periodDemand,
+    summary: {
+      total_labor_assignments: laborAssignments.length,
+      total_equipment_assignments: equipmentAssignments.length,
+      total_material_assignments: materialAssignments.length,
+      total_labor_man_days: Math.round(totalLaborDays),
+      peak_labor_per_period: Math.round(peakLabor),
+      unique_labor_resources: [...new Set(laborAssignments.map(a => a.resource_name))].length,
+      unique_equipment_resources: [...new Set(equipmentAssignments.map(a => a.resource_name))].length,
+      potential_conflicts: conflicts.length,
+      critical_conflicts: conflicts.filter(c => c.overload_percent > 50).length
+    },
+    notes: `Resource loading analysis based on ${projectType} construction project standards. ` +
+           `Productivity rates are industry averages and may vary based on site conditions. ` +
+           `${conflicts.length > 0 ? `${conflicts.length} potential resource conflicts identified.` : 'No significant resource conflicts detected.'}`
+  };
 }
