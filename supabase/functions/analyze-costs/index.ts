@@ -223,7 +223,7 @@ Respond with valid JSON only.`;
         throw new Error("No AI API keys configured");
       }
 
-      console.log("Using Lovable AI (Gemini Flash for cost analysis)...");
+      console.log("Using Lovable AI (Gemini Flash with tool calling for reliable output)...");
       response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -237,7 +237,61 @@ Respond with valid JSON only.`;
             { role: "user", content: userPrompt },
           ],
           temperature: 0.1,
-          max_tokens: 16000,
+          tools: [{
+            type: "function",
+            function: {
+              name: "provide_cost_analysis",
+              description: "Provide detailed cost breakdown analysis for construction items",
+              parameters: {
+                type: "object",
+                properties: {
+                  cost_analysis: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        item_description: { type: "string" },
+                        materials: {
+                          type: "object",
+                          properties: {
+                            items: { type: "array", items: { type: "object" } },
+                            total: { type: "number" }
+                          }
+                        },
+                        labor: {
+                          type: "object",
+                          properties: {
+                            items: { type: "array", items: { type: "object" } },
+                            total: { type: "number" }
+                          }
+                        },
+                        equipment: {
+                          type: "object",
+                          properties: {
+                            items: { type: "array", items: { type: "object" } },
+                            total: { type: "number" }
+                          }
+                        },
+                        subcontractor: { type: "number" },
+                        overhead: { type: "number" },
+                        admin: { type: "number" },
+                        insurance: { type: "number" },
+                        contingency: { type: "number" },
+                        profit_margin: { type: "number" },
+                        profit_amount: { type: "number" },
+                        total_direct_cost: { type: "number" },
+                        total_indirect_cost: { type: "number" },
+                        total_cost: { type: "number" }
+                      },
+                      required: ["item_description", "total_cost"]
+                    }
+                  }
+                },
+                required: ["cost_analysis"]
+              }
+            }
+          }],
+          tool_choice: { type: "function", function: { name: "provide_cost_analysis" } }
         }),
       });
       providerUsed = 'lovable';
@@ -260,15 +314,10 @@ Respond with valid JSON only.`;
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error("No response from AI");
-    }
-
-    console.log("AI response received, parsing...");
-
-    // Helper function to clean and extract JSON
+    
+    console.log("AI response received, extracting result...");
+    
+    // Helper function to clean and extract JSON from content
     const extractAndParseJSON = (text: string): any => {
       // First, try to parse directly
       try {
@@ -315,7 +364,7 @@ Respond with valid JSON only.`;
         try {
           return JSON.parse(jsonStr);
         } catch (e) {
-          console.error("JSON parsing failed after cleaning. First 500 chars:", text.substring(0, 500));
+          console.error("JSON parsing failed. First 500 chars:", text.substring(0, 500));
           console.error("Last 200 chars:", text.substring(Math.max(0, text.length - 200)));
           throw new Error(`Could not parse AI response: ${e instanceof Error ? e.message : 'Invalid JSON'}`);
         }
@@ -323,14 +372,21 @@ Respond with valid JSON only.`;
 
       throw new Error("Could not find valid JSON in AI response");
     };
-
+    
+    // Extract result from response
     let result;
-    try {
+    if (data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments) {
+      // Extract from tool call (preferred method for Lovable AI)
+      console.log("Extracting from tool call arguments");
+      const argsStr = data.choices[0].message.tool_calls[0].function.arguments;
+      result = typeof argsStr === 'string' ? JSON.parse(argsStr) : argsStr;
+    } else if (data.choices?.[0]?.message?.content) {
+      // Fallback to content parsing (for OpenAI and backward compatibility)
+      console.log("Extracting from message content");
+      const content = data.choices[0].message.content;
       result = extractAndParseJSON(content);
-      console.log("Successfully parsed AI response");
-    } catch (e) {
-      console.error("Failed to parse AI response:", e);
-      throw e;
+    } else {
+      throw new Error("No response from AI (no tool call or content found)");
     }
 
     console.log(`Cost analysis complete using ${providerUsed}`);
