@@ -33,6 +33,46 @@ interface SectionSummary {
   percentage_of_total: number;
 }
 
+// Cost-Loaded Schedule interfaces
+interface ScheduleActivity {
+  activity_id: string;
+  activity_name: string;
+  related_boq_items: string[];
+  duration_days: number;
+  activity_cost: number;
+  cost_weight_percent: number;
+  early_start_day: number;
+  early_finish_day: number;
+  predecessors: string[];
+  cost_distribution: {
+    period: number;
+    period_cost: number;
+  }[];
+}
+
+interface CostLoadedSchedule {
+  project_summary: {
+    total_activities: number;
+    total_project_cost: number;
+    total_duration_days: number;
+    currency: string;
+    cost_variance: number; // Should be 0 if correctly balanced
+  };
+  activities: ScheduleActivity[];
+  cash_flow: {
+    period: number;
+    period_cost: number;
+    cumulative_cost: number;
+    cumulative_percent: number;
+  }[];
+  s_curve_data: {
+    day: number;
+    planned_cost: number;
+    cumulative_cost: number;
+    cumulative_percent: number;
+  }[];
+}
+
 interface AnalysisResult {
   analysis_type: string;
   document_info: {
@@ -66,6 +106,7 @@ interface AnalysisResult {
     risks: string[];
   };
   executive_summary: string;
+  cost_loaded_schedule?: CostLoadedSchedule;
 }
 
 // Standard unit normalization map
@@ -123,13 +164,179 @@ function assessEncodingQuality(text: string): string {
   return "Poor - Significant text corruption";
 }
 
+// Standard construction activity sequencing with typical durations
+const ACTIVITY_TEMPLATE: { [key: string]: { order: number; duration_factor: number; predecessors: string[] } } = {
+  "Site Preparation & Earthworks": { order: 1, duration_factor: 0.08, predecessors: [] },
+  "Foundations & Substructure": { order: 2, duration_factor: 0.12, predecessors: ["Site Preparation & Earthworks"] },
+  "Concrete Works": { order: 3, duration_factor: 0.15, predecessors: ["Foundations & Substructure"] },
+  "Steel & Metal Works": { order: 4, duration_factor: 0.10, predecessors: ["Concrete Works"] },
+  "Masonry & Blockwork": { order: 5, duration_factor: 0.08, predecessors: ["Concrete Works"] },
+  "Roofing & Waterproofing": { order: 6, duration_factor: 0.06, predecessors: ["Steel & Metal Works", "Masonry & Blockwork"] },
+  "MEP - Plumbing": { order: 7, duration_factor: 0.08, predecessors: ["Masonry & Blockwork"] },
+  "MEP - Electrical": { order: 8, duration_factor: 0.08, predecessors: ["Masonry & Blockwork"] },
+  "MEP - HVAC": { order: 9, duration_factor: 0.07, predecessors: ["Roofing & Waterproofing"] },
+  "Doors & Windows": { order: 10, duration_factor: 0.05, predecessors: ["Masonry & Blockwork"] },
+  "Finishes (Flooring, Wall, Ceiling)": { order: 11, duration_factor: 0.12, predecessors: ["MEP - Plumbing", "MEP - Electrical", "Doors & Windows"] },
+  "External Works": { order: 12, duration_factor: 0.08, predecessors: ["Finishes (Flooring, Wall, Ceiling)"] },
+  "Preliminaries & General": { order: 0, duration_factor: 0.05, predecessors: [] },
+};
+
+function generateCostLoadedSchedule(items: BOQItem[], totalValue: number, currency: string): CostLoadedSchedule {
+  // Group items by section/trade
+  const sectionGroups: { [key: string]: BOQItem[] } = {};
+  
+  items.forEach(item => {
+    const section = item.section_trade || "Preliminaries & General";
+    if (!sectionGroups[section]) {
+      sectionGroups[section] = [];
+    }
+    sectionGroups[section].push(item);
+  });
+
+  // Calculate base project duration (typically 12-24 months for construction)
+  const baseDuration = Math.max(180, Math.min(720, Math.ceil(totalValue / 50000))); // Rough estimate
+
+  // Create activities from sections
+  const activities: ScheduleActivity[] = [];
+  let activityId = 1;
+  let currentDay = 1;
+
+  // Sort sections by construction sequence
+  const sortedSections = Object.keys(sectionGroups).sort((a, b) => {
+    const orderA = ACTIVITY_TEMPLATE[a]?.order ?? 99;
+    const orderB = ACTIVITY_TEMPLATE[b]?.order ?? 99;
+    return orderA - orderB;
+  });
+
+  // Calculate schedule using Finish-to-Start relationships
+  const activityMap: { [key: string]: ScheduleActivity } = {};
+
+  sortedSections.forEach(section => {
+    const sectionItems = sectionGroups[section];
+    const sectionCost = sectionItems.reduce((sum, item) => sum + (item.amount || 0), 0);
+    const costWeight = (sectionCost / totalValue) * 100;
+    
+    const template = ACTIVITY_TEMPLATE[section] || { order: 99, duration_factor: 0.05, predecessors: [] };
+    const duration = Math.max(7, Math.ceil(baseDuration * template.duration_factor));
+    
+    // Calculate early start based on predecessors
+    let earlyStart = 1;
+    const predecessorIds: string[] = [];
+    
+    template.predecessors.forEach(predSection => {
+      if (activityMap[predSection]) {
+        earlyStart = Math.max(earlyStart, activityMap[predSection].early_finish_day + 1);
+        predecessorIds.push(activityMap[predSection].activity_id);
+      }
+    });
+
+    // Linear cost distribution across duration
+    const dailyCost = sectionCost / duration;
+    const costDistribution = [];
+    for (let d = 0; d < duration; d++) {
+      costDistribution.push({
+        period: earlyStart + d,
+        period_cost: dailyCost
+      });
+    }
+
+    const activity: ScheduleActivity = {
+      activity_id: `ACT-${String(activityId).padStart(3, '0')}`,
+      activity_name: section,
+      related_boq_items: sectionItems.map(item => item.item_no),
+      duration_days: duration,
+      activity_cost: sectionCost,
+      cost_weight_percent: Math.round(costWeight * 100) / 100,
+      early_start_day: earlyStart,
+      early_finish_day: earlyStart + duration - 1,
+      predecessors: predecessorIds,
+      cost_distribution: costDistribution
+    };
+
+    activities.push(activity);
+    activityMap[section] = activity;
+    activityId++;
+  });
+
+  // Calculate total project duration
+  const totalDuration = Math.max(...activities.map(a => a.early_finish_day));
+
+  // Generate cash flow (monthly periods)
+  const periodLength = 30; // days per period
+  const totalPeriods = Math.ceil(totalDuration / periodLength);
+  const cashFlow: { period: number; period_cost: number; cumulative_cost: number; cumulative_percent: number }[] = [];
+  
+  let cumulativeCost = 0;
+  for (let p = 1; p <= totalPeriods; p++) {
+    const periodStart = (p - 1) * periodLength + 1;
+    const periodEnd = p * periodLength;
+    
+    let periodCost = 0;
+    activities.forEach(activity => {
+      activity.cost_distribution.forEach(dist => {
+        if (dist.period >= periodStart && dist.period <= periodEnd) {
+          periodCost += dist.period_cost;
+        }
+      });
+    });
+    
+    cumulativeCost += periodCost;
+    cashFlow.push({
+      period: p,
+      period_cost: Math.round(periodCost * 100) / 100,
+      cumulative_cost: Math.round(cumulativeCost * 100) / 100,
+      cumulative_percent: Math.round((cumulativeCost / totalValue) * 10000) / 100
+    });
+  }
+
+  // Generate S-Curve data (weekly points)
+  const sCurveData: { day: number; planned_cost: number; cumulative_cost: number; cumulative_percent: number }[] = [];
+  let runningTotal = 0;
+  
+  for (let day = 1; day <= totalDuration; day += 7) {
+    let dayCost = 0;
+    activities.forEach(activity => {
+      activity.cost_distribution.forEach(dist => {
+        if (dist.period <= day && dist.period > day - 7) {
+          dayCost += dist.period_cost;
+        }
+      });
+    });
+    
+    runningTotal += dayCost;
+    sCurveData.push({
+      day: day,
+      planned_cost: Math.round(dayCost * 100) / 100,
+      cumulative_cost: Math.round(runningTotal * 100) / 100,
+      cumulative_percent: Math.round((runningTotal / totalValue) * 10000) / 100
+    });
+  }
+
+  // Calculate total scheduled cost and variance
+  const totalScheduledCost = activities.reduce((sum, a) => sum + a.activity_cost, 0);
+  const costVariance = Math.round((totalScheduledCost - totalValue) * 100) / 100;
+
+  return {
+    project_summary: {
+      total_activities: activities.length,
+      total_project_cost: Math.round(totalValue * 100) / 100,
+      total_duration_days: totalDuration,
+      currency: currency,
+      cost_variance: costVariance
+    },
+    activities: activities,
+    cash_flow: cashFlow,
+    s_curve_data: sCurveData
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { text, analysis_type, language = 'en', file_type = 'pdf' } = await req.json();
+    const { text, analysis_type, language = 'en', file_type = 'pdf', generate_schedule = true } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
@@ -411,6 +618,21 @@ Please provide:
     console.log(`- Total value: ${result.analysis?.total_value || 0}`);
     console.log(`- Validation issues: ${result.validation?.total_issues || 0}`);
     console.log(`- Data quality score: ${result.validation?.data_quality_score || 'N/A'}%`);
+
+    // Generate Cost-Loaded Schedule if requested and items exist
+    if (generate_schedule && result.items && result.items.length > 0) {
+      console.log("Generating Cost-Loaded Project Schedule...");
+      
+      const totalValue = result.analysis?.total_value || result.items.reduce((sum, item) => sum + (item.amount || 0), 0);
+      const currency = result.analysis?.currency || "SAR";
+      
+      result.cost_loaded_schedule = generateCostLoadedSchedule(result.items, totalValue, currency);
+      
+      console.log(`Cost-Loaded Schedule generated:`);
+      console.log(`- Total activities: ${result.cost_loaded_schedule.project_summary.total_activities}`);
+      console.log(`- Project duration: ${result.cost_loaded_schedule.project_summary.total_duration_days} days`);
+      console.log(`- Cost variance: ${result.cost_loaded_schedule.project_summary.cost_variance} (should be 0)`);
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
