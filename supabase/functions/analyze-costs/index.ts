@@ -69,13 +69,15 @@ serve(async (req) => {
     const exampleRecommendation = isArabic ? 'يُنصح بالتفاوض على أسعار المواد' : 'Consider negotiating material prices';
     const exampleInsight = isArabic ? 'تكاليف المواد تشكل النسبة الأكبر' : 'Material costs represent the largest portion';
 
-    const systemPrompt = `You are an expert construction cost analyst. Analyze the provided items and provide a comprehensive cost breakdown.
+    const systemPrompt = `You are an expert construction cost analyst specialized in analyzing PDF documents containing Bill of Quantities (BOQ) and construction cost data.
 
-CRITICAL LANGUAGE INSTRUCTION:
-- The input text may be in Arabic or English - understand it regardless of language
-- ALL your output text MUST be in ${outputLanguage} ONLY
-- Do NOT mix languages in your response
-- Translate any Arabic input to ${outputLanguage} in your output
+CRITICAL INSTRUCTIONS:
+1. ANALYZE THE PDF CONTENT: The input may be in Arabic, English, or any other language - understand and analyze it regardless of language
+2. DETECT LANGUAGE AUTOMATICALLY: Identify the language of the input document
+3. OUTPUT LANGUAGE: ALL your output text MUST be in ${outputLanguage} ONLY
+4. Do NOT mix languages in your response - translate everything to ${outputLanguage}
+5. EXTRACT ALL DATA: Extract quantities, units, descriptions, prices, and any other relevant cost information from the document
+6. HANDLE ANY FORMAT: Whether the PDF contains tables, lists, or plain text - extract all cost-related information accurately
 
 OTHER INSTRUCTIONS:
 1. Extract quantities, units, and descriptions accurately
@@ -145,16 +147,21 @@ Return JSON in the following format (ALL text values must be in ${outputLanguage
 Use current market prices from Saudi Arabia/Gulf region. All costs in SAR.
 CRITICAL: Return ONLY valid JSON. No explanatory text before or after. ALL text values must be in ${outputLanguage} only.`;
 
-    const userPrompt = `Analyze detailed costs for the following construction items:
+    const userPrompt = `Please analyze this PDF document containing construction/BOQ data. The document may be in Arabic, English, or any other language.
 
+DOCUMENT CONTENT:
 ${items.map((item: any, idx: number) => `
-${idx + 1}. Description: ${item.description || item.item_description}
+${idx + 1}. ${item.description || item.item_description || 'Item'}
    - Quantity: ${item.quantity || 1} ${item.unit || 'unit'}
-   ${item.total_price ? `- Proposed Total Price: ${item.total_price} SAR` : ''}
+   ${item.total_price ? `- Price: ${item.total_price} SAR` : ''}
 `).join('\n')}
 
-Provide comprehensive cost breakdown for each item. ALL text in response must be in ${outputLanguage}.
-Respond with valid JSON only.`;
+INSTRUCTIONS:
+1. Understand the content regardless of its language
+2. Extract all cost-related information (materials, labor, equipment, etc.)
+3. Provide comprehensive cost breakdown for each item
+4. ALL output text must be in ${outputLanguage} only
+5. Respond with valid JSON only.`;
 
     let response;
     let providerUsed = ai_provider || 'lovable';
