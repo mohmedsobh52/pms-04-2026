@@ -70,7 +70,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<CostAnalysisResult | null>(null);
   const [selectedItem, setSelectedItem] = useState<number | null>(null);
-  const [aiProvider, setAiProvider] = useState<'lovable' | 'openai' | 'all'>('all');
+  const [aiProvider, setAiProvider] = useState<'lovable' | 'openai' | 'genspark' | 'manus' | 'all'>('all');
   const { toast } = useToast();
 
   const runCostAnalysis = async () => {
@@ -124,16 +124,16 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
         <div className="flex items-center gap-3">
           <Calculator className="w-6 h-6 text-primary" />
           <div>
-            <h3 className="font-display text-lg font-semibold">تحليل التكاليف التفصيلي</h3>
+            <h3 className="font-display text-lg font-semibold">Detailed Cost Analysis</h3>
             <p className="text-sm text-muted-foreground">
-              تحليل التكاليف المباشرة وغير المباشرة لكل بند
+              Direct and indirect cost analysis for each item
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex gap-2">
-            {(['all', 'lovable', 'openai'] as const).map((provider) => (
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex gap-2 flex-wrap">
+            {(['all', 'lovable', 'openai', 'genspark', 'manus'] as const).map((provider) => (
               <Button
                 key={provider}
                 variant={aiProvider === provider ? "default" : "outline"}
@@ -141,7 +141,11 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                 onClick={() => setAiProvider(provider)}
                 className="text-xs"
               >
-                {provider === 'all' ? 'تلقائي' : provider === 'lovable' ? 'Gemini' : 'GPT'}
+                {provider === 'all' ? 'Auto' : 
+                 provider === 'lovable' ? 'Gemini' : 
+                 provider === 'openai' ? 'GPT' :
+                 provider === 'genspark' ? 'Genspark' :
+                 'Manus'}
               </Button>
             ))}
           </div>
@@ -153,12 +157,12 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
             {isAnalyzing ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                جاري التحليل...
+                Analyzing...
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
-                تحليل التكاليف
+                Analyze Costs
               </>
             )}
           </Button>
@@ -174,7 +178,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Package className="w-4 h-4 text-blue-500" />
-                  <span className="text-xs text-muted-foreground">المواد</span>
+                  <span className="text-xs text-muted-foreground">Materials</span>
                 </div>
                 <p className="text-xl font-bold text-blue-600">
                   {formatNumber(analysisResult.summary?.total_materials || 0)}
@@ -187,7 +191,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Users className="w-4 h-4 text-green-500" />
-                  <span className="text-xs text-muted-foreground">العمالة</span>
+                  <span className="text-xs text-muted-foreground">Labor</span>
                 </div>
                 <p className="text-xl font-bold text-green-600">
                   {formatNumber(analysisResult.summary?.total_labor || 0)}
@@ -200,7 +204,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Wrench className="w-4 h-4 text-orange-500" />
-                  <span className="text-xs text-muted-foreground">المعدات</span>
+                  <span className="text-xs text-muted-foreground">Equipment</span>
                 </div>
                 <p className="text-xl font-bold text-orange-600">
                   {formatNumber(analysisResult.summary?.total_equipment || 0)}
@@ -213,7 +217,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <TrendingUp className="w-4 h-4 text-purple-500" />
-                  <span className="text-xs text-muted-foreground">الإجمالي</span>
+                  <span className="text-xs text-muted-foreground">Grand Total</span>
                 </div>
                 <p className="text-xl font-bold text-purple-600">
                   {formatNumber(analysisResult.summary?.grand_total || 0)}
@@ -228,16 +232,16 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Building2 className="w-5 h-5" />
-                توزيع التكاليف
+                Cost Distribution
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {[
-                { label: "المواد", value: analysisResult.summary?.total_materials || 0, color: "bg-blue-500" },
-                { label: "العمالة", value: analysisResult.summary?.total_labor || 0, color: "bg-green-500" },
-                { label: "المعدات", value: analysisResult.summary?.total_equipment || 0, color: "bg-orange-500" },
-                { label: "التكاليف غير المباشرة", value: analysisResult.summary?.total_indirect_costs || 0, color: "bg-gray-500" },
-                { label: "الأرباح", value: analysisResult.summary?.total_profit || 0, color: "bg-purple-500" },
+                { label: "Materials", value: analysisResult.summary?.total_materials || 0, color: "bg-blue-500" },
+                { label: "Labor", value: analysisResult.summary?.total_labor || 0, color: "bg-green-500" },
+                { label: "Equipment", value: analysisResult.summary?.total_equipment || 0, color: "bg-orange-500" },
+                { label: "Indirect Costs", value: analysisResult.summary?.total_indirect_costs || 0, color: "bg-gray-500" },
+                { label: "Profit", value: analysisResult.summary?.total_profit || 0, color: "bg-purple-500" },
               ].map((item, idx) => {
                 const total = analysisResult.summary?.grand_total || 1;
                 const percentage = (item.value / total) * 100;
@@ -259,7 +263,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
           {/* Detailed Items */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">تفاصيل البنود</CardTitle>
+              <CardTitle className="text-base">Item Details</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -278,10 +282,10 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                         <h4 className="font-medium">{item.item_description}</h4>
                         <div className="flex gap-2 mt-1">
                           <Badge variant="outline" className="text-xs">
-                            مباشر: {formatNumber(item.total_direct)} {currency}
+                            Direct: {formatNumber(item.total_direct)} {currency}
                           </Badge>
                           <Badge variant="outline" className="text-xs">
-                            غير مباشر: {formatNumber(item.total_indirect)} {currency}
+                            Indirect: {formatNumber(item.total_indirect)} {currency}
                           </Badge>
                         </div>
                       </div>
@@ -290,7 +294,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                           {formatNumber(item.total_cost)} {currency}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          سعر الوحدة: {formatNumber(item.unit_price)}
+                          Unit Price: {formatNumber(item.unit_price)}
                         </p>
                       </div>
                     </div>
@@ -302,7 +306,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                           <div>
                             <h5 className="text-sm font-medium mb-2 flex items-center gap-2">
                               <Package className="w-4 h-4 text-blue-500" />
-                              المواد
+                              Materials
                             </h5>
                             <div className="bg-muted/50 rounded-lg p-3 space-y-2">
                               {item.materials.items.map((mat, midx) => (
@@ -312,7 +316,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                                 </div>
                               ))}
                               <div className="border-t pt-2 font-medium flex justify-between">
-                                <span>إجمالي المواد</span>
+                                <span>Total Materials</span>
                                 <span>{formatNumber(item.materials.total)} {currency}</span>
                               </div>
                             </div>
@@ -324,17 +328,17 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                           <div>
                             <h5 className="text-sm font-medium mb-2 flex items-center gap-2">
                               <Users className="w-4 h-4 text-green-500" />
-                              العمالة
+                              Labor
                             </h5>
                             <div className="bg-muted/50 rounded-lg p-3 space-y-2">
                               {item.labor.items.map((lab, lidx) => (
                                 <div key={lidx} className="flex justify-between text-sm">
-                                  <span>{lab.role} ({lab.hours} ساعة × {lab.hourly_rate})</span>
+                                  <span>{lab.role} ({lab.hours} hrs × {lab.hourly_rate})</span>
                                   <span>{formatNumber(lab.total)} {currency}</span>
                                 </div>
                               ))}
                               <div className="border-t pt-2 font-medium flex justify-between">
-                                <span>إجمالي العمالة</span>
+                                <span>Total Labor</span>
                                 <span>{formatNumber(item.labor.total)} {currency}</span>
                               </div>
                             </div>
@@ -345,23 +349,23 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                         <div>
                           <h5 className="text-sm font-medium mb-2 flex items-center gap-2">
                             <Building2 className="w-4 h-4 text-gray-500" />
-                            التكاليف غير المباشرة
+                            Indirect Costs
                           </h5>
                           <div className="bg-muted/50 rounded-lg p-3 grid grid-cols-2 gap-2 text-sm">
                             <div className="flex justify-between">
-                              <span>المصاريف العمومية</span>
+                              <span>Overhead</span>
                               <span>{formatNumber(item.overhead)} {currency}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span>الإدارية</span>
+                              <span>Admin</span>
                               <span>{formatNumber(item.admin)} {currency}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span>التأمين</span>
+                              <span>Insurance</span>
                               <span>{formatNumber(item.insurance)} {currency}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span>الاحتياطي</span>
+                              <span>Contingency</span>
                               <span>{formatNumber(item.contingency)} {currency}</span>
                             </div>
                           </div>
@@ -372,7 +376,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                           <div>
                             <h5 className="text-sm font-medium mb-2 flex items-center gap-2">
                               <AlertCircle className="w-4 h-4 text-amber-500" />
-                              التوصيات
+                              Recommendations
                             </h5>
                             <ul className="bg-amber-500/10 rounded-lg p-3 space-y-1">
                               {item.recommendations.map((rec, ridx) => (
@@ -397,7 +401,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-primary" />
-                  ملاحظات ذكية ({analysisResult.ai_provider})
+                  AI Insights ({analysisResult.ai_provider})
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -420,22 +424,22 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
         <Card className="border-dashed">
           <CardContent className="py-12 text-center">
             <Calculator className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="font-display text-lg font-semibold mb-2">تحليل التكاليف التفصيلي</h3>
+            <h3 className="font-display text-lg font-semibold mb-2">Detailed Cost Analysis</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              اضغط على زر "تحليل التكاليف" للحصول على تفصيل شامل للتكاليف المباشرة وغير المباشرة
+              Click "Analyze Costs" to get comprehensive breakdown of direct and indirect costs
             </p>
             <div className="flex justify-center gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
-                <Package className="w-3 h-3" /> المواد
+                <Package className="w-3 h-3" /> Materials
               </span>
               <span className="flex items-center gap-1">
-                <Users className="w-3 h-3" /> العمالة
+                <Users className="w-3 h-3" /> Labor
               </span>
               <span className="flex items-center gap-1">
-                <Wrench className="w-3 h-3" /> المعدات
+                <Wrench className="w-3 h-3" /> Equipment
               </span>
               <span className="flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" /> الأرباح
+                <TrendingUp className="w-3 h-3" /> Profit
               </span>
             </div>
           </CardContent>

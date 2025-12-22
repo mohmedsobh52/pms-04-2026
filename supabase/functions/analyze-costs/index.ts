@@ -43,6 +43,8 @@ serve(async (req) => {
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    const GENSPARK_API_KEY = Deno.env.get("GENSPARK_API_KEY");
+    const MANUS_API_KEY = Deno.env.get("MANUS_API_KEY");
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return new Response(
@@ -53,21 +55,27 @@ serve(async (req) => {
 
     console.log(`Analyzing costs for ${items.length} items using ${ai_provider}...`);
 
-    const systemPrompt = `أنت خبير في تحليل تكاليف مشاريع البناء والمقاولات. قم بتحليل البنود المقدمة وتقديم تفصيل شامل للتكاليف.
+    const systemPrompt = `You are an expert in construction cost analysis. Analyze the provided items and provide comprehensive cost breakdown.
 
-يجب أن يتضمن التحليل:
-1. التكاليف المباشرة:
-   - المواد: قائمة المواد اللازمة مع الكميات والأسعار
-   - العمالة: أنواع العمالة المطلوبة وساعات العمل والأجور
-   - المعدات: المعدات اللازمة ومدة الاستخدام والتكلفة
-   - المقاولين من الباطن
+IMPORTANT: You will receive text in Arabic. Make sure to:
+1. Properly read and understand Arabic text
+2. Extract quantities, units, and descriptions accurately
+3. Use market prices from Saudi Arabia/Gulf region
+4. Calculate all costs in Saudi Riyals (SAR)
 
-2. التكاليف غير المباشرة:
-   - المصاريف العمومية والإدارية (overhead): عادة 8-12% من التكاليف المباشرة
-   - التأمين: عادة 2-3%
-   - الاحتياطي (contingency): عادة 5-10%
+The analysis should include:
+1. Direct Costs:
+   - Materials: List of required materials with quantities and prices
+   - Labor: Types of labor required, work hours, and wages
+   - Equipment: Required equipment, duration of use, and costs
+   - Subcontractors
 
-3. هامش الربح: عادة 10-15%
+2. Indirect Costs:
+   - Overhead: typically 8-12% of direct costs
+   - Insurance: typically 2-3%
+   - Contingency: typically 5-10%
+
+3. Profit Margin: typically 10-15%
 
 قم بإرجاع JSON بالتنسيق التالي:
 {
@@ -113,23 +121,51 @@ serve(async (req) => {
   }
 }
 
-استخدم أسعار السوق السعودي/الخليجي الحالية. احسب التكاليف بالريال السعودي.`;
+Use current market prices from Saudi Arabia/Gulf region. Calculate all costs in Saudi Riyals (SAR).
 
-    const userPrompt = `قم بتحليل التكاليف التفصيلية للبنود التالية:
+CRITICAL: Return ONLY valid JSON. Do not include any explanatory text before or after the JSON.`;
+
+    const userPrompt = `Analyze the detailed costs for the following items (text is in Arabic):
 
 ${items.map((item: any, idx: number) => `
 ${idx + 1}. ${item.description || item.item_description}
-   - الكمية: ${item.quantity || 1} ${item.unit || 'وحدة'}
-   ${item.total_price ? `- السعر الإجمالي المقترح: ${item.total_price}` : ''}
+   - Quantity: ${item.quantity || 1} ${item.unit || 'unit'}
+   ${item.total_price ? `- Proposed total price: ${item.total_price} SAR` : ''}
 `).join('\n')}
 
-قم بتقديم تحليل تفصيلي شامل للتكاليف المباشرة وغير المباشرة لكل بند.`;
+Provide a comprehensive detailed analysis of direct and indirect costs for each item. Respond ONLY with valid JSON, no additional text.`;
 
     let response;
     let providerUsed = ai_provider || 'lovable';
 
-    // Try OpenAI first if available and requested
-    if ((ai_provider === 'openai' || ai_provider === 'all') && OPENAI_API_KEY) {
+    // Try Genspark first if available and requested
+    if ((ai_provider === 'genspark' || ai_provider === 'all') && GENSPARK_API_KEY) {
+      try {
+        console.log("Trying Genspark API...");
+        // Placeholder for Genspark API - implement when API details are available
+        console.log("Genspark not yet implemented, falling back...");
+        response = null;
+      } catch (error) {
+        console.error("Genspark error:", error);
+        response = null;
+      }
+    }
+
+    // Try Manus if available and requested
+    if (!response && (ai_provider === 'manus' || ai_provider === 'all') && MANUS_API_KEY) {
+      try {
+        console.log("Trying Manus API...");
+        // Placeholder for Manus API - implement when API details are available
+        console.log("Manus not yet implemented, falling back...");
+        response = null;
+      } catch (error) {
+        console.error("Manus error:", error);
+        response = null;
+      }
+    }
+
+    // Try OpenAI if available and requested
+    if (!response && (ai_provider === 'openai' || ai_provider === 'all') && OPENAI_API_KEY) {
       try {
         console.log("Trying OpenAI API...");
         response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -168,7 +204,7 @@ ${idx + 1}. ${item.description || item.item_description}
         throw new Error("No AI API keys configured");
       }
 
-      console.log("Using Lovable AI...");
+      console.log("Using Lovable AI (Gemini Pro for better Arabic support)...");
       response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -176,12 +212,13 @@ ${idx + 1}. ${item.description || item.item_description}
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "google/gemini-2.5-pro",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
-          temperature: 0.2,
+          temperature: 0.1,
+          max_tokens: 8000,
           response_format: { type: "json_object" },
         }),
       });
