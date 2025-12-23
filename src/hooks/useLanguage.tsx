@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { translations, TranslationKey } from '@/lib/translations';
 
 type Language = 'ar' | 'en';
 
@@ -7,6 +8,7 @@ interface LanguageContextType {
   setLanguage: (lang: Language) => void;
   isArabic: boolean;
   isEnglish: boolean;
+  t: (key: TranslationKey) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -19,6 +21,13 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     localStorage.setItem('app-language', language);
+    // Update document direction
+    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.lang = language;
+  }, [language]);
+
+  const t = useCallback((key: TranslationKey): string => {
+    return translations[language][key];
   }, [language]);
 
   const value: LanguageContextType = {
@@ -26,6 +35,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setLanguage,
     isArabic: language === 'ar',
     isEnglish: language === 'en',
+    t,
   };
 
   return (

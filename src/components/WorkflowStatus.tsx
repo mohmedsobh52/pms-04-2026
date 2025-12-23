@@ -1,13 +1,13 @@
 import { CheckCircle2, Circle, Loader2, XCircle, FileText, Brain, GitMerge, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/hooks/useLanguage";
 
 export type StepStatus = "pending" | "processing" | "complete" | "error";
 
 export interface WorkflowStep {
   id: string;
-  title: string;
-  titleAr: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   status: StepStatus;
   icon: React.ReactNode;
 }
@@ -17,6 +17,8 @@ interface WorkflowStatusProps {
 }
 
 export function WorkflowStatus({ steps }: WorkflowStatusProps) {
+  const { t } = useLanguage();
+  
   const getStatusIcon = (status: StepStatus) => {
     switch (status) {
       case "complete":
@@ -32,14 +34,14 @@ export function WorkflowStatus({ steps }: WorkflowStatusProps) {
 
   return (
     <div className="glass-card p-6">
-      <h3 className="font-display text-lg font-semibold mb-6">حالة المعالجة</h3>
+      <h3 className="font-display text-lg font-semibold mb-6">{t('processingStatus')}</h3>
       <div className="space-y-1">
         {steps.map((step, index) => (
           <div key={step.id} className="relative">
             {index < steps.length - 1 && (
               <div
                 className={cn(
-                  "absolute right-[23px] top-12 w-0.5 h-8",
+                  "absolute right-[23px] rtl:right-[23px] ltr:left-[23px] top-12 w-0.5 h-8",
                   step.status === "complete" ? "bg-success" : "bg-border"
                 )}
               />
@@ -64,10 +66,10 @@ export function WorkflowStatus({ steps }: WorkflowStatusProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
-                  <h4 className="font-medium text-foreground">{step.titleAr}</h4>
+                  <h4 className="font-medium text-foreground">{t(step.titleKey as any)}</h4>
                   {getStatusIcon(step.status)}
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">{step.description}</p>
+                <p className="text-sm text-muted-foreground mt-1">{t(step.descriptionKey as any)}</p>
               </div>
             </div>
           </div>
@@ -80,41 +82,36 @@ export function WorkflowStatus({ steps }: WorkflowStatusProps) {
 export const defaultWorkflowSteps: WorkflowStep[] = [
   {
     id: "upload",
-    title: "Upload PDF",
-    titleAr: "رفع الملف",
-    description: "رفع ملف BOQ PDF",
+    titleKey: "uploadPDF",
+    descriptionKey: "uploadPDFDesc",
     status: "pending",
     icon: <FileText className="w-5 h-5" />,
   },
   {
     id: "extract",
-    title: "Extract Text",
-    titleAr: "استخراج النص",
-    description: "استخراج النص من ملف PDF",
+    titleKey: "extractText",
+    descriptionKey: "extractTextDesc",
     status: "pending",
     icon: <FileText className="w-5 h-5" />,
   },
   {
     id: "analyze",
-    title: "AI Analysis",
-    titleAr: "التحليل بالذكاء الاصطناعي",
-    description: "تحليل BOQ واستخراج العناصر",
+    titleKey: "aiAnalysis",
+    descriptionKey: "aiAnalysisDesc",
     status: "pending",
     icon: <Brain className="w-5 h-5" />,
   },
   {
     id: "wbs",
-    title: "Create WBS",
-    titleAr: "إنشاء WBS",
-    description: "إنشاء هيكل تقسيم العمل",
+    titleKey: "createWBS",
+    descriptionKey: "createWBSDesc",
     status: "pending",
     icon: <GitMerge className="w-5 h-5" />,
   },
   {
     id: "export",
-    title: "Export Results",
-    titleAr: "تصدير النتائج",
-    description: "تصدير النتائج لـ Excel/CSV",
+    titleKey: "exportResults",
+    descriptionKey: "exportResultsDesc",
     status: "pending",
     icon: <Download className="w-5 h-5" />,
   },

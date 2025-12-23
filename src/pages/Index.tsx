@@ -28,7 +28,7 @@ function isExcelFile(file: File): boolean {
 const Index = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading, signOut } = useAuth();
-  const { language, isArabic } = useLanguage();
+  const { language, isArabic, t } = useLanguage();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedText, setExtractedText] = useState<string>("");
@@ -60,8 +60,8 @@ const Index = () => {
     // Check if it's an Excel file
     if (isExcelFile(file)) {
       toast({
-        title: "جاري قراءة ملف Excel...",
-        description: "يرجى الانتظار بينما نستخرج البيانات",
+        title: t('readingExcel'),
+        description: t('pleaseWait'),
       });
       
       try {
@@ -73,15 +73,15 @@ const Index = () => {
           setExtractionStatus("success");
           updateStepStatus("extract", "complete");
           toast({
-            title: "تم استخراج البيانات بنجاح",
-            description: `تم استخراج ${result.items.length} عنصر من ${result.sheetNames.length} ورقة`,
+            title: t('dataExtracted'),
+            description: `${result.items.length} ${t('itemsExtracted')} ${result.sheetNames.length} ${t('sheets')}`,
           });
         } else {
           setExtractionStatus("failed");
           setShowManualInput(true);
           toast({
-            title: "لم يتم العثور على بيانات كافية",
-            description: "يرجى التأكد من أن الملف يحتوي على جدول كميات BOQ",
+            title: t('noDataFound'),
+            description: t('checkBOQTable'),
             variant: "destructive",
           });
         }
@@ -90,8 +90,8 @@ const Index = () => {
         setExtractionStatus("failed");
         setShowManualInput(true);
         toast({
-          title: "فشل قراءة ملف Excel",
-          description: error instanceof Error ? error.message : "حدث خطأ غير متوقع",
+          title: t('excelReadFailed'),
+          description: error instanceof Error ? error.message : t('unexpectedError'),
           variant: "destructive",
         });
       } finally {
@@ -102,8 +102,8 @@ const Index = () => {
     
     // Handle PDF files
     toast({
-      title: "جاري استخراج النص...",
-      description: "يرجى الانتظار بينما نستخرج المحتوى من ملف PDF",
+      title: t('extractingPDF'),
+      description: t('extractingPDFDesc'),
     });
     
     try {
@@ -115,8 +115,8 @@ const Index = () => {
         setShowManualInput(true);
         setManualText("");
         toast({
-          title: "تعذر قراءة الملف",
-          description: "ملف PDF يحتوي على صور أو نص غير قابل للتحديد. يرجى الإدخال يدوياً",
+          title: t('cannotReadFile'),
+          description: t('scannedPDF'),
           variant: "destructive",
         });
       } else if (validation.isValid) {
@@ -124,8 +124,8 @@ const Index = () => {
         setExtractionStatus("success");
         updateStepStatus("extract", "complete");
         toast({
-          title: "تم استخراج النص بنجاح",
-          description: `تم استخراج ${validation.wordCount} كلمة من ${file.name}`,
+          title: t('textExtracted'),
+          description: `${validation.wordCount} ${t('wordsExtracted')} ${file.name}`,
         });
       } else {
         setExtractionStatus("failed");
@@ -133,8 +133,8 @@ const Index = () => {
         const cleanText = text.includes("[فشل") || text.includes("[تعذر") || text.includes("[لم يتم") ? "" : text;
         setManualText(cleanText);
         toast({
-          title: "استخراج جزئي",
-          description: validation.issues.join(" - ") + ". يرجى المراجعة أو الإدخال يدوياً",
+          title: t('partialExtraction'),
+          description: `${validation.issues.join(" - ")}. ${t('reviewOrManual')}`,
           variant: "destructive",
         });
       }
@@ -143,8 +143,8 @@ const Index = () => {
       setExtractionStatus("failed");
       setShowManualInput(true);
       toast({
-        title: "فشل استخراج النص",
-        description: "يرجى نسخ محتوى الملف يدوياً",
+        title: t('extractionFailed2'),
+        description: t('copyManually'),
         variant: "destructive",
       });
     } finally {
@@ -173,8 +173,8 @@ const Index = () => {
     setOcrProgress({ current: 0, total: 1 });
     
     toast({
-      title: "جاري استخراج النص بـ OCR...",
-      description: "يتم تحليل صور الملف باستخدام الذكاء الاصطناعي",
+      title: t('ocrExtracting'),
+      description: t('ocrAnalyzingImages'),
     });
     
     try {
@@ -189,22 +189,22 @@ const Index = () => {
         setExtractionStatus("success");
         updateStepStatus("extract", "complete");
         toast({
-          title: "تم استخراج النص بـ OCR",
-          description: `تم استخراج ${validation.wordCount} كلمة من ${selectedFile.name}`,
+          title: t('ocrSuccess'),
+          description: `${validation.wordCount} ${t('wordsExtracted')} ${selectedFile.name}`,
         });
       } else {
         setManualText(text);
         setShowManualInput(true);
         toast({
-          title: "استخراج جزئي",
-          description: "تم استخراج بعض النص، يرجى المراجعة",
+          title: t('ocrPartial'),
+          description: t('ocrReview'),
         });
       }
     } catch (error) {
       console.error("OCR extraction error:", error);
       toast({
-        title: "فشل OCR",
-        description: error instanceof Error ? error.message : "حدث خطأ أثناء استخراج النص",
+        title: t('ocrFailed'),
+        description: error instanceof Error ? error.message : t('ocrError'),
         variant: "destructive",
       });
     } finally {
@@ -216,8 +216,8 @@ const Index = () => {
   const handleManualTextSubmit = () => {
     if (manualText.trim().length < 50) {
       toast({
-        title: "النص قصير جداً",
-        description: "يرجى إدخال نص BOQ أطول للتحليل",
+        title: t('textTooShort'),
+        description: t('enterLongerText'),
         variant: "destructive",
       });
       return;
@@ -225,8 +225,8 @@ const Index = () => {
     setExtractedText(manualText);
     updateStepStatus("extract", "complete");
     toast({
-      title: "تم حفظ النص",
-      description: `تم حفظ ${manualText.length} حرف للتحليل`,
+      title: t('textSaved'),
+      description: `${manualText.length} ${t('charsSaved')}`,
     });
   };
 
@@ -235,8 +235,8 @@ const Index = () => {
     
     if (!textToAnalyze || textToAnalyze.length < 50) {
       toast({
-        title: "لا يوجد نص كافٍ",
-        description: "يرجى إدخال نص BOQ للتحليل",
+        title: t('notEnoughText'),
+        description: t('enterBOQForAnalysis'),
         variant: "destructive",
       });
       return;
@@ -261,8 +261,8 @@ const Index = () => {
       updateStepStatus("analyze", "complete");
 
       toast({
-        title: "تم التحليل بنجاح",
-        description: `تم استخراج ${itemsResult.items?.length || 0} عنصر`,
+        title: t('analysisSuccess'),
+        description: `${itemsResult.items?.length || 0} ${t('itemsExtracted2')}`,
       });
 
       // Create WBS
@@ -284,24 +284,23 @@ const Index = () => {
       updateStepStatus("export", "complete");
 
       toast({
-        title: "تم إنشاء WBS بنجاح",
-        description: `تم إنشاء ${wbsResult.wbs?.length || 0} عنصر في الهيكل`,
+        title: t('wbsCreated'),
+        description: `${wbsResult.wbs?.length || 0} ${t('elementsInStructure')}`,
       });
 
     } catch (error: any) {
       console.error("Analysis error:", error);
       updateStepStatus("analyze", "error");
       
-      // Check for specific error types
-      let errorTitle = "خطأ في التحليل";
-      let errorDescription = "حدث خطأ أثناء تحليل الملف";
+      let errorTitle = t('analysisError');
+      let errorDescription = t('errorAnalyzing');
       
       if (error?.message?.includes("AI credits exhausted") || error?.message?.includes("Payment required")) {
-        errorTitle = "نفدت رصيد الذكاء الاصطناعي";
-        errorDescription = "يرجى إضافة رصيد للمتابعة. انتقل إلى الإعدادات ← الخطط والرصيد";
+        errorTitle = t('aiCreditsExhausted');
+        errorDescription = t('addCredits');
       } else if (error?.message?.includes("Rate limits exceeded")) {
-        errorTitle = "تم تجاوز حد الطلبات";
-        errorDescription = "يرجى المحاولة مرة أخرى بعد قليل";
+        errorTitle = t('rateLimitExceeded');
+        errorDescription = t('tryAgainLater');
       } else if (error instanceof Error) {
         errorDescription = error.message;
       }
@@ -317,7 +316,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background" dir="rtl">
+    <div className="min-h-screen bg-background" dir={isArabic ? 'rtl' : 'ltr'}>
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
@@ -328,7 +327,7 @@ const Index = () => {
               </div>
               <div>
                 <h1 className="font-display text-xl font-bold gradient-text">BOQ Analyzer</h1>
-                <p className="text-xs text-muted-foreground">تحليل جداول الكميات بالذكاء الاصطناعي</p>
+                <p className="text-xs text-muted-foreground">{t('appDescription')}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -347,14 +346,14 @@ const Index = () => {
                     className="gap-2"
                   >
                     <LogOut className="w-4 h-4" />
-                    <span className="hidden sm:inline">{isArabic ? 'خروج' : 'Sign Out'}</span>
+                    <span className="hidden sm:inline">{t('signOut')}</span>
                   </Button>
                 </>
               ) : (
                 <Link to="/auth">
                   <Button variant="outline" size="sm" className="gap-2">
                     <LogIn className="w-4 h-4" />
-                    {isArabic ? 'تسجيل الدخول' : 'Sign In'}
+                    {t('signIn')}
                   </Button>
                 </Link>
               )}
@@ -368,10 +367,12 @@ const Index = () => {
         <div className="container mx-auto">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
-              حلل ملفات <span className="gradient-text">BOQ</span> بسهولة
+              {t('heroTitle')} <span className="gradient-text">{t('heroTitleHighlight')}</span> {t('heroTitleSuffix')}
             </h2>
             <p className="text-lg text-muted-foreground">
-              الصق نص جدول الكميات وسنقوم بتحليله واستخراج العناصر وإنشاء WBS تلقائياً
+              {t('heroDescription')}
+            </p>
+          </div>
             </p>
           </div>
 
@@ -669,20 +670,20 @@ const Index = () => {
 
               {/* Features Card */}
               <div className="glass-card p-6">
-                <h3 className="font-display text-lg font-semibold mb-4">المميزات</h3>
+                <h3 className="font-display text-lg font-semibold mb-4">{t('features')}</h3>
                 <div className="space-y-3">
                   {[
-                    { icon: <FileUp className="w-4 h-4" />, text: "إدخال النص يدوياً" },
-                    { icon: <Sparkles className="w-4 h-4" />, text: "تحليل بالذكاء الاصطناعي" },
-                    { icon: <GitMerge className="w-4 h-4" />, text: "إنشاء WBS تلقائي" },
-                    { icon: <Download className="w-4 h-4" />, text: "تصدير إلى CSV/Excel" },
-                    { icon: <Save className="w-4 h-4" />, text: "حفظ المشاريع" },
+                    { icon: <FileUp className="w-4 h-4" />, textKey: 'featureManualEntry' },
+                    { icon: <Sparkles className="w-4 h-4" />, textKey: 'featureAIAnalysis' },
+                    { icon: <GitMerge className="w-4 h-4" />, textKey: 'featureAutoWBS' },
+                    { icon: <Download className="w-4 h-4" />, textKey: 'featureExport' },
+                    { icon: <Save className="w-4 h-4" />, textKey: 'featureSaveProjects' },
                   ].map((feature, idx) => (
                     <div key={idx} className="flex items-center gap-3 text-sm">
                       <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                         {feature.icon}
                       </div>
-                      <span>{feature.text}</span>
+                      <span>{t(feature.textKey as any)}</span>
                     </div>
                   ))}
                 </div>
@@ -694,7 +695,7 @@ const Index = () => {
                   variant="outline"
                   className="w-full"
                 >
-                  تحليل ملف جديد
+                  {t('analyzeNewFile')}
                 </Button>
               )}
             </div>
@@ -705,7 +706,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="border-t border-border py-6 mt-12">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>مدعوم بالذكاء الاصطناعي • BOQ Analyzer</p>
+          <p>{t('poweredByAI')}</p>
         </div>
       </footer>
     </div>

@@ -1,0 +1,260 @@
+export const translations = {
+  en: {
+    // Header
+    appName: "BOQ Analyzer",
+    appDescription: "AI-powered Bill of Quantities Analysis",
+    signIn: "Sign In",
+    signOut: "Sign Out",
+    
+    // Hero
+    heroTitle: "Analyze",
+    heroTitleHighlight: "BOQ",
+    heroTitleSuffix: "Files Easily",
+    heroDescription: "Paste your BOQ text and we'll analyze it, extract items, and create WBS automatically",
+    
+    // File Upload
+    uploadBOQ: "Upload BOQ File",
+    dragDropText: "Drag and drop file here or click to select",
+    extractingText: "Extracting text from file...",
+    
+    // Extraction
+    extractingTextTitle: "Extracting text...",
+    analyzingPDF: "Analyzing PDF content",
+    extractionFailed: "Failed to extract text completely",
+    extractionFailedDesc: "The file may contain scanned images or unsupported format.",
+    useOCR: "Use OCR (AI)",
+    manualEntry: "Manual Entry",
+    
+    // OCR
+    ocrProcessing: "Extracting text with OCR...",
+    ocrPage: "Page",
+    ocrOf: "of",
+    ocrAnalyzing: "Analyzing images with AI",
+    
+    // Manual Input
+    or: "or",
+    enterTextManually: "Enter text manually",
+    pasteContent: "Paste BOQ content from Excel, Word, or PDF",
+    enterBOQText: "Enter BOQ Text",
+    pasteHere: "Paste BOQ content here",
+    tipsTitle: "💡 Tips for best results:",
+    tip1: "Copy from Excel or Word directly (Ctrl+C then Ctrl+V)",
+    tip2: "Make sure item numbers, quantities, and units are included",
+    tip3: "You can copy full tables from any program",
+    characters: "characters",
+    readyForAnalysis: "Ready for analysis",
+    cancel: "Cancel",
+    back: "Back",
+    saveText: "Save Text",
+    
+    // Analysis
+    textReady: "Text ready for analysis",
+    edit: "Edit",
+    startAnalysis: "Start Analysis",
+    analyzeNewFile: "Analyze New File",
+    
+    // Workflow Steps
+    processingStatus: "Processing Status",
+    uploadPDF: "Upload File",
+    uploadPDFDesc: "Upload BOQ PDF file",
+    extractText: "Extract Text",
+    extractTextDesc: "Extract text from PDF",
+    aiAnalysis: "AI Analysis",
+    aiAnalysisDesc: "Analyze BOQ and extract items",
+    createWBS: "Create WBS",
+    createWBSDesc: "Create Work Breakdown Structure",
+    exportResults: "Export Results",
+    exportResultsDesc: "Export to Excel/CSV",
+    
+    // Features
+    features: "Features",
+    featureManualEntry: "Manual text entry",
+    featureAIAnalysis: "AI-powered analysis",
+    featureAutoWBS: "Automatic WBS creation",
+    featureExport: "Export to CSV/Excel",
+    featureSaveProjects: "Save projects",
+    
+    // Quotations
+    uploadQuotations: "Upload Quotations",
+    compareQuotations: "Compare Quotations",
+    
+    // Footer
+    poweredByAI: "Powered by AI • BOQ Analyzer",
+    
+    // Toast messages
+    readingExcel: "Reading Excel file...",
+    pleaseWait: "Please wait while we extract data",
+    dataExtracted: "Data extracted successfully",
+    itemsExtracted: "items extracted from",
+    sheets: "sheets",
+    noDataFound: "Not enough data found",
+    checkBOQTable: "Please ensure the file contains a BOQ table",
+    excelReadFailed: "Failed to read Excel file",
+    unexpectedError: "Unexpected error occurred",
+    extractingPDF: "Extracting text...",
+    extractingPDFDesc: "Please wait while we extract content from PDF",
+    cannotReadFile: "Cannot read file",
+    scannedPDF: "PDF contains images or non-selectable text. Please enter manually",
+    textExtracted: "Text extracted successfully",
+    wordsExtracted: "words extracted from",
+    partialExtraction: "Partial extraction",
+    reviewOrManual: "Please review or enter manually",
+    extractionFailed2: "Text extraction failed",
+    copyManually: "Please copy file content manually",
+    textTooShort: "Text too short",
+    enterLongerText: "Please enter longer BOQ text for analysis",
+    textSaved: "Text saved",
+    charsSaved: "characters saved for analysis",
+    notEnoughText: "Not enough text",
+    enterBOQForAnalysis: "Please enter BOQ text for analysis",
+    analysisSuccess: "Analysis successful",
+    itemsExtracted2: "items extracted",
+    wbsCreated: "WBS created successfully",
+    elementsInStructure: "elements in structure",
+    analysisError: "Analysis error",
+    errorAnalyzing: "Error occurred while analyzing file",
+    aiCreditsExhausted: "AI credits exhausted",
+    addCredits: "Please add credits to continue. Go to Settings → Plans & Credits",
+    rateLimitExceeded: "Rate limit exceeded",
+    tryAgainLater: "Please try again later",
+    ocrExtracting: "Extracting text with OCR...",
+    ocrAnalyzingImages: "Analyzing file images with AI",
+    ocrSuccess: "Text extracted with OCR",
+    ocrPartial: "Partial extraction",
+    ocrReview: "Some text extracted, please review",
+    ocrFailed: "OCR failed",
+    ocrError: "Error occurred during text extraction",
+  },
+  ar: {
+    // Header
+    appName: "BOQ Analyzer",
+    appDescription: "تحليل جداول الكميات بالذكاء الاصطناعي",
+    signIn: "تسجيل الدخول",
+    signOut: "خروج",
+    
+    // Hero
+    heroTitle: "حلل ملفات",
+    heroTitleHighlight: "BOQ",
+    heroTitleSuffix: "بسهولة",
+    heroDescription: "الصق نص جدول الكميات وسنقوم بتحليله واستخراج العناصر وإنشاء WBS تلقائياً",
+    
+    // File Upload
+    uploadBOQ: "ارفع ملف BOQ",
+    dragDropText: "اسحب وأفلت الملف هنا أو انقر للاختيار",
+    extractingText: "جاري استخراج النص من الملف...",
+    
+    // Extraction
+    extractingTextTitle: "جاري استخراج النص...",
+    analyzingPDF: "يتم تحليل محتوى ملف PDF",
+    extractionFailed: "تعذر استخراج النص بالكامل",
+    extractionFailedDesc: "قد يكون الملف يحتوي على صور ممسوحة ضوئياً أو تنسيق غير مدعوم.",
+    useOCR: "استخدم OCR (ذكاء اصطناعي)",
+    manualEntry: "إدخال يدوي",
+    
+    // OCR
+    ocrProcessing: "جاري استخراج النص بـ OCR...",
+    ocrPage: "صفحة",
+    ocrOf: "من",
+    ocrAnalyzing: "يتم تحليل صور الملف بالذكاء الاصطناعي",
+    
+    // Manual Input
+    or: "أو",
+    enterTextManually: "إدخال النص يدوياً",
+    pasteContent: "الصق محتوى BOQ من Excel أو Word أو PDF",
+    enterBOQText: "إدخال نص BOQ",
+    pasteHere: "الصق محتوى جدول الكميات هنا",
+    tipsTitle: "💡 نصائح للحصول على أفضل النتائج:",
+    tip1: "انسخ من Excel أو Word مباشرة (Ctrl+C ثم Ctrl+V)",
+    tip2: "تأكد من وجود أرقام البنود والكميات والوحدات",
+    tip3: "يمكن نسخ جداول كاملة من أي برنامج",
+    characters: "حرف",
+    readyForAnalysis: "جاهز للتحليل",
+    cancel: "إلغاء",
+    back: "رجوع",
+    saveText: "حفظ النص",
+    
+    // Analysis
+    textReady: "النص جاهز للتحليل",
+    edit: "تعديل",
+    startAnalysis: "بدء التحليل",
+    analyzeNewFile: "تحليل ملف جديد",
+    
+    // Workflow Steps
+    processingStatus: "حالة المعالجة",
+    uploadPDF: "رفع الملف",
+    uploadPDFDesc: "رفع ملف BOQ PDF",
+    extractText: "استخراج النص",
+    extractTextDesc: "استخراج النص من ملف PDF",
+    aiAnalysis: "التحليل بالذكاء الاصطناعي",
+    aiAnalysisDesc: "تحليل BOQ واستخراج العناصر",
+    createWBS: "إنشاء WBS",
+    createWBSDesc: "إنشاء هيكل تقسيم العمل",
+    exportResults: "تصدير النتائج",
+    exportResultsDesc: "تصدير النتائج لـ Excel/CSV",
+    
+    // Features
+    features: "المميزات",
+    featureManualEntry: "إدخال النص يدوياً",
+    featureAIAnalysis: "تحليل بالذكاء الاصطناعي",
+    featureAutoWBS: "إنشاء WBS تلقائي",
+    featureExport: "تصدير إلى CSV/Excel",
+    featureSaveProjects: "حفظ المشاريع",
+    
+    // Quotations
+    uploadQuotations: "رفع عروض الأسعار",
+    compareQuotations: "مقارنة العروض",
+    
+    // Footer
+    poweredByAI: "مدعوم بالذكاء الاصطناعي • BOQ Analyzer",
+    
+    // Toast messages
+    readingExcel: "جاري قراءة ملف Excel...",
+    pleaseWait: "يرجى الانتظار بينما نستخرج البيانات",
+    dataExtracted: "تم استخراج البيانات بنجاح",
+    itemsExtracted: "عنصر من",
+    sheets: "ورقة",
+    noDataFound: "لم يتم العثور على بيانات كافية",
+    checkBOQTable: "يرجى التأكد من أن الملف يحتوي على جدول كميات BOQ",
+    excelReadFailed: "فشل قراءة ملف Excel",
+    unexpectedError: "حدث خطأ غير متوقع",
+    extractingPDF: "جاري استخراج النص...",
+    extractingPDFDesc: "يرجى الانتظار بينما نستخرج المحتوى من ملف PDF",
+    cannotReadFile: "تعذر قراءة الملف",
+    scannedPDF: "ملف PDF يحتوي على صور أو نص غير قابل للتحديد. يرجى الإدخال يدوياً",
+    textExtracted: "تم استخراج النص بنجاح",
+    wordsExtracted: "كلمة من",
+    partialExtraction: "استخراج جزئي",
+    reviewOrManual: "يرجى المراجعة أو الإدخال يدوياً",
+    extractionFailed2: "فشل استخراج النص",
+    copyManually: "يرجى نسخ محتوى الملف يدوياً",
+    textTooShort: "النص قصير جداً",
+    enterLongerText: "يرجى إدخال نص BOQ أطول للتحليل",
+    textSaved: "تم حفظ النص",
+    charsSaved: "حرف للتحليل",
+    notEnoughText: "لا يوجد نص كافٍ",
+    enterBOQForAnalysis: "يرجى إدخال نص BOQ للتحليل",
+    analysisSuccess: "تم التحليل بنجاح",
+    itemsExtracted2: "عنصر",
+    wbsCreated: "تم إنشاء WBS بنجاح",
+    elementsInStructure: "عنصر في الهيكل",
+    analysisError: "خطأ في التحليل",
+    errorAnalyzing: "حدث خطأ أثناء تحليل الملف",
+    aiCreditsExhausted: "نفدت رصيد الذكاء الاصطناعي",
+    addCredits: "يرجى إضافة رصيد للمتابعة. انتقل إلى الإعدادات ← الخطط والرصيد",
+    rateLimitExceeded: "تم تجاوز حد الطلبات",
+    tryAgainLater: "يرجى المحاولة مرة أخرى بعد قليل",
+    ocrExtracting: "جاري استخراج النص بـ OCR...",
+    ocrAnalyzingImages: "يتم تحليل صور الملف باستخدام الذكاء الاصطناعي",
+    ocrSuccess: "تم استخراج النص بـ OCR",
+    ocrPartial: "استخراج جزئي",
+    ocrReview: "تم استخراج بعض النص، يرجى المراجعة",
+    ocrFailed: "فشل OCR",
+    ocrError: "حدث خطأ أثناء استخراج النص",
+  },
+} as const;
+
+export type TranslationKey = keyof typeof translations.en;
+
+export function getTranslation(language: 'ar' | 'en', key: TranslationKey): string {
+  return translations[language][key];
+}

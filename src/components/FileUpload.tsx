@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { Upload, FileText, FileSpreadsheet, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/hooks/useLanguage";
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -32,6 +33,7 @@ function isAcceptedFile(file: File): boolean {
 
 export function FileUpload({ onFileSelect, isProcessing, selectedFile, onClear }: FileUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const { t } = useLanguage();
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -94,7 +96,7 @@ export function FileUpload({ onFileSelect, isProcessing, selectedFile, onClear }
             <div className="h-2 bg-muted rounded-full overflow-hidden">
               <div className="h-full bg-gradient-to-r from-primary to-accent animate-shimmer bg-[length:200%_100%]" />
             </div>
-            <p className="text-sm text-muted-foreground mt-2">جاري استخراج النص من الملف...</p>
+            <p className="text-sm text-muted-foreground mt-2">{t('extractingText')}</p>
           </div>
         )}
       </div>
@@ -123,10 +125,10 @@ export function FileUpload({ onFileSelect, isProcessing, selectedFile, onClear }
           <Upload className="w-8 h-8 text-primary" />
         </div>
         <h3 className="font-display text-xl font-semibold text-foreground mb-2">
-          ارفع ملف BOQ
+          {t('uploadBOQ')}
         </h3>
         <p className="text-muted-foreground mb-4">
-          اسحب وأفلت الملف هنا أو انقر للاختيار
+          {t('dragDropText')}
         </p>
         <div className="flex flex-wrap gap-2 justify-center">
           <span className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-lg text-sm font-medium">
