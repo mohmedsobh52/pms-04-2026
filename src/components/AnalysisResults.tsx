@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,6 +13,8 @@ import { KPIDashboard } from "./KPIDashboard";
 import { MarketRateSuggestions } from "./MarketRateSuggestions";
 import { useLanguage } from "@/hooks/useLanguage";
 import { PDFCustomization, getSavedCompanyInfo, CompanyInfo } from "./PDFCustomization";
+import { ItemCostEditor } from "./ItemCostEditor";
+import { useDynamicCostCalculator, CostInputs, defaultCostInputs } from "@/hooks/useDynamicCostCalculator";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -66,6 +68,16 @@ export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsP
   const [activeTab, setActiveTab] = useState<"items" | "wbs" | "costs" | "summary" | "charts" | "timeline" | "integration">("items");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(getSavedCompanyInfo());
+  
+  // Dynamic cost calculator hook
+  const {
+    getItemCostData,
+    getItemCalculatedCosts,
+    setItemCostData,
+    getAllCalculatedCosts,
+    getTotalProjectCost,
+    exportCostData,
+  } = useDynamicCostCalculator();
   
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -208,20 +220,37 @@ export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsP
   }, [data]);
 
 
+  // Handle saving item costs
+  const handleSaveItemCost = useCallback((itemId: string, costs: CostInputs) => {
+    const item = data.items?.find(i => i.item_number === itemId);
+    setItemCostData(itemId, costs, item?.quantity || 1);
+  }, [data.items, setItemCostData]);
+
+  // Get calculated unit price for an item
+  const getItemCalculatedPrice = useCallback((itemId: string) => {
+    const costs = getItemCalculatedCosts(itemId);
+    return costs.calculatedUnitPrice;
+  }, [getItemCalculatedCosts]);
+
   const exportToCSV = () => {
     if (!data.items) return;
 
-    const headers = ["رقم البند", "الوصف", "الوحدة", "الكمية", "سعر الوحدة", "الإجمالي", "الفئة", "ملاحظات"];
-    const rows = data.items.map(item => [
-      item.item_number,
-      item.description,
-      item.unit,
-      item.quantity.toString(),
-      item.unit_price?.toString() || "",
-      item.total_price?.toString() || "",
-      item.category || "",
-      item.notes || ""
-    ]);
+    const headers = ["رقم البند", "الوصف", "الوحدة", "الكمية", "سعر الوحدة", "السعر المحسوب", "الإجمالي", "الفئة", "ملاحظات"];
+    const rows = data.items.map(item => {
+      const calculatedPrice = getItemCalculatedPrice(item.item_number);
+      const effectivePrice = calculatedPrice > 0 ? calculatedPrice : (item.unit_price || 0);
+      return [
+        item.item_number,
+        item.description,
+        item.unit,
+        item.quantity.toString(),
+        item.unit_price?.toString() || "",
+        calculatedPrice > 0 ? calculatedPrice.toString() : "",
+        (effectivePrice * item.quantity).toString(),
+        item.category || "",
+        item.notes || ""
+      ];
+    });
 
     const csvContent = [headers, ...rows]
       .map(row => row.map(cell => `"${cell}"`).join(","))
@@ -258,17 +287,29 @@ export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsP
   const exportToExcel = () => {
     if (!data.items) return;
 
-    // Create BOQ items sheet
-    const itemsData = data.items.map(item => ({
-      "رقم البند": item.item_number,
-      "الوصف": item.description,
-      "الوحدة": item.unit,
-      "الكمية": item.quantity,
-      "سعر الوحدة": item.unit_price || 0,
-      "الإجمالي": item.total_price || 0,
-      "الفئة": item.category || "غير مصنف",
-      "ملاحظات": item.notes || ""
-    }));
+    // Create BOQ items sheet with calculated prices
+    const itemsData = data.items.map(item => {
+      const calculatedPrice = getItemCalculatedPrice(item.item_number);
+      const effectivePrice = calculatedPrice > 0 ? calculatedPrice : (item.unit_price || 0);
+      const costData = getItemCostData(item.item_number);
+      const calcCosts = getItemCalculatedCosts(item.item_number);
+      
+      return {
+        "رقم البند": item.item_number,
+        "الوصف": item.description,
+        "الوحدة": item.unit,
+        "الكمية": item.quantity,
+        "تكلفة العمالة": calcCosts.totalLabor,
+        "التكاليف غير المباشرة": calcCosts.totalIndirect,
+        "هامش الربح %": costData.profitMargin,
+        "قيمة الربح": calcCosts.profitAmount,
+        "سعر الوحدة الأصلي": item.unit_price || 0,
+        "سعر الوحدة المحسوب": calculatedPrice > 0 ? calculatedPrice : (item.unit_price || 0),
+        "الإجمالي": effectivePrice * item.quantity,
+        "الفئة": item.category || "غير مصنف",
+        "ملاحظات": item.notes || ""
+      };
+    });
 
     // Create summary sheet
     const summaryData = [
@@ -870,92 +911,159 @@ export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsP
               </div>
             )}
 
-            {/* BOQ Items Table - English Headers Only */}
+            {/* BOQ Items Table - With Calculated Costs */}
             <div className="overflow-x-auto border border-border rounded-xl shadow-sm">
               <table className="w-full" dir="ltr">
                 <thead>
                   <tr className="bg-slate-100 dark:bg-slate-800 border-b-2 border-primary/20">
-                    <th className="px-4 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                      Item #
+                    <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                      #
                     </th>
-                    <th className="px-4 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                    <th className="px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
                       Item Code
                     </th>
-                    <th className="px-4 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200">
+                    <th className="px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200">
                       Description
                     </th>
-                    <th className="px-4 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                    <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
                       Unit
                     </th>
-                    <th className="px-4 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                      Quantity
+                    <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                      Qty
                     </th>
-                    <th className="px-4 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                      Unit Price (SAR)
+                    <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                      Labor
                     </th>
-                    <th className="px-4 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                      Total Price (SAR)
+                    <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                      Indirect
+                    </th>
+                    <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                      Profit %
+                    </th>
+                    <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap bg-primary/10">
+                      Calc. Unit Price
+                    </th>
+                    <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap bg-primary/10">
+                      Total
+                    </th>
+                    <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                      Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredItems.map((item, idx) => (
-                    <tr 
-                      key={idx} 
-                      className={cn(
-                        "hover:bg-primary/5 transition-colors",
-                        idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
-                      )}
-                    >
-                      <td className="px-4 py-3 text-center">
-                        <span className="font-mono text-sm font-medium text-slate-600 dark:text-slate-300">
-                          {idx + 1}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-left">
-                        <span className="font-mono text-sm bg-primary/10 text-primary px-2 py-1 rounded font-medium">
-                          {item.item_number}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-left max-w-[300px]">
-                        <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words" title={item.description}>
-                          {item.description}
-                        </p>
-                        {item.notes && item.notes !== item.description && (
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 break-words" dir="rtl">
-                            {item.notes}
-                          </p>
+                  {filteredItems.map((item, idx) => {
+                    const costData = getItemCostData(item.item_number);
+                    const calcCosts = getItemCalculatedCosts(item.item_number);
+                    const calculatedPrice = calcCosts.calculatedUnitPrice;
+                    const effectivePrice = calculatedPrice > 0 ? calculatedPrice : (item.unit_price || 0);
+                    const totalPrice = effectivePrice * item.quantity;
+                    
+                    return (
+                      <tr 
+                        key={idx} 
+                        className={cn(
+                          "hover:bg-primary/5 transition-colors",
+                          idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{item.unit}</span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{item.quantity.toLocaleString()}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                          {item.unit_price ? item.unit_price.toLocaleString() : '-'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-sm font-bold text-primary">
-                          {item.total_price ? item.total_price.toLocaleString() : '-'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                      >
+                        <td className="px-3 py-3 text-center">
+                          <span className="font-mono text-sm font-medium text-slate-600 dark:text-slate-300">
+                            {idx + 1}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-left">
+                          <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-1 rounded font-medium">
+                            {item.item_number}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-left max-w-[200px]">
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words line-clamp-2" title={item.description}>
+                            {item.description}
+                          </p>
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{item.unit}</span>
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{item.quantity.toLocaleString()}</span>
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <span className={cn(
+                            "text-sm font-medium",
+                            calcCosts.totalLabor > 0 ? "text-green-600 dark:text-green-400" : "text-slate-400"
+                          )}>
+                            {calcCosts.totalLabor > 0 ? calcCosts.totalLabor.toLocaleString() : '-'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <span className={cn(
+                            "text-sm font-medium",
+                            calcCosts.totalIndirect > 0 ? "text-orange-600 dark:text-orange-400" : "text-slate-400"
+                          )}>
+                            {calcCosts.totalIndirect > 0 ? calcCosts.totalIndirect.toLocaleString() : '-'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <span className={cn(
+                            "text-sm font-medium",
+                            costData.profitMargin > 0 ? "text-purple-600 dark:text-purple-400" : "text-slate-400"
+                          )}>
+                            {costData.profitMargin > 0 ? `${costData.profitMargin}%` : '-'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-right bg-primary/5">
+                          <span className={cn(
+                            "text-sm font-bold",
+                            calculatedPrice > 0 ? "text-primary" : "text-slate-500"
+                          )}>
+                            {calculatedPrice > 0 ? calculatedPrice.toLocaleString() : (item.unit_price ? item.unit_price.toLocaleString() : '-')}
+                          </span>
+                          {calculatedPrice > 0 && item.unit_price && calculatedPrice !== item.unit_price && (
+                            <p className="text-xs text-slate-400 line-through">
+                              {item.unit_price.toLocaleString()}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-right bg-primary/5">
+                          <span className="text-sm font-bold text-primary">
+                            {totalPrice > 0 ? totalPrice.toLocaleString() : '-'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          <ItemCostEditor
+                            itemId={item.item_number}
+                            itemDescription={item.description}
+                            quantity={item.quantity}
+                            currentCosts={costData}
+                            calculatedCosts={calcCosts}
+                            onSave={handleSaveItemCost}
+                            currency={data.summary?.currency || "SAR"}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr className="bg-primary/10 border-t-2 border-primary/30">
-                    <td colSpan={5} className="px-4 py-4 text-right font-bold text-slate-800 dark:text-slate-100">
+                    <td colSpan={8} className="px-4 py-4 text-right font-bold text-slate-800 dark:text-slate-100">
                       Grand Total
                     </td>
-                    <td colSpan={2} className="px-4 py-4 text-right">
+                    <td colSpan={2} className="px-4 py-4 text-right bg-primary/20">
                       <span className="font-bold text-lg text-primary">
-                        {(data.summary?.total_value || data.items?.reduce((sum, item) => sum + (item.total_price || 0), 0) || 0).toLocaleString()} {data.summary?.currency || 'SAR'}
+                        {(() => {
+                          const calculatedTotal = filteredItems.reduce((sum, item) => {
+                            const calcPrice = getItemCalculatedCosts(item.item_number).calculatedUnitPrice;
+                            const effectivePrice = calcPrice > 0 ? calcPrice : (item.unit_price || 0);
+                            return sum + (effectivePrice * item.quantity);
+                          }, 0);
+                          return calculatedTotal > 0 ? calculatedTotal.toLocaleString() : 
+                            (data.summary?.total_value || data.items?.reduce((sum, item) => sum + (item.total_price || 0), 0) || 0).toLocaleString();
+                        })()} {data.summary?.currency || 'SAR'}
                       </span>
                     </td>
+                    <td className="px-4 py-4"></td>
                   </tr>
                 </tfoot>
               </table>
