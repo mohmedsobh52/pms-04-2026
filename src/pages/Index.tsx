@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack } from "lucide-react";
+import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar } from "lucide-react";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { useLanguage } from "@/hooks/useLanguage";
 import { FileUpload } from "@/components/FileUpload";
@@ -12,6 +12,7 @@ import { QuotationUpload } from "@/components/QuotationUpload";
 import { QuotationComparison } from "@/components/QuotationComparison";
 import { ComprehensiveReport } from "@/components/ComprehensiveReport";
 import { BOQComparison } from "@/components/BOQComparison";
+import { P6Export } from "@/components/P6Export";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -616,7 +617,7 @@ const Index = () => {
               {user && (
                 <div className="glass-card p-6 animate-slide-up">
                   <Tabs defaultValue="upload" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3 mb-4">
+                    <TabsList className="grid w-full grid-cols-4 mb-4">
                       <TabsTrigger value="upload" className="gap-2">
                         <Receipt className="w-4 h-4" />
                         {t('uploadQuotations')}
@@ -629,6 +630,10 @@ const Index = () => {
                         <FileStack className="w-4 h-4" />
                         BOQ Comparison
                       </TabsTrigger>
+                      <TabsTrigger value="p6-export" className="gap-2">
+                        <Calendar className="w-4 h-4" />
+                        P6 Export
+                      </TabsTrigger>
                     </TabsList>
                     <TabsContent value="upload">
                       <QuotationUpload />
@@ -638,6 +643,9 @@ const Index = () => {
                     </TabsContent>
                     <TabsContent value="boq-compare">
                       <BOQComparison />
+                    </TabsContent>
+                    <TabsContent value="p6-export">
+                      <P6Export items={analysisData?.items || []} currency="SAR" />
                     </TabsContent>
                   </Tabs>
                 </div>

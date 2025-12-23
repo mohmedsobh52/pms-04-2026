@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { extractDataFromExcel, formatExcelDataForAnalysis } from "@/lib/excel-utils";
 import { extractTextFromPDF } from "@/lib/pdf-utils";
 import { exportBOQComparisonToPDF, exportBOQComparisonToExcel } from "@/lib/boq-export-utils";
+import { cn } from "@/lib/utils";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart as RechartsPieChart, Pie, Legend, LineChart, Line, CartesianGrid } from "recharts";
 interface ComparisonItem {
   itemCode: string;
@@ -496,10 +497,14 @@ export function BOQComparison() {
           <Card>
             <CardContent className="pt-6">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-5 mb-6">
+                <TabsList className="grid w-full grid-cols-6 mb-6">
                   <TabsTrigger value="comparison" className="gap-1 text-xs">
                     <BarChart3 className="w-3 h-3" />
                     Comparison
+                  </TabsTrigger>
+                  <TabsTrigger value="variance" className="gap-1 text-xs">
+                    <TrendingUp className="w-3 h-3" />
+                    Variance
                   </TabsTrigger>
                   <TabsTrigger value="risks" className="gap-1 text-xs">
                     <ShieldAlert className="w-3 h-3" />
@@ -615,6 +620,119 @@ export function BOQComparison() {
                         Showing 50 of {comparisonResult.comparisonItems.length} items
                       </div>
                     )}
+                  </div>
+                </TabsContent>
+
+                {/* Detailed Variance Breakdown Tab */}
+                <TabsContent value="variance">
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-primary" />
+                      <h3 className="font-semibold">Detailed Variance Breakdown</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Item-by-item analysis with commercial recommendations and priority classification
+                    </p>
+                    
+                    <div className="rounded-lg border overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-primary/5">
+                              <TableHead className="whitespace-nowrap">Item Code</TableHead>
+                              <TableHead>Description</TableHead>
+                              <TableHead className="text-right whitespace-nowrap">Tender Qty</TableHead>
+                              <TableHead className="text-right whitespace-nowrap">Budget Qty</TableHead>
+                              <TableHead className="text-right whitespace-nowrap">Qty Variance</TableHead>
+                              <TableHead className="text-right whitespace-nowrap">Tender Rate</TableHead>
+                              <TableHead className="text-right whitespace-nowrap">Budget Rate</TableHead>
+                              <TableHead className="text-right whitespace-nowrap">Rate Variance</TableHead>
+                              <TableHead className="text-right whitespace-nowrap">Cost Variance</TableHead>
+                              <TableHead className="text-center">Priority</TableHead>
+                              <TableHead>Recommendation</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {comparisonResult.comparisonItems.map((item, index) => (
+                              <TableRow key={index} className="hover:bg-muted/30">
+                                <TableCell className="font-mono text-sm">{item.itemCode}</TableCell>
+                                <TableCell className="max-w-xs">
+                                  <span className="line-clamp-2 text-sm">{item.description}</span>
+                                </TableCell>
+                                <TableCell className="text-right text-sm">
+                                  {item.tender?.quantity?.toLocaleString() || '—'}
+                                </TableCell>
+                                <TableCell className="text-right text-sm">
+                                  {item.budget?.quantity?.toLocaleString() || '—'}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    {getVarianceIcon(item.variance.quantity)}
+                                    <span className={cn(
+                                      "text-sm font-medium",
+                                      item.variance.quantity > 0 ? "text-destructive" : 
+                                      item.variance.quantity < 0 ? "text-green-500" : ""
+                                    )}>
+                                      {formatPercent(item.variance.quantityPercent)}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right text-sm">
+                                  {item.tender?.rate ? formatCurrency(item.tender.rate) : '—'}
+                                </TableCell>
+                                <TableCell className="text-right text-sm">
+                                  {item.budget?.rate ? formatCurrency(item.budget.rate) : '—'}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    {getVarianceIcon(item.variance.rate)}
+                                    <span className={cn(
+                                      "text-sm font-medium",
+                                      item.variance.rate > 0 ? "text-destructive" : 
+                                      item.variance.rate < 0 ? "text-green-500" : ""
+                                    )}>
+                                      {formatPercent(item.variance.ratePercent)}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <span className={cn(
+                                    "font-medium",
+                                    item.variance.cost > 0 ? "text-destructive" : 
+                                    item.variance.cost < 0 ? "text-green-500" : ""
+                                  )}>
+                                    {formatCurrency(item.variance.cost)}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  {item.priority ? (
+                                    <Badge variant={
+                                      item.priority === 'Critical' ? 'destructive' :
+                                      item.priority === 'High' ? 'default' :
+                                      item.priority === 'Medium' ? 'secondary' : 'outline'
+                                    } className={cn(
+                                      item.priority === 'Critical' && 'bg-red-600',
+                                      item.priority === 'High' && 'bg-orange-500',
+                                      item.priority === 'Medium' && 'bg-amber-500 text-white',
+                                      item.priority === 'Low' && 'border-green-500 text-green-600'
+                                    )}>
+                                      {item.priority}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <span className="text-sm text-muted-foreground">
+                                    {item.recommendation || '—'}
+                                  </span>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
                   </div>
                 </TabsContent>
 

@@ -20,8 +20,11 @@ import {
   Clock,
   BarChart3,
   Activity,
-  Gauge
+  Gauge,
+  FileText,
+  FileDown
 } from "lucide-react";
+import { exportScheduleIntegrationToPDF, exportScheduleIntegrationToExcel } from "@/lib/boq-export-utils";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
@@ -417,10 +420,36 @@ export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: Schedu
             {tab.label}
           </button>
         ))}
-        <Button variant="outline" size="sm" onClick={analyzeIntegration} disabled={isLoading} className="ml-auto gap-2">
-          <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
-          Refresh
-        </Button>
+        <div className="ml-auto flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              exportScheduleIntegrationToPDF(result, currency);
+              toast.success("PDF exported successfully");
+            }}
+            className="gap-2"
+          >
+            <FileText className="w-4 h-4" />
+            Export PDF
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              exportScheduleIntegrationToExcel(result, currency);
+              toast.success("Excel exported successfully");
+            }}
+            className="gap-2"
+          >
+            <FileDown className="w-4 h-4" />
+            Export Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={analyzeIntegration} disabled={isLoading} className="gap-2">
+            <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Cost-Loaded Schedule Table */}
