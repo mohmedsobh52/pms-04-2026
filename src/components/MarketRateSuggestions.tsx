@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { TrendingUp, TrendingDown, Minus, Sparkles, MapPin, Loader2, Check, AlertTriangle, X } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Sparkles, MapPin, Loader2, Check, AlertTriangle, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { ApplyRateDialog } from "./ApplyRateDialog";
 
 interface BOQItem {
   item_number: string;
@@ -53,6 +54,8 @@ export function MarketRateSuggestions({ items, onApplyRate }: MarketRateSuggesti
   const [location, setLocation] = useState("Riyadh");
   const [suggestions, setSuggestions] = useState<MarketRateSuggestion[]>([]);
   const [appliedItems, setAppliedItems] = useState<Set<string>>(new Set());
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [selectedSuggestion, setSelectedSuggestion] = useState<MarketRateSuggestion | null>(null);
   const { toast } = useToast();
 
   const handleSuggestRates = async () => {
@@ -97,15 +100,51 @@ export function MarketRateSuggestions({ items, onApplyRate }: MarketRateSuggesti
     }
   };
 
-  const handleApplyRate = (itemNumber: string, rate: number) => {
-    if (onApplyRate) {
-      onApplyRate(itemNumber, rate);
-      setAppliedItems(prev => new Set([...prev, itemNumber]));
-      toast({
-        title: "Rate applied",
-        description: `Updated unit price for item ${itemNumber}`,
-      });
-    }
+  const openApplyDialog = (suggestion: MarketRateSuggestion) => {
+    setSelectedSuggestion(suggestion);
+    setConfirmDialogOpen(true);
+  };
+
+  const handleConfirmApply = () => {
+    if (!selectedSuggestion || !onApplyRate) return;
+    
+    onApplyRate(selectedSuggestion.item_number, selectedSuggestion.suggested_avg);
+    setAppliedItems(prev => new Set([...prev, selectedSuggestion.item_number]));
+    setConfirmDialogOpen(false);
+    setSelectedSuggestion(null);
+    
+    toast({
+      title: "Rate applied",
+      description: `Updated unit price for item ${selectedSuggestion.item_number}. Totals recalculated.`,
+    });
+  };
+
+  const handleApplyAll = () => {
+    if (!onApplyRate) return;
+    
+    const unappliedSuggestions = suggestions.filter(s => !appliedItems.has(s.item_number));
+    unappliedSuggestions.forEach(suggestion => {
+      onApplyRate(suggestion.item_number, suggestion.suggested_avg);
+    });
+    
+    setAppliedItems(new Set(suggestions.map(s => s.item_number)));
+    
+    toast({
+      title: "All rates applied",
+      description: `Updated ${unappliedSuggestions.length} items with suggested market rates. Totals recalculated.`,
+    });
+  };
+
+  const getSelectedItem = (): BOQItem | null => {
+    if (!selectedSuggestion) return null;
+    return items.find(i => i.item_number === selectedSuggestion.item_number) || {
+      item_number: selectedSuggestion.item_number,
+      description: selectedSuggestion.description,
+      unit: 'Unit',
+      quantity: 1,
+      unit_price: selectedSuggestion.current_price,
+      total_price: selectedSuggestion.current_price
+    };
   };
 
   const getTrendIcon = (trend: string) => {
@@ -192,15 +231,27 @@ export function MarketRateSuggestions({ items, onApplyRate }: MarketRateSuggesti
 
           {/* Results summary */}
           {suggestions.length > 0 && (
-            <div className="flex items-center gap-4 text-sm">
-              <span className="text-muted-foreground">
-                {suggestions.length} items analyzed
-              </span>
-              {highVarianceCount > 0 && (
-                <Badge variant="destructive" className="gap-1">
-                  <AlertTriangle className="w-3 h-3" />
-                  {highVarianceCount} items with &gt;20% variance
-                </Badge>
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-4">
+                <span className="text-muted-foreground">
+                  {suggestions.length} items analyzed
+                </span>
+                {highVarianceCount > 0 && (
+                  <Badge variant="destructive" className="gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    {highVarianceCount} items with &gt;20% variance
+                  </Badge>
+                )}
+              </div>
+              {onApplyRate && appliedItems.size < suggestions.length && (
+                <Button 
+                  size="sm" 
+                  onClick={handleApplyAll}
+                  className="gap-2"
+                >
+                  <CheckCheck className="w-4 h-4" />
+                  Apply All Suggested Rates
+                </Button>
               )}
             </div>
           )}
@@ -272,7 +323,7 @@ export function MarketRateSuggestions({ items, onApplyRate }: MarketRateSuggesti
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => handleApplyRate(suggestion.item_number, suggestion.suggested_avg)}
+                            onClick={() => openApplyDialog(suggestion)}
                             disabled={!onApplyRate}
                           >
                             Apply
@@ -303,6 +354,15 @@ export function MarketRateSuggestions({ items, onApplyRate }: MarketRateSuggesti
           )}
         </div>
       </DialogContent>
+
+      {/* Apply Rate Confirmation Dialog */}
+      <ApplyRateDialog
+        open={confirmDialogOpen}
+        onOpenChange={setConfirmDialogOpen}
+        item={getSelectedItem()}
+        suggestedRate={selectedSuggestion?.suggested_avg || 0}
+        onConfirm={handleConfirmApply}
+      />
     </Dialog>
   );
 }

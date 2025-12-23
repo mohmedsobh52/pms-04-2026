@@ -4,6 +4,7 @@ import { Eye, Clock, AlertTriangle, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AnalysisResults } from "@/components/AnalysisResults";
+import { CommentsPanel } from "@/components/CommentsPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -170,6 +171,12 @@ export default function SharedView() {
           wbsData={sharedData.wbs_data} 
         />
       </main>
+
+      {/* Comments Panel */}
+      <CommentsPanel 
+        shareCode={shareCode!} 
+        items={sharedData.analysis_data?.items || []}
+      />
     </div>
   );
 }

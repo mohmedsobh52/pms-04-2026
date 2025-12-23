@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      analysis_comments: {
+        Row: {
+          author_email: string | null
+          author_name: string
+          comment_text: string
+          comment_type: string | null
+          created_at: string | null
+          id: string
+          is_resolved: boolean | null
+          item_id: string | null
+          parent_id: string | null
+          share_code: string
+          updated_at: string | null
+        }
+        Insert: {
+          author_email?: string | null
+          author_name: string
+          comment_text: string
+          comment_type?: string | null
+          created_at?: string | null
+          id?: string
+          is_resolved?: boolean | null
+          item_id?: string | null
+          parent_id?: string | null
+          share_code: string
+          updated_at?: string | null
+        }
+        Update: {
+          author_email?: string | null
+          author_name?: string
+          comment_text?: string
+          comment_type?: string | null
+          created_at?: string | null
+          id?: string
+          is_resolved?: boolean | null
+          item_id?: string | null
+          parent_id?: string | null
+          share_code?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cost_analysis: {
         Row: {
           admin_cost: number | null
