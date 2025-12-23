@@ -1,4 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import { supabase } from '@/integrations/supabase/client';
 
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
@@ -8,9 +9,92 @@ export interface PDFExtractionResult {
   pageCount: number;
   success: boolean;
   error?: string;
+  usedOCR?: boolean;
 }
 
-export async function extractTextFromPDF(file: File): Promise<string> {
+// Convert PDF page to base64 image
+async function pageToImage(page: any, scale: number = 2): Promise<string> {
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  
+  if (!context) {
+    throw new Error('Cannot create canvas context');
+  }
+  
+  canvas.height = viewport.height;
+  canvas.width = viewport.width;
+  
+  await page.render({
+    canvasContext: context,
+    viewport: viewport,
+  }).promise;
+  
+  return canvas.toDataURL('image/png');
+}
+
+// Extract text using OCR (AI Vision)
+async function extractWithOCR(
+  pdf: any, 
+  fileName: string,
+  onProgress?: (current: number, total: number) => void
+): Promise<string> {
+  const numPages = pdf.numPages;
+  let fullText = '';
+  
+  console.log(`Starting OCR extraction for ${numPages} pages`);
+  
+  for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+    try {
+      onProgress?.(pageNum, numPages);
+      console.log(`OCR processing page ${pageNum}/${numPages}`);
+      
+      const page = await pdf.getPage(pageNum);
+      const imageBase64 = await pageToImage(page);
+      
+      const { data, error } = await supabase.functions.invoke('ocr-extract', {
+        body: {
+          imageBase64,
+          pageNumber: pageNum,
+          totalPages: numPages,
+          fileName,
+        },
+      });
+      
+      if (error) {
+        console.error(`OCR error on page ${pageNum}:`, error);
+        fullText += `\n[خطأ في صفحة ${pageNum}]\n`;
+        continue;
+      }
+      
+      if (data?.success && data?.text) {
+        fullText += `\n--- صفحة ${pageNum} ---\n${data.text}\n`;
+      } else if (data?.error) {
+        console.error(`OCR failed on page ${pageNum}:`, data.error);
+        fullText += `\n[فشل OCR في صفحة ${pageNum}: ${data.error}]\n`;
+      }
+      
+      // Small delay between pages to avoid rate limiting
+      if (pageNum < numPages) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+    } catch (pageError) {
+      console.error(`Error processing page ${pageNum}:`, pageError);
+      fullText += `\n[خطأ في معالجة صفحة ${pageNum}]\n`;
+    }
+  }
+  
+  return fullText.trim();
+}
+
+export async function extractTextFromPDF(
+  file: File,
+  options?: {
+    useOCR?: boolean;
+    onOCRProgress?: (current: number, total: number) => void;
+  }
+): Promise<string> {
   try {
     console.log("Starting PDF extraction for:", file.name);
     
@@ -22,7 +106,7 @@ export async function extractTextFromPDF(file: File): Promise<string> {
     
     let fullText = "";
     
-    // Extract text from each page
+    // First, try standard text extraction
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
       try {
         const page = await pdf.getPage(pageNum);
@@ -54,17 +138,32 @@ export async function extractTextFromPDF(file: File): Promise<string> {
     console.log("First 300 chars:", extractedText.substring(0, 300));
     
     // Validate the extracted text
-    const hasArabic = /[\u0600-\u06FF]/.test(extractedText);
-    const hasEnglish = /[a-zA-Z]/.test(extractedText);
-    const hasNumbers = /\d/.test(extractedText);
     const wordCount = extractedText.split(/\s+/).filter(w => w.length > 1).length;
     
-    console.log(`Validation: Arabic=${hasArabic}, English=${hasEnglish}, Numbers=${hasNumbers}, Words=${wordCount}`);
+    console.log(`Standard extraction: ${extractedText.length} chars, ${wordCount} words`);
     
     // Check if extraction was successful
-    if (extractedText.length < 50 || wordCount < 10) {
-      console.log("⚠️ Insufficient text extracted - PDF may contain images only");
-      return `[فشل استخراج النص]
+    const needsOCR = extractedText.length < 50 || wordCount < 10;
+    
+    if (needsOCR) {
+      console.log("⚠️ Insufficient text - attempting OCR extraction");
+      
+      // If user requested OCR or we need it
+      if (options?.useOCR !== false) {
+        try {
+          const ocrText = await extractWithOCR(pdf, file.name, options?.onOCRProgress);
+          
+          if (ocrText && ocrText.length > 50) {
+            console.log(`✅ OCR extracted ${ocrText.length} characters`);
+            return ocrText;
+          }
+        } catch (ocrError) {
+          console.error("OCR extraction failed:", ocrError);
+        }
+      }
+      
+      // If OCR also failed or wasn't used
+      return `[فشل استخراج النص - يمكنك تجربة OCR]
 
 ملف: ${file.name}
 الحجم: ${(file.size / 1024).toFixed(2)} KB
@@ -73,13 +172,10 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 💡 هذا الملف يحتوي على:
 - صور ممسوحة ضوئياً (Scanned PDF)
 - نص في شكل صور (يحتاج OCR)
-- أو لا يحتوي على نص قابل للتحديد
 
-🔧 الحل:
-1. افتح ملف PDF الأصلي
-2. حدد النص بالماوس (Ctrl+A)
-3. انسخه (Ctrl+C)
-4. الصقه في المربع أدناه`;
+🔧 الحلول:
+1. اضغط على زر "استخدم OCR" لاستخراج النص بالذكاء الاصطناعي
+2. أو افتح ملف PDF الأصلي وانسخ النص يدوياً`;
     }
     
     console.log(`✅ Successfully extracted ${extractedText.length} characters, ${wordCount} words`);
@@ -101,6 +197,22 @@ export async function extractTextFromPDF(file: File): Promise<string> {
   }
 }
 
+// Standalone OCR extraction function
+export async function extractWithOCROnly(
+  file: File,
+  onProgress?: (current: number, total: number) => void
+): Promise<string> {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    return await extractWithOCR(pdf, file.name, onProgress);
+  } catch (error) {
+    console.error("OCR extraction error:", error);
+    throw error;
+  }
+}
+
 // Check if text contains binary data
 export function containsBinaryData(text: string): boolean {
   // Check for control characters (binary data indicators)
@@ -117,6 +229,7 @@ export function validateExtractedText(text: string): {
   wordCount: number;
   issues: string[];
   isBinary: boolean;
+  needsOCR: boolean;
 } {
   const issues: string[] = [];
   
@@ -131,11 +244,14 @@ export function validateExtractedText(text: string): {
       wordCount: 0,
       issues,
       isBinary: true,
+      needsOCR: true,
     };
   }
   
   // Check for error messages from extraction
-  if (text.includes("[فشل استخراج النص]") || text.includes("[فشل قراءة ملف PDF]") || text.includes("[تعذر استخراج النص") || text.includes("[لم يتم العثور")) {
+  const needsOCR = text.includes("[فشل استخراج النص - يمكنك تجربة OCR]");
+  
+  if (text.includes("[فشل استخراج النص") || text.includes("[فشل قراءة ملف PDF]") || text.includes("[تعذر استخراج النص") || text.includes("[لم يتم العثور")) {
     issues.push("فشل استخراج النص من الملف");
     return {
       isValid: false,
@@ -144,6 +260,7 @@ export function validateExtractedText(text: string): {
       wordCount: 0,
       issues,
       isBinary: false,
+      needsOCR,
     };
   }
   
@@ -177,5 +294,6 @@ export function validateExtractedText(text: string): {
     wordCount,
     issues,
     isBinary: false,
+    needsOCR: false,
   };
 }
