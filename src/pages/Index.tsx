@@ -18,6 +18,12 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { extractTextFromPDF, validateExtractedText, extractWithOCROnly } from "@/lib/pdf-utils";
+import { extractDataFromExcel, formatExcelDataForAnalysis } from "@/lib/excel-utils";
+
+function isExcelFile(file: File): boolean {
+  return file.type.includes('spreadsheet') || file.type.includes('excel') || 
+         file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+}
 
 const Index = () => {
   const navigate = useNavigate();
@@ -51,6 +57,50 @@ const Index = () => {
     setIsExtracting(true);
     setExtractionStatus("extracting");
     
+    // Check if it's an Excel file
+    if (isExcelFile(file)) {
+      toast({
+        title: "جاري قراءة ملف Excel...",
+        description: "يرجى الانتظار بينما نستخرج البيانات",
+      });
+      
+      try {
+        const result = await extractDataFromExcel(file);
+        const formattedText = formatExcelDataForAnalysis(result);
+        
+        if (formattedText.length > 50) {
+          setExtractedText(formattedText);
+          setExtractionStatus("success");
+          updateStepStatus("extract", "complete");
+          toast({
+            title: "تم استخراج البيانات بنجاح",
+            description: `تم استخراج ${result.items.length} عنصر من ${result.sheetNames.length} ورقة`,
+          });
+        } else {
+          setExtractionStatus("failed");
+          setShowManualInput(true);
+          toast({
+            title: "لم يتم العثور على بيانات كافية",
+            description: "يرجى التأكد من أن الملف يحتوي على جدول كميات BOQ",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Excel extraction error:", error);
+        setExtractionStatus("failed");
+        setShowManualInput(true);
+        toast({
+          title: "فشل قراءة ملف Excel",
+          description: error instanceof Error ? error.message : "حدث خطأ غير متوقع",
+          variant: "destructive",
+        });
+      } finally {
+        setIsExtracting(false);
+      }
+      return;
+    }
+    
+    // Handle PDF files
     toast({
       title: "جاري استخراج النص...",
       description: "يرجى الانتظار بينما نستخرج المحتوى من ملف PDF",
@@ -61,7 +111,6 @@ const Index = () => {
       const validation = validateExtractedText(text);
       
       if (validation.isBinary) {
-        // Binary data detected - don't use this text at all
         setExtractionStatus("failed");
         setShowManualInput(true);
         setManualText("");
@@ -81,7 +130,6 @@ const Index = () => {
       } else {
         setExtractionStatus("failed");
         setShowManualInput(true);
-        // Only set manual text if it's not an error message
         const cleanText = text.includes("[فشل") || text.includes("[تعذر") || text.includes("[لم يتم") ? "" : text;
         setManualText(cleanText);
         toast({
