@@ -373,8 +373,6 @@ const Index = () => {
               {t('heroDescription')}
             </p>
           </div>
-            </p>
-          </div>
 
           {/* Main Content */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
