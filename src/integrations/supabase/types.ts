@@ -204,6 +204,45 @@ export type Database = {
         }
         Relationships: []
       }
+      shared_analyses: {
+        Row: {
+          analysis_data: Json
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          file_name: string | null
+          id: string
+          is_active: boolean | null
+          share_code: string
+          viewer_count: number | null
+          wbs_data: Json | null
+        }
+        Insert: {
+          analysis_data: Json
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          file_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          share_code: string
+          viewer_count?: number | null
+          wbs_data?: Json | null
+        }
+        Update: {
+          analysis_data?: Json
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          file_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          share_code?: string
+          viewer_count?: number | null
+          wbs_data?: Json | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

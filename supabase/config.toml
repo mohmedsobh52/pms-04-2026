@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.generate-p6-export]
 verify_jwt = false
+
+[functions.suggest-market-rates]
+verify_jwt = false

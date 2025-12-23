@@ -15,6 +15,7 @@ import { QuotationComparison } from "@/components/QuotationComparison";
 import { ComprehensiveReport } from "@/components/ComprehensiveReport";
 import { BOQComparison } from "@/components/BOQComparison";
 import { BOQVersionComparison } from "@/components/BOQVersionComparison";
+import { ShareAnalysis } from "@/components/ShareAnalysis";
 import { P6Export } from "@/components/P6Export";
 import { KPIDashboard } from "@/components/KPIDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -337,6 +338,13 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {/* Share Analysis */}
+              <ShareAnalysis 
+                analysisData={analysisData}
+                wbsData={wbsData}
+                fileName={selectedFile?.name}
+              />
+              
               {/* BOQ Version Comparison */}
               <BOQVersionComparison 
                 currentItems={analysisData?.items}
