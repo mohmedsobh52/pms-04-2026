@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Scale, TrendingDown, TrendingUp, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { Scale, TrendingDown, TrendingUp, AlertCircle, CheckCircle2, Loader2, BarChart3 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { QuotationCostChart } from "./QuotationCostChart";
+import { useLanguage } from "@/hooks/useLanguage";
 import {
   Table,
   TableBody,
@@ -39,10 +41,12 @@ interface ComparisonResult {
 export function QuotationComparison() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { isArabic } = useLanguage();
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
+  const [showCharts, setShowCharts] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -144,12 +148,30 @@ export function QuotationComparison() {
 
   return (
     <div className="space-y-6">
+      {/* Charts Toggle Button */}
+      <div className="flex justify-end">
+        <Button
+          variant={showCharts ? "secondary" : "outline"}
+          size="sm"
+          onClick={() => setShowCharts(!showCharts)}
+          className="gap-2"
+        >
+          <BarChart3 className="w-4 h-4" />
+          {isArabic ? "عرض الرسوم البيانية" : "Show Charts"}
+        </Button>
+      </div>
+
+      {/* Charts Section */}
+      {showCharts && (
+        <QuotationCostChart showComparison={true} currency={quotations[0]?.currency || "ر.س"} />
+      )}
+
       {/* Selection Card */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Scale className="w-5 h-5" />
-            اختر العروض للمقارنة
+            {isArabic ? "اختر العروض للمقارنة" : "Select Quotations to Compare"}
           </CardTitle>
         </CardHeader>
         <CardContent>
