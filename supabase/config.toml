@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.compare-boq]
 verify_jwt = false
+
+[functions.generate-p6-export]
+verify_jwt = false
