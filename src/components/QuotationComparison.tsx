@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Scale, TrendingDown, TrendingUp, AlertCircle, CheckCircle2, Loader2, BarChart3 } from "lucide-react";
+import { Scale, TrendingDown, TrendingUp, AlertCircle, CheckCircle2, Loader2, BarChart3, GitCompare } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { QuotationCostChart } from "./QuotationCostChart";
+import { ItemComparison } from "./ItemComparison";
 import { useLanguage } from "@/hooks/useLanguage";
 import {
   Table,
@@ -18,6 +19,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+interface QuotationItem {
+  item_number: string;
+  description: string;
+  unit: string;
+  quantity: number;
+  unit_price?: number;
+  total_price?: number;
+}
+
 interface Quotation {
   id: string;
   name: string;
@@ -27,6 +37,8 @@ interface Quotation {
   total_amount?: number;
   currency: string;
   status: string;
+  items?: QuotationItem[];
+  ai_analysis?: any;
 }
 
 interface ComparisonResult {
@@ -47,6 +59,7 @@ export function QuotationComparison() {
   const [isLoading, setIsLoading] = useState(true);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [showCharts, setShowCharts] = useState(false);
+  const [showItemComparison, setShowItemComparison] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -149,7 +162,16 @@ export function QuotationComparison() {
   return (
     <div className="space-y-6">
       {/* Charts Toggle Button */}
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button
+          variant={showItemComparison ? "secondary" : "outline"}
+          size="sm"
+          onClick={() => setShowItemComparison(!showItemComparison)}
+          className="gap-2"
+        >
+          <GitCompare className="w-4 h-4" />
+          {isArabic ? "مقارنة البنود" : "Item Comparison"}
+        </Button>
         <Button
           variant={showCharts ? "secondary" : "outline"}
           size="sm"
@@ -160,6 +182,17 @@ export function QuotationComparison() {
           {isArabic ? "عرض الرسوم البيانية" : "Show Charts"}
         </Button>
       </div>
+
+      {/* Item Comparison Section */}
+      {showItemComparison && (
+        <ItemComparison 
+          quotations={quotations.map(q => ({
+            ...q,
+            items: q.ai_analysis?.items || []
+          }))} 
+          currency={quotations[0]?.currency || "ر.س"} 
+        />
+      )}
 
       {/* Charts Section */}
       {showCharts && (
