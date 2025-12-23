@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Upload, FileText, X, Loader2 } from "lucide-react";
+import { Upload, FileText, FileSpreadsheet, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface FileUploadProps {
@@ -7,6 +7,27 @@ interface FileUploadProps {
   isProcessing: boolean;
   selectedFile: File | null;
   onClear: () => void;
+  acceptedTypes?: string[];
+}
+
+const ACCEPTED_TYPES = {
+  pdf: 'application/pdf',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  xls: 'application/vnd.ms-excel',
+};
+
+function getFileIcon(file: File) {
+  const isExcel = file.type.includes('spreadsheet') || file.type.includes('excel') || 
+                  file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+  return isExcel ? FileSpreadsheet : FileText;
+}
+
+function isAcceptedFile(file: File): boolean {
+  const acceptedMimes = Object.values(ACCEPTED_TYPES);
+  const acceptedExtensions = ['.pdf', '.xlsx', '.xls'];
+  
+  return acceptedMimes.includes(file.type) || 
+         acceptedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
 }
 
 export function FileUpload({ onFileSelect, isProcessing, selectedFile, onClear }: FileUploadProps) {
@@ -17,6 +38,8 @@ export function FileUpload({ onFileSelect, isProcessing, selectedFile, onClear }
     setIsDragOver(true);
   }, []);
 
+  const FileIcon = selectedFile ? getFileIcon(selectedFile) : FileText;
+
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
@@ -26,7 +49,7 @@ export function FileUpload({ onFileSelect, isProcessing, selectedFile, onClear }
     e.preventDefault();
     setIsDragOver(false);
     const files = e.dataTransfer.files;
-    if (files.length > 0 && files[0].type === "application/pdf") {
+    if (files.length > 0 && isAcceptedFile(files[0])) {
       onFileSelect(files[0]);
     }
   }, [onFileSelect]);
@@ -44,10 +67,10 @@ export function FileUpload({ onFileSelect, isProcessing, selectedFile, onClear }
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-              {isProcessing ? (
+            {isProcessing ? (
                 <Loader2 className="w-6 h-6 text-primary animate-spin" />
               ) : (
-                <FileText className="w-6 h-6 text-primary" />
+                <FileIcon className="w-6 h-6 text-primary" />
               )}
             </div>
             <div>
@@ -90,25 +113,31 @@ export function FileUpload({ onFileSelect, isProcessing, selectedFile, onClear }
     >
       <input
         type="file"
-        accept=".pdf"
+        accept=".pdf,.xlsx,.xls"
         onChange={handleFileInput}
         className="hidden"
-        id="pdf-upload"
+        id="file-upload"
       />
-      <label htmlFor="pdf-upload" className="cursor-pointer block">
+      <label htmlFor="file-upload" className="cursor-pointer block">
         <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
           <Upload className="w-8 h-8 text-primary" />
         </div>
         <h3 className="font-display text-xl font-semibold text-foreground mb-2">
-          ارفع ملف BOQ PDF
+          ارفع ملف BOQ
         </h3>
         <p className="text-muted-foreground mb-4">
           اسحب وأفلت الملف هنا أو انقر للاختيار
         </p>
-        <span className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-lg text-sm font-medium">
-          <FileText className="w-4 h-4" />
-          اختر ملف PDF
-        </span>
+        <div className="flex flex-wrap gap-2 justify-center">
+          <span className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-lg text-sm font-medium">
+            <FileText className="w-4 h-4" />
+            PDF
+          </span>
+          <span className="inline-flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg text-sm font-medium">
+            <FileSpreadsheet className="w-4 h-4" />
+            Excel
+          </span>
+        </div>
       </label>
     </div>
   );
