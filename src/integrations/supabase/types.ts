@@ -159,6 +159,47 @@ export type Database = {
           },
         ]
       }
+      ocr_extracted_texts: {
+        Row: {
+          created_at: string
+          extracted_text: string
+          file_name: string
+          id: string
+          page_count: number | null
+          quotation_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          extracted_text: string
+          file_name: string
+          id?: string
+          page_count?: number | null
+          quotation_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          extracted_text?: string
+          file_name?: string
+          id?: string
+          page_count?: number | null
+          quotation_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ocr_extracted_texts_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "price_quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       price_quotations: {
         Row: {
           ai_analysis: Json | null
@@ -290,6 +331,39 @@ export type Database = {
           share_code?: string
           viewer_count?: number | null
           wbs_data?: Json | null
+        }
+        Relationships: []
+      }
+      user_notification_preferences: {
+        Row: {
+          created_at: string
+          email_digest_frequency: string | null
+          email_on_analysis_complete: boolean | null
+          email_on_comments: boolean | null
+          email_on_mentions: boolean | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_digest_frequency?: string | null
+          email_on_analysis_complete?: boolean | null
+          email_on_comments?: boolean | null
+          email_on_mentions?: boolean | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_digest_frequency?: string | null
+          email_on_analysis_complete?: boolean | null
+          email_on_comments?: boolean | null
+          email_on_mentions?: boolean | null
+          id?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

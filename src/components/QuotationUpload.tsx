@@ -258,6 +258,45 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
     return canvas.toDataURL('image/png');
   };
 
+  // Check for existing OCR text
+  const checkExistingOcrText = async (quotationId: string): Promise<string | null> => {
+    if (!user) return null;
+    
+    try {
+      const { data, error } = await supabase
+        .from('ocr_extracted_texts')
+        .select('extracted_text')
+        .eq('quotation_id', quotationId)
+        .single();
+      
+      if (error || !data) return null;
+      return data.extracted_text;
+    } catch {
+      return null;
+    }
+  };
+
+  // Save OCR text to database
+  const saveOcrText = async (quotationId: string, text: string, pageCount: number) => {
+    if (!user) return;
+    
+    try {
+      await supabase
+        .from('ocr_extracted_texts')
+        .upsert({
+          user_id: user.id,
+          quotation_id: quotationId,
+          file_name: ocrQuotation?.file_name || 'unknown',
+          extracted_text: text,
+          page_count: pageCount,
+        }, {
+          onConflict: 'quotation_id'
+        });
+    } catch (error) {
+      console.error('Error saving OCR text:', error);
+    }
+  };
+
   // Perform OCR on quotation
   const performOCR = async (quotation: Quotation) => {
     setOcrQuotation(quotation);
@@ -265,6 +304,19 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
     setOcrStatus('extracting');
     setOcrProgress(0);
     setExtractedOcrText('');
+
+    // Check for existing OCR text first
+    const existingText = await checkExistingOcrText(quotation.id);
+    if (existingText) {
+      setExtractedOcrText(existingText);
+      setOcrStatus('done');
+      setOcrProgress(100);
+      toast({
+        title: "تم تحميل النص المحفوظ",
+        description: "تم استرجاع النص المستخرج مسبقاً من قاعدة البيانات",
+      });
+      return;
+    }
 
     try {
       // Download the PDF
@@ -305,9 +357,12 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
         setOcrStatus('done');
         setOcrProgress(100);
         
+        // Save to database for future use
+        await saveOcrText(quotation.id, data.text, pageCount);
+        
         toast({
           title: "تم استخراج النص بنجاح",
-          description: `تم معالجة ${data.successCount} صفحة من ${data.pageCount}`,
+          description: `تم معالجة ${data.successCount} صفحة من ${data.pageCount} وحفظ النص`,
         });
       } else {
         throw new Error(data.error || 'OCR failed');
@@ -427,9 +482,14 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
             return;
           }
         } else {
-          // For Excel files, we need to read as text or use xlsx library
-          const text = await file.text();
-          extractedText = text;
+          // For Excel files, use xlsx library for proper extraction
+          const { extractDataFromExcel, formatExcelDataForAnalysis } = await import('@/lib/excel-utils');
+          const excelResult = await extractDataFromExcel(file);
+          extractedText = formatExcelDataForAnalysis(excelResult);
+          
+          if (extractedText.length < 50) {
+            throw new Error('لم يتم العثور على بيانات كافية في ملف Excel');
+          }
         }
       } catch (fetchError) {
         console.error("Error fetching file:", fetchError);

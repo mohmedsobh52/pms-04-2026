@@ -1,6 +1,7 @@
 import { CheckCircle2, Circle, Loader2, XCircle, FileText, Brain, GitMerge, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/useLanguage";
+import { Progress } from "@/components/ui/progress";
 
 export type StepStatus = "pending" | "processing" | "complete" | "error";
 
@@ -10,6 +11,7 @@ export interface WorkflowStep {
   descriptionKey: string;
   status: StepStatus;
   icon: React.ReactNode;
+  progress?: number; // 0-100
 }
 
 interface WorkflowStatusProps {
@@ -18,6 +20,16 @@ interface WorkflowStatusProps {
 
 export function WorkflowStatus({ steps }: WorkflowStatusProps) {
   const { t } = useLanguage();
+  
+  // Calculate overall progress
+  const completedSteps = steps.filter(s => s.status === 'complete').length;
+  const processingStep = steps.find(s => s.status === 'processing');
+  const processingProgress = processingStep?.progress || 0;
+  
+  // Overall progress: completed steps + partial progress of current step
+  const overallProgress = Math.round(
+    ((completedSteps + (processingProgress / 100)) / steps.length) * 100
+  );
   
   const getStatusIcon = (status: StepStatus) => {
     switch (status) {
@@ -34,7 +46,16 @@ export function WorkflowStatus({ steps }: WorkflowStatusProps) {
 
   return (
     <div className="glass-card p-6">
-      <h3 className="font-display text-lg font-semibold mb-6">{t('processingStatus')}</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-display text-lg font-semibold">{t('processingStatus')}</h3>
+        <span className="text-sm font-medium text-primary">{overallProgress}%</span>
+      </div>
+      
+      {/* Overall Progress Bar */}
+      <div className="mb-6">
+        <Progress value={overallProgress} className="h-2" />
+      </div>
+      
       <div className="space-y-1">
         {steps.map((step, index) => (
           <div key={step.id} className="relative">
@@ -67,9 +88,21 @@ export function WorkflowStatus({ steps }: WorkflowStatusProps) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
                   <h4 className="font-medium text-foreground">{t(step.titleKey as any)}</h4>
-                  {getStatusIcon(step.status)}
+                  <div className="flex items-center gap-2">
+                    {step.status === 'processing' && step.progress !== undefined && (
+                      <span className="text-xs font-medium text-primary">{step.progress}%</span>
+                    )}
+                    {getStatusIcon(step.status)}
+                  </div>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">{t(step.descriptionKey as any)}</p>
+                
+                {/* Individual step progress bar */}
+                {step.status === 'processing' && step.progress !== undefined && (
+                  <div className="mt-2">
+                    <Progress value={step.progress} className="h-1.5" />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -86,6 +119,7 @@ export const defaultWorkflowSteps: WorkflowStep[] = [
     descriptionKey: "uploadPDFDesc",
     status: "pending",
     icon: <FileText className="w-5 h-5" />,
+    progress: 0,
   },
   {
     id: "extract",
@@ -93,6 +127,7 @@ export const defaultWorkflowSteps: WorkflowStep[] = [
     descriptionKey: "extractTextDesc",
     status: "pending",
     icon: <FileText className="w-5 h-5" />,
+    progress: 0,
   },
   {
     id: "analyze",
@@ -100,6 +135,7 @@ export const defaultWorkflowSteps: WorkflowStep[] = [
     descriptionKey: "aiAnalysisDesc",
     status: "pending",
     icon: <Brain className="w-5 h-5" />,
+    progress: 0,
   },
   {
     id: "wbs",
@@ -107,6 +143,7 @@ export const defaultWorkflowSteps: WorkflowStep[] = [
     descriptionKey: "createWBSDesc",
     status: "pending",
     icon: <GitMerge className="w-5 h-5" />,
+    progress: 0,
   },
   {
     id: "export",
@@ -114,5 +151,6 @@ export const defaultWorkflowSteps: WorkflowStep[] = [
     descriptionKey: "exportResultsDesc",
     status: "pending",
     icon: <Download className="w-5 h-5" />,
+    progress: 0,
   },
 ];

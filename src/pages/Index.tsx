@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare } from "lucide-react";
+import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell } from "lucide-react";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -18,6 +18,7 @@ import { BOQVersionComparison } from "@/components/BOQVersionComparison";
 import { ShareAnalysis } from "@/components/ShareAnalysis";
 import { P6Export } from "@/components/P6Export";
 import { KPIDashboard } from "@/components/KPIDashboard";
+import { NotificationSettings } from "@/components/NotificationSettings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -50,10 +51,10 @@ const Index = () => {
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>(defaultWorkflowSteps);
   const { toast } = useToast();
 
-  const updateStepStatus = (stepId: string, status: StepStatus) => {
+  const updateStepStatus = (stepId: string, status: StepStatus, progress?: number) => {
     setWorkflowSteps(prev =>
       prev.map(step =>
-        step.id === stepId ? { ...step, status } : step
+        step.id === stepId ? { ...step, status, progress: progress ?? (status === 'complete' ? 100 : step.progress) } : step
       )
     );
   };
@@ -250,7 +251,7 @@ const Index = () => {
     }
 
     setIsProcessing(true);
-    updateStepStatus("analyze", "processing");
+    updateStepStatus("analyze", "processing", 10);
 
     try {
       // Extract items analysis
@@ -265,7 +266,7 @@ const Index = () => {
       }
 
       setAnalysisData(itemsResult);
-      updateStepStatus("analyze", "complete");
+      updateStepStatus("analyze", "complete", 100);
 
       toast({
         title: t('analysisSuccess'),
@@ -273,7 +274,7 @@ const Index = () => {
       });
 
       // Create WBS
-      updateStepStatus("wbs", "processing");
+      updateStepStatus("wbs", "processing", 30);
       
       const { data: wbsResult, error: wbsError } = await supabase.functions.invoke("analyze-boq", {
         body: { text: textToAnalyze, analysis_type: "create_wbs", language },
@@ -688,22 +689,26 @@ const Index = () => {
               {user && (
                 <div className="glass-card p-6 animate-slide-up">
                   <Tabs defaultValue="upload" className="w-full">
-                    <TabsList className="grid w-full grid-cols-4 mb-4">
+                    <TabsList className="grid w-full grid-cols-5 mb-4">
                       <TabsTrigger value="upload" className="gap-2">
                         <Receipt className="w-4 h-4" />
-                        {t('uploadQuotations')}
+                        <span className="hidden sm:inline">{t('uploadQuotations')}</span>
                       </TabsTrigger>
                       <TabsTrigger value="compare" className="gap-2">
                         <Scale className="w-4 h-4" />
-                        {t('compareQuotations')}
+                        <span className="hidden sm:inline">{t('compareQuotations')}</span>
                       </TabsTrigger>
                       <TabsTrigger value="boq-compare" className="gap-2">
                         <FileStack className="w-4 h-4" />
-                        BOQ Comparison
+                        <span className="hidden sm:inline">BOQ</span>
                       </TabsTrigger>
                       <TabsTrigger value="p6-export" className="gap-2">
                         <Calendar className="w-4 h-4" />
-                        P6 Export
+                        <span className="hidden sm:inline">P6</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="settings" className="gap-2">
+                        <Bell className="w-4 h-4" />
+                        <span className="hidden sm:inline">إشعارات</span>
                       </TabsTrigger>
                     </TabsList>
                     <TabsContent value="upload">
@@ -717,6 +722,9 @@ const Index = () => {
                     </TabsContent>
                     <TabsContent value="p6-export">
                       <P6Export items={analysisData?.items || []} currency="SAR" />
+                    </TabsContent>
+                    <TabsContent value="settings">
+                      <NotificationSettings />
                     </TabsContent>
                   </Tabs>
                 </div>
