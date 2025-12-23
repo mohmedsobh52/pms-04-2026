@@ -50,6 +50,7 @@ interface AnalysisData {
 interface AnalysisResultsProps {
   data: AnalysisData;
   wbsData?: AnalysisData;
+  onApplyRate?: (itemNumber: string, newRate: number) => void;
 }
 
 // Cost range definitions
@@ -59,7 +60,7 @@ const getCostRange = (price: number): string => {
   return "high";
 };
 
-export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
+export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsProps) {
   const { isArabic } = useLanguage();
   const [activeTab, setActiveTab] = useState<"items" | "wbs" | "costs" | "summary" | "charts" | "timeline" | "integration">("items");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -646,7 +647,7 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
             ))}
           </div>
           <div className="flex gap-2 flex-wrap">
-            <MarketRateSuggestions items={data.items || []} />
+            <MarketRateSuggestions items={data.items || []} onApplyRate={onApplyRate} />
             <Button variant="default" size="sm" onClick={exportToPDF} className="gap-2 bg-gradient-to-r from-primary to-accent">
               <FileDown className="w-4 h-4" />
               PDF

@@ -322,6 +322,42 @@ const Index = () => {
     }
   };
 
+  // Handle applying suggested market rates
+  const handleApplyRate = useCallback((itemNumber: string, newRate: number) => {
+    if (!analysisData?.items) return;
+
+    const updatedItems = analysisData.items.map((item: any) => {
+      if (item.item_number === itemNumber) {
+        const newTotalPrice = item.quantity * newRate;
+        return {
+          ...item,
+          unit_price: newRate,
+          total_price: newTotalPrice,
+        };
+      }
+      return item;
+    });
+
+    // Calculate new total value
+    const newTotalValue = updatedItems.reduce((sum: number, item: any) => 
+      sum + (item.total_price || 0), 0
+    );
+
+    setAnalysisData({
+      ...analysisData,
+      items: updatedItems,
+      summary: {
+        ...analysisData.summary,
+        total_value: newTotalValue,
+      },
+    });
+
+    toast({
+      title: "Rate Applied",
+      description: `Updated item ${itemNumber}. New project total: ${newTotalValue.toLocaleString()} ${analysisData.summary?.currency || 'SAR'}`,
+    });
+  }, [analysisData, toast, t]);
+
   return (
     <div className="min-h-screen bg-background" dir={isArabic ? 'rtl' : 'ltr'}>
       {/* Header */}
@@ -637,7 +673,7 @@ const Index = () => {
                       />
                     </div>
                   )}
-                  <AnalysisResults data={analysisData} wbsData={wbsData} />
+                  <AnalysisResults data={analysisData} wbsData={wbsData} onApplyRate={handleApplyRate} />
                   
                   {/* Comprehensive Report Section */}
                   <ComprehensiveReport
