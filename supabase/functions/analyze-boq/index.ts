@@ -472,7 +472,21 @@ Extract ALL line items with the following fields:
 - quantity: Numeric quantity
 - rate: Unit rate/price
 - amount: Total amount (should equal quantity × rate)
-- section_trade: Category/section (e.g., Earthworks, Concrete, Steel, MEP, Finishing)
+- section_trade: MUST categorize EVERY item into one of these standard construction sections:
+  * "Site Preparation & Earthworks" - for excavation, grading, site clearing
+  * "Foundations & Substructure" - for foundation work, piles, retaining walls
+  * "Concrete Works" - for concrete slabs, columns, beams
+  * "Steel & Metal Works" - for structural steel, reinforcement
+  * "Masonry & Blockwork" - for bricks, blocks, masonry
+  * "Roofing & Waterproofing" - for roof work, waterproofing
+  * "MEP - Plumbing" - for plumbing, sanitary, water supply
+  * "MEP - Electrical" - for electrical, lighting, power
+  * "MEP - HVAC" - for HVAC, air conditioning, ventilation
+  * "Doors & Windows" - for doors, windows, frames
+  * "Finishes (Flooring, Wall, Ceiling)" - for tiles, paint, plaster, ceiling
+  * "External Works" - for landscaping, paving, external utilities
+  * "Preliminaries & General" - for general items, preliminaries, site setup
+  IMPORTANT: NEVER use "Uncategorized" - every item MUST have a proper section_trade
 - remarks: Any notes or specifications
 
 ### 2. Unit Normalization
@@ -492,21 +506,26 @@ For each item, verify:
 - Unit is valid and normalized
 - Description is clear and not duplicated
 
-### 4. Section/Trade Categories
-Group items into standard construction trades:
-- Site Preparation & Earthworks
-- Foundations & Substructure
-- Concrete Works
-- Steel & Metal Works
-- Masonry & Blockwork
-- Roofing & Waterproofing
-- Doors & Windows
-- Finishes (Flooring, Wall, Ceiling)
-- MEP - Electrical
-- MEP - Plumbing
-- MEP - HVAC
-- External Works
-- Preliminaries & General
+### 4. Section/Trade Categories (MANDATORY CATEGORIZATION)
+⚠️ CRITICAL: Every item MUST be assigned to ONE of these sections. NEVER use "Uncategorized" or leave blank.
+Match items to the closest appropriate section based on description keywords:
+
+Standard sections (use these exact names):
+- Site Preparation & Earthworks (keywords: excavation, grading, earthwork, site clearing, demolition)
+- Foundations & Substructure (keywords: foundation, footing, pile, basement, substructure)
+- Concrete Works (keywords: concrete, slab, column, beam, casting, formwork)
+- Steel & Metal Works (keywords: steel, reinforcement, rebar, structural steel, metalwork)
+- Masonry & Blockwork (keywords: brick, block, masonry, wall construction)
+- Roofing & Waterproofing (keywords: roof, roofing, waterproofing, insulation)
+- Doors & Windows (keywords: door, window, frame, glazing, curtain wall)
+- Finishes (Flooring, Wall, Ceiling) (keywords: tiles, paint, plaster, flooring, ceiling, finishing)
+- MEP - Electrical (keywords: electrical, lighting, power, wiring, cable, panel, switch)
+- MEP - Plumbing (keywords: plumbing, sanitary, water supply, drainage, piping)
+- MEP - HVAC (keywords: HVAC, air conditioning, ventilation, cooling, heating)
+- External Works (keywords: landscaping, paving, external utilities, site works)
+- Preliminaries & General (keywords: preliminaries, mobilization, general items, insurance, temporary works)
+
+If you're unsure which category fits best, use the category that matches the primary construction phase or trade.
 
 ## CRITICAL RULES
 1. Do NOT output corrupted or unreadable text - clean it up or mark as [UNREADABLE]
@@ -651,7 +670,7 @@ Use the submit_boq_analysis function to return your structured analysis.`;
       }
     }
 
-    // Post-process: normalize units and recalculate if needed
+    // Post-process: normalize units, validate categorization, and recalculate if needed
     if (result.items) {
       result.items = result.items.map(item => {
         const normalizedUnit = normalizeUnit(item.unit);
@@ -667,9 +686,48 @@ Use the submit_boq_analysis function to return your structured analysis.`;
           validationStatus = "warning";
         }
         
+        // Fix uncategorized items by smart categorization based on description
+        let sectionTrade = item.section_trade || "Preliminaries & General";
+        
+        if (!sectionTrade || sectionTrade === "Uncategorized" || sectionTrade.trim() === "") {
+          const desc = item.description.toLowerCase();
+          
+          // Smart categorization based on keywords
+          if (desc.includes("excavat") || desc.includes("earth") || desc.includes("grading") || desc.includes("site clear")) {
+            sectionTrade = "Site Preparation & Earthworks";
+          } else if (desc.includes("foundation") || desc.includes("footing") || desc.includes("pile") || desc.includes("basement")) {
+            sectionTrade = "Foundations & Substructure";
+          } else if (desc.includes("concrete") || desc.includes("slab") || desc.includes("column") || desc.includes("beam") || desc.includes("formwork")) {
+            sectionTrade = "Concrete Works";
+          } else if (desc.includes("steel") || desc.includes("rebar") || desc.includes("reinforcement") || desc.includes("metal")) {
+            sectionTrade = "Steel & Metal Works";
+          } else if (desc.includes("brick") || desc.includes("block") || desc.includes("masonry") || desc.includes("wall")) {
+            sectionTrade = "Masonry & Blockwork";
+          } else if (desc.includes("roof") || desc.includes("waterproof") || desc.includes("insulation")) {
+            sectionTrade = "Roofing & Waterproofing";
+          } else if (desc.includes("door") || desc.includes("window") || desc.includes("frame") || desc.includes("glaz")) {
+            sectionTrade = "Doors & Windows";
+          } else if (desc.includes("tile") || desc.includes("paint") || desc.includes("plaster") || desc.includes("floor") || desc.includes("ceiling") || desc.includes("finish")) {
+            sectionTrade = "Finishes (Flooring, Wall, Ceiling)";
+          } else if (desc.includes("electr") || desc.includes("light") || desc.includes("power") || desc.includes("wiring") || desc.includes("cable") || desc.includes("panel")) {
+            sectionTrade = "MEP - Electrical";
+          } else if (desc.includes("plumb") || desc.includes("sanitary") || desc.includes("water") || desc.includes("drain") || desc.includes("pipe")) {
+            sectionTrade = "MEP - Plumbing";
+          } else if (desc.includes("hvac") || desc.includes("air condition") || desc.includes("ventilat") || desc.includes("cooling") || desc.includes("heating")) {
+            sectionTrade = "MEP - HVAC";
+          } else if (desc.includes("landscap") || desc.includes("paving") || desc.includes("external") || desc.includes("site work")) {
+            sectionTrade = "External Works";
+          } else {
+            sectionTrade = "Preliminaries & General";
+          }
+          
+          validationNotes.push(`Auto-categorized as '${sectionTrade}' based on description`);
+        }
+        
         return {
           ...item,
           unit: normalizedUnit,
+          section_trade: sectionTrade,
           validation_status: validationStatus as "valid" | "warning" | "error",
           validation_notes: validationNotes
         };

@@ -420,9 +420,9 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
             <CardHeader>
               <CardTitle className="text-base flex items-center justify-between">
                 <span>Item Details</span>
-                <Badge variant="outline" className="text-xs">
+                <span className="inline-flex items-center rounded-md border border-border px-2.5 py-0.5 text-xs font-semibold transition-colors">
                   Click to edit values
-                </Badge>
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent>
