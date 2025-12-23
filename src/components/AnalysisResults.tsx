@@ -1,12 +1,16 @@
-import { useState, useMemo } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2 } from "lucide-react";
+import { useState, useMemo, useCallback } from "react";
+import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { DataCharts } from "./DataCharts";
 import { ProjectTimeline } from "./ProjectTimeline";
 import { CostAnalysis } from "./CostAnalysis";
 import { ScheduleIntegration } from "./ScheduleIntegration";
 import { KPIDashboard } from "./KPIDashboard";
+import { useLanguage } from "@/hooks/useLanguage";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -47,9 +51,26 @@ interface AnalysisResultsProps {
   wbsData?: AnalysisData;
 }
 
+// Cost range definitions
+const getCostRange = (price: number): string => {
+  if (price < 10000) return "low";
+  if (price <= 50000) return "medium";
+  return "high";
+};
+
 export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
+  const { isArabic } = useLanguage();
   const [activeTab, setActiveTab] = useState<"items" | "wbs" | "costs" | "summary" | "charts" | "timeline" | "integration">("items");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  
+  // Search and filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [unitFilter, setUnitFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [costRangeFilter, setCostRangeFilter] = useState<string>("all");
+  const [sortField, setSortField] = useState<string>("");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [showFilters, setShowFilters] = useState(false);
 
   const toggleCategory = (category: string) => {
     const newSet = new Set(expandedCategories);
@@ -60,6 +81,93 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
     }
     setExpandedCategories(newSet);
   };
+
+  // Get unique units and categories for filters
+  const filterOptions = useMemo(() => {
+    const items = data.items || [];
+    const units = [...new Set(items.map(item => item.unit).filter(Boolean))];
+    const categories = [...new Set(items.map(item => item.category || "غير مصنف"))];
+    return { units, categories };
+  }, [data.items]);
+
+  // Filter and sort items
+  const filteredItems = useMemo(() => {
+    let items = data.items || [];
+    
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      items = items.filter(item => 
+        item.item_number?.toLowerCase().includes(query) ||
+        item.description?.toLowerCase().includes(query) ||
+        item.notes?.toLowerCase().includes(query)
+      );
+    }
+    
+    // Unit filter
+    if (unitFilter !== "all") {
+      items = items.filter(item => item.unit === unitFilter);
+    }
+    
+    // Category filter
+    if (categoryFilter !== "all") {
+      items = items.filter(item => (item.category || "غير مصنف") === categoryFilter);
+    }
+    
+    // Cost range filter
+    if (costRangeFilter !== "all") {
+      items = items.filter(item => {
+        const range = getCostRange(item.total_price || 0);
+        return range === costRangeFilter;
+      });
+    }
+    
+    // Sorting
+    if (sortField) {
+      items = [...items].sort((a, b) => {
+        let aVal: any, bVal: any;
+        switch (sortField) {
+          case "item_number":
+            aVal = a.item_number || "";
+            bVal = b.item_number || "";
+            break;
+          case "quantity":
+            aVal = a.quantity || 0;
+            bVal = b.quantity || 0;
+            break;
+          case "unit_price":
+            aVal = a.unit_price || 0;
+            bVal = b.unit_price || 0;
+            break;
+          case "total_price":
+            aVal = a.total_price || 0;
+            bVal = b.total_price || 0;
+            break;
+          default:
+            return 0;
+        }
+        
+        if (typeof aVal === "string") {
+          return sortDirection === "asc" 
+            ? aVal.localeCompare(bVal) 
+            : bVal.localeCompare(aVal);
+        }
+        return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+      });
+    }
+    
+    return items;
+  }, [data.items, searchQuery, unitFilter, categoryFilter, costRangeFilter, sortField, sortDirection]);
+
+  const clearFilters = useCallback(() => {
+    setSearchQuery("");
+    setUnitFilter("all");
+    setCategoryFilter("all");
+    setCostRangeFilter("all");
+    setSortField("");
+  }, []);
+
+  const hasActiveFilters = searchQuery || unitFilter !== "all" || categoryFilter !== "all" || costRangeFilter !== "all";
 
   const groupedItems = data.items?.reduce((acc, item) => {
     const category = item.category || "غير مصنف";
@@ -564,6 +672,162 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
       <div className="p-4">
         {activeTab === "items" && (
           <div className="space-y-4">
+            {/* Search and Filter Section */}
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row gap-2">
+                {/* Search Input */}
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder={isArabic ? "بحث بالرقم أو الوصف..." : "Search by code or description..."}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 pr-10"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter Toggle */}
+                <Button
+                  variant={showFilters ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="gap-2"
+                >
+                  <Filter className="w-4 h-4" />
+                  {isArabic ? "تصفية" : "Filter"}
+                  {hasActiveFilters && (
+                    <Badge variant="secondary" className="ml-1">!</Badge>
+                  )}
+                </Button>
+
+                {/* Sort Controls */}
+                <div className="flex items-center gap-1">
+                  <Select value={sortField} onValueChange={setSortField}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue placeholder={isArabic ? "ترتيب" : "Sort by"} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-50">
+                      <SelectItem value="item_number">{isArabic ? "رقم البند" : "Item No."}</SelectItem>
+                      <SelectItem value="quantity">{isArabic ? "الكمية" : "Quantity"}</SelectItem>
+                      <SelectItem value="unit_price">{isArabic ? "سعر الوحدة" : "Unit Price"}</SelectItem>
+                      <SelectItem value="total_price">{isArabic ? "الإجمالي" : "Total"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSortDirection(sortDirection === "asc" ? "desc" : "asc")}
+                    disabled={!sortField}
+                  >
+                    {sortDirection === "asc" ? (
+                      <SortAsc className="w-4 h-4" />
+                    ) : (
+                      <SortDesc className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+
+                {/* Clear All */}
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-2">
+                    <X className="w-4 h-4" />
+                    {isArabic ? "مسح" : "Clear"}
+                  </Button>
+                )}
+              </div>
+
+              {/* Filter Dropdowns */}
+              {showFilters && (
+                <div className="flex flex-wrap gap-2 p-3 bg-muted/30 rounded-lg animate-fade-in">
+                  {/* Unit Filter */}
+                  <Select value={unitFilter} onValueChange={setUnitFilter}>
+                    <SelectTrigger className="w-36">
+                      <SelectValue placeholder={isArabic ? "الوحدة" : "Unit"} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-50">
+                      <SelectItem value="all">{isArabic ? "كل الوحدات" : "All Units"}</SelectItem>
+                      {filterOptions.units.map((unit) => (
+                        <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Category Filter */}
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder={isArabic ? "الفئة" : "Category"} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-50">
+                      <SelectItem value="all">{isArabic ? "كل الفئات" : "All Categories"}</SelectItem>
+                      {filterOptions.categories.map((cat) => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Cost Range Filter */}
+                  <Select value={costRangeFilter} onValueChange={setCostRangeFilter}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder={isArabic ? "نطاق التكلفة" : "Cost Range"} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-50">
+                      <SelectItem value="all">{isArabic ? "كل الأسعار" : "All Prices"}</SelectItem>
+                      <SelectItem value="low">
+                        {isArabic ? "منخفض (<10K)" : "Low (<10K SAR)"}
+                      </SelectItem>
+                      <SelectItem value="medium">
+                        {isArabic ? "متوسط (10K-50K)" : "Medium (10K-50K)"}
+                      </SelectItem>
+                      <SelectItem value="high">
+                        {isArabic ? "عالي (>50K)" : "High (>50K SAR)"}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Items Found Counter */}
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>
+                  {filteredItems.length} {isArabic ? "عنصر" : "items"} 
+                  {hasActiveFilters && ` (${isArabic ? "من" : "of"} ${data.items?.length || 0})`}
+                </span>
+                {hasActiveFilters && (
+                  <div className="flex flex-wrap gap-1">
+                    {searchQuery && (
+                      <Badge variant="outline" className="gap-1 text-xs">
+                        {isArabic ? "بحث" : "Search"}: {searchQuery}
+                      </Badge>
+                    )}
+                    {unitFilter !== "all" && (
+                      <Badge variant="outline" className="gap-1 text-xs">
+                        {isArabic ? "الوحدة" : "Unit"}: {unitFilter}
+                      </Badge>
+                    )}
+                    {categoryFilter !== "all" && (
+                      <Badge variant="outline" className="gap-1 text-xs">
+                        {isArabic ? "الفئة" : "Category"}: {categoryFilter}
+                      </Badge>
+                    )}
+                    {costRangeFilter !== "all" && (
+                      <Badge variant="outline" className="gap-1 text-xs">
+                        {isArabic ? "التكلفة" : "Cost"}: {costRangeFilter}
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* BOQ Items Table with Bilingual Headers */}
             <div className="overflow-x-auto border border-border rounded-xl">
               <table className="w-full text-sm" dir="rtl">
@@ -614,7 +878,7 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {data.items?.map((item, idx) => (
+                  {filteredItems.map((item, idx) => (
                     <tr 
                       key={idx} 
                       className={cn(
