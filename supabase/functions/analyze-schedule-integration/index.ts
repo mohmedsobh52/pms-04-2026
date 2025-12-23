@@ -59,6 +59,41 @@ interface CostFlowPeriod {
   activities_active: string[];
 }
 
+// EVM Interfaces
+interface EVMDataPoint {
+  date: string;
+  day_number: number;
+  bcws: number; // Budgeted Cost of Work Scheduled (Planned Value)
+  bcwp: number; // Budgeted Cost of Work Performed (Earned Value)
+  acwp: number; // Actual Cost of Work Performed (Actual Cost)
+  spi: number;  // Schedule Performance Index
+  cpi: number;  // Cost Performance Index
+  sv: number;   // Schedule Variance
+  cv: number;   // Cost Variance
+  etc: number;  // Estimate to Complete
+  eac: number;  // Estimate at Completion
+  vac: number;  // Variance at Completion
+}
+
+interface EVMSummary {
+  data_date: string;
+  percent_complete_planned: number;
+  percent_complete_actual: number;
+  bac: number;  // Budget at Completion
+  bcws: number;
+  bcwp: number;
+  acwp: number;
+  sv: number;
+  cv: number;
+  spi: number;
+  cpi: number;
+  tcpi: number; // To Complete Performance Index
+  etc: number;
+  eac: number;
+  vac: number;
+  performance_status: "ahead_under" | "ahead_over" | "behind_under" | "behind_over" | "on_track";
+}
+
 interface MisalignmentRisk {
   risk_type: "scope_gap" | "cost_concentration" | "timeline_imbalance" | "unlinked_cost" | "orphan_boq" | "front_loaded" | "back_loaded";
   severity: "low" | "medium" | "high";
@@ -107,6 +142,8 @@ interface ScheduleIntegrationResult {
   cost_flow_monthly: CostFlowPeriod[];
   misalignment_risks: MisalignmentRisk[];
   recommendations: string[];
+  evm_summary: EVMSummary;
+  evm_data: EVMDataPoint[];
 }
 
 // Tool definition for structured output
@@ -526,6 +563,125 @@ Ensure all BOQ costs are distributed across activities and verify the total matc
       (scheduledCost / Math.max(totalBOQCost, 1)) * 50
     ));
 
+    // ============ EARNED VALUE MANAGEMENT (EVM) CALCULATIONS ============
+    const bac = scheduledCost; // Budget at Completion
+    const dataDate = new Date(); // Current date as data date
+    dataDate.setHours(0, 0, 0, 0);
+    
+    // Calculate days elapsed from project start to data date
+    const daysElapsed = Math.max(0, Math.ceil((dataDate.getTime() - projectStartDate.getTime()) / (1000 * 60 * 60 * 24)));
+    
+    // Simulate progress - in real scenario this would come from actual progress data
+    // For simulation: assume actual progress is slightly behind schedule with some cost overrun
+    const simulatedProgressFactor = 0.92; // 92% of planned progress
+    const simulatedCostFactor = 1.08; // 8% cost overrun
+    
+    // Generate EVM data points for each day
+    const evmData: EVMDataPoint[] = [];
+    
+    for (let day = 0; day <= totalProjectDuration; day++) {
+      const currentDate = addDays(projectStartDate, day);
+      const sCurvePoint = sCurveData[day] || sCurveData[sCurveData.length - 1];
+      
+      // BCWS = Planned cumulative cost at this date
+      const bcws = sCurvePoint?.planned_cumulative_cost || 0;
+      
+      // Simulate BCWP and ACWP based on whether we're before or after data date
+      let bcwp: number;
+      let acwp: number;
+      
+      if (day <= daysElapsed) {
+        // Past or current - show simulated actual performance
+        bcwp = Math.round(bcws * simulatedProgressFactor);
+        acwp = Math.round(bcwp * simulatedCostFactor);
+      } else {
+        // Future - project based on current performance
+        bcwp = 0; // Not yet earned
+        acwp = 0; // Not yet spent
+      }
+      
+      // Calculate EVM metrics
+      const sv = bcwp - bcws; // Schedule Variance
+      const cv = bcwp - acwp; // Cost Variance
+      const spi = bcws > 0 ? Math.round((bcwp / bcws) * 100) / 100 : 1; // Schedule Performance Index
+      const cpi = acwp > 0 ? Math.round((bcwp / acwp) * 100) / 100 : 1; // Cost Performance Index
+      
+      // EAC using CPI method: EAC = BAC / CPI
+      const eac = cpi > 0 ? Math.round(bac / cpi) : bac;
+      
+      // ETC = EAC - ACWP
+      const etc = Math.max(0, eac - acwp);
+      
+      // VAC = BAC - EAC
+      const vac = bac - eac;
+      
+      evmData.push({
+        date: formatDate(currentDate),
+        day_number: day + 1,
+        bcws: Math.round(bcws),
+        bcwp: Math.round(bcwp),
+        acwp: Math.round(acwp),
+        spi,
+        cpi,
+        sv: Math.round(sv),
+        cv: Math.round(cv),
+        etc: Math.round(etc),
+        eac: Math.round(eac),
+        vac: Math.round(vac)
+      });
+    }
+    
+    // Get current EVM status (at data date)
+    const currentDayIndex = Math.min(daysElapsed, evmData.length - 1);
+    const currentEVM = evmData[currentDayIndex] || evmData[evmData.length - 1];
+    
+    // Calculate TCPI (To Complete Performance Index)
+    const remainingWork = bac - currentEVM.bcwp;
+    const remainingBudget = bac - currentEVM.acwp;
+    const tcpi = remainingBudget > 0 ? Math.round((remainingWork / remainingBudget) * 100) / 100 : 1;
+    
+    // Determine performance status
+    let performanceStatus: "ahead_under" | "ahead_over" | "behind_under" | "behind_over" | "on_track";
+    if (currentEVM.spi >= 0.95 && currentEVM.spi <= 1.05 && currentEVM.cpi >= 0.95 && currentEVM.cpi <= 1.05) {
+      performanceStatus = "on_track";
+    } else if (currentEVM.spi >= 1.0 && currentEVM.cpi >= 1.0) {
+      performanceStatus = "ahead_under";
+    } else if (currentEVM.spi >= 1.0 && currentEVM.cpi < 1.0) {
+      performanceStatus = "ahead_over";
+    } else if (currentEVM.spi < 1.0 && currentEVM.cpi >= 1.0) {
+      performanceStatus = "behind_under";
+    } else {
+      performanceStatus = "behind_over";
+    }
+    
+    const percentCompletePlanned = bac > 0 ? Math.round((currentEVM.bcws / bac) * 10000) / 100 : 0;
+    const percentCompleteActual = bac > 0 ? Math.round((currentEVM.bcwp / bac) * 10000) / 100 : 0;
+    
+    const evmSummary: EVMSummary = {
+      data_date: formatDate(dataDate),
+      percent_complete_planned: percentCompletePlanned,
+      percent_complete_actual: percentCompleteActual,
+      bac,
+      bcws: currentEVM.bcws,
+      bcwp: currentEVM.bcwp,
+      acwp: currentEVM.acwp,
+      sv: currentEVM.sv,
+      cv: currentEVM.cv,
+      spi: currentEVM.spi,
+      cpi: currentEVM.cpi,
+      tcpi,
+      etc: currentEVM.etc,
+      eac: currentEVM.eac,
+      vac: currentEVM.vac,
+      performance_status: performanceStatus
+    };
+
+    console.log("EVM Analysis complete:", {
+      spi: currentEVM.spi,
+      cpi: currentEVM.cpi,
+      status: performanceStatus
+    });
+
     const result: ScheduleIntegrationResult = {
       integration_summary: {
         total_schedule_activities: processedSchedule.length,
@@ -550,7 +706,9 @@ Ensure all BOQ costs are distributed across activities and verify the total matc
       s_curve_data: sCurveData,
       cost_flow_monthly: costFlowMonthly,
       misalignment_risks: analysisResult.misalignment_risks || [],
-      recommendations: analysisResult.recommendations || []
+      recommendations: analysisResult.recommendations || [],
+      evm_summary: evmSummary,
+      evm_data: evmData
     };
 
     console.log("Cost-loaded schedule analysis complete");

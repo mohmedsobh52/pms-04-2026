@@ -7,6 +7,7 @@ import {
   CheckCircle2, 
   XCircle, 
   TrendingUp,
+  TrendingDown,
   Loader2,
   RefreshCw,
   ChevronDown,
@@ -17,7 +18,9 @@ import {
   Calendar,
   DollarSign,
   Clock,
-  BarChart3
+  BarChart3,
+  Activity,
+  Gauge
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -100,6 +103,41 @@ interface CostFlowPeriod {
   activities_active: string[];
 }
 
+// EVM Interfaces
+interface EVMDataPoint {
+  date: string;
+  day_number: number;
+  bcws: number;
+  bcwp: number;
+  acwp: number;
+  spi: number;
+  cpi: number;
+  sv: number;
+  cv: number;
+  etc: number;
+  eac: number;
+  vac: number;
+}
+
+interface EVMSummary {
+  data_date: string;
+  percent_complete_planned: number;
+  percent_complete_actual: number;
+  bac: number;
+  bcws: number;
+  bcwp: number;
+  acwp: number;
+  sv: number;
+  cv: number;
+  spi: number;
+  cpi: number;
+  tcpi: number;
+  etc: number;
+  eac: number;
+  vac: number;
+  performance_status: "ahead_under" | "ahead_over" | "behind_under" | "behind_over" | "on_track";
+}
+
 interface MisalignmentRisk {
   risk_type: string;
   severity: "low" | "medium" | "high";
@@ -148,6 +186,8 @@ interface ScheduleIntegrationResult {
   cost_flow_monthly: CostFlowPeriod[];
   misalignment_risks: MisalignmentRisk[];
   recommendations: string[];
+  evm_summary: EVMSummary;
+  evm_data: EVMDataPoint[];
 }
 
 interface ScheduleIntegrationProps {
@@ -159,7 +199,7 @@ interface ScheduleIntegrationProps {
 export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: ScheduleIntegrationProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ScheduleIntegrationResult | null>(null);
-  const [activeSection, setActiveSection] = useState<"schedule" | "scurve" | "cashflow" | "orphans" | "risks">("schedule");
+  const [activeSection, setActiveSection] = useState<"schedule" | "scurve" | "cashflow" | "evm" | "orphans" | "risks">("schedule");
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
   const toggleRow = (index: number) => {
@@ -359,6 +399,7 @@ export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: Schedu
           { id: "schedule", label: "Cost-Loaded Schedule", icon: <Calendar className="w-4 h-4" /> },
           { id: "scurve", label: "S-Curve", icon: <TrendingUp className="w-4 h-4" /> },
           { id: "cashflow", label: "Cash Flow", icon: <DollarSign className="w-4 h-4" /> },
+          { id: "evm", label: "EVM Analysis", icon: <Gauge className="w-4 h-4" /> },
           { id: "orphans", label: `Orphan Items (${result.orphan_boq_items.length})`, icon: <AlertCircle className="w-4 h-4" /> },
           { id: "risks", label: `Risks (${result.misalignment_risks.length})`, icon: <AlertTriangle className="w-4 h-4" /> },
         ].map(tab => (
@@ -723,6 +764,344 @@ export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: Schedu
                 ))}
               </TableBody>
             </Table>
+          </div>
+        </div>
+      )}
+
+      {/* EVM Analysis Section */}
+      {activeSection === "evm" && result.evm_summary && (
+        <div className="space-y-6">
+          {/* EVM Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Performance Status Card */}
+            <div className={cn(
+              "p-4 rounded-xl border col-span-1 md:col-span-2",
+              result.evm_summary.performance_status === "on_track" && "bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20",
+              result.evm_summary.performance_status === "ahead_under" && "bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20",
+              result.evm_summary.performance_status === "ahead_over" && "bg-gradient-to-br from-yellow-500/10 to-yellow-500/5 border-yellow-500/20",
+              result.evm_summary.performance_status === "behind_under" && "bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/20",
+              result.evm_summary.performance_status === "behind_over" && "bg-gradient-to-br from-red-500/10 to-red-500/5 border-red-500/20"
+            )}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Activity className="w-5 h-5" />
+                    <span className="text-sm text-muted-foreground">Performance Status</span>
+                  </div>
+                  <span className="text-xl font-bold capitalize">
+                    {result.evm_summary.performance_status === "on_track" && "On Track"}
+                    {result.evm_summary.performance_status === "ahead_under" && "Ahead of Schedule & Under Budget"}
+                    {result.evm_summary.performance_status === "ahead_over" && "Ahead of Schedule & Over Budget"}
+                    {result.evm_summary.performance_status === "behind_under" && "Behind Schedule & Under Budget"}
+                    {result.evm_summary.performance_status === "behind_over" && "Behind Schedule & Over Budget"}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Data Date</p>
+                  <p className="font-semibold">{result.evm_summary.data_date}</p>
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Planned Progress</p>
+                  <div className="flex items-center gap-2">
+                    <Progress value={result.evm_summary.percent_complete_planned} className="h-2 flex-1" />
+                    <span className="text-sm font-medium">{result.evm_summary.percent_complete_planned}%</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Actual Progress</p>
+                  <div className="flex items-center gap-2">
+                    <Progress value={result.evm_summary.percent_complete_actual} className="h-2 flex-1" />
+                    <span className="text-sm font-medium">{result.evm_summary.percent_complete_actual}%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SPI Card */}
+            <div className={cn(
+              "p-4 rounded-xl border",
+              result.evm_summary.spi >= 1 ? "bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20" : "bg-gradient-to-br from-red-500/10 to-red-500/5 border-red-500/20"
+            )}>
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="w-5 h-5" />
+                <span className="text-sm text-muted-foreground">SPI</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className={cn(
+                  "text-3xl font-bold",
+                  result.evm_summary.spi >= 1 ? "text-green-600" : "text-red-600"
+                )}>
+                  {result.evm_summary.spi.toFixed(2)}
+                </span>
+                {result.evm_summary.spi >= 1 ? (
+                  <TrendingUp className="w-5 h-5 text-green-500" />
+                ) : (
+                  <TrendingDown className="w-5 h-5 text-red-500" />
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Schedule Performance Index
+              </p>
+              <p className="text-xs mt-2">
+                {result.evm_summary.spi >= 1 ? "Ahead of schedule" : "Behind schedule"}
+              </p>
+            </div>
+
+            {/* CPI Card */}
+            <div className={cn(
+              "p-4 rounded-xl border",
+              result.evm_summary.cpi >= 1 ? "bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20" : "bg-gradient-to-br from-red-500/10 to-red-500/5 border-red-500/20"
+            )}>
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="w-5 h-5" />
+                <span className="text-sm text-muted-foreground">CPI</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className={cn(
+                  "text-3xl font-bold",
+                  result.evm_summary.cpi >= 1 ? "text-green-600" : "text-red-600"
+                )}>
+                  {result.evm_summary.cpi.toFixed(2)}
+                </span>
+                {result.evm_summary.cpi >= 1 ? (
+                  <TrendingUp className="w-5 h-5 text-green-500" />
+                ) : (
+                  <TrendingDown className="w-5 h-5 text-red-500" />
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Cost Performance Index
+              </p>
+              <p className="text-xs mt-2">
+                {result.evm_summary.cpi >= 1 ? "Under budget" : "Over budget"}
+              </p>
+            </div>
+          </div>
+
+          {/* EVM Values Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="p-4 rounded-xl bg-muted/30 border">
+              <p className="text-xs text-muted-foreground">BAC</p>
+              <p className="text-sm font-medium">Budget at Completion</p>
+              <p className="text-lg font-bold text-primary mt-1">{result.evm_summary.bac.toLocaleString()} {currency}</p>
+            </div>
+            <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+              <p className="text-xs text-muted-foreground">BCWS (PV)</p>
+              <p className="text-sm font-medium">Planned Value</p>
+              <p className="text-lg font-bold text-blue-600 mt-1">{result.evm_summary.bcws.toLocaleString()} {currency}</p>
+            </div>
+            <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+              <p className="text-xs text-muted-foreground">BCWP (EV)</p>
+              <p className="text-sm font-medium">Earned Value</p>
+              <p className="text-lg font-bold text-green-600 mt-1">{result.evm_summary.bcwp.toLocaleString()} {currency}</p>
+            </div>
+            <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
+              <p className="text-xs text-muted-foreground">ACWP (AC)</p>
+              <p className="text-sm font-medium">Actual Cost</p>
+              <p className="text-lg font-bold text-orange-600 mt-1">{result.evm_summary.acwp.toLocaleString()} {currency}</p>
+            </div>
+            <div className={cn(
+              "p-4 rounded-xl border",
+              result.evm_summary.sv >= 0 ? "bg-green-500/10 border-green-500/20" : "bg-red-500/10 border-red-500/20"
+            )}>
+              <p className="text-xs text-muted-foreground">SV</p>
+              <p className="text-sm font-medium">Schedule Variance</p>
+              <p className={cn(
+                "text-lg font-bold mt-1",
+                result.evm_summary.sv >= 0 ? "text-green-600" : "text-red-600"
+              )}>
+                {result.evm_summary.sv >= 0 ? "+" : ""}{result.evm_summary.sv.toLocaleString()} {currency}
+              </p>
+            </div>
+            <div className={cn(
+              "p-4 rounded-xl border",
+              result.evm_summary.cv >= 0 ? "bg-green-500/10 border-green-500/20" : "bg-red-500/10 border-red-500/20"
+            )}>
+              <p className="text-xs text-muted-foreground">CV</p>
+              <p className="text-sm font-medium">Cost Variance</p>
+              <p className={cn(
+                "text-lg font-bold mt-1",
+                result.evm_summary.cv >= 0 ? "text-green-600" : "text-red-600"
+              )}>
+                {result.evm_summary.cv >= 0 ? "+" : ""}{result.evm_summary.cv.toLocaleString()} {currency}
+              </p>
+            </div>
+          </div>
+
+          {/* Forecasting Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="p-4 rounded-xl bg-muted/30 border">
+              <p className="text-xs text-muted-foreground">TCPI</p>
+              <p className="text-sm font-medium">To Complete Performance Index</p>
+              <p className={cn(
+                "text-2xl font-bold mt-1",
+                result.evm_summary.tcpi <= 1.1 ? "text-green-600" : result.evm_summary.tcpi <= 1.2 ? "text-yellow-600" : "text-red-600"
+              )}>
+                {result.evm_summary.tcpi.toFixed(2)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {result.evm_summary.tcpi <= 1.0 ? "Achievable" : result.evm_summary.tcpi <= 1.1 ? "Challenging" : "Difficult to achieve"}
+              </p>
+            </div>
+            <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
+              <p className="text-xs text-muted-foreground">ETC</p>
+              <p className="text-sm font-medium">Estimate to Complete</p>
+              <p className="text-2xl font-bold text-purple-600 mt-1">{result.evm_summary.etc.toLocaleString()} {currency}</p>
+            </div>
+            <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+              <p className="text-xs text-muted-foreground">EAC</p>
+              <p className="text-sm font-medium">Estimate at Completion</p>
+              <p className="text-2xl font-bold text-indigo-600 mt-1">{result.evm_summary.eac.toLocaleString()} {currency}</p>
+            </div>
+            <div className={cn(
+              "p-4 rounded-xl border",
+              result.evm_summary.vac >= 0 ? "bg-green-500/10 border-green-500/20" : "bg-red-500/10 border-red-500/20"
+            )}>
+              <p className="text-xs text-muted-foreground">VAC</p>
+              <p className="text-sm font-medium">Variance at Completion</p>
+              <p className={cn(
+                "text-2xl font-bold mt-1",
+                result.evm_summary.vac >= 0 ? "text-green-600" : "text-red-600"
+              )}>
+                {result.evm_summary.vac >= 0 ? "+" : ""}{result.evm_summary.vac.toLocaleString()} {currency}
+              </p>
+            </div>
+          </div>
+
+          {/* EVM Trend Chart */}
+          <div className="border rounded-xl p-6">
+            <h3 className="text-lg font-semibold mb-4">Earned Value Trend Analysis</h3>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={result.evm_data.filter((_, i) => i % Math.ceil(result.evm_data.length / 50) === 0)}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis 
+                    dataKey="day_number" 
+                    tickFormatter={(value) => `Day ${value}`}
+                    className="text-xs"
+                  />
+                  <YAxis 
+                    tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
+                    className="text-xs"
+                  />
+                  <Tooltip 
+                    formatter={(value: number, name: string) => [`${value.toLocaleString()} ${currency}`, name]}
+                    labelFormatter={(label) => `Day ${label}`}
+                  />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="bcws" 
+                    name="BCWS (Planned Value)"
+                    stroke="#3b82f6" 
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="bcwp" 
+                    name="BCWP (Earned Value)"
+                    stroke="#22c55e" 
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="acwp" 
+                    name="ACWP (Actual Cost)"
+                    stroke="#f97316" 
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Performance Indices Chart */}
+          <div className="border rounded-xl p-6">
+            <h3 className="text-lg font-semibold mb-4">Performance Indices Trend</h3>
+            <div className="h-60">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={result.evm_data.filter((d, i) => d.bcws > 0 && i % Math.ceil(result.evm_data.length / 30) === 0)}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis 
+                    dataKey="day_number" 
+                    tickFormatter={(value) => `D${value}`}
+                    className="text-xs"
+                  />
+                  <YAxis 
+                    domain={[0.5, 1.5]}
+                    ticks={[0.5, 0.75, 1.0, 1.25, 1.5]}
+                    className="text-xs"
+                  />
+                  <Tooltip 
+                    formatter={(value: number, name: string) => [value.toFixed(2), name]}
+                    labelFormatter={(label) => `Day ${label}`}
+                  />
+                  <Legend />
+                  {/* Reference line at 1.0 */}
+                  <Line 
+                    type="monotone" 
+                    dataKey={() => 1} 
+                    name="Baseline (1.0)"
+                    stroke="#9ca3af" 
+                    strokeWidth={1}
+                    strokeDasharray="5 5"
+                    dot={false}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="spi" 
+                    name="SPI"
+                    stroke="#3b82f6" 
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="cpi" 
+                    name="CPI"
+                    stroke="#22c55e" 
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* EVM Legend */}
+          <div className="p-4 rounded-xl bg-muted/30 border">
+            <h4 className="font-semibold mb-3">EVM Terminology Reference</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+              <div>
+                <p className="font-medium text-primary">BCWS / PV (Planned Value)</p>
+                <p className="text-muted-foreground">Budgeted cost of work scheduled - What should have been spent</p>
+              </div>
+              <div>
+                <p className="font-medium text-green-600">BCWP / EV (Earned Value)</p>
+                <p className="text-muted-foreground">Budgeted cost of work performed - Value of work completed</p>
+              </div>
+              <div>
+                <p className="font-medium text-orange-600">ACWP / AC (Actual Cost)</p>
+                <p className="text-muted-foreground">Actual cost of work performed - What was actually spent</p>
+              </div>
+              <div>
+                <p className="font-medium">SPI (Schedule Performance Index)</p>
+                <p className="text-muted-foreground">BCWP/BCWS - &gt;1 = ahead, &lt;1 = behind</p>
+              </div>
+              <div>
+                <p className="font-medium">CPI (Cost Performance Index)</p>
+                <p className="text-muted-foreground">BCWP/ACWP - &gt;1 = under budget, &lt;1 = over budget</p>
+              </div>
+              <div>
+                <p className="font-medium">TCPI (To Complete PI)</p>
+                <p className="text-muted-foreground">Required efficiency to complete on budget</p>
+              </div>
+            </div>
           </div>
         </div>
       )}
