@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { 
@@ -13,7 +13,11 @@ import {
   ChevronUp,
   Target,
   AlertCircle,
-  Lightbulb
+  Lightbulb,
+  Calendar,
+  DollarSign,
+  Clock,
+  BarChart3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -26,6 +30,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Area,
+  AreaChart,
+  BarChart,
+  Bar,
+  Legend
+} from "recharts";
 
 interface BOQItem {
   item_number: string;
@@ -45,16 +63,41 @@ interface WBSItem {
   items: string[];
 }
 
-interface ScheduleIntegrationItem {
-  schedule_activity: string;
-  activity_code: string;
-  linked_boq_items: string[];
-  linked_descriptions: string[];
-  total_quantity: number;
-  total_cost: number;
-  coverage_status: "Fully Linked" | "Partially Linked" | "Not Linked";
-  coverage_percent: number;
-  notes?: string;
+interface RelatedBOQItem {
+  item_number: string;
+  description: string;
+  cost: number;
+}
+
+interface CostLoadedActivity {
+  activity_id: string;
+  activity_name: string;
+  trade_category: string;
+  related_boq_items: RelatedBOQItem[];
+  duration_days: number;
+  activity_cost: number;
+  cost_weight_percent: number;
+  start_date: string;
+  finish_date: string;
+  predecessors: string[];
+  daily_cost_rate: number;
+}
+
+interface SCurveDataPoint {
+  date: string;
+  day_number: number;
+  planned_daily_cost: number;
+  planned_cumulative_cost: number;
+  planned_cumulative_percent: number;
+}
+
+interface CostFlowPeriod {
+  period: string;
+  period_start: string;
+  period_end: string;
+  planned_cost: number;
+  cumulative_cost: number;
+  activities_active: string[];
 }
 
 interface MisalignmentRisk {
@@ -90,13 +133,19 @@ interface ScheduleIntegrationResult {
     linked_boq_items: number;
     orphan_boq_items: number;
     total_boq_cost: number;
-    linked_cost: number;
-    unlinked_cost: number;
+    scheduled_cost: number;
+    cost_variance: number;
+    variance_percent: number;
+    total_project_duration: number;
+    project_start_date: string;
+    project_finish_date: string;
     integration_score: number;
   };
-  schedule_integration: ScheduleIntegrationItem[];
+  cost_loaded_schedule: CostLoadedActivity[];
   orphan_boq_items: OrphanBOQItem[];
   cost_concentration: CostConcentration[];
+  s_curve_data: SCurveDataPoint[];
+  cost_flow_monthly: CostFlowPeriod[];
   misalignment_risks: MisalignmentRisk[];
   recommendations: string[];
 }
@@ -110,7 +159,7 @@ interface ScheduleIntegrationProps {
 export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: ScheduleIntegrationProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ScheduleIntegrationResult | null>(null);
-  const [activeSection, setActiveSection] = useState<"integration" | "orphans" | "concentration" | "risks">("integration");
+  const [activeSection, setActiveSection] = useState<"schedule" | "scurve" | "cashflow" | "orphans" | "risks">("schedule");
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
   const toggleRow = (index: number) => {
@@ -141,38 +190,12 @@ export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: Schedu
       if (error) throw error;
       
       setResult(data);
-      toast.success("Schedule integration analysis complete");
+      toast.success("Cost-loaded schedule analysis complete");
     } catch (error) {
       console.error("Analysis error:", error);
       toast.error("Failed to analyze schedule integration");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const getCoverageIcon = (status: string) => {
-    switch (status) {
-      case "Fully Linked":
-        return <CheckCircle2 className="w-5 h-5 text-green-500" />;
-      case "Partially Linked":
-        return <AlertCircle className="w-5 h-5 text-yellow-500" />;
-      case "Not Linked":
-        return <XCircle className="w-5 h-5 text-red-500" />;
-      default:
-        return null;
-    }
-  };
-
-  const getCoverageColor = (status: string) => {
-    switch (status) {
-      case "Fully Linked":
-        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
-      case "Partially Linked":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
-      case "Not Linked":
-        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
-      default:
-        return "";
     }
   };
 
@@ -204,12 +227,12 @@ export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: Schedu
     return (
       <div className="flex flex-col items-center justify-center py-16 space-y-6">
         <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
-          <Link2 className="w-12 h-12 text-primary" />
+          <Calendar className="w-12 h-12 text-primary" />
         </div>
         <div className="text-center space-y-2">
-          <h3 className="text-xl font-semibold">BOQ-Schedule Integration Analysis</h3>
+          <h3 className="text-xl font-semibold">Cost-Loaded Project Schedule</h3>
           <p className="text-muted-foreground max-w-md">
-            Analyze how BOQ items map to schedule activities, identify gaps, and highlight misalignment risks between scope, cost, and time.
+            Convert your BOQ into a cost-loaded schedule with activity durations, dates, predecessors, and S-curve analysis.
           </p>
         </div>
         <Button 
@@ -221,12 +244,12 @@ export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: Schedu
           {isLoading ? (
             <>
               <Loader2 className="w-5 h-5 animate-spin" />
-              Analyzing Integration...
+              Building Cost-Loaded Schedule...
             </>
           ) : (
             <>
-              <Link2 className="w-5 h-5" />
-              Analyze Schedule Integration
+              <Calendar className="w-5 h-5" />
+              Generate Cost-Loaded Schedule
             </>
           )}
         </Button>
@@ -239,7 +262,7 @@ export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: Schedu
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="p-4 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
           <div className="flex items-center gap-3 mb-2">
             <Target className="w-5 h-5 text-primary" />
@@ -251,40 +274,92 @@ export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: Schedu
           <Progress value={integration_summary.integration_score} className="mt-2 h-2" />
         </div>
 
+        <div className="p-4 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-500/5 border border-blue-500/20">
+          <div className="flex items-center gap-3 mb-2">
+            <Clock className="w-5 h-5 text-blue-500" />
+            <span className="text-sm text-muted-foreground">Project Duration</span>
+          </div>
+          <span className="text-3xl font-bold text-blue-600">{integration_summary.total_project_duration}</span>
+          <span className="text-sm text-muted-foreground ml-2">days</span>
+        </div>
+
         <div className="p-4 rounded-xl bg-gradient-to-br from-green-500/10 to-green-500/5 border border-green-500/20">
           <div className="flex items-center gap-3 mb-2">
-            <CheckCircle2 className="w-5 h-5 text-green-500" />
-            <span className="text-sm text-muted-foreground">Fully Linked</span>
+            <DollarSign className="w-5 h-5 text-green-500" />
+            <span className="text-sm text-muted-foreground">Scheduled Cost</span>
           </div>
-          <span className="text-3xl font-bold text-green-600">{integration_summary.fully_linked_activities}</span>
-          <span className="text-sm text-muted-foreground ml-2">of {integration_summary.total_schedule_activities} activities</span>
+          <span className="text-2xl font-bold text-green-600">{integration_summary.scheduled_cost.toLocaleString()}</span>
+          <span className="text-xs text-muted-foreground ml-1">{currency}</span>
         </div>
 
-        <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-500/10 to-yellow-500/5 border border-yellow-500/20">
+        <div className={cn(
+          "p-4 rounded-xl border",
+          Math.abs(integration_summary.variance_percent) < 1 
+            ? "bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20"
+            : "bg-gradient-to-br from-yellow-500/10 to-yellow-500/5 border-yellow-500/20"
+        )}>
           <div className="flex items-center gap-3 mb-2">
-            <AlertTriangle className="w-5 h-5 text-yellow-500" />
-            <span className="text-sm text-muted-foreground">Orphan BOQ Items</span>
+            <TrendingUp className={cn(
+              "w-5 h-5",
+              Math.abs(integration_summary.variance_percent) < 1 ? "text-green-500" : "text-yellow-500"
+            )} />
+            <span className="text-sm text-muted-foreground">Cost Variance</span>
           </div>
-          <span className="text-3xl font-bold text-yellow-600">{integration_summary.orphan_boq_items}</span>
-          <span className="text-sm text-muted-foreground ml-2">items not linked</span>
+          <span className={cn(
+            "text-2xl font-bold",
+            Math.abs(integration_summary.variance_percent) < 1 ? "text-green-600" : "text-yellow-600"
+          )}>
+            {integration_summary.variance_percent > 0 ? "+" : ""}{integration_summary.variance_percent.toFixed(2)}%
+          </span>
+          <p className="text-xs text-muted-foreground mt-1">
+            {integration_summary.cost_variance.toLocaleString()} {currency}
+          </p>
         </div>
 
-        <div className="p-4 rounded-xl bg-gradient-to-br from-red-500/10 to-red-500/5 border border-red-500/20">
+        <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-purple-500/5 border border-purple-500/20">
           <div className="flex items-center gap-3 mb-2">
-            <TrendingUp className="w-5 h-5 text-red-500" />
-            <span className="text-sm text-muted-foreground">Unlinked Cost</span>
+            <BarChart3 className="w-5 h-5 text-purple-500" />
+            <span className="text-sm text-muted-foreground">Activities</span>
           </div>
-          <span className="text-2xl font-bold text-red-600">{integration_summary.unlinked_cost.toLocaleString()}</span>
-          <span className="text-sm text-muted-foreground ml-2">{currency}</span>
+          <span className="text-3xl font-bold text-purple-600">{integration_summary.total_schedule_activities}</span>
+          <p className="text-xs text-muted-foreground mt-1">
+            {integration_summary.linked_boq_items} BOQ items linked
+          </p>
+        </div>
+      </div>
+
+      {/* Project Dates */}
+      <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border">
+        <div className="flex items-center gap-4">
+          <Calendar className="w-5 h-5 text-primary" />
+          <div>
+            <span className="text-sm text-muted-foreground">Project Start:</span>
+            <span className="ml-2 font-semibold">{integration_summary.project_start_date}</span>
+          </div>
+        </div>
+        <div className="h-px flex-1 bg-border mx-4 relative">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="bg-background px-3 text-sm text-muted-foreground">
+              {integration_summary.total_project_duration} days
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div>
+            <span className="text-sm text-muted-foreground">Project Finish:</span>
+            <span className="ml-2 font-semibold">{integration_summary.project_finish_date}</span>
+          </div>
+          <Calendar className="w-5 h-5 text-primary" />
         </div>
       </div>
 
       {/* Navigation Tabs */}
       <div className="flex gap-2 flex-wrap">
         {[
-          { id: "integration", label: "Schedule Integration", icon: <Link2 className="w-4 h-4" /> },
+          { id: "schedule", label: "Cost-Loaded Schedule", icon: <Calendar className="w-4 h-4" /> },
+          { id: "scurve", label: "S-Curve", icon: <TrendingUp className="w-4 h-4" /> },
+          { id: "cashflow", label: "Cash Flow", icon: <DollarSign className="w-4 h-4" /> },
           { id: "orphans", label: `Orphan Items (${result.orphan_boq_items.length})`, icon: <AlertCircle className="w-4 h-4" /> },
-          { id: "concentration", label: "Cost Concentration", icon: <TrendingUp className="w-4 h-4" /> },
           { id: "risks", label: `Risks (${result.misalignment_risks.length})`, icon: <AlertTriangle className="w-4 h-4" /> },
         ].map(tab => (
           <button
@@ -307,103 +382,348 @@ export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: Schedu
         </Button>
       </div>
 
-      {/* Schedule Integration Table */}
-      {activeSection === "integration" && (
+      {/* Cost-Loaded Schedule Table */}
+      {activeSection === "schedule" && (
         <div className="border rounded-xl overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="w-12"></TableHead>
-                <TableHead>Schedule Activity</TableHead>
-                <TableHead>Linked BOQ Items</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
-                <TableHead className="text-right">Cost ({currency})</TableHead>
-                <TableHead>Coverage Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {result.schedule_integration.map((item, idx) => (
-                <>
-                  <TableRow 
-                    key={idx} 
-                    className="cursor-pointer hover:bg-muted/30"
-                    onClick={() => toggleRow(idx)}
-                  >
-                    <TableCell>
-                      {expandedRows.has(idx) ? (
-                        <ChevronUp className="w-4 h-4" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4" />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded mr-2">
-                          {item.activity_code}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="w-12"></TableHead>
+                  <TableHead className="whitespace-nowrap">
+                    <div className="flex flex-col">
+                      <span>Activity ID</span>
+                      <span className="text-xs font-normal text-muted-foreground">رقم النشاط</span>
+                    </div>
+                  </TableHead>
+                  <TableHead>
+                    <div className="flex flex-col">
+                      <span>Activity Name</span>
+                      <span className="text-xs font-normal text-muted-foreground">اسم النشاط</span>
+                    </div>
+                  </TableHead>
+                  <TableHead className="whitespace-nowrap">
+                    <div className="flex flex-col">
+                      <span>Related BOQ Items</span>
+                      <span className="text-xs font-normal text-muted-foreground">بنود جدول الكميات</span>
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-center whitespace-nowrap">
+                    <div className="flex flex-col">
+                      <span>Duration (Days)</span>
+                      <span className="text-xs font-normal text-muted-foreground">المدة (أيام)</span>
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-right whitespace-nowrap">
+                    <div className="flex flex-col">
+                      <span>Activity Cost</span>
+                      <span className="text-xs font-normal text-muted-foreground">تكلفة النشاط</span>
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-center whitespace-nowrap">
+                    <div className="flex flex-col">
+                      <span>Cost Weight (%)</span>
+                      <span className="text-xs font-normal text-muted-foreground">الوزن التكلفة</span>
+                    </div>
+                  </TableHead>
+                  <TableHead className="whitespace-nowrap">
+                    <div className="flex flex-col">
+                      <span>Start / Finish</span>
+                      <span className="text-xs font-normal text-muted-foreground">البداية / النهاية</span>
+                    </div>
+                  </TableHead>
+                  <TableHead className="whitespace-nowrap">
+                    <div className="flex flex-col">
+                      <span>Predecessors</span>
+                      <span className="text-xs font-normal text-muted-foreground">الأنشطة السابقة</span>
+                    </div>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {result.cost_loaded_schedule.map((activity, idx) => (
+                  <>
+                    <TableRow 
+                      key={idx} 
+                      className="cursor-pointer hover:bg-muted/30"
+                      onClick={() => toggleRow(idx)}
+                    >
+                      <TableCell>
+                        {expandedRows.has(idx) ? (
+                          <ChevronUp className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                          {activity.activity_id}
                         </span>
-                        <span className="font-medium">{item.schedule_activity}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{item.linked_boq_items.length} items</TableCell>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <span className="font-medium">{activity.activity_name}</span>
+                          <p className="text-xs text-muted-foreground">{activity.trade_category}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm">{activity.related_boq_items.length} items</span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className="font-semibold">{activity.duration_days}</span>
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-semibold">
+                        {activity.activity_cost.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center gap-2">
+                          <Progress value={activity.cost_weight_percent} className="h-2 w-16" />
+                          <span className="text-sm font-medium">{activity.cost_weight_percent.toFixed(1)}%</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-xs">
+                          <p className="text-green-600">{activity.start_date}</p>
+                          <p className="text-red-600">{activity.finish_date}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {activity.predecessors.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {activity.predecessors.map((pred, i) => (
+                              <span key={i} className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">
+                                {pred}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">-</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    {expandedRows.has(idx) && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="bg-muted/20 p-4">
+                          <div className="space-y-3">
+                            <div>
+                              <h4 className="text-sm font-medium mb-2">Related BOQ Items:</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                {activity.related_boq_items.map((boqItem, i) => (
+                                  <div key={i} className="p-2 bg-background rounded border text-sm">
+                                    <div className="flex justify-between items-start">
+                                      <span className="font-mono text-xs text-primary">{boqItem.item_number}</span>
+                                      <span className="font-semibold text-xs">{boqItem.cost.toLocaleString()} {currency}</span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{boqItem.description}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="flex gap-6 text-sm">
+                              <div>
+                                <span className="text-muted-foreground">Daily Cost Rate:</span>
+                                <span className="ml-2 font-semibold">{activity.daily_cost_rate.toLocaleString()} {currency}/day</span>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Total Duration:</span>
+                                <span className="ml-2 font-semibold">{activity.duration_days} days</span>
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
+      {/* S-Curve Chart */}
+      {activeSection === "scurve" && result.s_curve_data && (
+        <div className="space-y-6">
+          <div className="border rounded-xl p-6">
+            <h3 className="text-lg font-semibold mb-4">Planned Cost S-Curve</h3>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={result.s_curve_data.filter((_, i) => i % Math.ceil(result.s_curve_data.length / 50) === 0)}>
+                  <defs>
+                    <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis 
+                    dataKey="day_number" 
+                    tickFormatter={(value) => `Day ${value}`}
+                    className="text-xs"
+                  />
+                  <YAxis 
+                    yAxisId="left"
+                    tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
+                    className="text-xs"
+                  />
+                  <YAxis 
+                    yAxisId="right"
+                    orientation="right"
+                    tickFormatter={(value) => `${value}%`}
+                    domain={[0, 100]}
+                    className="text-xs"
+                  />
+                  <Tooltip 
+                    formatter={(value: number, name: string) => {
+                      if (name === "Cumulative Cost") return `${value.toLocaleString()} ${currency}`;
+                      if (name === "Progress (%)") return `${value.toFixed(1)}%`;
+                      return value;
+                    }}
+                    labelFormatter={(label) => `Day ${label}`}
+                  />
+                  <Legend />
+                  <Area 
+                    yAxisId="left"
+                    type="monotone" 
+                    dataKey="planned_cumulative_cost" 
+                    name="Cumulative Cost"
+                    stroke="hsl(var(--primary))" 
+                    fillOpacity={1}
+                    fill="url(#colorCost)"
+                    strokeWidth={2}
+                  />
+                  <Line 
+                    yAxisId="right"
+                    type="monotone" 
+                    dataKey="planned_cumulative_percent" 
+                    name="Progress (%)"
+                    stroke="hsl(var(--success))" 
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Daily Cost Distribution */}
+          <div className="border rounded-xl p-6">
+            <h3 className="text-lg font-semibold mb-4">Daily Cost Distribution</h3>
+            <div className="h-60">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={result.s_curve_data.filter((_, i) => i % Math.ceil(result.s_curve_data.length / 30) === 0)}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis 
+                    dataKey="day_number" 
+                    tickFormatter={(value) => `D${value}`}
+                    className="text-xs"
+                  />
+                  <YAxis 
+                    tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
+                    className="text-xs"
+                  />
+                  <Tooltip 
+                    formatter={(value: number) => `${value.toLocaleString()} ${currency}`}
+                    labelFormatter={(label) => `Day ${label}`}
+                  />
+                  <Bar 
+                    dataKey="planned_daily_cost" 
+                    name="Daily Cost"
+                    fill="hsl(var(--primary))" 
+                    radius={[2, 2, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cash Flow */}
+      {activeSection === "cashflow" && result.cost_flow_monthly && (
+        <div className="space-y-6">
+          <div className="border rounded-xl p-6">
+            <h3 className="text-lg font-semibold mb-4">Monthly Cash Flow Projection</h3>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={result.cost_flow_monthly}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="period" className="text-xs" />
+                  <YAxis 
+                    yAxisId="left"
+                    tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
+                    className="text-xs"
+                  />
+                  <YAxis 
+                    yAxisId="right"
+                    orientation="right"
+                    tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
+                    className="text-xs"
+                  />
+                  <Tooltip 
+                    formatter={(value: number, name: string) => `${value.toLocaleString()} ${currency}`}
+                  />
+                  <Legend />
+                  <Bar 
+                    yAxisId="left"
+                    dataKey="planned_cost" 
+                    name="Monthly Cost"
+                    fill="hsl(var(--primary))" 
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Line 
+                    yAxisId="right"
+                    type="monotone" 
+                    dataKey="cumulative_cost" 
+                    name="Cumulative"
+                    stroke="hsl(var(--success))" 
+                    strokeWidth={3}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Monthly Details Table */}
+          <div className="border rounded-xl overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead>Period</TableHead>
+                  <TableHead className="text-right">Monthly Cost</TableHead>
+                  <TableHead className="text-right">Cumulative Cost</TableHead>
+                  <TableHead className="text-center">Active Activities</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {result.cost_flow_monthly.map((period, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell className="font-medium">{period.period}</TableCell>
                     <TableCell className="text-right font-mono">
-                      {item.total_quantity.toLocaleString()}
+                      {period.planned_cost.toLocaleString()} {currency}
                     </TableCell>
-                    <TableCell className="text-right font-mono font-medium">
-                      {item.total_cost.toLocaleString()}
+                    <TableCell className="text-right font-mono font-semibold text-primary">
+                      {period.cumulative_cost.toLocaleString()} {currency}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {getCoverageIcon(item.coverage_status)}
-                        <span className={cn(
-                          "px-2 py-1 rounded-full text-xs font-medium",
-                          getCoverageColor(item.coverage_status)
-                        )}>
-                          {item.coverage_status}
-                        </span>
+                    <TableCell className="text-center">
+                      <div className="flex flex-wrap gap-1 justify-center">
+                        {period.activities_active.slice(0, 3).map((act, i) => (
+                          <span key={i} className="px-1.5 py-0.5 bg-primary/10 text-primary rounded text-xs font-mono">
+                            {act}
+                          </span>
+                        ))}
+                        {period.activities_active.length > 3 && (
+                          <span className="text-xs text-muted-foreground">
+                            +{period.activities_active.length - 3} more
+                          </span>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
-                  {expandedRows.has(idx) && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="bg-muted/20 p-4">
-                        <div className="space-y-3">
-                          <div>
-                            <h4 className="text-sm font-medium mb-2">Linked BOQ Items:</h4>
-                            <div className="flex flex-wrap gap-2">
-                              {item.linked_boq_items.map((boqItem, i) => (
-                                <span key={i} className="px-2 py-1 bg-primary/10 text-primary rounded text-xs font-mono">
-                                  {boqItem}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                          {item.linked_descriptions && item.linked_descriptions.length > 0 && (
-                            <div>
-                              <h4 className="text-sm font-medium mb-2">Descriptions:</h4>
-                              <ul className="text-sm text-muted-foreground space-y-1">
-                                {item.linked_descriptions.slice(0, 5).map((desc, i) => (
-                                  <li key={i}>• {desc}</li>
-                                ))}
-                                {item.linked_descriptions.length > 5 && (
-                                  <li className="text-primary">... and {item.linked_descriptions.length - 5} more</li>
-                                )}
-                              </ul>
-                            </div>
-                          )}
-                          {item.notes && (
-                            <div>
-                              <h4 className="text-sm font-medium mb-1">Notes:</h4>
-                              <p className="text-sm text-muted-foreground">{item.notes}</p>
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </>
-              ))}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 
@@ -447,45 +767,38 @@ export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: Schedu
         </div>
       )}
 
-      {/* Cost Concentration */}
-      {activeSection === "concentration" && (
-        <div className="space-y-4">
-          {result.cost_concentration.map((item, idx) => (
-            <div key={idx} className="p-4 border rounded-xl">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium">{item.activity}</span>
-                <span className={cn("font-bold", getRiskLevelColor(item.risk_level))}>
-                  {item.percentage.toFixed(1)}%
-                </span>
-              </div>
-              <Progress 
-                value={item.percentage} 
-                className={cn(
-                  "h-3",
-                  item.risk_level === "high" && "[&>div]:bg-red-500",
-                  item.risk_level === "elevated" && "[&>div]:bg-yellow-500",
-                  item.risk_level === "normal" && "[&>div]:bg-green-500"
-                )}
-              />
-              <div className="flex justify-between mt-2 text-sm text-muted-foreground">
-                <span>Cost: {item.cost.toLocaleString()} {currency}</span>
-                <span className={cn(
-                  "px-2 py-0.5 rounded-full text-xs font-medium capitalize",
-                  item.risk_level === "high" && "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-                  item.risk_level === "elevated" && "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-                  item.risk_level === "normal" && "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                )}>
-                  {item.risk_level} concentration
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Misalignment Risks */}
       {activeSection === "risks" && (
         <div className="space-y-4">
+          {/* Cost Concentration */}
+          {result.cost_concentration.length > 0 && (
+            <div className="border rounded-xl p-4">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-primary" />
+                Cost Concentration Analysis
+              </h3>
+              <div className="space-y-3">
+                {result.cost_concentration.slice(0, 5).map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-4">
+                    <span className="w-40 text-sm truncate">{item.activity}</span>
+                    <Progress 
+                      value={item.percentage} 
+                      className={cn(
+                        "flex-1 h-3",
+                        item.risk_level === "high" && "[&>div]:bg-red-500",
+                        item.risk_level === "elevated" && "[&>div]:bg-yellow-500",
+                        item.risk_level === "normal" && "[&>div]:bg-green-500"
+                      )}
+                    />
+                    <span className={cn("font-bold w-16 text-right", getRiskLevelColor(item.risk_level))}>
+                      {item.percentage.toFixed(1)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {result.misalignment_risks.length === 0 ? (
             <div className="p-8 text-center border rounded-xl">
               <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
