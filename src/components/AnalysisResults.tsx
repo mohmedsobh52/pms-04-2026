@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -6,6 +6,7 @@ import { DataCharts } from "./DataCharts";
 import { ProjectTimeline } from "./ProjectTimeline";
 import { CostAnalysis } from "./CostAnalysis";
 import { ScheduleIntegration } from "./ScheduleIntegration";
+import { KPIDashboard } from "./KPIDashboard";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -68,6 +69,32 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
     acc[category].push(item);
     return acc;
   }, {} as Record<string, BOQItem[]>) || {};
+
+  // Calculate KPI data from analysis
+  const kpiData = useMemo(() => {
+    const items = data.items || [];
+    const totalValue = data.summary?.total_value || items.reduce((sum, item) => sum + (item.total_price || 0), 0);
+    const highRiskItems = items.filter(item => 
+      item.notes?.toLowerCase().includes('risk') || 
+      item.notes?.toLowerCase().includes('warning') ||
+      (item.total_price && item.total_price > totalValue * 0.05)
+    );
+    const avgUnitPrice = items.length > 0 
+      ? items.reduce((sum, item) => sum + (item.unit_price || 0), 0) / items.length 
+      : 0;
+
+    return {
+      totalValue,
+      itemCount: items.length,
+      highRiskCount: highRiskItems.length,
+      variancePercentage: 0,
+      completedItems: items.filter(item => item.total_price && item.total_price > 0).length,
+      pendingItems: items.filter(item => !item.total_price || item.total_price === 0).length,
+      avgUnitPrice,
+      currency: data.summary?.currency || "SAR"
+    };
+  }, [data]);
+
 
   const exportToCSV = () => {
     if (!data.items) return;
@@ -482,6 +509,14 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
 
   return (
     <div className="glass-card overflow-hidden animate-slide-up">
+      {/* KPI Dashboard at the top */}
+      <div className="p-4 border-b border-border bg-gradient-to-r from-primary/5 to-accent/5">
+        <KPIDashboard 
+          data={kpiData} 
+          title="Project KPIs / مؤشرات المشروع" 
+        />
+      </div>
+      
       <div className="border-b border-border">
         <div className="flex items-center justify-between p-4">
           <div className="flex gap-2">

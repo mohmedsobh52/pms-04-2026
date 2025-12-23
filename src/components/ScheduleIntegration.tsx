@@ -22,12 +22,14 @@ import {
   Activity,
   Gauge,
   FileText,
-  FileDown
+  FileDown,
+  GanttChartSquare
 } from "lucide-react";
 import { exportScheduleIntegrationToPDF, exportScheduleIntegrationToExcel } from "@/lib/boq-export-utils";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { GanttChart } from "./GanttChart";
 import {
   Table,
   TableBody,
@@ -202,7 +204,7 @@ interface ScheduleIntegrationProps {
 export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: ScheduleIntegrationProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ScheduleIntegrationResult | null>(null);
-  const [activeSection, setActiveSection] = useState<"schedule" | "scurve" | "cashflow" | "evm" | "orphans" | "risks">("schedule");
+  const [activeSection, setActiveSection] = useState<"schedule" | "gantt" | "scurve" | "cashflow" | "evm" | "orphans" | "risks">("schedule");
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
   const toggleRow = (index: number) => {
@@ -400,6 +402,7 @@ export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: Schedu
       <div className="flex gap-2 flex-wrap">
         {[
           { id: "schedule", label: "Cost-Loaded Schedule", icon: <Calendar className="w-4 h-4" /> },
+          { id: "gantt", label: "Gantt Chart", icon: <GanttChartSquare className="w-4 h-4" /> },
           { id: "scurve", label: "S-Curve", icon: <TrendingUp className="w-4 h-4" /> },
           { id: "cashflow", label: "Cash Flow", icon: <DollarSign className="w-4 h-4" /> },
           { id: "evm", label: "EVM Analysis", icon: <Gauge className="w-4 h-4" /> },
@@ -451,6 +454,28 @@ export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: Schedu
           </Button>
         </div>
       </div>
+
+      {/* Gantt Chart */}
+      {activeSection === "gantt" && (
+        <GanttChart
+          activities={result.cost_loaded_schedule.map(activity => ({
+            id: activity.activity_id,
+            name: activity.activity_name,
+            wbs: activity.trade_category,
+            startDate: new Date(activity.start_date),
+            endDate: new Date(activity.finish_date),
+            duration: activity.duration_days,
+            cost: activity.activity_cost,
+            costWeight: activity.cost_weight_percent,
+            isCritical: activity.cost_weight_percent > 10,
+            predecessors: activity.predecessors
+          }))}
+          projectStartDate={new Date(integration_summary.project_start_date)}
+          projectEndDate={new Date(integration_summary.project_finish_date)}
+          currency={currency}
+          title="Cost Flow Timeline / الجدول الزمني للتكلفة"
+        />
+      )}
 
       {/* Cost-Loaded Schedule Table */}
       {activeSection === "schedule" && (
