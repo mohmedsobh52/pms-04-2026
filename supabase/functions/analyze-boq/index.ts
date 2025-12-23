@@ -534,23 +534,30 @@ Please provide:
 
 Use the submit_boq_analysis function to return your structured analysis.`;
 
+    console.log("Calling AI Gateway...");
+    
+    const requestBody = {
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      tools: [boqAnalysisTool],
+      tool_choice: "auto"
+    };
+
+    console.log("Request body prepared, sending to AI Gateway...");
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.1,
-        tools: [boqAnalysisTool],
-        tool_choice: { type: "function", function: { name: "submit_boq_analysis" } }
-      }),
+      body: JSON.stringify(requestBody),
     });
+    
+    console.log(`AI Gateway response status: ${response.status}`);
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -573,7 +580,14 @@ Use the submit_boq_analysis function to return your structured analysis.`;
     }
 
     const data = await response.json();
-    console.log("AI response received, parsing...");
+    console.log("AI response received successfully");
+    console.log("Response structure:", JSON.stringify({
+      hasChoices: !!data.choices,
+      choicesLength: data.choices?.length,
+      hasToolCalls: !!data.choices?.[0]?.message?.tool_calls,
+      toolCallsLength: data.choices?.[0]?.message?.tool_calls?.length,
+      hasContent: !!data.choices?.[0]?.message?.content
+    }));
 
     // Extract tool call result
     let result: AnalysisResult;
@@ -581,47 +595,57 @@ Use the submit_boq_analysis function to return your structured analysis.`;
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall && toolCall.function?.name === "submit_boq_analysis") {
       try {
+        console.log("Parsing tool call arguments...");
         const toolArgs = JSON.parse(toolCall.function.arguments);
         result = {
           analysis_type: "professional_boq_analysis",
           ...toolArgs
         };
-        console.log("Successfully parsed tool call response");
+        console.log("Successfully parsed tool call response with", result.items?.length || 0, "items");
       } catch (toolParseError) {
         console.error("Tool call parse error:", toolParseError);
+        console.log("Raw arguments:", toolCall.function.arguments?.slice(0, 500));
         throw new Error("Failed to parse AI tool response");
       }
     } else {
       // Fallback: try to parse from message content
       const content = data.choices?.[0]?.message?.content;
+      console.log("No tool call found, trying to parse content...");
+      console.log("Content preview:", content?.slice(0, 500) || "No content");
+      
       if (!content) {
-        throw new Error("No response from AI");
+        console.error("No content in response");
+        throw new Error("No response from AI - please try again");
       }
       
-      console.log("No tool call found, trying to parse content...");
-      
       try {
+        // Try direct JSON parse
         result = JSON.parse(content);
+        console.log("Direct JSON parse successful");
       } catch (directParseError) {
         console.log("Direct parse failed, trying extraction methods...");
         
         try {
+          // Try to extract JSON from markdown code block
           const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
           if (jsonMatch) {
             result = JSON.parse(jsonMatch[1].trim());
+            console.log("Extracted from code block");
           } else {
+            // Try to find raw JSON object
             const jsonStart = content.indexOf("{");
             const jsonEnd = content.lastIndexOf("}");
             
             if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
               const jsonStr = content.slice(jsonStart, jsonEnd + 1);
               result = JSON.parse(jsonStr);
+              console.log("Extracted raw JSON");
             } else {
               throw new Error("Could not find JSON structure in response");
             }
           }
         } catch (extractError) {
-          console.error("All JSON extraction methods failed");
+          console.error("All JSON extraction methods failed:", extractError);
           throw new Error("Failed to process AI response. Please try again.");
         }
       }
