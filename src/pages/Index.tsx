@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell } from "lucide-react";
+import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard } from "lucide-react";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -19,6 +19,7 @@ import { ShareAnalysis } from "@/components/ShareAnalysis";
 import { P6Export } from "@/components/P6Export";
 import { KPIDashboard } from "@/components/KPIDashboard";
 import { NotificationSettings } from "@/components/NotificationSettings";
+import { MainDashboard } from "@/components/MainDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -688,8 +689,12 @@ const Index = () => {
               {/* Quotations Section */}
               {user && (
                 <div className="glass-card p-6 animate-slide-up">
-                  <Tabs defaultValue="upload" className="w-full">
-                    <TabsList className="grid w-full grid-cols-5 mb-4">
+                  <Tabs defaultValue="dashboard" className="w-full">
+                    <TabsList className="grid w-full grid-cols-6 mb-4">
+                      <TabsTrigger value="dashboard" className="gap-2">
+                        <LayoutDashboard className="w-4 h-4" />
+                        <span className="hidden sm:inline">{isArabic ? 'لوحة التحكم' : 'Dashboard'}</span>
+                      </TabsTrigger>
                       <TabsTrigger value="upload" className="gap-2">
                         <Receipt className="w-4 h-4" />
                         <span className="hidden sm:inline">{t('uploadQuotations')}</span>
@@ -708,9 +713,22 @@ const Index = () => {
                       </TabsTrigger>
                       <TabsTrigger value="settings" className="gap-2">
                         <Bell className="w-4 h-4" />
-                        <span className="hidden sm:inline">إشعارات</span>
+                        <span className="hidden sm:inline">{isArabic ? 'إشعارات' : 'Notifications'}</span>
                       </TabsTrigger>
                     </TabsList>
+                    <TabsContent value="dashboard">
+                      <MainDashboard 
+                        onLoadProject={(loadedAnalysis, loadedWbs) => {
+                          setAnalysisData(loadedAnalysis);
+                          setWbsData(loadedWbs);
+                          updateStepStatus("upload", "complete");
+                          updateStepStatus("extract", "complete");
+                          updateStepStatus("analyze", "complete");
+                          updateStepStatus("wbs", "complete");
+                          updateStepStatus("export", "complete");
+                        }}
+                      />
+                    </TabsContent>
                     <TabsContent value="upload">
                       <QuotationUpload />
                     </TabsContent>
