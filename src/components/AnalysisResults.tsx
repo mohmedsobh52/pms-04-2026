@@ -1034,7 +1034,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsP
             <div className="p-6 rounded-xl bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 col-span-1 md:col-span-2">
               <p className="text-sm text-muted-foreground mb-2">الفئات</p>
               <div className="flex flex-wrap gap-2">
-                {data.summary.categories.map((cat, idx) => (
+                {(data.summary.categories || []).map((cat, idx) => (
                   <span
                     key={idx}
                     className="px-3 py-1 bg-accent/10 text-accent rounded-full text-sm"
