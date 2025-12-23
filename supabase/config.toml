@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.analyze-schedule-integration]
 verify_jwt = false
+
+[functions.compare-boq]
+verify_jwt = false
