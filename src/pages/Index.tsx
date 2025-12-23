@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine } from "lucide-react";
+import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack } from "lucide-react";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { useLanguage } from "@/hooks/useLanguage";
 import { FileUpload } from "@/components/FileUpload";
@@ -11,6 +11,7 @@ import { SaveProjectDialog } from "@/components/SaveProjectDialog";
 import { QuotationUpload } from "@/components/QuotationUpload";
 import { QuotationComparison } from "@/components/QuotationComparison";
 import { ComprehensiveReport } from "@/components/ComprehensiveReport";
+import { BOQComparison } from "@/components/BOQComparison";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -615,7 +616,7 @@ const Index = () => {
               {user && (
                 <div className="glass-card p-6 animate-slide-up">
                   <Tabs defaultValue="upload" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 mb-4">
+                    <TabsList className="grid w-full grid-cols-3 mb-4">
                       <TabsTrigger value="upload" className="gap-2">
                         <Receipt className="w-4 h-4" />
                         {t('uploadQuotations')}
@@ -624,12 +625,19 @@ const Index = () => {
                         <Scale className="w-4 h-4" />
                         {t('compareQuotations')}
                       </TabsTrigger>
+                      <TabsTrigger value="boq-compare" className="gap-2">
+                        <FileStack className="w-4 h-4" />
+                        BOQ Comparison
+                      </TabsTrigger>
                     </TabsList>
                     <TabsContent value="upload">
                       <QuotationUpload />
                     </TabsContent>
                     <TabsContent value="compare">
                       <QuotationComparison />
+                    </TabsContent>
+                    <TabsContent value="boq-compare">
+                      <BOQComparison />
                     </TabsContent>
                   </Tabs>
                 </div>
