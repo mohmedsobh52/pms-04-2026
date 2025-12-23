@@ -386,22 +386,69 @@ Ensure all BOQ costs are distributed across activities and verify the total matc
 
     const aiResponse = await response.json();
     console.log("AI Response received");
+    console.log("Response structure:", JSON.stringify({
+      hasChoices: !!aiResponse.choices,
+      choicesLength: aiResponse.choices?.length,
+      hasMessage: !!aiResponse.choices?.[0]?.message,
+      hasToolCalls: !!aiResponse.choices?.[0]?.message?.tool_calls,
+      toolCallsLength: aiResponse.choices?.[0]?.message?.tool_calls?.length,
+      hasContent: !!aiResponse.choices?.[0]?.message?.content
+    }));
 
     let analysisResult: any;
 
+    // Try to extract from tool calls first
     if (aiResponse.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments) {
       const args = aiResponse.choices[0].message.tool_calls[0].function.arguments;
-      analysisResult = typeof args === "string" ? JSON.parse(args) : args;
-    } else if (aiResponse.choices?.[0]?.message?.content) {
+      console.log("Parsing tool call arguments...");
+      try {
+        analysisResult = typeof args === "string" ? JSON.parse(args) : args;
+        console.log("Successfully parsed tool call with", analysisResult?.cost_loaded_schedule?.length || 0, "activities");
+      } catch (parseError) {
+        console.error("Failed to parse tool call arguments:", parseError);
+      }
+    }
+    
+    // Fallback to content extraction
+    if (!analysisResult && aiResponse.choices?.[0]?.message?.content) {
       const content = aiResponse.choices[0].message.content;
+      console.log("Trying to extract from content, length:", content.length);
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        analysisResult = JSON.parse(jsonMatch[0]);
+        try {
+          analysisResult = JSON.parse(jsonMatch[0]);
+          console.log("Successfully parsed from content");
+        } catch (parseError) {
+          console.error("Failed to parse content JSON:", parseError);
+        }
       }
     }
 
+    // Final fallback: create minimal structure if we have no result
     if (!analysisResult) {
-      throw new Error("Failed to parse AI response");
+      console.error("Could not parse AI response, creating fallback structure");
+      // Create a basic structure based on BOQ items
+      analysisResult = {
+        cost_loaded_schedule: [],
+        orphan_boq_items: boq_items.map((item: BOQItem) => ({
+          item_number: item.item_number,
+          description: item.description,
+          quantity: item.quantity,
+          cost: item.total_price || 0,
+          suggested_activity: "Unassigned"
+        })),
+        misalignment_risks: [{
+          risk_type: "scope_gap",
+          severity: "high",
+          description: "AI analysis could not generate a cost-loaded schedule. Manual assignment required.",
+          affected_items: ["All BOQ items"],
+          recommendation: "Please manually assign BOQ items to schedule activities or try analysis again."
+        }],
+        recommendations: [
+          "AI parsing failed - consider simplifying BOQ data or trying again",
+          "All items marked as orphan for manual review"
+        ]
+      };
     }
 
     // Process the cost-loaded schedule
