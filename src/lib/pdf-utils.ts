@@ -95,6 +95,34 @@ export async function extractTextFromPDF(file: File): Promise<string> {
     console.log("Raw extracted text length:", extractedText.length);
     console.log("First 200 chars:", extractedText.substring(0, 200));
     
+    // CRITICAL: Check for binary/corrupted data FIRST before validation
+    const binaryCharCount = (extractedText.match(/[\x00-\x08\x0B\x0C\x0E-\x1F\x80-\xFF]/g) || []).length;
+    const binaryRatio = extractedText.length > 0 ? binaryCharCount / extractedText.length : 1;
+    
+    console.log(`Binary check: ${binaryCharCount} invalid chars out of ${extractedText.length} (${(binaryRatio * 100).toFixed(2)}%)`);
+    
+    if (binaryRatio > 0.3) {
+      // More than 30% binary/invalid characters - this is corrupted data
+      console.log("⚠️ Binary data detected - extraction failed");
+      return `[فشل استخراج النص]
+
+ملف: ${file.name}
+الحجم: ${(file.size / 1024).toFixed(2)} KB
+
+💡 هذا الملف يحتوي على:
+- صور ممسوحة ضوئياً (Scanned PDF)
+- نص في شكل صور (يحتاج OCR)
+- تنسيق PDF محمي أو مشفر
+
+🔧 الحل:
+1. افتح ملف PDF
+2. حدد النص بالماوس (Ctrl+A)
+3. انسخه (Ctrl+C)
+4. الصقه في المربع أدناه
+
+أو استخدم برنامج OCR لتحويل الصور إلى نص`;
+    }
+    
     // After cleaning, check if we have enough valid text
     const hasArabic = /[\u0600-\u06FF]/.test(extractedText);
     const hasEnglish = /[a-zA-Z]/.test(extractedText);
