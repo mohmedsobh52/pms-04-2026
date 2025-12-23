@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale } from "lucide-react";
+import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine } from "lucide-react";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { useLanguage } from "@/hooks/useLanguage";
 import { FileUpload } from "@/components/FileUpload";
@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { extractTextFromPDF, validateExtractedText } from "@/lib/pdf-utils";
+import { extractTextFromPDF, validateExtractedText, extractWithOCROnly } from "@/lib/pdf-utils";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -30,6 +30,8 @@ const Index = () => {
   const [showManualInput, setShowManualInput] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionStatus, setExtractionStatus] = useState<"idle" | "extracting" | "success" | "failed">("idle");
+  const [isOCRProcessing, setIsOCRProcessing] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState<{ current: number; total: number } | null>(null);
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [wbsData, setWbsData] = useState<any>(null);
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>(defaultWorkflowSteps);
@@ -109,9 +111,58 @@ const Index = () => {
     setShowManualInput(false);
     setIsExtracting(false);
     setExtractionStatus("idle");
+    setIsOCRProcessing(false);
+    setOcrProgress(null);
     setAnalysisData(null);
     setWbsData(null);
     setWorkflowSteps(defaultWorkflowSteps);
+  };
+
+  const handleOCRExtraction = async () => {
+    if (!selectedFile) return;
+    
+    setIsOCRProcessing(true);
+    setOcrProgress({ current: 0, total: 1 });
+    
+    toast({
+      title: "جاري استخراج النص بـ OCR...",
+      description: "يتم تحليل صور الملف باستخدام الذكاء الاصطناعي",
+    });
+    
+    try {
+      const text = await extractWithOCROnly(selectedFile, (current, total) => {
+        setOcrProgress({ current, total });
+      });
+      
+      const validation = validateExtractedText(text);
+      
+      if (validation.isValid || text.length > 100) {
+        setExtractedText(text);
+        setExtractionStatus("success");
+        updateStepStatus("extract", "complete");
+        toast({
+          title: "تم استخراج النص بـ OCR",
+          description: `تم استخراج ${validation.wordCount} كلمة من ${selectedFile.name}`,
+        });
+      } else {
+        setManualText(text);
+        setShowManualInput(true);
+        toast({
+          title: "استخراج جزئي",
+          description: "تم استخراج بعض النص، يرجى المراجعة",
+        });
+      }
+    } catch (error) {
+      console.error("OCR extraction error:", error);
+      toast({
+        title: "فشل OCR",
+        description: error instanceof Error ? error.message : "حدث خطأ أثناء استخراج النص",
+        variant: "destructive",
+      });
+    } finally {
+      setIsOCRProcessing(false);
+      setOcrProgress(null);
+    }
   };
 
   const handleManualTextSubmit = () => {
@@ -306,26 +357,61 @@ const Index = () => {
                     </div>
                   )}
 
-                  {extractionStatus === "failed" && !isExtracting && (
+                  {extractionStatus === "failed" && !isExtracting && !isOCRProcessing && (
                     <div className="glass-card p-6 border-warning/50 bg-warning/5 animate-slide-up">
                       <div className="flex items-start gap-4">
                         <AlertTriangle className="w-8 h-8 text-warning shrink-0" />
-                        <div>
+                        <div className="flex-1">
                           <h3 className="font-display font-semibold text-warning">تعذر استخراج النص بالكامل</h3>
                           <p className="text-sm text-muted-foreground mt-1">
-                            قد يكون الملف يحتوي على صور ممسوحة ضوئياً أو تنسيق غير مدعوم. 
-                            يمكنك إدخال النص يدوياً.
+                            قد يكون الملف يحتوي على صور ممسوحة ضوئياً أو تنسيق غير مدعوم.
                           </p>
-                          <Button
-                            onClick={() => setShowManualInput(true)}
-                            variant="outline"
-                            size="sm"
-                            className="mt-3 gap-2"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                            إدخال يدوي
-                          </Button>
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            <Button
+                              onClick={handleOCRExtraction}
+                              size="sm"
+                              className="gap-2"
+                            >
+                              <ScanLine className="w-4 h-4" />
+                              استخدم OCR (ذكاء اصطناعي)
+                            </Button>
+                            <Button
+                              onClick={() => setShowManualInput(true)}
+                              variant="outline"
+                              size="sm"
+                              className="gap-2"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                              إدخال يدوي
+                            </Button>
+                          </div>
                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {isOCRProcessing && (
+                    <div className="glass-card p-6 animate-slide-up">
+                      <div className="flex items-center gap-4">
+                        <ScanLine className="w-8 h-8 text-primary animate-pulse" />
+                        <div className="flex-1">
+                          <h3 className="font-display font-semibold">جاري استخراج النص بـ OCR...</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {ocrProgress 
+                              ? `صفحة ${ocrProgress.current} من ${ocrProgress.total}`
+                              : "يتم تحليل صور الملف بالذكاء الاصطناعي"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
+                        {ocrProgress ? (
+                          <div 
+                            className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300" 
+                            style={{ width: `${(ocrProgress.current / ocrProgress.total) * 100}%` }}
+                          />
+                        ) : (
+                          <div className="h-full bg-gradient-to-r from-primary to-accent animate-shimmer bg-[length:200%_100%]" />
+                        )}
                       </div>
                     </div>
                   )}
