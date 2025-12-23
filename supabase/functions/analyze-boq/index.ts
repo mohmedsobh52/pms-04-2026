@@ -56,7 +56,7 @@ interface CostLoadedSchedule {
     total_project_cost: number;
     total_duration_days: number;
     currency: string;
-    cost_variance: number; // Should be 0 if correctly balanced
+    cost_variance: number;
   };
   activities: ScheduleActivity[];
   cash_flow: {
@@ -111,26 +111,18 @@ interface AnalysisResult {
 
 // Standard unit normalization map
 const UNIT_NORMALIZATION: { [key: string]: string } = {
-  // Length
   "meter": "m", "meters": "m", "metre": "m", "metres": "m", "متر": "m", "م": "m",
   "linear meter": "L.M", "linear metres": "L.M", "lm": "L.M", "l.m": "L.M", "م.ط": "L.M",
-  // Area
   "square meter": "m²", "square meters": "m²", "sqm": "m²", "sq.m": "m²", "م2": "m²", "م٢": "m²", "متر مربع": "m²",
-  // Volume
   "cubic meter": "m³", "cubic meters": "m³", "cum": "m³", "cu.m": "m³", "م3": "m³", "م٣": "m³", "متر مكعب": "m³",
-  // Weight
   "kilogram": "kg", "kilograms": "kg", "kgs": "kg", "كجم": "kg", "كيلوجرام": "kg",
   "ton": "ton", "tons": "ton", "tonne": "ton", "tonnes": "ton", "طن": "ton",
-  // Count
   "piece": "pcs", "pieces": "pcs", "pc": "pcs", "nos": "pcs", "no": "pcs", "number": "pcs", "عدد": "pcs", "قطعة": "pcs",
   "each": "ea", "unit": "ea", "وحدة": "ea",
-  // Lump sum
   "lump sum": "L.S", "lumpsum": "L.S", "ls": "L.S", "l.s": "L.S", "مقطوعية": "L.S", "جملة": "L.S",
   "lot": "lot", "مجموعة": "lot",
-  // Time
   "day": "day", "days": "day", "يوم": "day",
   "month": "month", "months": "month", "شهر": "month",
-  // Other
   "trip": "trip", "trips": "trip", "رحلة": "trip",
   "set": "set", "sets": "set", "طقم": "set",
 };
@@ -182,7 +174,6 @@ const ACTIVITY_TEMPLATE: { [key: string]: { order: number; duration_factor: numb
 };
 
 function generateCostLoadedSchedule(items: BOQItem[], totalValue: number, currency: string): CostLoadedSchedule {
-  // Group items by section/trade
   const sectionGroups: { [key: string]: BOQItem[] } = {};
   
   items.forEach(item => {
@@ -193,22 +184,17 @@ function generateCostLoadedSchedule(items: BOQItem[], totalValue: number, curren
     sectionGroups[section].push(item);
   });
 
-  // Calculate base project duration (typically 12-24 months for construction)
-  const baseDuration = Math.max(180, Math.min(720, Math.ceil(totalValue / 50000))); // Rough estimate
+  const baseDuration = Math.max(180, Math.min(720, Math.ceil(totalValue / 50000)));
 
-  // Create activities from sections
   const activities: ScheduleActivity[] = [];
   let activityId = 1;
-  let currentDay = 1;
 
-  // Sort sections by construction sequence
   const sortedSections = Object.keys(sectionGroups).sort((a, b) => {
     const orderA = ACTIVITY_TEMPLATE[a]?.order ?? 99;
     const orderB = ACTIVITY_TEMPLATE[b]?.order ?? 99;
     return orderA - orderB;
   });
 
-  // Calculate schedule using Finish-to-Start relationships
   const activityMap: { [key: string]: ScheduleActivity } = {};
 
   sortedSections.forEach(section => {
@@ -219,7 +205,6 @@ function generateCostLoadedSchedule(items: BOQItem[], totalValue: number, curren
     const template = ACTIVITY_TEMPLATE[section] || { order: 99, duration_factor: 0.05, predecessors: [] };
     const duration = Math.max(7, Math.ceil(baseDuration * template.duration_factor));
     
-    // Calculate early start based on predecessors
     let earlyStart = 1;
     const predecessorIds: string[] = [];
     
@@ -230,7 +215,6 @@ function generateCostLoadedSchedule(items: BOQItem[], totalValue: number, curren
       }
     });
 
-    // Linear cost distribution across duration
     const dailyCost = sectionCost / duration;
     const costDistribution = [];
     for (let d = 0; d < duration; d++) {
@@ -258,11 +242,9 @@ function generateCostLoadedSchedule(items: BOQItem[], totalValue: number, curren
     activityId++;
   });
 
-  // Calculate total project duration
   const totalDuration = Math.max(...activities.map(a => a.early_finish_day));
 
-  // Generate cash flow (monthly periods)
-  const periodLength = 30; // days per period
+  const periodLength = 30;
   const totalPeriods = Math.ceil(totalDuration / periodLength);
   const cashFlow: { period: number; period_cost: number; cumulative_cost: number; cumulative_percent: number }[] = [];
   
@@ -289,7 +271,6 @@ function generateCostLoadedSchedule(items: BOQItem[], totalValue: number, curren
     });
   }
 
-  // Generate S-Curve data (weekly points)
   const sCurveData: { day: number; planned_cost: number; cumulative_cost: number; cumulative_percent: number }[] = [];
   let runningTotal = 0;
   
@@ -312,7 +293,6 @@ function generateCostLoadedSchedule(items: BOQItem[], totalValue: number, curren
     });
   }
 
-  // Calculate total scheduled cost and variance
   const totalScheduledCost = activities.reduce((sum, a) => sum + a.activity_cost, 0);
   const costVariance = Math.round((totalScheduledCost - totalValue) * 100) / 100;
 
@@ -329,6 +309,100 @@ function generateCostLoadedSchedule(items: BOQItem[], totalValue: number, curren
     s_curve_data: sCurveData
   };
 }
+
+// Tool definition for structured output
+const boqAnalysisTool = {
+  type: "function",
+  function: {
+    name: "submit_boq_analysis",
+    description: "Submit the complete BOQ analysis result",
+    parameters: {
+      type: "object",
+      properties: {
+        document_info: {
+          type: "object",
+          properties: {
+            detected_language: { type: "string" },
+            file_type: { type: "string" },
+            encoding_quality: { type: "string" },
+            total_pages_estimated: { type: "number" }
+          },
+          required: ["detected_language", "file_type", "encoding_quality", "total_pages_estimated"]
+        },
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              item_no: { type: "string" },
+              description: { type: "string" },
+              unit: { type: "string" },
+              quantity: { type: "number" },
+              rate: { type: "number" },
+              amount: { type: "number" },
+              section_trade: { type: "string" },
+              remarks: { type: ["string", "null"] },
+              validation_status: { type: "string", enum: ["valid", "warning", "error"] },
+              validation_notes: { type: "array", items: { type: "string" } }
+            },
+            required: ["item_no", "description", "unit", "quantity", "rate", "amount", "section_trade", "validation_status", "validation_notes"]
+          }
+        },
+        validation: {
+          type: "object",
+          properties: {
+            total_issues: { type: "number" },
+            issues: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  item_no: { type: "string" },
+                  issue_type: { type: "string" },
+                  severity: { type: "string", enum: ["low", "medium", "high"] },
+                  description: { type: "string" },
+                  recommendation: { type: "string" }
+                },
+                required: ["item_no", "issue_type", "severity", "description", "recommendation"]
+              }
+            },
+            data_quality_score: { type: "number" },
+            arithmetic_check_passed: { type: "number" },
+            arithmetic_check_failed: { type: "number" }
+          },
+          required: ["total_issues", "issues", "data_quality_score", "arithmetic_check_passed", "arithmetic_check_failed"]
+        },
+        analysis: {
+          type: "object",
+          properties: {
+            total_items: { type: "number" },
+            total_value: { type: "number" },
+            currency: { type: "string" },
+            sections_summary: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  section: { type: "string" },
+                  item_count: { type: "number" },
+                  total_amount: { type: "number" },
+                  percentage_of_total: { type: "number" }
+                },
+                required: ["section", "item_count", "total_amount", "percentage_of_total"]
+              }
+            },
+            high_value_items: { type: "array", items: { type: "object" } },
+            data_quality_issues: { type: "array", items: { type: "string" } },
+            risks: { type: "array", items: { type: "string" } }
+          },
+          required: ["total_items", "total_value", "currency", "sections_summary", "high_value_items", "data_quality_issues", "risks"]
+        },
+        executive_summary: { type: "string" }
+      },
+      required: ["document_info", "items", "validation", "analysis", "executive_summary"]
+    }
+  }
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -434,63 +508,6 @@ Group items into standard construction trades:
 - External Works
 - Preliminaries & General
 
-## OUTPUT FORMAT (JSON)
-{
-  "analysis_type": "professional_boq_analysis",
-  "document_info": {
-    "detected_language": "${detectedLanguage}",
-    "file_type": "${file_type}",
-    "encoding_quality": "${encodingQuality}",
-    "total_pages_estimated": number
-  },
-  "items": [
-    {
-      "item_no": "string",
-      "description": "string (clean, in ${outputLanguage})",
-      "unit": "string (normalized)",
-      "quantity": number,
-      "rate": number,
-      "amount": number,
-      "section_trade": "string",
-      "remarks": "string or null",
-      "validation_status": "valid" | "warning" | "error",
-      "validation_notes": ["array of validation notes"]
-    }
-  ],
-  "validation": {
-    "total_issues": number,
-    "issues": [
-      {
-        "item_no": "string",
-        "issue_type": "missing_data" | "arithmetic_error" | "inconsistent_unit" | "duplicate" | "unclear_description",
-        "severity": "low" | "medium" | "high",
-        "description": "string",
-        "recommendation": "string"
-      }
-    ],
-    "data_quality_score": number (0-100),
-    "arithmetic_check_passed": number,
-    "arithmetic_check_failed": number
-  },
-  "analysis": {
-    "total_items": number,
-    "total_value": number,
-    "currency": "SAR" or detected currency,
-    "sections_summary": [
-      {
-        "section": "string",
-        "item_count": number,
-        "total_amount": number,
-        "percentage_of_total": number
-      }
-    ],
-    "high_value_items": [top 10 items by amount],
-    "data_quality_issues": ["list of quality concerns"],
-    "risks": ["list of identified risks"]
-  },
-  "executive_summary": "2-3 paragraph summary of the BOQ analysis in ${outputLanguage}"
-}
-
 ## CRITICAL RULES
 1. Do NOT output corrupted or unreadable text - clean it up or mark as [UNREADABLE]
 2. Respond in ${outputLanguage}
@@ -498,7 +515,7 @@ Group items into standard construction trades:
 4. Flag any suspicious or inconsistent data
 5. Calculate percentages and totals accurately
 6. If rate/amount is missing, estimate based on typical construction costs and mark as "estimated"
-7. Return ONLY valid JSON, no markdown or explanation`;
+7. Use the submit_boq_analysis function to return your analysis`;
 
     const userPrompt = `Analyze this BOQ document as a professional Quantity Surveyor. Extract all items, validate data, and provide comprehensive analysis.
 
@@ -513,7 +530,9 @@ Please provide:
 3. Summary by section/trade
 4. Top 10 high-value cost drivers
 5. Data quality issues and risks
-6. Executive summary`;
+6. Executive summary
+
+Use the submit_boq_analysis function to return your structured analysis.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -522,13 +541,14 @@ Please provide:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
         temperature: 0.1,
-        response_format: { type: "json_object" },
+        tools: [boqAnalysisTool],
+        tool_choice: { type: "function", function: { name: "submit_boq_analysis" } }
       }),
     });
 
@@ -553,38 +573,57 @@ Please provide:
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error("No response from AI");
-    }
-
     console.log("AI response received, parsing...");
 
+    // Extract tool call result
     let result: AnalysisResult;
-    try {
-      result = JSON.parse(content);
-    } catch (directParseError) {
-      console.log("Direct parse failed, trying extraction methods...");
+    
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (toolCall && toolCall.function?.name === "submit_boq_analysis") {
+      try {
+        const toolArgs = JSON.parse(toolCall.function.arguments);
+        result = {
+          analysis_type: "professional_boq_analysis",
+          ...toolArgs
+        };
+        console.log("Successfully parsed tool call response");
+      } catch (toolParseError) {
+        console.error("Tool call parse error:", toolParseError);
+        throw new Error("Failed to parse AI tool response");
+      }
+    } else {
+      // Fallback: try to parse from message content
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from AI");
+      }
+      
+      console.log("No tool call found, trying to parse content...");
       
       try {
-        const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-        if (jsonMatch) {
-          result = JSON.parse(jsonMatch[1].trim());
-        } else {
-          const jsonStart = content.indexOf("{");
-          const jsonEnd = content.lastIndexOf("}");
-          
-          if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-            const jsonStr = content.slice(jsonStart, jsonEnd + 1);
-            result = JSON.parse(jsonStr);
+        result = JSON.parse(content);
+      } catch (directParseError) {
+        console.log("Direct parse failed, trying extraction methods...");
+        
+        try {
+          const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (jsonMatch) {
+            result = JSON.parse(jsonMatch[1].trim());
           } else {
-            throw new Error("Could not find JSON structure in response");
+            const jsonStart = content.indexOf("{");
+            const jsonEnd = content.lastIndexOf("}");
+            
+            if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+              const jsonStr = content.slice(jsonStart, jsonEnd + 1);
+              result = JSON.parse(jsonStr);
+            } else {
+              throw new Error("Could not find JSON structure in response");
+            }
           }
+        } catch (extractError) {
+          console.error("All JSON extraction methods failed");
+          throw new Error("Failed to process AI response. Please try again.");
         }
-      } catch (extractError) {
-        console.error("All JSON extraction methods failed");
-        throw new Error("Failed to process AI response. Please try again.");
       }
     }
 
@@ -594,7 +633,7 @@ Please provide:
         const normalizedUnit = normalizeUnit(item.unit);
         const calculatedAmount = item.quantity * item.rate;
         const amountDiff = Math.abs(calculatedAmount - item.amount);
-        const tolerance = item.amount * 0.01; // 1% tolerance
+        const tolerance = item.amount * 0.01;
         
         const validationNotes: string[] = item.validation_notes || [];
         let validationStatus = item.validation_status || "valid";
