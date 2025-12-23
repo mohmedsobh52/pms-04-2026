@@ -9,6 +9,7 @@ import { WorkflowStatus, defaultWorkflowSteps, type WorkflowStep, type StepStatu
 import { AnalysisResults } from "@/components/AnalysisResults";
 import { SavedProjects } from "@/components/SavedProjects";
 import { SaveProjectDialog } from "@/components/SaveProjectDialog";
+import { LocalProjectManager } from "@/components/LocalProjectManager";
 import { QuotationUpload } from "@/components/QuotationUpload";
 import { QuotationComparison } from "@/components/QuotationComparison";
 import { ComprehensiveReport } from "@/components/ComprehensiveReport";
@@ -335,6 +336,22 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {/* Local Project Manager - always visible */}
+              <LocalProjectManager
+                analysisData={analysisData}
+                wbsData={wbsData}
+                fileName={selectedFile?.name}
+                onLoadProject={(loadedAnalysis, loadedWbs) => {
+                  setAnalysisData(loadedAnalysis);
+                  setWbsData(loadedWbs);
+                  updateStepStatus("upload", "complete");
+                  updateStepStatus("extract", "complete");
+                  updateStepStatus("analyze", "complete");
+                  updateStepStatus("wbs", "complete");
+                  updateStepStatus("export", "complete");
+                }}
+              />
+              
               <ThemeToggle />
               <LanguageToggle />
               {authLoading ? (
