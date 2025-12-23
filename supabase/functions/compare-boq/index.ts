@@ -41,6 +41,8 @@ interface ComparisonItem {
   status: 'Added' | 'Omitted' | 'Modified' | 'Matched';
   riskFlag: 'High Risk' | 'Opportunity' | 'Neutral';
   matchConfidence: number;
+  recommendation: string;
+  priority: 'Critical' | 'High' | 'Medium' | 'Low';
 }
 
 interface CategoryVariance {
@@ -195,6 +197,76 @@ Extract all items from both BOQs and identify matching pairs based on descriptio
     const matchedPairs = parsedData.matchedPairs || [];
     const categories = parsedData.categories || [];
 
+    // Helper function to determine recommendation and priority
+    const getRecommendationAndPriority = (
+      status: string,
+      riskFlag: string,
+      costVariance: number,
+      costVariancePercent: number,
+      rateVariancePercent: number,
+      qtyVariancePercent: number
+    ): { recommendation: string; priority: 'Critical' | 'High' | 'Medium' | 'Low' } => {
+      let recommendation = '';
+      let priority: 'Critical' | 'High' | 'Medium' | 'Low' = 'Low';
+
+      if (status === 'Added') {
+        if (Math.abs(costVariance) > 100000) {
+          recommendation = 'Critical scope addition - Verify necessity and negotiate terms';
+          priority = 'Critical';
+        } else if (Math.abs(costVariance) > 50000) {
+          recommendation = 'Review scope addition - Assess impact on budget';
+          priority = 'High';
+        } else {
+          recommendation = 'New scope item - Confirm requirement';
+          priority = 'Medium';
+        }
+      } else if (status === 'Omitted') {
+        if (Math.abs(costVariance) > 100000) {
+          recommendation = 'Major scope exclusion - Verify intentional and impact';
+          priority = 'Critical';
+        } else if (Math.abs(costVariance) > 50000) {
+          recommendation = 'Significant omission - Confirm scope exclusion is acceptable';
+          priority = 'High';
+        } else {
+          recommendation = 'Scope exclusion - Verify with stakeholders';
+          priority = 'Medium';
+        }
+      } else if (status === 'Matched') {
+        recommendation = 'Accept - No action required';
+        priority = 'Low';
+      } else {
+        // Modified items
+        if (riskFlag === 'High Risk') {
+          if (costVariancePercent > 20) {
+            recommendation = 'Critical overrun - Immediate negotiation required';
+            priority = 'Critical';
+          } else if (Math.abs(rateVariancePercent) > Math.abs(qtyVariancePercent)) {
+            recommendation = 'Negotiate rate - Rate variance driving cost impact';
+            priority = 'High';
+          } else {
+            recommendation = 'Review quantity - Verify scope measurement';
+            priority = 'High';
+          }
+        } else if (riskFlag === 'Opportunity') {
+          recommendation = 'Lock in favorable rate - Cost saving opportunity';
+          priority = 'Medium';
+        } else {
+          if (Math.abs(rateVariancePercent) > 5) {
+            recommendation = 'Minor rate variance - Monitor';
+            priority = 'Low';
+          } else if (Math.abs(qtyVariancePercent) > 5) {
+            recommendation = 'Minor quantity variance - Verify measurement';
+            priority = 'Low';
+          } else {
+            recommendation = 'Accept - Within tolerance';
+            priority = 'Low';
+          }
+        }
+      }
+
+      return { recommendation, priority };
+    };
+
     // Build comparison items
     const comparisonItems: ComparisonItem[] = [];
     const usedTenderIndices = new Set<number>();
@@ -224,6 +296,11 @@ Extract all items from both BOQs and identify matching pairs based on descriptio
         riskFlag = costVariance > 0 ? 'High Risk' : 'Opportunity';
       }
 
+      const status = isMatched ? 'Matched' : 'Modified';
+      const { recommendation, priority } = getRecommendationAndPriority(
+        status, riskFlag, costVariance, costVariancePercent, rateVariancePercent, qtyVariancePercent
+      );
+
       comparisonItems.push({
         itemCode: tenderItem.itemCode || budgetItem.itemCode,
         description: tenderItem.description || budgetItem.description,
@@ -247,15 +324,22 @@ Extract all items from both BOQs and identify matching pairs based on descriptio
           cost: costVariance,
           costPercent: costVariancePercent,
         },
-        status: isMatched ? 'Matched' : 'Modified',
+        status,
         riskFlag,
         matchConfidence: pair.confidence || 0.8,
+        recommendation,
+        priority,
       });
     }
 
     // Process added items (in Tender, not in Budget)
     tenderItems.forEach((item, index) => {
       if (!usedTenderIndices.has(index)) {
+        const riskFlag: 'High Risk' | 'Opportunity' | 'Neutral' = item.amount > 50000 ? 'High Risk' : 'Neutral';
+        const { recommendation, priority } = getRecommendationAndPriority(
+          'Added', riskFlag, item.amount, 100, 100, 100
+        );
+        
         comparisonItems.push({
           itemCode: item.itemCode,
           description: item.description,
@@ -275,8 +359,10 @@ Extract all items from both BOQs and identify matching pairs based on descriptio
             costPercent: 100,
           },
           status: 'Added',
-          riskFlag: item.amount > 50000 ? 'High Risk' : 'Neutral',
+          riskFlag,
           matchConfidence: 0,
+          recommendation,
+          priority,
         });
       }
     });
@@ -284,6 +370,11 @@ Extract all items from both BOQs and identify matching pairs based on descriptio
     // Process omitted items (in Budget, not in Tender)
     budgetItems.forEach((item, index) => {
       if (!usedBudgetIndices.has(index)) {
+        const riskFlag: 'High Risk' | 'Opportunity' | 'Neutral' = item.amount > 50000 ? 'Opportunity' : 'Neutral';
+        const { recommendation, priority } = getRecommendationAndPriority(
+          'Omitted', riskFlag, -item.amount, -100, -100, -100
+        );
+        
         comparisonItems.push({
           itemCode: item.itemCode,
           description: item.description,
@@ -303,8 +394,10 @@ Extract all items from both BOQs and identify matching pairs based on descriptio
             costPercent: -100,
           },
           status: 'Omitted',
-          riskFlag: item.amount > 50000 ? 'Opportunity' : 'Neutral',
+          riskFlag,
           matchConfidence: 0,
+          recommendation,
+          priority,
         });
       }
     });
