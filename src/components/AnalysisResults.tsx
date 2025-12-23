@@ -10,6 +10,7 @@ import { ProjectTimeline } from "./ProjectTimeline";
 import { CostAnalysis } from "./CostAnalysis";
 import { ScheduleIntegration } from "./ScheduleIntegration";
 import { KPIDashboard } from "./KPIDashboard";
+import { MarketRateSuggestions } from "./MarketRateSuggestions";
 import { useLanguage } from "@/hooks/useLanguage";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -645,6 +646,7 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
             ))}
           </div>
           <div className="flex gap-2 flex-wrap">
+            <MarketRateSuggestions items={data.items || []} />
             <Button variant="default" size="sm" onClick={exportToPDF} className="gap-2 bg-gradient-to-r from-primary to-accent">
               <FileDown className="w-4 h-4" />
               PDF
