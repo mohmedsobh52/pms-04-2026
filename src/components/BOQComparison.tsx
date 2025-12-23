@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileUp, AlertTriangle, TrendingUp, TrendingDown, Minus, RefreshCw, FileSpreadsheet, ChevronDown, ChevronUp, BarChart3, PieChart, DollarSign, Package, Target, ShieldAlert, Lightbulb } from "lucide-react";
+import { FileUp, AlertTriangle, TrendingUp, TrendingDown, Minus, RefreshCw, FileSpreadsheet, ChevronDown, ChevronUp, BarChart3, PieChart, DollarSign, Package, Target, ShieldAlert, Lightbulb, Download, FileText, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -10,8 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { extractDataFromExcel, formatExcelDataForAnalysis } from "@/lib/excel-utils";
 import { extractTextFromPDF } from "@/lib/pdf-utils";
+import { exportBOQComparisonToPDF, exportBOQComparisonToExcel } from "@/lib/boq-export-utils";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart as RechartsPieChart, Pie, Legend, LineChart, Line, CartesianGrid } from "recharts";
-
 interface ComparisonItem {
   itemCode: string;
   description: string;
@@ -38,6 +38,8 @@ interface ComparisonItem {
   status: 'Added' | 'Omitted' | 'Modified' | 'Matched';
   riskFlag: 'High Risk' | 'Opportunity' | 'Neutral';
   matchConfidence: number;
+  recommendation?: string;
+  priority?: 'Critical' | 'High' | 'Medium' | 'Low';
 }
 
 interface CategoryVariance {
@@ -326,7 +328,7 @@ export function BOQComparison() {
             </div>
           </div>
 
-          <div className="mt-6 flex justify-center">
+          <div className="mt-6 flex justify-center gap-3">
             <Button
               onClick={runComparison}
               disabled={!tenderText || !budgetText || isProcessing}
@@ -345,6 +347,35 @@ export function BOQComparison() {
                 </>
               )}
             </Button>
+            
+            {comparisonResult && (
+              <>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="gap-2"
+                  onClick={() => {
+                    exportBOQComparisonToPDF(comparisonResult);
+                    toast({ title: "PDF exported successfully" });
+                  }}
+                >
+                  <FileText className="w-4 h-4" />
+                  Export PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="gap-2"
+                  onClick={() => {
+                    exportBOQComparisonToExcel(comparisonResult);
+                    toast({ title: "Excel exported successfully" });
+                  }}
+                >
+                  <FileDown className="w-4 h-4" />
+                  Export Excel
+                </Button>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
