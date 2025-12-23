@@ -1,3 +1,8 @@
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
+
 export interface PDFExtractionResult {
   text: string;
   pageCount: number;
@@ -10,153 +15,89 @@ export async function extractTextFromPDF(file: File): Promise<string> {
     console.log("Starting PDF extraction for:", file.name);
     
     const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
     
-    // Try UTF-8 first, then Windows-1256 (Arabic encoding)
-    let content = "";
-    try {
-      const utf8Decoder = new TextDecoder("utf-8", { fatal: false });
-      content = utf8Decoder.decode(uint8Array);
-    } catch {
-      // Fallback to Windows-1256 for Arabic PDFs
-      const arabicDecoder = new TextDecoder("windows-1256", { fatal: false });
-      content = arabicDecoder.decode(uint8Array);
-    }
+    // Use PDF.js to properly parse the PDF
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    console.log(`PDF loaded: ${pdf.numPages} pages`);
     
-    let extractedText = "";
+    let fullText = "";
     
-    // Method 1: Extract text from PDF stream objects (most reliable)
-    const streamMatches = content.match(/stream[\s\S]*?endstream/g);
-    if (streamMatches) {
-      for (const stream of streamMatches) {
-        // Look for text showing operators (Tj, TJ)
-        const textOps = stream.match(/\(([^)]*)\)\s*Tj/g);
-        if (textOps) {
-          const texts = textOps.map(op => {
-            const match = op.match(/\(([^)]*)\)/);
-            return match ? match[1] : '';
-          });
-          extractedText += texts.join(' ') + '\n';
-        }
+    // Extract text from each page
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      try {
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
         
-        // Look for TJ arrays (multiple text segments)
-        const tjArrays = stream.match(/\[([^\]]*)\]\s*TJ/g);
-        if (tjArrays) {
-          for (const arr of tjArrays) {
-            const textParts = arr.match(/\(([^)]*)\)/g);
-            if (textParts) {
-              const texts = textParts.map(p => p.slice(1, -1));
-              extractedText += texts.join('') + ' ';
+        // Combine text items with proper spacing
+        const pageText = textContent.items
+          .map((item: any) => {
+            if ('str' in item) {
+              return item.str;
             }
-          }
-        }
+            return '';
+          })
+          .join(' ');
+        
+        fullText += pageText + '\n';
+      } catch (pageError) {
+        console.warn(`Error extracting page ${pageNum}:`, pageError);
       }
     }
     
-    // Method 2: Extract text from parentheses patterns (fallback)
-    if (extractedText.length < 100) {
-      const textMatches = content.match(/\(([^)]+)\)/g);
-      if (textMatches) {
-        const filtered = textMatches
-          .map(match => match.slice(1, -1))
-          .filter(t => t.length > 1 && /[\u0600-\u06FFa-zA-Z0-9]/.test(t))
-          .filter(t => !t.startsWith('/') && !t.includes('<<') && !t.includes('endobj'));
-        extractedText = filtered.join(" ");
-      }
-    }
-    
-    // Method 3: Extract text from content streams more aggressively
-    if (extractedText.length < 100) {
-      const btMatches = content.match(/BT[\s\S]*?ET/g);
-      if (btMatches) {
-        for (const bt of btMatches) {
-          const textParts = bt.match(/\(([^)]*)\)/g);
-          if (textParts) {
-            extractedText += textParts.map(p => p.slice(1, -1)).join(' ') + ' ';
-          }
-        }
-      }
-    }
-    
-    // Clean up the text - handle Arabic properly
-    extractedText = extractedText
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "") // Remove control characters
-      .replace(/\\n/g, "\n")
-      .replace(/\\r/g, "")
-      .replace(/\\t/g, " ")
-      .replace(/\\(\d{3})/g, (_, oct) => {
-        // Handle octal encoding for Arabic characters
-        const charCode = parseInt(oct, 8);
-        return String.fromCharCode(charCode);
-      })
-      .replace(/\s+/g, " ")
+    // Clean up the extracted text
+    let extractedText = fullText
+      .replace(/\s+/g, ' ')
+      .replace(/\n\s*\n/g, '\n')
       .trim();
     
-    console.log("Raw extracted text length:", extractedText.length);
-    console.log("First 200 chars:", extractedText.substring(0, 200));
+    console.log("Extracted text length:", extractedText.length);
+    console.log("First 300 chars:", extractedText.substring(0, 300));
     
-    // CRITICAL: Check for binary/corrupted data FIRST before validation
-    const binaryCharCount = (extractedText.match(/[\x00-\x08\x0B\x0C\x0E-\x1F\x80-\xFF]/g) || []).length;
-    const binaryRatio = extractedText.length > 0 ? binaryCharCount / extractedText.length : 1;
+    // Validate the extracted text
+    const hasArabic = /[\u0600-\u06FF]/.test(extractedText);
+    const hasEnglish = /[a-zA-Z]/.test(extractedText);
+    const hasNumbers = /\d/.test(extractedText);
+    const wordCount = extractedText.split(/\s+/).filter(w => w.length > 1).length;
     
-    console.log(`Binary check: ${binaryCharCount} invalid chars out of ${extractedText.length} (${(binaryRatio * 100).toFixed(2)}%)`);
+    console.log(`Validation: Arabic=${hasArabic}, English=${hasEnglish}, Numbers=${hasNumbers}, Words=${wordCount}`);
     
-    if (binaryRatio > 0.3) {
-      // More than 30% binary/invalid characters - this is corrupted data
-      console.log("⚠️ Binary data detected - extraction failed");
+    // Check if extraction was successful
+    if (extractedText.length < 50 || wordCount < 10) {
+      console.log("⚠️ Insufficient text extracted - PDF may contain images only");
       return `[فشل استخراج النص]
 
 ملف: ${file.name}
 الحجم: ${(file.size / 1024).toFixed(2)} KB
+عدد الصفحات: ${pdf.numPages}
 
 💡 هذا الملف يحتوي على:
 - صور ممسوحة ضوئياً (Scanned PDF)
 - نص في شكل صور (يحتاج OCR)
-- تنسيق PDF محمي أو مشفر
+- أو لا يحتوي على نص قابل للتحديد
 
 🔧 الحل:
-1. افتح ملف PDF
-2. حدد النص بالماوس (Ctrl+A)
-3. انسخه (Ctrl+C)
-4. الصقه في المربع أدناه
-
-أو استخدم برنامج OCR لتحويل الصور إلى نص`;
-    }
-    
-    // After cleaning, check if we have enough valid text
-    const hasArabic = /[\u0600-\u06FF]/.test(extractedText);
-    const hasEnglish = /[a-zA-Z]/.test(extractedText);
-    const hasNumbers = /\d/.test(extractedText);
-    const wordCount = extractedText.split(/\s+/).filter(w => w.length > 2).length;
-    
-    // If after cleaning we still don't have useful content
-    if (extractedText.length < 50 || (!hasArabic && !hasEnglish) || wordCount < 10) {
-      console.log(`Extraction failed: ${extractedText.length} chars, ${wordCount} words`);
-      
-      // Return a clear error message, not the binary data
-      return `[فشل استخراج النص]
-
-ملف: ${file.name}
-الحجم: ${(file.size / 1024).toFixed(2)} KB
-
-💡 هذا الملف يحتوي على:
-- صور ممسوحة ضوئياً (Scanned PDF)
-- نص في شكل صور
-- تنسيق PDF محمي
-
-🔧 الحل:
-1. افتح ملف PDF
+1. افتح ملف PDF الأصلي
 2. حدد النص بالماوس (Ctrl+A)
 3. انسخه (Ctrl+C)
 4. الصقه في المربع أدناه`;
     }
     
-    console.log(`Successfully extracted ${extractedText.length} characters, ${wordCount} words`);
+    console.log(`✅ Successfully extracted ${extractedText.length} characters, ${wordCount} words`);
     return extractedText;
     
   } catch (error) {
     console.error("PDF extraction error:", error);
-    throw new Error(`فشل في قراءة الملف: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`);
+    
+    // Return a helpful error message
+    return `[فشل قراءة ملف PDF]
+
+ملف: ${file.name}
+الخطأ: ${error instanceof Error ? error.message : 'خطأ غير معروف'}
+
+🔧 الحل:
+1. تأكد من أن الملف ليس محمياً بكلمة مرور
+2. جرب فتح الملف ونسخ النص يدوياً
+3. الصق المحتوى في المربع أدناه`;
   }
 }
 
@@ -194,7 +135,7 @@ export function validateExtractedText(text: string): {
   }
   
   // Check for error messages from extraction
-  if (text.includes("[فشل استخراج النص]") || text.includes("[تعذر استخراج النص") || text.includes("[لم يتم العثور")) {
+  if (text.includes("[فشل استخراج النص]") || text.includes("[فشل قراءة ملف PDF]") || text.includes("[تعذر استخراج النص") || text.includes("[لم يتم العثور")) {
     issues.push("فشل استخراج النص من الملف");
     return {
       isValid: false,
