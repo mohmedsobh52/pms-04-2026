@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,7 +95,11 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
     applyAIRatesToCalculatedPrice,
     lastSavedAt,
     itemCosts,
+    clearAllCosts,
   } = useDynamicCostCalculator();
+  
+  // State for clear confirmation dialog
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Handle AI rates from MarketRateSuggestions - stores in aiSuggestedRate field
   const handleApplyAIRates = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
@@ -762,9 +766,9 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
   const tabs = [
     { id: "items", label: "العناصر", icon: <Package className="w-4 h-4" /> },
     { id: "wbs", label: "WBS", icon: <Layers className="w-4 h-4" /> },
-    { id: "costs", label: "التكاليف", icon: <DollarSign className="w-4 h-4" /> },
-    { id: "summary", label: "الملخص", icon: <BarChart3 className="w-4 h-4" /> },
-    { id: "charts", label: "الرسوم", icon: <BarChart3 className="w-4 h-4" /> },
+    { id: "costs", label: "Cost", icon: <DollarSign className="w-4 h-4" /> },
+    { id: "summary", label: "Brief", icon: <BarChart3 className="w-4 h-4" /> },
+    { id: "charts", label: "Charts", icon: <BarChart3 className="w-4 h-4" /> },
     { id: "timeline", label: "الجدول الزمني", icon: <CalendarDays className="w-4 h-4" /> },
     { id: "integration", label: "Schedule Integration", icon: <Link2 className="w-4 h-4" /> },
   ] as const;
@@ -826,6 +830,46 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
               onImportTemplates={importTemplates}
               currency={data.summary?.currency || "SAR"}
             />
+            {/* Clear All Costs Button */}
+            {showClearConfirm ? (
+              <div className="flex items-center gap-1 bg-destructive/10 px-2 py-1 rounded-lg border border-destructive/20">
+                <span className="text-xs text-destructive">{isArabic ? "تأكيد المسح؟" : "Confirm clear?"}</span>
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={() => {
+                    clearAllCosts();
+                    setShowClearConfirm(false);
+                    toast({
+                      title: isArabic ? "تم مسح جميع التكاليف" : "All Costs Cleared",
+                      description: isArabic ? "تم إعادة تعيين جميع البنود" : "All item costs have been reset",
+                    });
+                  }}
+                  className="h-7 px-2"
+                >
+                  {isArabic ? "نعم" : "Yes"}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShowClearConfirm(false)}
+                  className="h-7 px-2"
+                >
+                  {isArabic ? "لا" : "No"}
+                </Button>
+              </div>
+            ) : (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowClearConfirm(true)}
+                className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                disabled={Object.keys(itemCosts).length === 0}
+              >
+                <Trash2 className="w-4 h-4" />
+                {isArabic ? "مسح التكاليف" : "Clear Costs"}
+              </Button>
+            )}
             <SaveProjectButton
               items={data.items || []}
               wbsData={wbsData}

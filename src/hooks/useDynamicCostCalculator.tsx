@@ -210,20 +210,25 @@ export function useDynamicCostCalculator() {
   // Apply AI suggested rate as the calculated unit price (by setting materials to that value)
   const applyAIRatesToCalculatedPrice = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
     console.log('applyAIRatesToCalculatedPrice called with:', rates);
+    
+    // Build the new costs object
+    const newCosts: Record<string, ItemCostData> = {};
+    
     setItemCosts(prev => {
-      const newCosts = { ...prev };
       rates.forEach(({ itemId, rate }) => {
-        const current = newCosts[itemId] || { ...defaultCostInputs, itemId, quantity: 1 };
-        // Set materials to the AI rate to make calculatedUnitPrice = rate (with 0 profit)
-        // Or better: set all costs to 0 except materials = rate / (1 + profitMargin/100)
+        const current = prev[itemId] || { ...defaultCostInputs, itemId, quantity: 1 };
+        // Use 10% default profit margin
         const profitMargin = current.profitMargin || 10;
+        // Calculate materials value so that: materials * (1 + profitMargin/100) = rate
         const baseValue = rate / (1 + profitMargin / 100);
+        
         newCosts[itemId] = {
           ...current,
+          itemId,
           aiSuggestedRate: rate,
-          // Set materials to baseValue so that after profit calculation, we get the AI rate
+          // Set materials to baseValue so calculated price = AI rate
           materials: baseValue,
-          // Reset other costs to 0 to get exact AI rate
+          // Reset other costs to 0 
           generalLabor: 0,
           equipmentOperator: 0,
           overhead: 0,
@@ -234,9 +239,14 @@ export function useDynamicCostCalculator() {
           subcontractor: 0,
         };
       });
-      console.log('Updated itemCosts:', newCosts);
-      return newCosts;
+      
+      const result = { ...prev, ...newCosts };
+      console.log('Updated itemCosts:', result);
+      return result;
     });
+    
+    // Force update lastSavedAt to trigger re-render in dependent components
+    setLastSavedAt(new Date());
   }, []);
 
   const getItemCostData = useCallback((itemId: string): ItemCostData => {
@@ -488,6 +498,17 @@ export function useDynamicCostCalculator() {
     setSavedTemplate(null);
   }, []);
 
+  // Clear all item costs and localStorage
+  const clearAllCosts = useCallback(() => {
+    setItemCosts({});
+    try {
+      localStorage.removeItem(ITEM_COSTS_STORAGE_KEY);
+      console.log('Cleared all item costs from localStorage');
+    } catch (e) {
+      console.error('Error clearing itemCosts from localStorage:', e);
+    }
+  }, []);
+
   return {
     itemCosts,
     updateItemCost,
@@ -522,6 +543,8 @@ export function useDynamicCostCalculator() {
     importTemplates,
     // Auto-save
     lastSavedAt,
+    // Clear all
+    clearAllCosts,
   };
 }
 
