@@ -27,6 +27,71 @@ interface MarketRateSuggestion {
   notes: string;
 }
 
+// Retry configuration
+const MAX_RETRIES = 3;
+const INITIAL_DELAY_MS = 1000;
+const REQUEST_TIMEOUT_MS = 30000;
+
+// Fetch with timeout
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+// Exponential backoff retry logic
+async function fetchWithRetry(
+  url: string, 
+  options: RequestInit, 
+  maxRetries: number = MAX_RETRIES,
+  initialDelayMs: number = INITIAL_DELAY_MS
+): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      console.log(`Attempt ${attempt + 1}/${maxRetries}...`);
+      const response = await fetchWithTimeout(url, options, REQUEST_TIMEOUT_MS);
+      
+      // If rate limited, wait and retry
+      if (response.status === 429) {
+        const delay = initialDelayMs * Math.pow(2, attempt);
+        console.log(`Rate limited. Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      return response;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      // Check if it's an abort error (timeout)
+      if (lastError.name === 'AbortError') {
+        console.error(`Request timed out after ${REQUEST_TIMEOUT_MS}ms`);
+        lastError = new Error(`Request timed out after ${REQUEST_TIMEOUT_MS / 1000} seconds`);
+      }
+      
+      // If not the last attempt, wait with exponential backoff
+      if (attempt < maxRetries - 1) {
+        const delay = initialDelayMs * Math.pow(2, attempt);
+        console.log(`Attempt ${attempt + 1} failed: ${lastError.message}. Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError || new Error(`Failed after ${maxRetries} attempts`);
+}
+
 // Process items in batches to handle large BOQ files
 async function processBatch(
   items: BOQItem[],
@@ -75,54 +140,57 @@ Return a JSON array of suggestions with this structure for each item:
   "notes": "brief explanation"
 }`;
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      tools: [
-        {
-          type: "function",
-          function: {
-            name: "suggest_market_rates",
-            description: "Return market rate suggestions for BOQ items",
-            parameters: {
-              type: "object",
-              properties: {
-                suggestions: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      item_number: { type: "string" },
-                      description: { type: "string" },
-                      current_price: { type: "number" },
-                      suggested_min: { type: "number" },
-                      suggested_max: { type: "number" },
-                      suggested_avg: { type: "number" },
-                      confidence: { type: "string", enum: ["High", "Medium", "Low"] },
-                      trend: { type: "string", enum: ["Increasing", "Stable", "Decreasing"] },
-                      notes: { type: "string" }
-                    },
-                    required: ["item_number", "suggested_min", "suggested_max", "suggested_avg", "confidence", "trend"]
+  const response = await fetchWithRetry(
+    "https://ai.gateway.lovable.dev/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "suggest_market_rates",
+              description: "Return market rate suggestions for BOQ items",
+              parameters: {
+                type: "object",
+                properties: {
+                  suggestions: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        item_number: { type: "string" },
+                        description: { type: "string" },
+                        current_price: { type: "number" },
+                        suggested_min: { type: "number" },
+                        suggested_max: { type: "number" },
+                        suggested_avg: { type: "number" },
+                        confidence: { type: "string", enum: ["High", "Medium", "Low"] },
+                        trend: { type: "string", enum: ["Increasing", "Stable", "Decreasing"] },
+                        notes: { type: "string" }
+                      },
+                      required: ["item_number", "suggested_min", "suggested_max", "suggested_avg", "confidence", "trend"]
+                    }
                   }
-                }
-              },
-              required: ["suggestions"]
+                },
+                required: ["suggestions"]
+              }
             }
           }
-        }
-      ],
-      tool_choice: { type: "function", function: { name: "suggest_market_rates" } }
-    }),
-  });
+        ],
+        tool_choice: { type: "function", function: { name: "suggest_market_rates" } }
+      }),
+    }
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -130,7 +198,24 @@ Return a JSON array of suggestions with this structure for each item:
     throw new Error(`AI API error: ${response.status}`);
   }
 
-  const aiResponse = await response.json();
+  // Read response text first to handle empty/malformed responses
+  const responseText = await response.text();
+  console.log(`Response text length: ${responseText.length}`);
+  
+  if (!responseText || responseText.trim() === "") {
+    console.error("Empty response from AI Gateway");
+    throw new Error("Empty response from AI. Please try again.");
+  }
+  
+  let aiResponse;
+  try {
+    aiResponse = JSON.parse(responseText);
+  } catch (parseError) {
+    console.error("Failed to parse AI response:", parseError);
+    console.error("Response preview:", responseText.slice(0, 500));
+    throw new Error("Invalid response from AI. Please try again.");
+  }
+
   let suggestions: MarketRateSuggestion[] = [];
 
   // Try to extract from tool calls
@@ -201,7 +286,7 @@ serve(async (req) => {
         allSuggestions.push(...batchSuggestions);
         console.log(`Batch ${batchNumber} completed: ${batchSuggestions.length} suggestions`);
       } catch (batchError) {
-        console.error(`Batch ${batchNumber} failed:`, batchError);
+        console.error(`Batch ${batchNumber} failed after all retries:`, batchError);
         // Continue with next batch even if one fails
       }
       
@@ -237,21 +322,27 @@ serve(async (req) => {
     
     if (error instanceof Error) {
       if (error.message.includes("429")) {
-        return new Response(JSON.stringify({ error: "Rate limits exceeded, please try again later." }), {
+        return new Response(JSON.stringify({ error: "Rate limits exceeded. Please try again in a few minutes." }), {
           status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
       if (error.message.includes("402")) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted, please add funds." }), {
+        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add funds to continue." }), {
           status: 402,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (error.message.includes("timed out")) {
+        return new Response(JSON.stringify({ error: "Request timed out. Please try again with fewer items." }), {
+          status: 504,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
     }
     
     return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : "Unknown error occurred"
+      error: error instanceof Error ? error.message : "Unknown error occurred. Please try again."
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
