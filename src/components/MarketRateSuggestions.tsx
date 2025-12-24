@@ -266,19 +266,58 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates, onAp
             </Badge>
           </div>
 
-          {/* Analysis Progress */}
-          {(isLoading || suggestions.length > 0) && (
-            <div className="p-3 bg-muted/50 rounded-lg space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">Analysis Progress</span>
-                <Badge variant={analyzedItemsCount === totalItemsCount ? "default" : "secondary"}>
-                  تم تحليل {analyzedItemsCount} من {totalItemsCount} بند
+          {/* Analysis Progress - Enhanced */}
+          {isLoading && (
+            <div className="p-4 bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg space-y-3 border border-primary/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                    <div className="absolute inset-0 w-6 h-6 rounded-full border-2 border-primary/20 animate-pulse" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">جارٍ تحليل البنود...</p>
+                    <p className="text-xs text-muted-foreground">يرجى الانتظار - قد يستغرق ذلك بضع دقائق</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-primary">{analysisProgress}%</p>
+                  <p className="text-xs text-muted-foreground">{totalItemsCount} بند</p>
+                </div>
+              </div>
+              <div className="relative">
+                <Progress value={analysisProgress} className="h-3" />
+                <div 
+                  className="absolute top-0 h-3 bg-primary/30 rounded-full animate-pulse"
+                  style={{ width: `${Math.min(analysisProgress + 10, 100)}%`, transition: 'width 0.5s ease' }}
+                />
+              </div>
+            </div>
+          )}
+          
+          {/* Completed Analysis Summary */}
+          {suggestions.length > 0 && !isLoading && (
+            <div className="p-4 bg-green-500/10 rounded-lg space-y-2 border border-green-500/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                    <Check className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm text-green-700 dark:text-green-400">تم اكتمال التحليل بنجاح!</p>
+                    <p className="text-xs text-muted-foreground">
+                      تم تحليل {analyzedItemsCount} من {totalItemsCount} بند
+                    </p>
+                  </div>
+                </div>
+                <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                  {Math.round((analyzedItemsCount / totalItemsCount) * 100)}% مكتمل
                 </Badge>
               </div>
-              <Progress value={analysisProgress} className="h-2" />
-              {analyzedItemsCount < totalItemsCount && suggestions.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Some items could not be analyzed. This may be due to unclear descriptions.
+              {analyzedItemsCount < totalItemsCount && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  بعض البنود لم يتم تحليلها بسبب عدم وضوح الوصف
                 </p>
               )}
             </div>
@@ -428,21 +467,24 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates, onAp
             </div>
           )}
 
-          {/* Save and Close Button */}
+          {/* Save and Close Button - Enhanced */}
           {suggestions.length > 0 && !isLoading && (
-            <div className="flex justify-end pt-4 border-t">
+            <div className="flex items-center justify-between pt-4 border-t border-primary/20 bg-gradient-to-r from-primary/5 to-transparent -mx-6 px-6 pb-2 mt-4">
+              <div className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{suggestions.length}</span> سعر جاهز للتطبيق
+              </div>
               <Button
                 onClick={() => {
                   toast({
-                    title: "تم الحفظ",
-                    description: `تم تطبيق ${suggestions.length} سعر بنجاح`,
+                    title: "✅ تم الحفظ بنجاح",
+                    description: `تم تطبيق ${suggestions.length} سعر من أسعار AI`,
                   });
                   setIsOpen(false);
                 }}
-                className="gap-2"
+                className="gap-2 bg-green-600 hover:bg-green-700 text-white shadow-lg"
                 size="lg"
               >
-                <Check className="w-4 h-4" />
+                <Check className="w-5 h-5" />
                 حفظ وإغلاق
               </Button>
             </div>
