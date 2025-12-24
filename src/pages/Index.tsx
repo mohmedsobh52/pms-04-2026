@@ -304,6 +304,49 @@ const Index = () => {
         description: `${wbsResult.wbs?.length || 0} ${t('elementsInStructure')}`,
       });
 
+      // Auto-fetch market rates after analysis
+      if (itemsResult.items && itemsResult.items.length > 0) {
+        toast({
+          title: t('fetchingRates') || "جاري جلب الأسعار...",
+          description: t('autoFetchingRates') || "جاري تحليل أسعار السوق تلقائياً",
+        });
+        
+        try {
+          const { data: ratesData, error: ratesError } = await supabase.functions.invoke("suggest-market-rates", {
+            body: { items: itemsResult.items, location: "Riyadh" },
+          });
+
+          if (!ratesError && ratesData?.suggestions) {
+            const rates = ratesData.suggestions.map((s: any) => ({
+              itemId: s.item_number,
+              rate: s.suggested_avg,
+            }));
+            
+            // Update items with AI rates
+            const updatedItems = itemsResult.items.map((item: any) => {
+              const rateInfo = rates.find((r: any) => r.itemId === item.item_number);
+              if (rateInfo) {
+                return { ...item, aiSuggestedRate: rateInfo.rate };
+              }
+              return item;
+            });
+            
+            setAnalysisData({
+              ...itemsResult,
+              items: updatedItems,
+            });
+            
+            toast({
+              title: t('ratesFetched') || "تم جلب الأسعار",
+              description: `${ratesData.analyzed_items || rates.length} ${t('itemsAnalyzed') || "بند تم تحليله"}`,
+            });
+          }
+        } catch (ratesErr) {
+          console.warn("Auto-fetch rates warning:", ratesErr);
+          // Don't show error - it's optional
+        }
+      }
+
     } catch (error: any) {
       console.error("Analysis error:", error);
       updateStepStatus("analyze", "error");
