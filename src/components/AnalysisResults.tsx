@@ -15,6 +15,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { PDFCustomization, getSavedCompanyInfo, CompanyInfo } from "./PDFCustomization";
 import { ItemCostEditor } from "./ItemCostEditor";
 import { BulkApplyCostsDialog } from "./BulkApplyCostsDialog";
+import { SaveProjectButton } from "./SaveProjectButton";
 import { useDynamicCostCalculator, CostInputs, defaultCostInputs } from "@/hooks/useDynamicCostCalculator";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -55,6 +56,7 @@ interface AnalysisResultsProps {
   data: AnalysisData;
   wbsData?: AnalysisData;
   onApplyRate?: (itemNumber: string, newRate: number) => void;
+  fileName?: string;
 }
 
 // Cost range definitions
@@ -64,7 +66,7 @@ const getCostRange = (price: number): string => {
   return "high";
 };
 
-export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsProps) {
+export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: AnalysisResultsProps) {
   const { isArabic } = useLanguage();
   const [activeTab, setActiveTab] = useState<"items" | "wbs" | "costs" | "summary" | "charts" | "timeline" | "integration">("items");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -773,6 +775,14 @@ export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsP
               onExportTemplates={exportTemplates}
               onImportTemplates={importTemplates}
               currency={data.summary?.currency || "SAR"}
+            />
+            <SaveProjectButton
+              items={data.items || []}
+              wbsData={wbsData}
+              summary={data.summary}
+              getItemCostData={getItemCostData}
+              getItemCalculatedCosts={getItemCalculatedCosts}
+              fileName={fileName}
             />
             <Button variant="default" size="sm" onClick={exportToPDF} className="gap-2 bg-gradient-to-r from-primary to-accent">
               <FileDown className="w-4 h-4" />

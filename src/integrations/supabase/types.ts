@@ -159,6 +159,68 @@ export type Database = {
           },
         ]
       }
+      item_costs: {
+        Row: {
+          admin: number | null
+          ai_suggested_rate: number | null
+          calculated_unit_price: number | null
+          contingency: number | null
+          created_at: string
+          equipment: number | null
+          equipment_operator: number | null
+          general_labor: number | null
+          id: string
+          insurance: number | null
+          materials: number | null
+          overhead: number | null
+          profit_margin: number | null
+          project_item_id: string
+          subcontractor: number | null
+        }
+        Insert: {
+          admin?: number | null
+          ai_suggested_rate?: number | null
+          calculated_unit_price?: number | null
+          contingency?: number | null
+          created_at?: string
+          equipment?: number | null
+          equipment_operator?: number | null
+          general_labor?: number | null
+          id?: string
+          insurance?: number | null
+          materials?: number | null
+          overhead?: number | null
+          profit_margin?: number | null
+          project_item_id: string
+          subcontractor?: number | null
+        }
+        Update: {
+          admin?: number | null
+          ai_suggested_rate?: number | null
+          calculated_unit_price?: number | null
+          contingency?: number | null
+          created_at?: string
+          equipment?: number | null
+          equipment_operator?: number | null
+          general_labor?: number | null
+          id?: string
+          insurance?: number | null
+          materials?: number | null
+          overhead?: number | null
+          profit_margin?: number | null
+          project_item_id?: string
+          subcontractor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_costs_project_item_id_fkey"
+            columns: ["project_item_id"]
+            isOneToOne: false
+            referencedRelation: "project_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ocr_extracted_texts: {
         Row: {
           created_at: string
@@ -258,6 +320,98 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "saved_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_data: {
+        Row: {
+          analysis_data: Json | null
+          created_at: string
+          currency: string | null
+          file_name: string | null
+          id: string
+          items_count: number | null
+          name: string
+          total_value: number | null
+          updated_at: string
+          user_id: string
+          wbs_data: Json | null
+        }
+        Insert: {
+          analysis_data?: Json | null
+          created_at?: string
+          currency?: string | null
+          file_name?: string | null
+          id?: string
+          items_count?: number | null
+          name: string
+          total_value?: number | null
+          updated_at?: string
+          user_id: string
+          wbs_data?: Json | null
+        }
+        Update: {
+          analysis_data?: Json | null
+          created_at?: string
+          currency?: string | null
+          file_name?: string | null
+          id?: string
+          items_count?: number | null
+          name?: string
+          total_value?: number | null
+          updated_at?: string
+          user_id?: string
+          wbs_data?: Json | null
+        }
+        Relationships: []
+      }
+      project_items: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          item_number: string
+          notes: string | null
+          project_id: string
+          quantity: number | null
+          total_price: number | null
+          unit: string | null
+          unit_price: number | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          item_number: string
+          notes?: string | null
+          project_id: string
+          quantity?: number | null
+          total_price?: number | null
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          item_number?: string
+          notes?: string | null
+          project_id?: string
+          quantity?: number | null
+          total_price?: number | null
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_data"
             referencedColumns: ["id"]
           },
         ]
