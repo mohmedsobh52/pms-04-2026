@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2 } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,9 @@ import { PDFCustomization, getSavedCompanyInfo, CompanyInfo } from "./PDFCustomi
 import { ItemCostEditor } from "./ItemCostEditor";
 import { BulkApplyCostsDialog } from "./BulkApplyCostsDialog";
 import { SaveProjectButton } from "./SaveProjectButton";
+import { PriceComparisonReport } from "./PriceComparisonReport";
+import { WBSTreeDiagram } from "./WBSTreeDiagram";
+import { CompanyLogoUpload, getStoredLogo } from "./CompanyLogoUpload";
 import { useDynamicCostCalculator, CostInputs, defaultCostInputs } from "@/hooks/useDynamicCostCalculator";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -100,6 +103,17 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
   
   // State for clear confirmation dialog
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showRevertConfirm, setShowRevertConfirm] = useState(false);
+
+  // Revert to original prices handler
+  const handleRevertToOriginal = useCallback(() => {
+    clearAllCosts();
+    setShowRevertConfirm(false);
+    toast({
+      title: isArabic ? "تم الاسترجاع" : "Reverted to Original",
+      description: isArabic ? "تم استعادة الأسعار الأصلية ومسح جميع التعديلات" : "Original BOQ prices restored, all AI rates and calculations cleared",
+    });
+  }, [clearAllCosts, isArabic, toast]);
 
   // Handle AI rates from MarketRateSuggestions - stores in aiSuggestedRate field
   const handleApplyAIRates = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
@@ -870,6 +884,46 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                 {isArabic ? "مسح التكاليف" : "Clear Costs"}
               </Button>
             )}
+            {/* Revert to Original Prices Button */}
+            {showRevertConfirm ? (
+              <div className="flex items-center gap-1 bg-warning/10 px-2 py-1 rounded-lg border border-warning/20">
+                <span className="text-xs text-warning">{isArabic ? "استرجاع الأصلي؟" : "Revert all?"}</span>
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={handleRevertToOriginal}
+                  className="h-7 px-2 bg-warning hover:bg-warning/90"
+                >
+                  {isArabic ? "نعم" : "Yes"}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShowRevertConfirm(false)}
+                  className="h-7 px-2"
+                >
+                  {isArabic ? "لا" : "No"}
+                </Button>
+              </div>
+            ) : (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowRevertConfirm(true)}
+                className="gap-2 text-warning hover:text-warning hover:bg-warning/10"
+                disabled={Object.keys(itemCosts).length === 0}
+              >
+                <RotateCcw className="w-4 h-4" />
+                {isArabic ? "استرجاع الأصلي" : "Revert to Original"}
+              </Button>
+            )}
+            {/* Price Comparison Report */}
+            <PriceComparisonReport
+              items={data.items || []}
+              getItemCostData={getItemCostData}
+              getItemCalculatedCosts={getItemCalculatedCosts}
+              currency={data.summary?.currency || "SAR"}
+            />
             <SaveProjectButton
               items={data.items || []}
               wbsData={wbsData}
@@ -1309,61 +1363,74 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
         )}
 
         {activeTab === "wbs" && wbsData?.wbs && (
-          <div className="space-y-2">
-            {wbsData.wbs.map((item, idx) => (
-              <div
-                key={idx}
-                className={cn(
-                  "p-4 rounded-xl border border-border hover:border-primary/30 transition-colors",
-                  item.level === 1 && "bg-muted/50",
-                  item.level === 2 && "mr-8",
-                  item.level === 3 && "mr-16"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-sm bg-primary/10 text-primary px-2 py-1 rounded">
-                    {item.code}
-                  </span>
-                  <span className="font-medium">{item.title}</span>
+          <div className="space-y-6">
+            {/* WBS Tree Diagram */}
+            <WBSTreeDiagram wbsData={wbsData.wbs} />
+            
+            {/* WBS List View */}
+            <div className="space-y-2">
+              <h4 className="font-semibold text-sm text-muted-foreground mb-3">{isArabic ? "عرض القائمة" : "List View"}</h4>
+              {wbsData.wbs.map((item, idx) => (
+                <div
+                  key={idx}
+                  className={cn(
+                    "p-4 rounded-xl border border-border hover:border-primary/30 transition-colors",
+                    item.level === 1 && "bg-muted/50",
+                    item.level === 2 && "mr-8",
+                    item.level === 3 && "mr-16"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-sm bg-primary/10 text-primary px-2 py-1 rounded">
+                      {item.code}
+                    </span>
+                    <span className="font-medium">{item.title}</span>
+                  </div>
+                  {item.items.length > 0 && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      العناصر: {item.items.join(", ")}
+                    </p>
+                  )}
                 </div>
-                {item.items.length > 0 && (
-                  <p className="text-sm text-muted-foreground mt-2">
-                    العناصر: {item.items.join(", ")}
-                  </p>
-                )}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 
         {activeTab === "summary" && data.summary && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-6 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-              <p className="text-sm text-muted-foreground mb-1">إجمالي العناصر</p>
-              <p className="text-3xl font-display font-bold text-primary">
-                {data.summary.total_items}
-              </p>
-            </div>
-            {data.summary.total_value && (
-              <div className="p-6 rounded-xl bg-gradient-to-br from-success/10 to-success/5 border border-success/20">
-                <p className="text-sm text-muted-foreground mb-1">إجمالي القيمة</p>
-                <p className="text-3xl font-display font-bold text-success">
-                  {data.summary.total_value.toLocaleString()}
+          <div className="space-y-6">
+            {/* Company Logo Upload */}
+            <CompanyLogoUpload />
+            
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-6 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                <p className="text-sm text-muted-foreground mb-1">{isArabic ? "إجمالي العناصر" : "Total Items"}</p>
+                <p className="text-3xl font-display font-bold text-primary">
+                  {data.summary.total_items}
                 </p>
-                <p className="text-sm text-muted-foreground">{data.summary.currency}</p>
               </div>
-            )}
-            <div className="p-6 rounded-xl bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 col-span-1 md:col-span-2">
-              <p className="text-sm text-muted-foreground mb-2">الفئات</p>
-              <div className="flex flex-wrap gap-2">
-                {(data.summary.categories || []).map((cat, idx) => (
-                  <span
-                    key={idx}
-                    className="px-3 py-1 bg-accent/10 text-accent rounded-full text-sm"
-                  >
-                    {cat}
-                  </span>
-                ))}
+              {data.summary.total_value && (
+                <div className="p-6 rounded-xl bg-gradient-to-br from-success/10 to-success/5 border border-success/20">
+                  <p className="text-sm text-muted-foreground mb-1">{isArabic ? "إجمالي القيمة" : "Total Value"}</p>
+                  <p className="text-3xl font-display font-bold text-success">
+                    {data.summary.total_value.toLocaleString()}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{data.summary.currency}</p>
+                </div>
+              )}
+              <div className="p-6 rounded-xl bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 col-span-1 md:col-span-2">
+                <p className="text-sm text-muted-foreground mb-2">{isArabic ? "الفئات" : "Categories"}</p>
+                <div className="flex flex-wrap gap-2">
+                  {(data.summary.categories || []).map((cat, idx) => (
+                    <span
+                      key={idx}
+                      className="px-3 py-1 bg-accent/10 text-accent rounded-full text-sm"
+                    >
+                      {cat}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
