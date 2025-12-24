@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -68,6 +69,7 @@ const getCostRange = (price: number): string => {
 
 export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: AnalysisResultsProps) {
   const { isArabic } = useLanguage();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"items" | "wbs" | "costs" | "summary" | "charts" | "timeline" | "integration">("items");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(getSavedCompanyInfo());
@@ -96,6 +98,42 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
   const handleApplyAIRates = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
     setMultipleAISuggestedRates(rates);
   }, [setMultipleAISuggestedRates]);
+
+  // Apply Average AI Rates to Calc. Unit Price
+  const handleApplyAvgAIRatesToCalcPrice = useCallback(() => {
+    const items = data.items || [];
+    let updatedCount = 0;
+    
+    items.forEach(item => {
+      const calcCosts = getItemCalculatedCosts(item.item_number);
+      if (calcCosts.aiSuggestedRate && calcCosts.aiSuggestedRate > 0) {
+        const costData = getItemCostData(item.item_number);
+        // Update the item's cost data to use AI rate as the base for calculation
+        setItemCostData(item.item_number, {
+          ...costData,
+          aiSuggestedRate: calcCosts.aiSuggestedRate,
+        }, item.quantity);
+        updatedCount++;
+      }
+    });
+    
+    if (updatedCount > 0) {
+      toast({
+        title: isArabic ? "تم تطبيق أسعار AI" : "AI Rates Applied",
+        description: isArabic 
+          ? `تم تحديث ${updatedCount} بند` 
+          : `Updated ${updatedCount} items`,
+      });
+    } else {
+      toast({
+        title: isArabic ? "لا توجد أسعار AI" : "No AI Rates",
+        description: isArabic 
+          ? "لم يتم العثور على أسعار AI مقترحة" 
+          : "No AI suggested rates found",
+        variant: "destructive",
+      });
+    }
+  }, [data.items, getItemCalculatedCosts, getItemCostData, setItemCostData, isArabic]);
 
   // Template handlers
   const handleSaveAsTemplate = useCallback((costs: CostInputs, name: string) => {
@@ -511,6 +549,28 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
 
   const exportToPDF = () => {
     if (!data.items) return;
+    
+    // Calculate totals with costs
+    const itemsWithCosts = data.items.map(item => {
+      const costData = getItemCostData(item.item_number);
+      const calcCosts = getItemCalculatedCosts(item.item_number);
+      const calculatedPrice = calcCosts.calculatedUnitPrice;
+      const effectivePrice = calculatedPrice > 0 ? calculatedPrice : (item.unit_price || 0);
+      return {
+        ...item,
+        laborCost: calcCosts.totalLabor,
+        indirectCost: calcCosts.totalIndirect,
+        profitMargin: costData.profitMargin,
+        aiRate: calcCosts.aiSuggestedRate || 0,
+        calculatedPrice,
+        effectivePrice,
+        effectiveTotal: effectivePrice * item.quantity,
+        variance: item.unit_price ? ((effectivePrice - item.unit_price) / item.unit_price * 100) : 0,
+      };
+    });
+    
+    const totalOriginal = data.items.reduce((sum, item) => sum + (item.total_price || 0), 0);
+    const totalCalculated = itemsWithCosts.reduce((sum, item) => sum + item.effectiveTotal, 0);
 
     const doc = new jsPDF({
       orientation: 'portrait',
@@ -766,6 +826,15 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
               onApplyRate={onApplyRate} 
               onApplyAIRates={handleApplyAIRates}
             />
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleApplyAvgAIRatesToCalcPrice}
+              className="gap-2 border-purple-500/50 text-purple-600 hover:bg-purple-500/10"
+            >
+              <Wand2 className="w-4 h-4" />
+              {isArabic ? "تطبيق أسعار AI" : "Apply AI Rates"}
+            </Button>
             <BulkApplyCostsDialog
               items={data.items || []}
               savedTemplate={savedTemplate}
