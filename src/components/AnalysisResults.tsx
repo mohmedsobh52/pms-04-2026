@@ -1374,7 +1374,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
         )}
 
         {activeTab === "charts" && data.items && (
-          <DataCharts items={data.items} summary={data.summary} />
+          <DataCharts items={data.items} summary={data.summary} wbsData={wbsData?.wbs} />
         )}
 
         {activeTab === "timeline" && wbsData?.wbs && (

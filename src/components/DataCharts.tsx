@@ -18,6 +18,14 @@ interface BOQItem {
   notes?: string;
 }
 
+interface WBSItem {
+  code: string;
+  title: string;
+  level: number;
+  parent_code?: string;
+  items: string[];
+}
+
 interface DataChartsProps {
   items: BOQItem[];
   summary?: {
@@ -26,6 +34,7 @@ interface DataChartsProps {
     categories: string[];
     currency?: string;
   };
+  wbsData?: WBSItem[];
 }
 
 interface AIInsight {
@@ -46,7 +55,7 @@ const CHART_COLORS = [
   "hsl(280, 70%, 60%)",
 ];
 
-export function DataCharts({ items, summary }: DataChartsProps) {
+export function DataCharts({ items, summary, wbsData }: DataChartsProps) {
   const [activeChart, setActiveChart] = useState<"pie" | "bar" | "line" | "area">("pie");
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
@@ -119,6 +128,7 @@ export function DataCharts({ items, summary }: DataChartsProps) {
         body: { 
           items, 
           summary,
+          wbsData,
           categoryData: Object.values(categoryData),
           language,
         },

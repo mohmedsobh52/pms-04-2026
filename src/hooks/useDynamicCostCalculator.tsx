@@ -209,41 +209,46 @@ export function useDynamicCostCalculator() {
 
   // Apply AI suggested rate as the calculated unit price (by setting materials to that value)
   const applyAIRatesToCalculatedPrice = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
-    console.log('applyAIRatesToCalculatedPrice called with:', rates);
+    console.log('📊 applyAIRatesToCalculatedPrice called with rates:', rates);
     
     setItemCosts(prev => {
-      const newCosts = { ...prev };
+      // Create completely new object to force React re-render
+      const updatedCosts: Record<string, ItemCostData> = {};
       
+      // Copy all existing items first
+      Object.keys(prev).forEach(key => {
+        updatedCosts[key] = { ...prev[key] };
+      });
+      
+      // Then update/add items with new AI rates
       rates.forEach(({ itemId, rate }) => {
-        const current = newCosts[itemId] || { ...defaultCostInputs, itemId, quantity: 1 };
-        // Use 10% default profit margin
+        const current = prev[itemId] || { ...defaultCostInputs, itemId, quantity: 1 };
         const profitMargin = current.profitMargin || 10;
-        // Calculate materials value so that: materials * (1 + profitMargin/100) = rate
-        const baseValue = rate / (1 + profitMargin / 100);
+        const materialsValue = rate / (1 + profitMargin / 100);
         
-        newCosts[itemId] = {
+        updatedCosts[itemId] = {
           ...current,
           itemId,
           aiSuggestedRate: rate,
-          // Set materials to baseValue so calculated price = AI rate
-          materials: baseValue,
-          // Reset other costs to 0 
+          materials: materialsValue,
+          equipment: 0,
+          subcontractor: 0,
           generalLabor: 0,
           equipmentOperator: 0,
           overhead: 0,
           admin: 0,
           insurance: 0,
           contingency: 0,
-          equipment: 0,
-          subcontractor: 0,
+          profitMargin,
         };
       });
       
-      console.log('Updated itemCosts:', newCosts);
-      return newCosts;
+      console.log('✅ Updated itemCosts:', updatedCosts);
+      console.log('📝 Applied to items:', rates.map(r => `${r.itemId}=${r.rate}`).join(', '));
+      return updatedCosts;
     });
     
-    // Force update lastSavedAt to trigger re-render in dependent components
+    // Force re-render by updating timestamp
     setLastSavedAt(new Date());
   }, []);
 
