@@ -12,6 +12,13 @@ export interface PDFExtractionResult {
   usedOCR?: boolean;
 }
 
+// Configuration for batch processing
+const BATCH_CONFIG = {
+  CHUNK_SIZE: 10, // Pages per chunk
+  MAX_PARALLEL_CHUNKS: 3, // Process 3 chunks in parallel
+  LARGE_PDF_THRESHOLD: 50, // PDFs with 50+ pages use batch processing
+};
+
 // Convert PDF page to base64 image
 async function pageToImage(page: any, scale: number = 2): Promise<string> {
   const viewport = page.getViewport({ scale });
@@ -31,6 +38,117 @@ async function pageToImage(page: any, scale: number = 2): Promise<string> {
   }).promise;
   
   return canvas.toDataURL('image/png');
+}
+
+// Process a single page and extract text
+async function extractPageText(pdf: any, pageNum: number): Promise<string> {
+  try {
+    const page = await pdf.getPage(pageNum);
+    const textContent = await page.getTextContent();
+    
+    let pageText = "";
+    let lastY = -1;
+    
+    for (const item of textContent.items) {
+      if ('str' in item && item.str) {
+        const currentY = 'transform' in item ? item.transform[5] : -1;
+        if (lastY !== -1 && Math.abs(currentY - lastY) > 5) {
+          pageText += "\n";
+        } else if (pageText.length > 0 && !pageText.endsWith(" ") && !item.str.startsWith(" ")) {
+          pageText += " ";
+        }
+        pageText += item.str;
+        lastY = currentY;
+      }
+    }
+    
+    return pageText.trim();
+  } catch (error) {
+    console.warn(`Error extracting page ${pageNum}:`, error);
+    return "";
+  }
+}
+
+// Process a chunk of pages in parallel
+async function processChunk(
+  pdf: any, 
+  startPage: number, 
+  endPage: number,
+  onProgress?: (current: number, total: number) => void,
+  totalPages?: number
+): Promise<{ text: string; successCount: number }> {
+  const pagePromises: Promise<{ pageNum: number; text: string }>[] = [];
+  
+  for (let pageNum = startPage; pageNum <= endPage; pageNum++) {
+    pagePromises.push(
+      extractPageText(pdf, pageNum).then(text => ({ pageNum, text }))
+    );
+  }
+  
+  const results = await Promise.all(pagePromises);
+  let chunkText = "";
+  let successCount = 0;
+  
+  // Sort by page number and combine
+  results.sort((a, b) => a.pageNum - b.pageNum);
+  
+  for (const result of results) {
+    if (result.text.length > 0) {
+      chunkText += `--- Page ${result.pageNum} ---\n${result.text}\n\n`;
+      successCount++;
+    }
+    onProgress?.(result.pageNum, totalPages || endPage);
+  }
+  
+  return { text: chunkText, successCount };
+}
+
+// Batch process large PDFs with parallel chunk processing
+export async function batchExtractFromPDF(
+  pdf: any,
+  onProgress?: (current: number, total: number) => void
+): Promise<{ text: string; successCount: number; failedCount: number }> {
+  const totalPages = pdf.numPages;
+  const chunks: Array<{ start: number; end: number }> = [];
+  
+  // Create chunks
+  for (let i = 1; i <= totalPages; i += BATCH_CONFIG.CHUNK_SIZE) {
+    chunks.push({
+      start: i,
+      end: Math.min(i + BATCH_CONFIG.CHUNK_SIZE - 1, totalPages)
+    });
+  }
+  
+  console.log(`Batch processing ${totalPages} pages in ${chunks.length} chunks`);
+  
+  let fullText = "";
+  let totalSuccess = 0;
+  let processedPages = 0;
+  
+  // Process chunks in parallel batches
+  for (let i = 0; i < chunks.length; i += BATCH_CONFIG.MAX_PARALLEL_CHUNKS) {
+    const parallelChunks = chunks.slice(i, i + BATCH_CONFIG.MAX_PARALLEL_CHUNKS);
+    
+    const chunkResults = await Promise.all(
+      parallelChunks.map(chunk => 
+        processChunk(pdf, chunk.start, chunk.end, (current) => {
+          processedPages = Math.max(processedPages, current);
+          onProgress?.(processedPages, totalPages);
+        }, totalPages)
+      )
+    );
+    
+    for (const result of chunkResults) {
+      fullText += result.text;
+      totalSuccess += result.successCount;
+    }
+  }
+  
+  return {
+    text: fullText.trim(),
+    successCount: totalSuccess,
+    failedCount: totalPages - totalSuccess
+  };
 }
 
 // Extract text using OCR (AI Vision)
@@ -111,45 +229,33 @@ export async function extractTextFromPDF(
     let successfulPages = 0;
     let failedPages = 0;
     
-    // Extract text from ALL pages - no limits
-    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-      try {
-        // Report progress
-        options?.onProgress?.(pageNum, totalPages);
-        
-        const page = await pdf.getPage(pageNum);
-        const textContent = await page.getTextContent();
-        
-        // Combine text items preserving structure
-        let pageText = "";
-        let lastY = -1;
-        
-        for (const item of textContent.items) {
-          if ('str' in item && item.str) {
-            // Check if this is a new line (different Y position)
-            const currentY = 'transform' in item ? item.transform[5] : -1;
-            if (lastY !== -1 && Math.abs(currentY - lastY) > 5) {
-              pageText += "\n";
-            } else if (pageText.length > 0 && !pageText.endsWith(" ") && !item.str.startsWith(" ")) {
-              pageText += " ";
-            }
-            pageText += item.str;
-            lastY = currentY;
+    // Use batch processing for large PDFs (50+ pages)
+    if (totalPages >= BATCH_CONFIG.LARGE_PDF_THRESHOLD) {
+      console.log(`Large PDF detected (${totalPages} pages), using batch processing...`);
+      const batchResult = await batchExtractFromPDF(pdf, options?.onProgress);
+      fullText = batchResult.text;
+      successfulPages = batchResult.successCount;
+      failedPages = batchResult.failedCount;
+    } else {
+      // Standard extraction for smaller PDFs
+      for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        try {
+          options?.onProgress?.(pageNum, totalPages);
+          
+          const pageText = await extractPageText(pdf, pageNum);
+          
+          if (pageText.length > 0) {
+            fullText += `--- Page ${pageNum} ---\n${pageText}\n\n`;
+            successfulPages++;
           }
+          
+          if (pageNum % 5 === 0 || pageNum === totalPages || totalPages <= 10) {
+            console.log(`Extracted page ${pageNum}/${totalPages} (${pageText.length} chars)`);
+          }
+        } catch (pageError) {
+          console.warn(`Error extracting page ${pageNum}:`, pageError);
+          failedPages++;
         }
-        
-        if (pageText.trim().length > 0) {
-          fullText += `--- Page ${pageNum} ---\n${pageText}\n\n`;
-          successfulPages++;
-        }
-        
-        // Log progress every 5 pages or for small documents every page
-        if (pageNum % 5 === 0 || pageNum === totalPages || totalPages <= 10) {
-          console.log(`Extracted page ${pageNum}/${totalPages} (${pageText.length} chars)`);
-        }
-      } catch (pageError) {
-        console.warn(`Error extracting page ${pageNum}:`, pageError);
-        failedPages++;
       }
     }
     
