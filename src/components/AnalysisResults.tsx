@@ -19,8 +19,11 @@ import { BulkApplyCostsDialog } from "./BulkApplyCostsDialog";
 import { SaveProjectButton } from "./SaveProjectButton";
 import { PriceComparisonReport } from "./PriceComparisonReport";
 import { WBSTreeDiagram } from "./WBSTreeDiagram";
+import { WBSFlowDiagram } from "./WBSFlowDiagram";
 import { CompanyLogoUpload, getStoredLogo } from "./CompanyLogoUpload";
 import { useDynamicCostCalculator, CostInputs, defaultCostInputs } from "@/hooks/useDynamicCostCalculator";
+import { useItemCodes } from "@/hooks/useItemCodes";
+import { EditableItemCode } from "./EditableItemCode";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -100,6 +103,9 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
     itemCosts,
     clearAllCosts,
   } = useDynamicCostCalculator();
+  
+  // Item codes hook
+  const { getItemCode, setItemCode } = useItemCodes();
   
   // State for clear confirmation dialog
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -582,17 +588,36 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
 
+    // Get company logo from localStorage
+    const storedLogo = getStoredLogo();
+    
     // Header with gradient-like background
     doc.setFillColor(59, 130, 246); // Primary blue
     doc.rect(0, 0, pageWidth, 45, 'F');
     
-    // Logo circle
-    doc.setFillColor(255, 255, 255);
-    doc.circle(pageWidth - 25, 22, 12, 'F');
-    doc.setFillColor(59, 130, 246);
-    doc.setFontSize(14);
-    doc.setTextColor(59, 130, 246);
-    doc.text("BOQ", pageWidth - 25, 24, { align: 'center' });
+    // Add company logo if available
+    if (storedLogo) {
+      try {
+        doc.addImage(storedLogo, 'PNG', pageWidth - 40, 5, 30, 30);
+      } catch (e) {
+        console.error('Error adding logo to PDF:', e);
+        // Fallback: draw logo circle
+        doc.setFillColor(255, 255, 255);
+        doc.circle(pageWidth - 25, 22, 12, 'F');
+        doc.setFillColor(59, 130, 246);
+        doc.setFontSize(14);
+        doc.setTextColor(59, 130, 246);
+        doc.text("BOQ", pageWidth - 25, 24, { align: 'center' });
+      }
+    } else {
+      // Logo circle fallback
+      doc.setFillColor(255, 255, 255);
+      doc.circle(pageWidth - 25, 22, 12, 'F');
+      doc.setFillColor(59, 130, 246);
+      doc.setFontSize(14);
+      doc.setTextColor(59, 130, 246);
+      doc.text("BOQ", pageWidth - 25, 24, { align: 'center' });
+    }
 
     // Title
     doc.setTextColor(255, 255, 255);
@@ -1166,6 +1191,9 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                       #
                     </th>
                     <th className="px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                      Item No.
+                    </th>
+                    <th className="px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
                       Item Code
                     </th>
                     <th className="px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200">
@@ -1225,6 +1253,13 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                           <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-1 rounded font-medium">
                             {item.item_number}
                           </span>
+                        </td>
+                        <td className="px-3 py-3 text-left">
+                          <EditableItemCode
+                            itemNumber={item.item_number}
+                            code={getItemCode(item.item_number)}
+                            onSave={setItemCode}
+                          />
                         </td>
                         <td className="px-3 py-3 text-left max-w-[200px]">
                           <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words line-clamp-2" title={item.description}>
@@ -1364,6 +1399,9 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
 
         {activeTab === "wbs" && wbsData?.wbs && (
           <div className="space-y-6">
+            {/* WBS Flow Diagram - New Visual */}
+            <WBSFlowDiagram wbsData={wbsData.wbs} />
+            
             {/* WBS Tree Diagram */}
             <WBSTreeDiagram wbsData={wbsData.wbs} />
             

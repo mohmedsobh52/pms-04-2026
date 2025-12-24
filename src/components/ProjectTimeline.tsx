@@ -1,10 +1,13 @@
 import { useState, useMemo } from "react";
-import { Calendar, Clock, Play, ChevronLeft, ChevronRight, Loader2, Brain, Zap, Target, TrendingUp, AlertTriangle, CheckCircle2, Edit3 } from "lucide-react";
+import { Calendar, Clock, Play, ChevronLeft, ChevronRight, Loader2, Brain, Zap, Target, TrendingUp, AlertTriangle, CheckCircle2, Edit3, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { format, differenceInDays, addDays } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 
 interface WBSItem {
   code: string;
@@ -47,6 +50,18 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع" }: Pro
   const [showProgressMode, setShowProgressMode] = useState(false);
   const [editingTask, setEditingTask] = useState<string | null>(null);
   const { toast } = useToast();
+  
+  // Project date controls
+  const [projectStartDate, setProjectStartDate] = useState<Date | undefined>(new Date());
+  const [projectEndDate, setProjectEndDate] = useState<Date | undefined>(addDays(new Date(), 90));
+  
+  // Calculate project duration
+  const projectDuration = useMemo(() => {
+    if (projectStartDate && projectEndDate) {
+      return differenceInDays(projectEndDate, projectStartDate);
+    }
+    return 90;
+  }, [projectStartDate, projectEndDate]);
 
   // Calculate project statistics
   const projectStats = useMemo(() => {
@@ -229,9 +244,53 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع" }: Pro
               <h3 className="font-display text-lg font-semibold">الجدول الزمني للمشروع</h3>
               <p className="text-sm text-muted-foreground">
                 {timelineData.length > 0 
-                  ? `${totalDays} يوم - ${timelineData.length} مهمة`
+                  ? `${projectDuration} يوم - ${timelineData.length} مهمة`
                   : "اضغط لتوليد الجدول الزمني"}
               </p>
+            </div>
+          </div>
+          
+          {/* Date Pickers */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <CalendarDays className="w-4 h-4" />
+                  {projectStartDate ? format(projectStartDate, "yyyy/MM/dd") : "تاريخ البداية"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarPicker
+                  mode="single"
+                  selected={projectStartDate}
+                  onSelect={setProjectStartDate}
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+            
+            <span className="text-muted-foreground">→</span>
+            
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <CalendarDays className="w-4 h-4" />
+                  {projectEndDate ? format(projectEndDate, "yyyy/MM/dd") : "تاريخ النهاية"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarPicker
+                  mode="single"
+                  selected={projectEndDate}
+                  onSelect={setProjectEndDate}
+                  disabled={(date) => projectStartDate ? date < projectStartDate : false}
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+            
+            <div className="px-3 py-1.5 bg-primary/10 rounded-lg border border-primary/20">
+              <span className="text-sm font-medium text-primary">{projectDuration} يوم</span>
             </div>
           </div>
 
