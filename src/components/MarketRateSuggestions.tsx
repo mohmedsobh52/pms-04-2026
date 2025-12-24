@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { TrendingUp, TrendingDown, Minus, Sparkles, MapPin, Loader2, Check, AlertTriangle, CheckCheck, BarChart3, Calculator } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Sparkles, MapPin, Loader2, Check, AlertTriangle, CheckCheck, BarChart3, Calculator, Bot, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -51,10 +51,27 @@ const SAUDI_CITIES = [
   { value: "Abha", label: "Abha" },
 ];
 
+const REGIONS = [
+  { value: "saudi", label: "Saudi Arabia", emoji: "🇸🇦" },
+  { value: "uae", label: "UAE", emoji: "🇦🇪" },
+  { value: "egypt", label: "Egypt", emoji: "🇪🇬" },
+  { value: "qatar", label: "Qatar", emoji: "🇶🇦" },
+  { value: "kuwait", label: "Kuwait", emoji: "🇰🇼" },
+  { value: "bahrain", label: "Bahrain", emoji: "🇧🇭" },
+  { value: "oman", label: "Oman", emoji: "🇴🇲" },
+];
+
+const AI_AGENTS = [
+  { value: "manus", label: "Manus AI", description: "Deep market research with web search", icon: "🔍" },
+  { value: "standard", label: "Standard AI", description: "Fast analysis from training data", icon: "⚡" },
+];
+
 export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates, onApplyAIRatesToCalcPrice }: MarketRateSuggestionsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [location, setLocation] = useState("Riyadh");
+  const [region, setRegion] = useState("saudi");
+  const [aiAgent, setAiAgent] = useState("manus");
   const [suggestions, setSuggestions] = useState<MarketRateSuggestion[]>([]);
   const [appliedItems, setAppliedItems] = useState<Set<string>>(new Set());
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
@@ -81,9 +98,16 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates, onAp
     setAnalysisProgress(0);
 
     try {
-      // Send ALL items to the API (no slicing)
+      // Send ALL items to the API with region and agent info
+      const regionInfo = REGIONS.find(r => r.value === region);
       const { data, error } = await supabase.functions.invoke("suggest-market-rates", {
-        body: { items, location },
+        body: { 
+          items, 
+          location, 
+          region: regionInfo?.label || "Saudi Arabia",
+          aiAgent,
+          useWebSearch: aiAgent === "manus"
+        },
       });
 
       if (error) throw error;
@@ -256,46 +280,97 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates, onAp
             </div>
           )}
 
-          {/* Location selector and analyze button */}
-          <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Location:</span>
+          {/* Location, Region, Agent selector and analyze button */}
+          <div className="flex flex-col gap-4 p-4 bg-muted/50 rounded-lg">
+            {/* Region and Agent Selection */}
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Region:</span>
+              </div>
+              <Select value={region} onValueChange={setRegion}>
+                <SelectTrigger className="w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {REGIONS.map(r => (
+                    <SelectItem key={r.value} value={r.value}>
+                      <span className="flex items-center gap-2">
+                        <span>{r.emoji}</span>
+                        <span>{r.label}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <div className="flex items-center gap-2">
+                <Bot className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium">AI Agent:</span>
+              </div>
+              <Select value={aiAgent} onValueChange={setAiAgent}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {AI_AGENTS.map(agent => (
+                    <SelectItem key={agent.value} value={agent.value}>
+                      <span className="flex items-center gap-2">
+                        <span>{agent.icon}</span>
+                        <span>{agent.label}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <Select value={location} onValueChange={setLocation}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SAUDI_CITIES.map(city => (
-                  <SelectItem key={city.value} value={city.value}>
-                    {city.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button 
-              onClick={handleSuggestRates} 
-              disabled={isLoading || !items?.length}
-              className="gap-2"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Analyzing...
-                </>
-              ) : suggestions.length > 0 ? (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  Re-analyze ({items?.length || 0} items)
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  Analyze All ({items?.length || 0} items)
-                </>
-              )}
-            </Button>
+            
+            {/* City and Analyze Button */}
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium">City:</span>
+              </div>
+              <Select value={location} onValueChange={setLocation}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SAUDI_CITIES.map(city => (
+                    <SelectItem key={city.value} value={city.value}>
+                      {city.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                onClick={handleSuggestRates} 
+                disabled={isLoading || !items?.length}
+                className="gap-2"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {aiAgent === "manus" ? "Manus Analyzing..." : "Analyzing..."}
+                  </>
+                ) : suggestions.length > 0 ? (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Re-analyze ({items?.length || 0} items)
+                  </>
+                ) : (
+                  <>
+                    {aiAgent === "manus" ? <Bot className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+                    {aiAgent === "manus" ? `Manus Analyze (${items?.length || 0})` : `Analyze All (${items?.length || 0} items)`}
+                  </>
+                )}
+              </Button>
+            </div>
+            
+            {/* Agent Description */}
+            <div className="text-xs text-muted-foreground bg-background/50 p-2 rounded border border-border">
+              {AI_AGENTS.find(a => a.value === aiAgent)?.description}
+            </div>
           </div>
 
           {/* Results summary */}

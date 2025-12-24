@@ -164,6 +164,10 @@ export const translations = {
     autoFetchingRates: "Automatically analyzing market rates",
     ratesFetched: "Rates fetched",
     itemsAnalyzed: "items analyzed",
+    
+    // Tab Labels
+    items: "Items",
+    timeSchedule: "Time Schedule",
   },
   ar: {
     // Header
@@ -330,6 +334,10 @@ export const translations = {
     autoFetchingRates: "جاري تحليل أسعار السوق تلقائياً",
     ratesFetched: "تم جلب الأسعار",
     itemsAnalyzed: "بند تم تحليله",
+    
+    // Tab Labels
+    items: "Items",
+    timeSchedule: "Time Schedule",
   },
 } as const;
 

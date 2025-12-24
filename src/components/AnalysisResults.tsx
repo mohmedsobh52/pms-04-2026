@@ -805,12 +805,12 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
   };
 
   const tabs = [
-    { id: "items", label: "العناصر", icon: <Package className="w-4 h-4" /> },
+    { id: "items", label: "Items", icon: <Package className="w-4 h-4" /> },
     { id: "wbs", label: "WBS", icon: <Layers className="w-4 h-4" /> },
     { id: "costs", label: "Cost", icon: <DollarSign className="w-4 h-4" /> },
     { id: "summary", label: "Brief", icon: <BarChart3 className="w-4 h-4" /> },
     { id: "charts", label: "Charts", icon: <BarChart3 className="w-4 h-4" /> },
-    { id: "timeline", label: "الجدول الزمني", icon: <CalendarDays className="w-4 h-4" /> },
+    { id: "timeline", label: "Time Schedule", icon: <CalendarDays className="w-4 h-4" /> },
     { id: "integration", label: "Schedule Integration", icon: <Link2 className="w-4 h-4" /> },
   ] as const;
 
