@@ -47,6 +47,7 @@ const Index = () => {
   const [extractionStatus, setExtractionStatus] = useState<"idle" | "extracting" | "success" | "failed">("idle");
   const [isOCRProcessing, setIsOCRProcessing] = useState(false);
   const [ocrProgress, setOcrProgress] = useState<{ current: number; total: number } | null>(null);
+  const [pdfProgress, setPdfProgress] = useState<{ current: number; total: number } | null>(null);
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [wbsData, setWbsData] = useState<any>(null);
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>(defaultWorkflowSteps);
@@ -116,7 +117,12 @@ const Index = () => {
     });
     
     try {
-      const text = await extractTextFromPDF(file);
+      const text = await extractTextFromPDF(file, {
+        onProgress: (current, total) => {
+          setPdfProgress({ current, total });
+        }
+      });
+      setPdfProgress(null);
       const validation = validateExtractedText(text);
       
       if (validation.isBinary) {
@@ -170,6 +176,7 @@ const Index = () => {
     setExtractionStatus("idle");
     setIsOCRProcessing(false);
     setOcrProgress(null);
+    setPdfProgress(null);
     setAnalysisData(null);
     setWbsData(null);
     setWorkflowSteps(defaultWorkflowSteps);
@@ -476,14 +483,31 @@ const Index = () => {
                     <div className="glass-card p-6 animate-slide-up">
                       <div className="flex items-center gap-4">
                         <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                        <div>
+                        <div className="flex-1">
                           <h3 className="font-display font-semibold">{t('extractingText')}</h3>
-                          <p className="text-sm text-muted-foreground">{t('analyzingPDFContent')}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {pdfProgress 
+                              ? `Extracting page ${pdfProgress.current} / ${pdfProgress.total}`
+                              : t('analyzingPDFContent')
+                            }
+                          </p>
                         </div>
                       </div>
                       <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-gradient-to-r from-primary to-accent animate-shimmer bg-[length:200%_100%]" />
+                        {pdfProgress ? (
+                          <div 
+                            className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300" 
+                            style={{ width: `${(pdfProgress.current / pdfProgress.total) * 100}%` }}
+                          />
+                        ) : (
+                          <div className="h-full bg-gradient-to-r from-primary to-accent animate-shimmer bg-[length:200%_100%]" />
+                        )}
                       </div>
+                      {pdfProgress && (
+                        <p className="text-xs text-muted-foreground mt-2 text-center">
+                          {Math.round((pdfProgress.current / pdfProgress.total) * 100)}%
+                        </p>
+                      )}
                     </div>
                   )}
 

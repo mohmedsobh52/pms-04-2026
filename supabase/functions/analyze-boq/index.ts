@@ -536,20 +536,30 @@ If you're unsure which category fits best, use the category that matches the pri
 6. If rate/amount is missing, estimate based on typical construction costs and mark as "estimated"
 7. Use the submit_boq_analysis function to return your analysis`;
 
-    const userPrompt = `Analyze this BOQ document as a professional Quantity Surveyor. Extract all items, validate data, and provide comprehensive analysis.
+    // Calculate optimal text limit based on document size
+    // Gemini 2.5 Flash supports up to 1M tokens, we'll use a safe limit of 100K chars
+    const MAX_TEXT_LENGTH = 100000;
+    const textToAnalyze = text.length > MAX_TEXT_LENGTH ? text.slice(0, MAX_TEXT_LENGTH) : text;
+    const wasTextTruncated = text.length > MAX_TEXT_LENGTH;
+    
+    console.log(`Text length: ${text.length} chars, using: ${textToAnalyze.length} chars${wasTextTruncated ? ' (truncated)' : ''}`);
+
+    const userPrompt = `Analyze this BOQ document as a professional Quantity Surveyor. Extract ALL items, validate data, and provide comprehensive analysis.
+
+IMPORTANT: This document contains ${text.length} characters${wasTextTruncated ? ` (showing first ${MAX_TEXT_LENGTH} characters)` : ''}. Extract EVERY item you can find.
 
 DOCUMENT CONTENT:
-${text.slice(0, 30000)}
+${textToAnalyze}
 
-${text.length > 30000 ? `\n[Document truncated - ${text.length - 30000} additional characters not shown]` : ''}
+${wasTextTruncated ? `\n⚠️ [Document partially shown - ${text.length - MAX_TEXT_LENGTH} additional characters exist. Focus on extracting all visible items accurately.]` : ''}
 
 Please provide:
-1. Complete extraction of all BOQ items with normalized units
+1. Complete extraction of ALL BOQ items with normalized units (extract every single item visible)
 2. Validation of arithmetic (Amount = Qty × Rate)
 3. Summary by section/trade
 4. Top 10 high-value cost drivers
 5. Data quality issues and risks
-6. Executive summary
+6. Executive summary with total items count
 
 Use the submit_boq_analysis function to return your structured analysis.`;
 
