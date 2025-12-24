@@ -415,13 +415,93 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
             </CardContent>
           </Card>
 
+          {/* Summary Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Calculator className="w-5 h-5" />
+                {language === 'ar' ? 'ملخص البنود' : 'Items Summary'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="px-3 py-2 text-right font-medium">{language === 'ar' ? 'رقم البند' : 'Item No.'}</th>
+                      <th className="px-3 py-2 text-right font-medium">{language === 'ar' ? 'الوصف' : 'Description'}</th>
+                      <th className="px-3 py-2 text-right font-medium">{language === 'ar' ? 'الكمية' : 'Qty'}</th>
+                      <th className="px-3 py-2 text-right font-medium">{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</th>
+                      <th className="px-3 py-2 text-right font-medium">{language === 'ar' ? 'الإجمالي' : 'Total'}</th>
+                      <th className="px-3 py-2 text-right font-medium">{language === 'ar' ? 'نسبة العمالة' : 'Labor %'}</th>
+                      <th className="px-3 py-2 text-right font-medium">{language === 'ar' ? 'نسبة التكاليف غير المباشرة' : 'Indirect %'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayResult.cost_analysis?.map((item, idx) => {
+                      const laborPercentage = item.total_cost > 0 
+                        ? ((item.labor?.total || 0) / item.total_cost * 100).toFixed(1) 
+                        : '0';
+                      const indirectPercentage = item.total_cost > 0 
+                        ? ((item.total_indirect || 0) / item.total_cost * 100).toFixed(1) 
+                        : '0';
+                      const quantity = items[idx]?.quantity || 1;
+                      
+                      return (
+                        <tr key={idx} className="border-b hover:bg-muted/30 transition-colors">
+                          <td className="px-3 py-2 font-medium">{items[idx]?.item_number || idx + 1}</td>
+                          <td className="px-3 py-2 max-w-[200px] truncate" title={item.item_description}>
+                            {item.item_description?.substring(0, 40)}...
+                          </td>
+                          <td className="px-3 py-2">{formatNumber(quantity)}</td>
+                          <td className="px-3 py-2">{formatNumber(item.unit_price)} {currency}</td>
+                          <td className="px-3 py-2 font-semibold text-primary">{formatNumber(item.total_cost)} {currency}</td>
+                          <td className="px-3 py-2">
+                            <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                              {laborPercentage}%
+                            </Badge>
+                          </td>
+                          <td className="px-3 py-2">
+                            <Badge variant="outline" className="bg-gray-500/10 text-gray-600 border-gray-500/20">
+                              {indirectPercentage}%
+                            </Badge>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-muted/50 font-semibold">
+                      <td colSpan={4} className="px-3 py-2 text-right">{language === 'ar' ? 'المجموع الكلي' : 'Grand Total'}</td>
+                      <td className="px-3 py-2 text-primary">{formatNumber(displayResult.summary?.grand_total || 0)} {currency}</td>
+                      <td className="px-3 py-2">
+                        <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                          {displayResult.summary?.grand_total > 0 
+                            ? ((displayResult.summary?.total_labor || 0) / displayResult.summary?.grand_total * 100).toFixed(1)
+                            : '0'}%
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2">
+                        <Badge variant="outline" className="bg-gray-500/10 text-gray-600 border-gray-500/20">
+                          {displayResult.summary?.grand_total > 0 
+                            ? ((displayResult.summary?.total_indirect_costs || 0) / displayResult.summary?.grand_total * 100).toFixed(1)
+                            : '0'}%
+                        </Badge>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Detailed Items */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center justify-between">
-                <span>Item Details</span>
+                <span>{language === 'ar' ? 'تفاصيل البنود' : 'Item Details'}</span>
                 <span className="inline-flex items-center rounded-md border border-border px-2.5 py-0.5 text-xs font-semibold transition-colors">
-                  Click to edit values
+                  {language === 'ar' ? 'اضغط للتعديل' : 'Click to edit values'}
                 </span>
               </CardTitle>
             </CardHeader>
