@@ -555,6 +555,36 @@ ${item.total_price ? `Price: ${item.total_price} SAR` : ''}
       throw new Error("No response from AI (no tool call or content found)");
     }
 
+    // Recalculate summary from cost_analysis if values are zero
+    if (result.cost_analysis && Array.isArray(result.cost_analysis)) {
+      const costAnalysis = result.cost_analysis as CostBreakdown[];
+      
+      // Calculate totals from cost_analysis array
+      const totalMaterials = costAnalysis.reduce((sum: number, item: CostBreakdown) => sum + (item.materials?.total || 0), 0);
+      const totalLabor = costAnalysis.reduce((sum: number, item: CostBreakdown) => sum + (item.labor?.total || 0), 0);
+      const totalEquipment = costAnalysis.reduce((sum: number, item: CostBreakdown) => sum + (item.equipment?.total || 0), 0);
+      const totalSubcontractor = costAnalysis.reduce((sum: number, item: CostBreakdown) => sum + (item.subcontractor || 0), 0);
+      const totalDirectCosts = costAnalysis.reduce((sum: number, item: CostBreakdown) => sum + (item.total_direct || 0), 0);
+      const totalIndirectCosts = costAnalysis.reduce((sum: number, item: CostBreakdown) => sum + (item.total_indirect || 0), 0);
+      const totalProfit = costAnalysis.reduce((sum: number, item: CostBreakdown) => sum + (item.profit_amount || 0), 0);
+      const grandTotal = costAnalysis.reduce((sum: number, item: CostBreakdown) => sum + (item.total_cost || 0), 0);
+      
+      // Update summary with calculated values
+      result.summary = {
+        ...result.summary,
+        total_materials: totalMaterials,
+        total_labor: totalLabor,
+        total_equipment: totalEquipment,
+        total_subcontractor: totalSubcontractor,
+        total_direct_costs: totalDirectCosts,
+        total_indirect_costs: totalIndirectCosts,
+        total_profit: totalProfit,
+        grand_total: grandTotal,
+      };
+      
+      console.log(`Summary recalculated: Materials=${totalMaterials}, Labor=${totalLabor}, Equipment=${totalEquipment}, Grand Total=${grandTotal}`);
+    }
+    
     console.log(`Cost analysis complete using ${providerUsed}`);
 
     return new Response(
