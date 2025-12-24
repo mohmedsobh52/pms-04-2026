@@ -211,12 +211,11 @@ export function useDynamicCostCalculator() {
   const applyAIRatesToCalculatedPrice = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
     console.log('applyAIRatesToCalculatedPrice called with:', rates);
     
-    // Build the new costs object
-    const newCosts: Record<string, ItemCostData> = {};
-    
     setItemCosts(prev => {
+      const newCosts = { ...prev };
+      
       rates.forEach(({ itemId, rate }) => {
-        const current = prev[itemId] || { ...defaultCostInputs, itemId, quantity: 1 };
+        const current = newCosts[itemId] || { ...defaultCostInputs, itemId, quantity: 1 };
         // Use 10% default profit margin
         const profitMargin = current.profitMargin || 10;
         // Calculate materials value so that: materials * (1 + profitMargin/100) = rate
@@ -240,9 +239,8 @@ export function useDynamicCostCalculator() {
         };
       });
       
-      const result = { ...prev, ...newCosts };
-      console.log('Updated itemCosts:', result);
-      return result;
+      console.log('Updated itemCosts:', newCosts);
+      return newCosts;
     });
     
     // Force update lastSavedAt to trigger re-render in dependent components
