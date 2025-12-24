@@ -159,6 +159,7 @@ export const translations = {
     savedOcrText: "Saved OCR Text",
     savedOcrTextDesc: "Retrieved previously extracted text from database",
     ocrTextSaved: "OCR text saved for future use",
+    savedProjects: "Saved Projects",
   },
   ar: {
     // Header
@@ -320,6 +321,7 @@ export const translations = {
     savedOcrText: "النص المحفوظ",
     savedOcrTextDesc: "تم استرجاع النص المستخرج مسبقاً من قاعدة البيانات",
     ocrTextSaved: "تم حفظ نص OCR لإعادة الاستخدام",
+    savedProjects: "المشاريع المحفوظة",
   },
 } as const;
 

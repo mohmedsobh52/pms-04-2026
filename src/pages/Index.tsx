@@ -376,6 +376,14 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {/* Saved Projects Link */}
+              <Link to="/projects">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Save className="w-4 h-4" />
+                  <span className="hidden sm:inline">{t('savedProjects') || 'Saved Projects'}</span>
+                </Button>
+              </Link>
+              
               {/* Share Analysis */}
               <ShareAnalysis 
                 analysisData={analysisData}
