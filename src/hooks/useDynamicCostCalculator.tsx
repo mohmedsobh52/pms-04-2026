@@ -57,25 +57,30 @@ const defaultCostInputs: CostInputs = {
 const TEMPLATES_STORAGE_KEY = 'boq_cost_templates';
 
 export function useDynamicCostCalculator() {
-  const [itemCosts, setItemCosts] = useState<Record<string, ItemCostData>>({});
-  const [savedTemplate, setSavedTemplate] = useState<CostTemplate | null>(null);
-  const [savedTemplates, setSavedTemplates] = useState<CostTemplate[]>([]);
-
-  // Load templates from localStorage on mount
-  useEffect(() => {
+  // Initialize all state with stable initial values
+  const [itemCosts, setItemCosts] = useState<Record<string, ItemCostData>>(() => ({}));
+  const [savedTemplate, setSavedTemplate] = useState<CostTemplate | null>(() => null);
+  const [savedTemplates, setSavedTemplates] = useState<CostTemplate[]>(() => {
+    // Load templates from localStorage synchronously in initializer
     try {
-      const stored = localStorage.getItem(TEMPLATES_STORAGE_KEY);
-      if (stored) {
-        const templates = JSON.parse(stored) as CostTemplate[];
-        setSavedTemplates(templates);
-        if (templates.length > 0) {
-          setSavedTemplate(templates[0]); // Set first template as active
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem(TEMPLATES_STORAGE_KEY);
+        if (stored) {
+          return JSON.parse(stored) as CostTemplate[];
         }
       }
     } catch (e) {
       console.error('Error loading templates from localStorage:', e);
     }
-  }, []);
+    return [];
+  });
+
+  // Set initial active template after mount
+  useEffect(() => {
+    if (savedTemplates.length > 0 && !savedTemplate) {
+      setSavedTemplate(savedTemplates[0]);
+    }
+  }, [savedTemplates, savedTemplate]);
 
   // Save templates to localStorage when they change
   const saveTemplatesToStorage = useCallback((templates: CostTemplate[]) => {
