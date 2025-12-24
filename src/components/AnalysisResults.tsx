@@ -77,7 +77,41 @@ export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsP
     getAllCalculatedCosts,
     getTotalProjectCost,
     exportCostData,
+    getItemsWithCosts,
   } = useDynamicCostCalculator();
+
+  // Get available items for copying costs
+  const availableItemsForCopy = useMemo(() => {
+    const itemsWithCosts = getItemsWithCosts();
+    return itemsWithCosts.map(({ itemId, calculated }) => {
+      const originalItem = (data.items || []).find(i => i.item_number === itemId);
+      return {
+        itemId,
+        description: originalItem?.description || itemId,
+        calculatedUnitPrice: calculated.calculatedUnitPrice,
+      };
+    });
+  }, [getItemsWithCosts, data.items]);
+
+  // Handle copying costs from another item
+  const handleCopyFromItem = useCallback((sourceItemId: string): CostInputs | null => {
+    const sourceData = getItemCostData(sourceItemId);
+    if (sourceData) {
+      return {
+        generalLabor: sourceData.generalLabor,
+        equipmentOperator: sourceData.equipmentOperator,
+        overhead: sourceData.overhead,
+        admin: sourceData.admin,
+        insurance: sourceData.insurance,
+        contingency: sourceData.contingency,
+        profitMargin: sourceData.profitMargin,
+        materials: sourceData.materials,
+        equipment: sourceData.equipment,
+        subcontractor: sourceData.subcontractor,
+      };
+    }
+    return null;
+  }, [getItemCostData]);
   
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -1038,6 +1072,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsP
                             currentCosts={costData}
                             calculatedCosts={calcCosts}
                             onSave={handleSaveItemCost}
+                            onCopyFrom={handleCopyFromItem}
+                            availableItems={availableItemsForCopy}
                             currency={data.summary?.currency || "SAR"}
                           />
                         </td>

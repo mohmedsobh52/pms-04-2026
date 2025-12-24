@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Calculator, DollarSign, Users, Building2, TrendingUp, Edit2, Save, X } from "lucide-react";
+import { Calculator, DollarSign, Users, Building2, TrendingUp, Edit2, Save, X, Copy, ClipboardPaste } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,9 +11,23 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CostInputs, CalculatedCosts } from "@/hooks/useDynamicCostCalculator";
+import { toast } from "sonner";
+
+interface AvailableItem {
+  itemId: string;
+  description: string;
+  calculatedUnitPrice: number;
+}
 
 interface ItemCostEditorProps {
   itemId: string;
@@ -22,6 +36,8 @@ interface ItemCostEditorProps {
   currentCosts: CostInputs;
   calculatedCosts: CalculatedCosts;
   onSave: (itemId: string, costs: CostInputs) => void;
+  onCopyFrom?: (sourceItemId: string) => CostInputs | null;
+  availableItems?: AvailableItem[];
   currency?: string;
 }
 
@@ -32,6 +48,8 @@ export function ItemCostEditor({
   currentCosts,
   calculatedCosts,
   onSave,
+  onCopyFrom,
+  availableItems = [],
   currency = "SAR",
 }: ItemCostEditorProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -72,6 +90,20 @@ export function ItemCostEditor({
     setIsOpen(false);
   };
 
+  const handleCopyFromItem = (sourceItemId: string) => {
+    if (onCopyFrom) {
+      const copiedCosts = onCopyFrom(sourceItemId);
+      if (copiedCosts) {
+        setEditedCosts(copiedCosts);
+        toast.success("تم نسخ التكاليف بنجاح");
+      }
+    }
+  };
+
+  const filteredAvailableItems = availableItems.filter(
+    item => item.itemId !== itemId && item.calculatedUnitPrice > 0
+  );
+
   const handleCancel = () => {
     setEditedCosts(currentCosts);
     setIsOpen(false);
@@ -97,6 +129,37 @@ export function ItemCostEditor({
             {itemDescription}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Copy From Section */}
+        {filteredAvailableItems.length > 0 && (
+          <Card className="border-dashed border-primary/30 bg-primary/5">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Copy className="w-4 h-4 text-primary" />
+                <h4 className="font-semibold text-sm">نسخ التكاليف من بند آخر</h4>
+              </div>
+              <div className="flex gap-2">
+                <Select onValueChange={handleCopyFromItem}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="اختر بند للنسخ منه..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredAvailableItems.map((item) => (
+                      <SelectItem key={item.itemId} value={item.itemId}>
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="truncate max-w-[200px]">{item.description}</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {item.calculatedUnitPrice.toLocaleString('ar-SA')} {currency}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="space-y-6 py-4">
           {/* Labor Costs */}

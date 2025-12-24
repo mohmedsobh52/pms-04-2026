@@ -149,6 +149,34 @@ export function useDynamicCostCalculator() {
     return exportData;
   }, [itemCosts, calculateItemCosts]);
 
+  const copyCostsFromItem = useCallback((sourceItemId: string, targetItemId: string, targetQuantity: number = 1) => {
+    const sourceData = itemCosts[sourceItemId];
+    if (!sourceData) return false;
+    
+    setItemCosts(prev => ({
+      ...prev,
+      [targetItemId]: {
+        ...sourceData,
+        itemId: targetItemId,
+        quantity: targetQuantity,
+      },
+    }));
+    return true;
+  }, [itemCosts]);
+
+  const getItemsWithCosts = useCallback(() => {
+    return Object.entries(itemCosts)
+      .filter(([_, data]) => {
+        const calculated = calculateItemCosts(data);
+        return calculated.calculatedUnitPrice > 0;
+      })
+      .map(([itemId, data]) => ({
+        itemId,
+        data,
+        calculated: calculateItemCosts(data),
+      }));
+  }, [itemCosts, calculateItemCosts]);
+
   return {
     itemCosts,
     updateItemCost,
@@ -159,6 +187,8 @@ export function useDynamicCostCalculator() {
     getTotalProjectCost,
     calculateItemCosts,
     exportCostData,
+    copyCostsFromItem,
+    getItemsWithCosts,
     defaultCostInputs,
   };
 }
