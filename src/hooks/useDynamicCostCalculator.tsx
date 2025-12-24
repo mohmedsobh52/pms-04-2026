@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 
 export interface CostInputs {
   // Labor Costs
@@ -31,12 +31,14 @@ export interface CalculatedCosts {
 export interface ItemCostData extends CostInputs {
   itemId: string;
   quantity: number;
+  aiSuggestedRate?: number; // New: AI suggested rate
 }
 
 export interface CostTemplate {
+  id: string;
   name: string;
   costs: CostInputs;
-  createdAt: Date;
+  createdAt: string;
 }
 
 const defaultCostInputs: CostInputs = {
@@ -52,9 +54,37 @@ const defaultCostInputs: CostInputs = {
   subcontractor: 0,
 };
 
+const TEMPLATES_STORAGE_KEY = 'boq_cost_templates';
+
 export function useDynamicCostCalculator() {
   const [itemCosts, setItemCosts] = useState<Record<string, ItemCostData>>({});
   const [savedTemplate, setSavedTemplate] = useState<CostTemplate | null>(null);
+  const [savedTemplates, setSavedTemplates] = useState<CostTemplate[]>([]);
+
+  // Load templates from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(TEMPLATES_STORAGE_KEY);
+      if (stored) {
+        const templates = JSON.parse(stored) as CostTemplate[];
+        setSavedTemplates(templates);
+        if (templates.length > 0) {
+          setSavedTemplate(templates[0]); // Set first template as active
+        }
+      }
+    } catch (e) {
+      console.error('Error loading templates from localStorage:', e);
+    }
+  }, []);
+
+  // Save templates to localStorage when they change
+  const saveTemplatesToStorage = useCallback((templates: CostTemplate[]) => {
+    try {
+      localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
+    } catch (e) {
+      console.error('Error saving templates to localStorage:', e);
+    }
+  }, []);
 
   const calculateItemCosts = useCallback((inputs: CostInputs): CalculatedCosts => {
     // Total Labor = General Labor + Equipment Operator
@@ -115,13 +145,46 @@ export function useDynamicCostCalculator() {
     });
   }, []);
 
+  // New: Set AI suggested rate for an item
+  const setAISuggestedRate = useCallback((itemId: string, rate: number) => {
+    setItemCosts(prev => {
+      const current = prev[itemId] || { ...defaultCostInputs, itemId, quantity: 1 };
+      return {
+        ...prev,
+        [itemId]: {
+          ...current,
+          aiSuggestedRate: rate,
+        },
+      };
+    });
+  }, []);
+
+  // New: Set AI suggested rates for multiple items
+  const setMultipleAISuggestedRates = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
+    setItemCosts(prev => {
+      const newCosts = { ...prev };
+      rates.forEach(({ itemId, rate }) => {
+        const current = newCosts[itemId] || { ...defaultCostInputs, itemId, quantity: 1 };
+        newCosts[itemId] = {
+          ...current,
+          aiSuggestedRate: rate,
+        };
+      });
+      return newCosts;
+    });
+  }, []);
+
   const getItemCostData = useCallback((itemId: string): ItemCostData => {
     return itemCosts[itemId] || { ...defaultCostInputs, itemId, quantity: 1 };
   }, [itemCosts]);
 
-  const getItemCalculatedCosts = useCallback((itemId: string): CalculatedCosts => {
+  const getItemCalculatedCosts = useCallback((itemId: string): CalculatedCosts & { aiSuggestedRate?: number } => {
     const data = getItemCostData(itemId);
-    return calculateItemCosts(data);
+    const calculated = calculateItemCosts(data);
+    return {
+      ...calculated,
+      aiSuggestedRate: data.aiSuggestedRate,
+    };
   }, [getItemCostData, calculateItemCosts]);
 
   const getAllCalculatedCosts = useMemo(() => {
@@ -184,43 +247,168 @@ export function useDynamicCostCalculator() {
       }));
   }, [itemCosts, calculateItemCosts]);
 
-  // Template functions
+  // Template functions - Updated for multiple templates
   const saveAsTemplate = useCallback((costs: CostInputs, name: string = "القالب المحفوظ") => {
     const template: CostTemplate = {
+      id: `template_${Date.now()}`,
       name,
       costs: { ...costs },
-      createdAt: new Date(),
+      createdAt: new Date().toISOString(),
     };
+    
+    const newTemplates = [...savedTemplates, template];
+    setSavedTemplates(newTemplates);
     setSavedTemplate(template);
+    saveTemplatesToStorage(newTemplates);
+    
     return template;
-  }, []);
+  }, [savedTemplates, saveTemplatesToStorage]);
 
   const getSavedTemplate = useCallback((): CostTemplate | null => {
     return savedTemplate;
   }, [savedTemplate]);
 
-  const applyTemplateToItem = useCallback((itemId: string, quantity: number = 1) => {
-    if (!savedTemplate) return false;
+  const getSavedTemplates = useCallback((): CostTemplate[] => {
+    return savedTemplates;
+  }, [savedTemplates]);
+
+  const selectTemplate = useCallback((templateId: string) => {
+    const template = savedTemplates.find(t => t.id === templateId);
+    if (template) {
+      setSavedTemplate(template);
+      return true;
+    }
+    return false;
+  }, [savedTemplates]);
+
+  const deleteTemplate = useCallback((templateId: string) => {
+    const newTemplates = savedTemplates.filter(t => t.id !== templateId);
+    setSavedTemplates(newTemplates);
+    saveTemplatesToStorage(newTemplates);
+    
+    // If deleted template was the active one, clear it
+    if (savedTemplate?.id === templateId) {
+      setSavedTemplate(newTemplates.length > 0 ? newTemplates[0] : null);
+    }
+    
+    return true;
+  }, [savedTemplates, savedTemplate, saveTemplatesToStorage]);
+
+  const updateTemplateName = useCallback((templateId: string, newName: string) => {
+    const newTemplates = savedTemplates.map(t => 
+      t.id === templateId ? { ...t, name: newName } : t
+    );
+    setSavedTemplates(newTemplates);
+    saveTemplatesToStorage(newTemplates);
+    
+    if (savedTemplate?.id === templateId) {
+      setSavedTemplate({ ...savedTemplate, name: newName });
+    }
+    
+    return true;
+  }, [savedTemplates, savedTemplate, saveTemplatesToStorage]);
+
+  // Export templates as JSON
+  const exportTemplates = useCallback(() => {
+    const exportData = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      templates: savedTemplates,
+    };
+    return JSON.stringify(exportData, null, 2);
+  }, [savedTemplates]);
+
+  // Import templates from JSON
+  const importTemplates = useCallback((jsonString: string): { success: boolean; count: number; error?: string } => {
+    try {
+      const data = JSON.parse(jsonString);
+      
+      // Validate structure
+      if (!data.templates || !Array.isArray(data.templates)) {
+        return { success: false, count: 0, error: 'Invalid template format: missing templates array' };
+      }
+      
+      // Validate each template
+      const validTemplates: CostTemplate[] = [];
+      for (const template of data.templates) {
+        if (!template.name || !template.costs) {
+          continue; // Skip invalid templates
+        }
+        
+        // Ensure all cost fields exist
+        const costs: CostInputs = {
+          generalLabor: template.costs.generalLabor || 0,
+          equipmentOperator: template.costs.equipmentOperator || 0,
+          overhead: template.costs.overhead || 0,
+          admin: template.costs.admin || 0,
+          insurance: template.costs.insurance || 0,
+          contingency: template.costs.contingency || 0,
+          profitMargin: template.costs.profitMargin || 10,
+          materials: template.costs.materials || 0,
+          equipment: template.costs.equipment || 0,
+          subcontractor: template.costs.subcontractor || 0,
+        };
+        
+        validTemplates.push({
+          id: template.id || `imported_${Date.now()}_${validTemplates.length}`,
+          name: template.name,
+          costs,
+          createdAt: template.createdAt || new Date().toISOString(),
+        });
+      }
+      
+      if (validTemplates.length === 0) {
+        return { success: false, count: 0, error: 'No valid templates found in file' };
+      }
+      
+      // Merge with existing templates (avoid duplicates by name)
+      const existingNames = new Set(savedTemplates.map(t => t.name));
+      const newTemplates = validTemplates.filter(t => !existingNames.has(t.name));
+      
+      const mergedTemplates = [...savedTemplates, ...newTemplates];
+      setSavedTemplates(mergedTemplates);
+      saveTemplatesToStorage(mergedTemplates);
+      
+      if (newTemplates.length > 0 && !savedTemplate) {
+        setSavedTemplate(newTemplates[0]);
+      }
+      
+      return { success: true, count: newTemplates.length };
+    } catch (e) {
+      return { success: false, count: 0, error: e instanceof Error ? e.message : 'Failed to parse JSON' };
+    }
+  }, [savedTemplates, savedTemplate, saveTemplatesToStorage]);
+
+  const applyTemplateToItem = useCallback((itemId: string, quantity: number = 1, templateId?: string) => {
+    const template = templateId 
+      ? savedTemplates.find(t => t.id === templateId)
+      : savedTemplate;
+    
+    if (!template) return false;
     
     setItemCosts(prev => ({
       ...prev,
       [itemId]: {
-        ...savedTemplate.costs,
+        ...template.costs,
         itemId,
         quantity,
       },
     }));
     return true;
-  }, [savedTemplate]);
+  }, [savedTemplate, savedTemplates]);
 
-  const applyTemplateToMultipleItems = useCallback((items: Array<{ itemId: string; quantity: number }>) => {
-    if (!savedTemplate) return 0;
+  const applyTemplateToMultipleItems = useCallback((items: Array<{ itemId: string; quantity: number }>, templateId?: string) => {
+    const template = templateId 
+      ? savedTemplates.find(t => t.id === templateId)
+      : savedTemplate;
+    
+    if (!template) return 0;
     
     setItemCosts(prev => {
       const newCosts = { ...prev };
       items.forEach(({ itemId, quantity }) => {
         newCosts[itemId] = {
-          ...savedTemplate.costs,
+          ...template.costs,
           itemId,
           quantity,
         };
@@ -229,7 +417,7 @@ export function useDynamicCostCalculator() {
     });
     
     return items.length;
-  }, [savedTemplate]);
+  }, [savedTemplate, savedTemplates]);
 
   const clearTemplate = useCallback(() => {
     setSavedTemplate(null);
@@ -248,13 +436,24 @@ export function useDynamicCostCalculator() {
     copyCostsFromItem,
     getItemsWithCosts,
     defaultCostInputs,
+    // AI rate functions
+    setAISuggestedRate,
+    setMultipleAISuggestedRates,
     // Template functions
     savedTemplate,
+    savedTemplates,
     saveAsTemplate,
     getSavedTemplate,
+    getSavedTemplates,
+    selectTemplate,
+    deleteTemplate,
+    updateTemplateName,
     applyTemplateToItem,
     applyTemplateToMultipleItems,
     clearTemplate,
+    // Import/Export
+    exportTemplates,
+    importTemplates,
   };
 }
 

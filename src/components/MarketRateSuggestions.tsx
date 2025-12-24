@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { TrendingUp, TrendingDown, Minus, Sparkles, MapPin, Loader2, Check, AlertTriangle, CheckCheck } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Sparkles, MapPin, Loader2, Check, AlertTriangle, CheckCheck, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ interface MarketRateSuggestion {
 interface MarketRateSuggestionsProps {
   items: BOQItem[];
   onApplyRate?: (itemNumber: string, newRate: number) => void;
+  onApplyAIRates?: (rates: Array<{ itemId: string; rate: number }>) => void;
 }
 
 const SAUDI_CITIES = [
@@ -48,7 +50,7 @@ const SAUDI_CITIES = [
   { value: "Abha", label: "Abha" },
 ];
 
-export function MarketRateSuggestions({ items, onApplyRate }: MarketRateSuggestionsProps) {
+export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates }: MarketRateSuggestionsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [location, setLocation] = useState("Riyadh");
@@ -56,6 +58,9 @@ export function MarketRateSuggestions({ items, onApplyRate }: MarketRateSuggesti
   const [appliedItems, setAppliedItems] = useState<Set<string>>(new Set());
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<MarketRateSuggestion | null>(null);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [totalItemsCount, setTotalItemsCount] = useState(0);
+  const [analyzedItemsCount, setAnalyzedItemsCount] = useState(0);
   const { toast } = useToast();
 
   const handleSuggestRates = async () => {
@@ -70,8 +75,12 @@ export function MarketRateSuggestions({ items, onApplyRate }: MarketRateSuggesti
 
     setIsLoading(true);
     setSuggestions([]);
+    setTotalItemsCount(items.length);
+    setAnalyzedItemsCount(0);
+    setAnalysisProgress(0);
 
     try {
+      // Send ALL items to the API (no slicing)
       const { data, error } = await supabase.functions.invoke("suggest-market-rates", {
         body: { items, location },
       });
@@ -82,11 +91,23 @@ export function MarketRateSuggestions({ items, onApplyRate }: MarketRateSuggesti
         throw new Error(data.error);
       }
 
-      setSuggestions(data.suggestions || []);
+      const receivedSuggestions = data.suggestions || [];
+      setSuggestions(receivedSuggestions);
+      setAnalyzedItemsCount(data.analyzed_items || receivedSuggestions.length);
+      setAnalysisProgress(100);
+      
+      // Apply AI rates to the calculator if callback provided
+      if (onApplyAIRates && receivedSuggestions.length > 0) {
+        const rates = receivedSuggestions.map((s: MarketRateSuggestion) => ({
+          itemId: s.item_number,
+          rate: s.suggested_avg,
+        }));
+        onApplyAIRates(rates);
+      }
       
       toast({
         title: "Market rates analyzed",
-        description: `${data.analyzed_items} items analyzed for ${location}`,
+        description: `${data.analyzed_items} of ${data.total_items} items analyzed for ${location}`,
       });
     } catch (error: any) {
       console.error("Error getting market rates:", error);
@@ -175,6 +196,11 @@ export function MarketRateSuggestions({ items, onApplyRate }: MarketRateSuggesti
 
   const highVarianceCount = suggestions.filter(s => Math.abs(s.variance_percent) > 20).length;
 
+  // Calculate average suggested rate
+  const averageSuggestedRate = suggestions.length > 0
+    ? suggestions.reduce((sum, s) => sum + s.suggested_avg, 0) / suggestions.length
+    : 0;
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -192,6 +218,38 @@ export function MarketRateSuggestions({ items, onApplyRate }: MarketRateSuggesti
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Header with total items count */}
+          <div className="flex items-center justify-between p-3 bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg border border-primary/20">
+            <div className="flex items-center gap-3">
+              <BarChart3 className="w-5 h-5 text-primary" />
+              <div>
+                <p className="font-semibold text-sm">Total BOQ Items</p>
+                <p className="text-xs text-muted-foreground">Ready for analysis</p>
+              </div>
+            </div>
+            <Badge variant="secondary" className="text-lg px-4 py-1">
+              {items?.length || 0} items
+            </Badge>
+          </div>
+
+          {/* Analysis Progress */}
+          {(isLoading || suggestions.length > 0) && (
+            <div className="p-3 bg-muted/50 rounded-lg space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">Analysis Progress</span>
+                <Badge variant={analyzedItemsCount === totalItemsCount ? "default" : "secondary"}>
+                  تم تحليل {analyzedItemsCount} من {totalItemsCount} بند
+                </Badge>
+              </div>
+              <Progress value={analysisProgress} className="h-2" />
+              {analyzedItemsCount < totalItemsCount && suggestions.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Some items could not be analyzed. This may be due to unclear descriptions.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Location selector and analyze button */}
           <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
             <div className="flex items-center gap-2">
@@ -223,7 +281,7 @@ export function MarketRateSuggestions({ items, onApplyRate }: MarketRateSuggesti
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  Analyze Rates
+                  Analyze All ({items?.length || 0} items)
                 </>
               )}
             </Button>
@@ -240,6 +298,11 @@ export function MarketRateSuggestions({ items, onApplyRate }: MarketRateSuggesti
                   <Badge variant="destructive" className="gap-1">
                     <AlertTriangle className="w-3 h-3" />
                     {highVarianceCount} items with &gt;20% variance
+                  </Badge>
+                )}
+                {averageSuggestedRate > 0 && (
+                  <Badge variant="outline" className="gap-1">
+                    Avg Rate: {averageSuggestedRate.toLocaleString(undefined, { maximumFractionDigits: 0 })} SAR
                   </Badge>
                 )}
               </div>
@@ -341,12 +404,12 @@ export function MarketRateSuggestions({ items, onApplyRate }: MarketRateSuggesti
                 <div className="flex flex-col items-center gap-3">
                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
                   <p>Analyzing market rates for {location}...</p>
-                  <p className="text-sm">This may take a moment</p>
+                  <p className="text-sm">Processing {items?.length || 0} items in batches</p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-3">
                   <Sparkles className="w-12 h-12 text-muted-foreground/50" />
-                  <p>Click "Analyze Rates" to get AI-powered market rate suggestions</p>
+                  <p>Click "Analyze All" to get AI-powered market rate suggestions</p>
                   <p className="text-sm">Based on current Saudi Arabia construction market data</p>
                 </div>
               )}

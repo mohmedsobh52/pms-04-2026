@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Calculator, DollarSign, Users, Building2, TrendingUp, Edit2, Save, X, Copy, FileDown, FileUp } from "lucide-react";
+import { Calculator, DollarSign, Users, Building2, TrendingUp, Edit2, Save, X, Copy, FileDown, FileUp, Plus, Trash2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { CostInputs, CalculatedCosts, CostTemplate } from "@/hooks/useDynamicCostCalculator";
 import { toast } from "sonner";
 
@@ -34,12 +35,14 @@ interface ItemCostEditorProps {
   itemDescription: string;
   quantity: number;
   currentCosts: CostInputs;
-  calculatedCosts: CalculatedCosts;
+  calculatedCosts: CalculatedCosts & { aiSuggestedRate?: number };
   onSave: (itemId: string, costs: CostInputs) => void;
   onCopyFrom?: (sourceItemId: string) => CostInputs | null;
-  onSaveAsTemplate?: (costs: CostInputs) => void;
-  onApplyTemplate?: () => CostInputs | null;
+  onSaveAsTemplate?: (costs: CostInputs, name: string) => void;
+  onApplyTemplate?: (templateId?: string) => CostInputs | null;
+  onDeleteTemplate?: (templateId: string) => boolean;
   savedTemplate?: CostTemplate | null;
+  savedTemplates?: CostTemplate[];
   availableItems?: AvailableItem[];
   currency?: string;
 }
@@ -54,13 +57,17 @@ export function ItemCostEditor({
   onCopyFrom,
   onSaveAsTemplate,
   onApplyTemplate,
+  onDeleteTemplate,
   savedTemplate,
+  savedTemplates = [],
   availableItems = [],
   currency = "SAR",
 }: ItemCostEditorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [editedCosts, setEditedCosts] = useState<CostInputs>(currentCosts);
   const [liveCalculated, setLiveCalculated] = useState<CalculatedCosts>(calculatedCosts);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [showNewTemplateInput, setShowNewTemplateInput] = useState(false);
 
   useEffect(() => {
     setEditedCosts(currentCosts);
@@ -107,21 +114,32 @@ export function ItemCostEditor({
   };
 
   const handleSaveAsTemplate = () => {
-    if (onSaveAsTemplate) {
-      onSaveAsTemplate(editedCosts);
-      toast.success("تم حفظ التكاليف كقالب بنجاح");
+    if (onSaveAsTemplate && newTemplateName.trim()) {
+      onSaveAsTemplate(editedCosts, newTemplateName.trim());
+      setNewTemplateName("");
+      setShowNewTemplateInput(false);
+      toast.success("تم حفظ القالب بنجاح");
+    } else if (!newTemplateName.trim()) {
+      toast.error("يرجى إدخال اسم للقالب");
     }
   };
 
-  const handleApplyTemplate = () => {
+  const handleApplyTemplate = (templateId?: string) => {
     if (onApplyTemplate) {
-      const templateCosts = onApplyTemplate();
+      const templateCosts = onApplyTemplate(templateId);
       if (templateCosts) {
         setEditedCosts(templateCosts);
         toast.success("تم تطبيق القالب بنجاح");
       } else {
         toast.error("لا يوجد قالب محفوظ");
       }
+    }
+  };
+
+  const handleDeleteTemplate = (templateId: string) => {
+    if (onDeleteTemplate) {
+      onDeleteTemplate(templateId);
+      toast.success("تم حذف القالب بنجاح");
     }
   };
 
@@ -155,45 +173,107 @@ export function ItemCostEditor({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Template Actions */}
+        {/* AI Suggested Rate Display */}
+        {calculatedCosts.aiSuggestedRate && calculatedCosts.aiSuggestedRate > 0 && (
+          <Card className="border-dashed border-purple-500/50 bg-purple-500/5">
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-purple-500" />
+                  <span className="font-semibold text-sm">AI Suggested Rate</span>
+                </div>
+                <Badge variant="secondary" className="text-purple-600">
+                  {calculatedCosts.aiSuggestedRate.toLocaleString()} {currency}
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Template Actions - Updated for multiple templates */}
         <Card className="border-dashed border-accent/50 bg-accent/5">
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 mb-3">
               <FileDown className="w-4 h-4 text-accent-foreground" />
               <h4 className="font-semibold text-sm">قوالب التكاليف</h4>
-              {savedTemplate && (
-                <Badge variant="secondary" className="ml-auto text-xs">
-                  قالب محفوظ
-                </Badge>
-              )}
+              <Badge variant="secondary" className="ml-auto text-xs">
+                {savedTemplates.length} قالب
+              </Badge>
             </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSaveAsTemplate}
-                className="flex-1 gap-1"
-              >
-                <FileDown className="w-3 h-3" />
-                حفظ كقالب
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleApplyTemplate}
-                disabled={!savedTemplate}
-                className="flex-1 gap-1"
-              >
-                <FileUp className="w-3 h-3" />
-                تطبيق القالب
-              </Button>
-            </div>
-            {savedTemplate && (
-              <div className="mt-2 text-xs text-muted-foreground">
-                القالب: العمالة {savedTemplate.costs.generalLabor + savedTemplate.costs.equipmentOperator} | 
-                غير مباشرة {savedTemplate.costs.overhead + savedTemplate.costs.admin + savedTemplate.costs.insurance + savedTemplate.costs.contingency} | 
-                ربح {savedTemplate.costs.profitMargin}%
+            
+            {/* Existing Templates List */}
+            {savedTemplates.length > 0 && (
+              <ScrollArea className="h-24 mb-3 border rounded p-2">
+                <div className="space-y-1">
+                  {savedTemplates.map((template) => (
+                    <div 
+                      key={template.id} 
+                      className="flex items-center justify-between p-2 rounded hover:bg-muted/50 text-sm"
+                    >
+                      <span className="font-medium truncate flex-1">{template.name}</span>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleApplyTemplate(template.id)}
+                          className="h-6 px-2"
+                        >
+                          <FileUp className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteTemplate(template.id)}
+                          className="h-6 px-2 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+
+            {/* New Template Input */}
+            {showNewTemplateInput ? (
+              <div className="flex gap-2 mb-2">
+                <Input
+                  value={newTemplateName}
+                  onChange={(e) => setNewTemplateName(e.target.value)}
+                  placeholder="اسم القالب..."
+                  className="flex-1 h-8 text-sm"
+                />
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleSaveAsTemplate}
+                  className="h-8 px-3"
+                >
+                  <Save className="w-3 h-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowNewTemplateInput(false);
+                    setNewTemplateName("");
+                  }}
+                  className="h-8 px-3"
+                >
+                  <X className="w-3 h-3" />
+                </Button>
               </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowNewTemplateInput(true)}
+                className="w-full gap-1"
+              >
+                <Plus className="w-3 h-3" />
+                حفظ كقالب جديد
+              </Button>
             )}
           </CardContent>
         </Card>
