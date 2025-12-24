@@ -279,6 +279,11 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates, onAp
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Analyzing...
                 </>
+              ) : suggestions.length > 0 ? (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Re-analyze ({items?.length || 0} items)
+                </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />

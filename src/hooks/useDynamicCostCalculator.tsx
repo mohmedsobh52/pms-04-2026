@@ -211,46 +211,51 @@ export function useDynamicCostCalculator() {
   const applyAIRatesToCalculatedPrice = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
     console.log('📊 applyAIRatesToCalculatedPrice called with rates:', rates);
     
-    setItemCosts(prev => {
-      // Create completely new object to force React re-render
-      const updatedCosts: Record<string, ItemCostData> = {};
-      
-      // Copy all existing items first
-      Object.keys(prev).forEach(key => {
-        updatedCosts[key] = { ...prev[key] };
-      });
-      
-      // Then update/add items with new AI rates
-      rates.forEach(({ itemId, rate }) => {
-        const current = prev[itemId] || { ...defaultCostInputs, itemId, quantity: 1 };
-        const profitMargin = current.profitMargin || 10;
-        const materialsValue = rate / (1 + profitMargin / 100);
-        
-        updatedCosts[itemId] = {
-          ...current,
-          itemId,
-          aiSuggestedRate: rate,
-          materials: materialsValue,
-          equipment: 0,
-          subcontractor: 0,
-          generalLabor: 0,
-          equipmentOperator: 0,
-          overhead: 0,
-          admin: 0,
-          insurance: 0,
-          contingency: 0,
-          profitMargin,
-        };
-      });
-      
-      console.log('✅ Updated itemCosts:', updatedCosts);
-      console.log('📝 Applied to items:', rates.map(r => `${r.itemId}=${r.rate}`).join(', '));
-      return updatedCosts;
+    // Build new state object completely fresh
+    const newItemCosts: Record<string, ItemCostData> = {};
+    
+    // First, preserve all existing items
+    Object.entries(itemCosts).forEach(([key, value]) => {
+      newItemCosts[key] = { ...value };
     });
+    
+    // Then apply/update with AI rates
+    rates.forEach(({ itemId, rate }) => {
+      const existingItem = itemCosts[itemId];
+      const profitMargin = existingItem?.profitMargin || 10;
+      const quantity = existingItem?.quantity || 1;
+      
+      // Calculate materials so that: materials * (1 + profitMargin/100) = rate
+      const materialsValue = rate / (1 + profitMargin / 100);
+      
+      newItemCosts[itemId] = {
+        itemId,
+        quantity,
+        aiSuggestedRate: rate,
+        materials: materialsValue,
+        equipment: 0,
+        subcontractor: 0,
+        generalLabor: 0,
+        equipmentOperator: 0,
+        overhead: 0,
+        admin: 0,
+        insurance: 0,
+        contingency: 0,
+        profitMargin,
+      };
+      
+      console.log(`✅ Item ${itemId}: rate=${rate}, materials=${materialsValue}, profit=${profitMargin}%`);
+    });
+    
+    console.log('📝 Total items updated:', rates.length);
+    console.log('📊 New itemCosts state:', newItemCosts);
+    
+    // Set the completely new state object
+    setItemCosts(newItemCosts);
     
     // Force re-render by updating timestamp
     setLastSavedAt(new Date());
-  }, []);
+  }, [itemCosts]);
 
   const getItemCostData = useCallback((itemId: string): ItemCostData => {
     return itemCosts[itemId] || { ...defaultCostInputs, itemId, quantity: 1 };
