@@ -160,6 +160,10 @@ export const translations = {
     savedOcrTextDesc: "Retrieved previously extracted text from database",
     ocrTextSaved: "OCR text saved for future use",
     savedProjects: "Saved Projects",
+    fetchingRates: "Fetching rates...",
+    autoFetchingRates: "Automatically analyzing market rates",
+    ratesFetched: "Rates fetched",
+    itemsAnalyzed: "items analyzed",
   },
   ar: {
     // Header
@@ -322,6 +326,10 @@ export const translations = {
     savedOcrTextDesc: "تم استرجاع النص المستخرج مسبقاً من قاعدة البيانات",
     ocrTextSaved: "تم حفظ نص OCR لإعادة الاستخدام",
     savedProjects: "المشاريع المحفوظة",
+    fetchingRates: "جاري جلب الأسعار...",
+    autoFetchingRates: "جاري تحليل أسعار السوق تلقائياً",
+    ratesFetched: "تم جلب الأسعار",
+    itemsAnalyzed: "بند تم تحليله",
   },
 } as const;
 
