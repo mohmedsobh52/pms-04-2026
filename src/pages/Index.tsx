@@ -20,6 +20,7 @@ import { P6Export } from "@/components/P6Export";
 import { KPIDashboard } from "@/components/KPIDashboard";
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { MainDashboard } from "@/components/MainDashboard";
+import { FeaturesSection } from "@/components/FeaturesSection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -450,6 +451,13 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {/* About Page Link */}
+              <Link to="/about">
+                <Button variant="ghost" size="sm">
+                  {isArabic ? 'من نحن' : 'About'}
+                </Button>
+              </Link>
+              
               {/* Saved Projects Link */}
               <Link to="/projects">
                 <Button variant="outline" size="sm" className="gap-2">
@@ -902,8 +910,11 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Features Section */}
+      <FeaturesSection />
+
       {/* Footer */}
-      <footer className="border-t border-border py-6 mt-12">
+      <footer className="border-t border-border py-6">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
           <p>{t('poweredByAI')}</p>
         </div>
