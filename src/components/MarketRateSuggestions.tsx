@@ -98,12 +98,17 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates, onAp
       setAnalysisProgress(100);
       
       // Apply AI rates to the calculator if callback provided
-      if (onApplyAIRates && receivedSuggestions.length > 0) {
+      if (receivedSuggestions.length > 0) {
         const rates = receivedSuggestions.map((s: MarketRateSuggestion) => ({
           itemId: s.item_number,
           rate: s.suggested_avg,
         }));
-        onApplyAIRates(rates);
+        
+        // Always apply to AI Rate column
+        if (onApplyAIRates) {
+          console.log('Applying AI rates to display:', rates);
+          onApplyAIRates(rates);
+        }
       }
       
       toast({
