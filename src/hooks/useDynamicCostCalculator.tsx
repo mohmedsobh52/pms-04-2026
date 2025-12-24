@@ -192,6 +192,21 @@ export function useDynamicCostCalculator() {
     });
   }, []);
 
+  // Update AI Rate manually for a single item (with save timestamp)
+  const updateAIRate = useCallback((itemId: string, rate: number) => {
+    setItemCosts(prev => {
+      const current = prev[itemId] || { ...defaultCostInputs, itemId, quantity: 1 };
+      return {
+        ...prev,
+        [itemId]: {
+          ...current,
+          aiSuggestedRate: rate,
+        },
+      };
+    });
+    setLastSavedAt(new Date());
+  }, []);
+
   // New: Set AI suggested rates for multiple items
   const setMultipleAISuggestedRates = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
     setItemCosts(prev => {
@@ -534,6 +549,7 @@ export function useDynamicCostCalculator() {
     setAISuggestedRate,
     setMultipleAISuggestedRates,
     applyAIRatesToCalculatedPrice,
+    updateAIRate,
     // Template functions
     savedTemplate,
     savedTemplates,

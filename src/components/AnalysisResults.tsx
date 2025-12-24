@@ -24,6 +24,7 @@ import { CompanyLogoUpload, getStoredLogo } from "./CompanyLogoUpload";
 import { useDynamicCostCalculator, CostInputs, defaultCostInputs } from "@/hooks/useDynamicCostCalculator";
 import { useItemCodes } from "@/hooks/useItemCodes";
 import { EditableItemCode } from "./EditableItemCode";
+import { EditableAIRate } from "./EditableAIRate";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -99,6 +100,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
     importTemplates,
     setMultipleAISuggestedRates,
     applyAIRatesToCalculatedPrice,
+    updateAIRate,
     lastSavedAt,
     itemCosts,
     clearAllCosts,
@@ -1264,16 +1266,11 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                           <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{item.quantity.toLocaleString()}</span>
                         </td>
                         <td className="px-3 py-3 text-right bg-purple-500/5">
-                          <span className={cn(
-                            "text-sm font-medium",
-                            calcCosts.aiSuggestedRate && calcCosts.aiSuggestedRate > 0 
-                              ? "text-purple-600 dark:text-purple-400" 
-                              : "text-slate-400"
-                          )}>
-                            {calcCosts.aiSuggestedRate && calcCosts.aiSuggestedRate > 0 
-                              ? calcCosts.aiSuggestedRate.toLocaleString() 
-                              : '-'}
-                          </span>
+                          <EditableAIRate
+                            itemNumber={item.item_number}
+                            currentRate={calcCosts.aiSuggestedRate}
+                            onSave={(itemNum, rate) => updateAIRate(itemNum, rate)}
+                          />
                         </td>
                         <td className="px-3 py-3 text-right bg-primary/5">
                           <span className={cn(

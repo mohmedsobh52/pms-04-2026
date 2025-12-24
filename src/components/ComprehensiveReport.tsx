@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { FileDown, Loader2, FileText, Package, Layers, DollarSign, BarChart3, CalendarDays } from "lucide-react";
+import { FileDown, Loader2, FileText, Package, Layers, DollarSign, BarChart3, CalendarDays, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/useLanguage";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 interface BOQItem {
   item_number: string;
@@ -87,6 +88,7 @@ export function ComprehensiveReport({
   const { toast } = useToast();
   const { language, isArabic } = useLanguage();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingSection, setGeneratingSection] = useState<string | null>(null);
 
   // Translations
   const t = {
@@ -149,6 +151,279 @@ export function ComprehensiveReport({
     successDesc: isArabic ? "تم تحميل التقرير الشامل بنجاح" : "Comprehensive report downloaded successfully",
     errorTitle: isArabic ? "خطأ في إنشاء التقرير" : "Error Generating Report",
     errorDesc: isArabic ? "حدث خطأ أثناء إنشاء التقرير" : "An error occurred while generating the report",
+  };
+
+  // Generate individual section PDFs
+  const generateBOQPDF = () => {
+    if (!analysisData?.items || analysisData.items.length === 0) {
+      toast({ title: "No BOQ data", variant: "destructive" });
+      return;
+    }
+    setGeneratingSection("boq");
+    
+    const doc = new jsPDF('portrait', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+
+    doc.setFillColor(59, 130, 246);
+    doc.rect(0, 0, pageWidth, 25, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Bill of Quantities (BOQ)", margin, 16);
+
+    const boqData = analysisData.items.map((item, index) => [
+      String(index + 1),
+      item.item_number || '-',
+      item.description?.substring(0, 40) + (item.description?.length > 40 ? '...' : '') || '-',
+      item.unit || '-',
+      String(item.quantity || 0),
+      item.unit_price ? item.unit_price.toLocaleString() : '-',
+      item.total_price ? item.total_price.toLocaleString() : '-',
+    ]);
+
+    autoTable(doc, {
+      startY: 35,
+      head: [['#', 'Item No.', 'Description', 'Unit', 'Qty', 'Unit Price', 'Total']],
+      body: boqData,
+      theme: 'striped',
+      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontSize: 9 },
+      bodyStyles: { fontSize: 8 },
+      margin: { left: margin, right: margin },
+    });
+
+    doc.save('boq_items.pdf');
+    setGeneratingSection(null);
+    toast({ title: t.successTitle });
+  };
+
+  const generateWBSPDF = () => {
+    if (!wbsData?.wbs || wbsData.wbs.length === 0) {
+      toast({ title: "No WBS data", variant: "destructive" });
+      return;
+    }
+    setGeneratingSection("wbs");
+    
+    const doc = new jsPDF('portrait', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+
+    doc.setFillColor(139, 92, 246);
+    doc.rect(0, 0, pageWidth, 25, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Work Breakdown Structure (WBS)", margin, 16);
+
+    const wbsTableData = wbsData.wbs.map(item => [
+      item.code,
+      '  '.repeat(item.level - 1) + item.title,
+      String(item.level),
+      item.parent_code || '-',
+      String(item.items?.length || 0),
+    ]);
+
+    autoTable(doc, {
+      startY: 35,
+      head: [['Code', 'Title', 'Level', 'Parent', 'Items']],
+      body: wbsTableData,
+      theme: 'striped',
+      headStyles: { fillColor: [139, 92, 246], textColor: 255, fontSize: 10 },
+      bodyStyles: { fontSize: 9 },
+      margin: { left: margin, right: margin },
+    });
+
+    doc.save('wbs_structure.pdf');
+    setGeneratingSection(null);
+    toast({ title: t.successTitle });
+  };
+
+  const generateCostPDF = () => {
+    if (!costData || costData.length === 0) {
+      // Generate from analysisData if no costData
+      if (!analysisData?.items) {
+        toast({ title: "No cost data", variant: "destructive" });
+        return;
+      }
+    }
+    setGeneratingSection("cost");
+    
+    const doc = new jsPDF('portrait', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+
+    doc.setFillColor(245, 158, 11);
+    doc.rect(0, 0, pageWidth, 25, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Cost Analysis", margin, 16);
+
+    const items = analysisData?.items || [];
+    const costTableData = items.map((item, idx) => [
+      String(idx + 1),
+      item.item_number || '-',
+      item.description?.substring(0, 30) || '-',
+      item.unit_price?.toLocaleString() || '-',
+      item.total_price?.toLocaleString() || '-',
+    ]);
+
+    autoTable(doc, {
+      startY: 35,
+      head: [['#', 'Item', 'Description', 'Unit Price', 'Total']],
+      body: costTableData,
+      theme: 'striped',
+      headStyles: { fillColor: [245, 158, 11], textColor: 255, fontSize: 9 },
+      bodyStyles: { fontSize: 8 },
+      margin: { left: margin, right: margin },
+    });
+
+    doc.save('cost_analysis.pdf');
+    setGeneratingSection(null);
+    toast({ title: t.successTitle });
+  };
+
+  const generateChartsPDF = () => {
+    if (!analysisData?.items || analysisData.items.length === 0) {
+      toast({ title: "No data for charts", variant: "destructive" });
+      return;
+    }
+    setGeneratingSection("charts");
+    
+    const doc = new jsPDF('landscape', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+
+    doc.setFillColor(16, 185, 129);
+    doc.rect(0, 0, pageWidth, 25, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Data Charts Summary", margin, 16);
+
+    // Category distribution
+    let yPos = 40;
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(12);
+    doc.text("Category Distribution", margin, yPos);
+    yPos += 10;
+
+    const categories: Record<string, number> = {};
+    analysisData.items.forEach(item => {
+      const cat = item.category || 'Uncategorized';
+      categories[cat] = (categories[cat] || 0) + (item.total_price || 0);
+    });
+
+    Object.entries(categories).forEach(([cat, value], idx) => {
+      doc.setFontSize(10);
+      doc.text(`${cat}: ${value.toLocaleString()} SAR`, margin + 10, yPos + idx * 8);
+    });
+
+    doc.save('charts_summary.pdf');
+    setGeneratingSection(null);
+    toast({ title: t.successTitle });
+  };
+
+  const generateTimelinePDF = () => {
+    setGeneratingSection("timeline");
+    
+    const doc = new jsPDF('landscape', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+
+    doc.setFillColor(239, 68, 68);
+    doc.rect(0, 0, pageWidth, 25, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Project Timeline", margin, 16);
+
+    if (timelineData?.phases && timelineData.phases.length > 0) {
+      const timelineTableData = timelineData.phases.map(phase => [
+        phase.phase,
+        phase.name,
+        `${phase.duration_weeks} weeks`,
+        `Week ${phase.start_week}`,
+        `Week ${phase.end_week}`,
+      ]);
+
+      autoTable(doc, {
+        startY: 35,
+        head: [['Phase', 'Name', 'Duration', 'Start', 'End']],
+        body: timelineTableData,
+        theme: 'striped',
+        headStyles: { fillColor: [239, 68, 68], textColor: 255, fontSize: 10 },
+        bodyStyles: { fontSize: 9 },
+        margin: { left: margin, right: margin },
+      });
+    } else {
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(12);
+      doc.text("No timeline data available", pageWidth / 2, 60, { align: 'center' });
+    }
+
+    doc.save('project_timeline.pdf');
+    setGeneratingSection(null);
+    toast({ title: t.successTitle });
+  };
+
+  const generateGanttPDF = () => {
+    setGeneratingSection("gantt");
+    
+    const doc = new jsPDF('landscape', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+
+    doc.setFillColor(59, 130, 246);
+    doc.rect(0, 0, pageWidth, 25, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Gantt Chart", margin, 16);
+
+    if (timelineData?.phases && timelineData.phases.length > 0) {
+      const totalWeeks = timelineData.total_duration_weeks || 12;
+      const chartWidth = pageWidth - margin * 2 - 60;
+      const barWidth = chartWidth / totalWeeks;
+      const startY = 45;
+
+      // Draw week headers
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      for (let i = 1; i <= totalWeeks; i++) {
+        doc.text(`W${i}`, margin + 55 + (i - 1) * barWidth, 38);
+      }
+
+      // Draw bars
+      timelineData.phases.forEach((phase, index) => {
+        const y = startY + index * 15;
+        
+        doc.setFontSize(8);
+        doc.setTextColor(30, 41, 59);
+        doc.text(phase.name.substring(0, 12), margin, y + 4);
+
+        const startX = margin + 55 + (phase.start_week - 1) * barWidth;
+        const width = phase.duration_weeks * barWidth;
+        
+        const colors = [
+          [59, 130, 246], [16, 185, 129], [245, 158, 11],
+          [139, 92, 246], [239, 68, 68], [6, 182, 212]
+        ];
+        const color = colors[index % colors.length];
+        
+        doc.setFillColor(color[0], color[1], color[2]);
+        doc.roundedRect(startX, y - 2, width, 10, 2, 2, 'F');
+      });
+    } else {
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(12);
+      doc.text("No timeline data available for Gantt chart", pageWidth / 2, 60, { align: 'center' });
+    }
+
+    doc.save('gantt_chart.pdf');
+    setGeneratingSection(null);
+    toast({ title: t.successTitle });
   };
 
   const generateComprehensiveReport = async () => {
@@ -669,30 +944,66 @@ export function ComprehensiveReport({
         </p>
         
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-            <Package className="w-4 h-4 text-primary" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={generateBOQPDF}
+            disabled={generatingSection === "boq"}
+            className="flex items-center gap-2 p-2 rounded-lg hover:bg-primary/10"
+          >
+            {generatingSection === "boq" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4 text-primary" />}
             <span className="text-xs">{t.boqTable}</span>
-          </div>
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-            <Layers className="w-4 h-4 text-purple-500" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={generateWBSPDF}
+            disabled={generatingSection === "wbs"}
+            className="flex items-center gap-2 p-2 rounded-lg hover:bg-purple-500/10"
+          >
+            {generatingSection === "wbs" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Layers className="w-4 h-4 text-purple-500" />}
             <span className="text-xs">{t.wbsStructure}</span>
-          </div>
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-            <DollarSign className="w-4 h-4 text-amber-500" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={generateCostPDF}
+            disabled={generatingSection === "cost"}
+            className="flex items-center gap-2 p-2 rounded-lg hover:bg-amber-500/10"
+          >
+            {generatingSection === "cost" ? <Loader2 className="w-4 h-4 animate-spin" /> : <DollarSign className="w-4 h-4 text-amber-500" />}
             <span className="text-xs">{t.costAnalysisLabel}</span>
-          </div>
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-            <BarChart3 className="w-4 h-4 text-green-500" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={generateChartsPDF}
+            disabled={generatingSection === "charts"}
+            className="flex items-center gap-2 p-2 rounded-lg hover:bg-green-500/10"
+          >
+            {generatingSection === "charts" ? <Loader2 className="w-4 h-4 animate-spin" /> : <BarChart3 className="w-4 h-4 text-green-500" />}
             <span className="text-xs">{t.charts}</span>
-          </div>
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-            <CalendarDays className="w-4 h-4 text-red-500" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={generateTimelinePDF}
+            disabled={generatingSection === "timeline"}
+            className="flex items-center gap-2 p-2 rounded-lg hover:bg-red-500/10"
+          >
+            {generatingSection === "timeline" ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarDays className="w-4 h-4 text-red-500" />}
             <span className="text-xs">{t.timelineLabel}</span>
-          </div>
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-            <FileDown className="w-4 h-4 text-blue-500" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={generateGanttPDF}
+            disabled={generatingSection === "gantt"}
+            className="flex items-center gap-2 p-2 rounded-lg hover:bg-blue-500/10"
+          >
+            {generatingSection === "gantt" ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4 text-blue-500" />}
             <span className="text-xs">Gantt Chart</span>
-          </div>
+          </Button>
         </div>
 
         <Button
