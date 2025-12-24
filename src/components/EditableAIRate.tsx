@@ -83,14 +83,14 @@ export function EditableAIRate({ itemNumber, currentRate, onSave }: EditableAIRa
   return (
     <div
       className={cn(
-        "flex items-center gap-1 cursor-pointer group px-1 py-0.5 rounded hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors",
-        currentRate && currentRate > 0 ? "text-purple-600 dark:text-purple-400" : "text-muted-foreground"
+        "flex items-center gap-1 cursor-pointer group px-1 py-0.5 rounded hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors min-h-[28px]",
+        currentRate && currentRate > 0 ? "text-purple-600 dark:text-purple-400 font-semibold" : "text-muted-foreground"
       )}
       onClick={() => setIsEditing(true)}
-      title="Click to edit AI Rate"
+      title={currentRate && currentRate > 0 ? "Click to edit AI Rate" : "Click to add AI Rate or use 'Suggest Rates' button"}
     >
       <span className="text-sm font-medium">
-        {currentRate && currentRate > 0 ? currentRate.toLocaleString() : '-'}
+        {currentRate && currentRate > 0 ? currentRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
       </span>
       <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
     </div>
