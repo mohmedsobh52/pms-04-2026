@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2 } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,6 +93,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
     importTemplates,
     setMultipleAISuggestedRates,
     applyAIRatesToCalculatedPrice,
+    lastSavedAt,
+    itemCosts,
   } = useDynamicCostCalculator();
 
   // Handle AI rates from MarketRateSuggestions - stores in aiSuggestedRate field
@@ -102,6 +104,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
 
   // Apply AI rates directly to calculatedUnitPrice
   const handleApplyAIRatesToCalcPrice = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
+    console.log('handleApplyAIRatesToCalcPrice called with rates:', rates);
     applyAIRatesToCalculatedPrice(rates);
     toast({
       title: isArabic ? "تم تطبيق أسعار AI" : "AI Rates Applied to Calc. Price",
@@ -777,23 +780,33 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
       </div>
       
       <div className="border-b border-border">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex gap-2">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
-                  activeTab === tab.id
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted"
-                )}
-              >
-                {tab.icon}
-                {tab.label}
-              </button>
-            ))}
+        <div className="flex items-center justify-between p-4 flex-wrap gap-2">
+          <div className="flex items-center gap-4">
+            <div className="flex gap-2">
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                    activeTab === tab.id
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {tab.icon}
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            {/* Last Saved Indicator */}
+            {lastSavedAt && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded">
+                <Clock className="w-3 h-3" />
+                <span>{isArabic ? 'آخر حفظ:' : 'Auto-saved:'}</span>
+                <span className="font-medium">{lastSavedAt.toLocaleTimeString()}</span>
+              </div>
+            )}
           </div>
           <div className="flex gap-2 flex-wrap">
             <PDFCustomization companyInfo={companyInfo} onSave={setCompanyInfo} />

@@ -55,10 +55,25 @@ const defaultCostInputs: CostInputs = {
 };
 
 const TEMPLATES_STORAGE_KEY = 'boq_cost_templates';
+const ITEM_COSTS_STORAGE_KEY = 'boq_item_costs';
 
 export function useDynamicCostCalculator() {
-  // Initialize all state with stable initial values
-  const [itemCosts, setItemCosts] = useState<Record<string, ItemCostData>>(() => ({}));
+  // Initialize all state with stable initial values - load from localStorage
+  const [itemCosts, setItemCosts] = useState<Record<string, ItemCostData>>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem(ITEM_COSTS_STORAGE_KEY);
+        if (stored) {
+          console.log('Loaded itemCosts from localStorage');
+          return JSON.parse(stored) as Record<string, ItemCostData>;
+        }
+      }
+    } catch (e) {
+      console.error('Error loading itemCosts from localStorage:', e);
+    }
+    return {};
+  });
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [savedTemplate, setSavedTemplate] = useState<CostTemplate | null>(() => null);
   const [savedTemplates, setSavedTemplates] = useState<CostTemplate[]>(() => {
     // Load templates from localStorage synchronously in initializer
@@ -90,6 +105,19 @@ export function useDynamicCostCalculator() {
       console.error('Error saving templates to localStorage:', e);
     }
   }, []);
+
+  // Auto-save itemCosts to localStorage whenever they change
+  useEffect(() => {
+    if (Object.keys(itemCosts).length > 0) {
+      try {
+        localStorage.setItem(ITEM_COSTS_STORAGE_KEY, JSON.stringify(itemCosts));
+        setLastSavedAt(new Date());
+        console.log('Auto-saved itemCosts to localStorage:', itemCosts);
+      } catch (e) {
+        console.error('Error saving itemCosts to localStorage:', e);
+      }
+    }
+  }, [itemCosts]);
 
   const calculateItemCosts = useCallback((inputs: CostInputs): CalculatedCosts => {
     // Total Labor = General Labor + Equipment Operator
@@ -181,6 +209,7 @@ export function useDynamicCostCalculator() {
 
   // Apply AI suggested rate as the calculated unit price (by setting materials to that value)
   const applyAIRatesToCalculatedPrice = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
+    console.log('applyAIRatesToCalculatedPrice called with:', rates);
     setItemCosts(prev => {
       const newCosts = { ...prev };
       rates.forEach(({ itemId, rate }) => {
@@ -205,6 +234,7 @@ export function useDynamicCostCalculator() {
           subcontractor: 0,
         };
       });
+      console.log('Updated itemCosts:', newCosts);
       return newCosts;
     });
   }, []);
@@ -490,6 +520,8 @@ export function useDynamicCostCalculator() {
     // Import/Export
     exportTemplates,
     importTemplates,
+    // Auto-save
+    lastSavedAt,
   };
 }
 
