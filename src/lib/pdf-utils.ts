@@ -93,22 +93,30 @@ export async function extractTextFromPDF(
   options?: {
     useOCR?: boolean;
     onOCRProgress?: (current: number, total: number) => void;
+    onProgress?: (current: number, total: number) => void;
   }
 ): Promise<string> {
   try {
     console.log("Starting PDF extraction for:", file.name);
+    console.log("File size:", (file.size / 1024 / 1024).toFixed(2), "MB");
     
     const arrayBuffer = await file.arrayBuffer();
     
     // Use PDF.js to properly parse the PDF
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    console.log(`PDF loaded: ${pdf.numPages} pages`);
+    const totalPages = pdf.numPages;
+    console.log(`PDF loaded: ${totalPages} pages`);
     
     let fullText = "";
+    let successfulPages = 0;
+    let failedPages = 0;
     
     // Extract text from ALL pages - no limits
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
       try {
+        // Report progress
+        options?.onProgress?.(pageNum, totalPages);
+        
         const page = await pdf.getPage(pageNum);
         const textContent = await page.getTextContent();
         
@@ -130,16 +138,22 @@ export async function extractTextFromPDF(
           }
         }
         
-        fullText += pageText + "\n\n";
+        if (pageText.trim().length > 0) {
+          fullText += `--- Page ${pageNum} ---\n${pageText}\n\n`;
+          successfulPages++;
+        }
         
-        // Log progress every 5 pages
-        if (pageNum % 5 === 0 || pageNum === pdf.numPages) {
-          console.log(`Extracted page ${pageNum}/${pdf.numPages}`);
+        // Log progress every 5 pages or for small documents every page
+        if (pageNum % 5 === 0 || pageNum === totalPages || totalPages <= 10) {
+          console.log(`Extracted page ${pageNum}/${totalPages} (${pageText.length} chars)`);
         }
       } catch (pageError) {
         console.warn(`Error extracting page ${pageNum}:`, pageError);
+        failedPages++;
       }
     }
+    
+    console.log(`Extraction complete: ${successfulPages} successful, ${failedPages} failed out of ${totalPages} pages`);
     
     // Clean up the extracted text while preserving important formatting
     let extractedText = fullText
