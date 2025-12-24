@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { TrendingUp, TrendingDown, Minus, Sparkles, MapPin, Loader2, Check, AlertTriangle, CheckCheck, BarChart3 } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Sparkles, MapPin, Loader2, Check, AlertTriangle, CheckCheck, BarChart3, Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -289,8 +289,8 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates }: Ma
 
           {/* Results summary */}
           {suggestions.length > 0 && (
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-4">
+            <div className="flex items-center justify-between text-sm flex-wrap gap-2">
+              <div className="flex items-center gap-4 flex-wrap">
                 <span className="text-muted-foreground">
                   {suggestions.length} items analyzed
                 </span>
@@ -306,16 +306,39 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates }: Ma
                   </Badge>
                 )}
               </div>
-              {onApplyRate && appliedItems.size < suggestions.length && (
-                <Button 
-                  size="sm" 
-                  onClick={handleApplyAll}
-                  className="gap-2"
-                >
-                  <CheckCheck className="w-4 h-4" />
-                  Apply All Suggested Rates
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                {onApplyAIRates && suggestions.length > 0 && (
+                  <Button 
+                    size="sm" 
+                    variant="secondary"
+                    onClick={() => {
+                      const rates = suggestions.map(s => ({
+                        itemId: s.item_number,
+                        rate: s.suggested_avg,
+                      }));
+                      onApplyAIRates(rates);
+                      toast({
+                        title: "تم تطبيق الأسعار",
+                        description: `تم تحديث ${rates.length} بند بمتوسط أسعار السوق`,
+                      });
+                    }}
+                    className="gap-2"
+                  >
+                    <Calculator className="w-4 h-4" />
+                    Apply Avg to Calc. Price
+                  </Button>
+                )}
+                {onApplyRate && appliedItems.size < suggestions.length && (
+                  <Button 
+                    size="sm" 
+                    onClick={handleApplyAll}
+                    className="gap-2"
+                  >
+                    <CheckCheck className="w-4 h-4" />
+                    Apply All Suggested Rates
+                  </Button>
+                )}
+              </div>
             </div>
           )}
 

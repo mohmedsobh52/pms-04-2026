@@ -80,21 +80,39 @@ export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsP
     exportCostData,
     getItemsWithCosts,
     savedTemplate,
+    savedTemplates,
     saveAsTemplate,
+    applyTemplateToItem,
     applyTemplateToMultipleItems,
+    deleteTemplate,
+    exportTemplates,
+    importTemplates,
+    setMultipleAISuggestedRates,
   } = useDynamicCostCalculator();
 
+  // Handle AI rates from MarketRateSuggestions
+  const handleApplyAIRates = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
+    setMultipleAISuggestedRates(rates);
+  }, [setMultipleAISuggestedRates]);
+
   // Template handlers
-  const handleSaveAsTemplate = useCallback((costs: CostInputs) => {
-    saveAsTemplate(costs, "القالب المحفوظ");
+  const handleSaveAsTemplate = useCallback((costs: CostInputs, name: string) => {
+    saveAsTemplate(costs, name);
   }, [saveAsTemplate]);
 
-  const handleApplyTemplate = useCallback((): CostInputs | null => {
-    if (savedTemplate) {
-      return { ...savedTemplate.costs };
+  const handleApplyTemplate = useCallback((templateId?: string): CostInputs | null => {
+    const template = templateId 
+      ? savedTemplates.find(t => t.id === templateId)
+      : savedTemplate;
+    if (template) {
+      return { ...template.costs };
     }
     return null;
-  }, [savedTemplate]);
+  }, [savedTemplate, savedTemplates]);
+
+  const handleDeleteTemplate = useCallback((templateId: string): boolean => {
+    return deleteTemplate(templateId);
+  }, [deleteTemplate]);
 
   // Get available items for copying costs
   const availableItemsForCopy = useMemo(() => {
@@ -741,7 +759,21 @@ export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsP
           </div>
           <div className="flex gap-2 flex-wrap">
             <PDFCustomization companyInfo={companyInfo} onSave={setCompanyInfo} />
-            <MarketRateSuggestions items={data.items || []} onApplyRate={onApplyRate} />
+            <MarketRateSuggestions 
+              items={data.items || []} 
+              onApplyRate={onApplyRate} 
+              onApplyAIRates={handleApplyAIRates}
+            />
+            <BulkApplyCostsDialog
+              items={data.items || []}
+              savedTemplate={savedTemplate}
+              savedTemplates={savedTemplates}
+              onApplyToItems={applyTemplateToMultipleItems}
+              onDeleteTemplate={handleDeleteTemplate}
+              onExportTemplates={exportTemplates}
+              onImportTemplates={importTemplates}
+              currency={data.summary?.currency || "SAR"}
+            />
             <Button variant="default" size="sm" onClick={exportToPDF} className="gap-2 bg-gradient-to-r from-primary to-accent">
               <FileDown className="w-4 h-4" />
               PDF
@@ -996,6 +1028,9 @@ export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsP
                     <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
                       Profit %
                     </th>
+                    <th className="px-3 py-3 text-right font-bold text-sm text-purple-700 dark:text-purple-300 whitespace-nowrap bg-purple-500/10">
+                      AI Rate
+                    </th>
                     <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap bg-primary/10">
                       Calc. Unit Price
                     </th>
@@ -1068,6 +1103,18 @@ export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsP
                             {costData.profitMargin > 0 ? `${costData.profitMargin}%` : '-'}
                           </span>
                         </td>
+                        <td className="px-3 py-3 text-right bg-purple-500/5">
+                          <span className={cn(
+                            "text-sm font-medium",
+                            calcCosts.aiSuggestedRate && calcCosts.aiSuggestedRate > 0 
+                              ? "text-purple-600 dark:text-purple-400" 
+                              : "text-slate-400"
+                          )}>
+                            {calcCosts.aiSuggestedRate && calcCosts.aiSuggestedRate > 0 
+                              ? calcCosts.aiSuggestedRate.toLocaleString() 
+                              : '-'}
+                          </span>
+                        </td>
                         <td className="px-3 py-3 text-right bg-primary/5">
                           <span className={cn(
                             "text-sm font-bold",
@@ -1097,7 +1144,9 @@ export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsP
                             onCopyFrom={handleCopyFromItem}
                             onSaveAsTemplate={handleSaveAsTemplate}
                             onApplyTemplate={handleApplyTemplate}
+                            onDeleteTemplate={handleDeleteTemplate}
                             savedTemplate={savedTemplate}
+                            savedTemplates={savedTemplates}
                             availableItems={availableItemsForCopy}
                             currency={data.summary?.currency || "SAR"}
                           />
@@ -1108,7 +1157,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsP
                 </tbody>
                 <tfoot>
                   <tr className="bg-primary/10 border-t-2 border-primary/30">
-                    <td colSpan={8} className="px-4 py-4 text-right font-bold text-slate-800 dark:text-slate-100">
+                    <td colSpan={9} className="px-4 py-4 text-right font-bold text-slate-800 dark:text-slate-100">
                       Grand Total
                     </td>
                     <td colSpan={2} className="px-4 py-4 text-right bg-primary/20">

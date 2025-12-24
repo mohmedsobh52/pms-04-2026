@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Layers, Check, CheckSquare, Square, Calculator } from "lucide-react";
+import { useState, useMemo, useRef } from "react";
+import { Layers, Check, CheckSquare, Square, Calculator, FileDown, FileUp, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,6 +9,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -29,18 +36,35 @@ interface BOQItem {
 interface BulkApplyCostsDialogProps {
   items: BOQItem[];
   savedTemplate: CostTemplate | null;
-  onApplyToItems: (items: Array<{ itemId: string; quantity: number }>) => number;
+  savedTemplates?: CostTemplate[];
+  onApplyToItems: (items: Array<{ itemId: string; quantity: number }>, templateId?: string) => number;
+  onDeleteTemplate?: (templateId: string) => boolean;
+  onExportTemplates?: () => string;
+  onImportTemplates?: (jsonString: string) => { success: boolean; count: number; error?: string };
   currency?: string;
 }
 
 export function BulkApplyCostsDialog({
   items,
   savedTemplate,
+  savedTemplates = [],
   onApplyToItems,
+  onDeleteTemplate,
+  onExportTemplates,
+  onImportTemplates,
   currency = "SAR",
 }: BulkApplyCostsDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const importInputRef = useRef<HTMLInputElement>(null);
+
+  const activeTemplate = useMemo(() => {
+    if (selectedTemplateId) {
+      return savedTemplates.find(t => t.id === selectedTemplateId) || null;
+    }
+    return savedTemplate;
+  }, [selectedTemplateId, savedTemplates, savedTemplate]);
 
   const handleToggleItem = (itemNumber: string) => {
     setSelectedItems(prev => {
@@ -68,14 +92,19 @@ export function BulkApplyCostsDialog({
       return;
     }
 
+    if (!activeTemplate) {
+      toast.error("يرجى اختيار قالب أولاً");
+      return;
+    }
+
     const itemsToApply = items
       .filter(item => selectedItems.has(item.item_number))
       .map(item => ({ itemId: item.item_number, quantity: item.quantity }));
 
-    const appliedCount = onApplyToItems(itemsToApply);
+    const appliedCount = onApplyToItems(itemsToApply, activeTemplate.id);
     
     if (appliedCount > 0) {
-      toast.success(`تم تطبيق القالب على ${appliedCount} بند بنجاح`);
+      toast.success(`تم تطبيق القالب "${activeTemplate.name}" على ${appliedCount} بند بنجاح`);
       setIsOpen(false);
       setSelectedItems(new Set());
     } else {
@@ -83,12 +112,62 @@ export function BulkApplyCostsDialog({
     }
   };
 
+  const handleExport = () => {
+    if (onExportTemplates) {
+      const jsonContent = onExportTemplates();
+      const blob = new Blob([jsonContent], { type: "application/json;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `cost_templates_${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success(`تم تصدير ${savedTemplates.length} قالب بنجاح`);
+    }
+  };
+
+  const handleImportClick = () => {
+    importInputRef.current?.click();
+  };
+
+  const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !onImportTemplates) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      const result = onImportTemplates(content);
+      if (result.success) {
+        toast.success(`تم استيراد ${result.count} قالب جديد بنجاح`);
+      } else {
+        toast.error(result.error || "فشل في استيراد القوالب");
+      }
+    };
+    reader.readAsText(file);
+    
+    // Reset file input
+    if (importInputRef.current) {
+      importInputRef.current.value = "";
+    }
+  };
+
+  const handleDeleteTemplate = (templateId: string) => {
+    if (onDeleteTemplate) {
+      onDeleteTemplate(templateId);
+      if (selectedTemplateId === templateId) {
+        setSelectedTemplateId("");
+      }
+      toast.success("تم حذف القالب بنجاح");
+    }
+  };
+
   const formatNumber = (num: number) => num.toLocaleString('ar-SA', { maximumFractionDigits: 2 });
 
   const templateSummary = useMemo(() => {
-    if (!savedTemplate) return null;
+    if (!activeTemplate) return null;
     
-    const { costs } = savedTemplate;
+    const { costs } = activeTemplate;
     const totalLabor = costs.generalLabor + costs.equipmentOperator;
     const totalIndirect = costs.overhead + costs.admin + costs.insurance + costs.contingency;
     const totalDirect = costs.materials + costs.equipment + totalLabor + costs.subcontractor;
@@ -104,7 +183,7 @@ export function BulkApplyCostsDialog({
       unitPrice,
       profitMargin: costs.profitMargin,
     };
-  }, [savedTemplate]);
+  }, [activeTemplate]);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -113,7 +192,7 @@ export function BulkApplyCostsDialog({
           variant="outline" 
           size="sm" 
           className="gap-2"
-          disabled={!savedTemplate}
+          disabled={savedTemplates.length === 0 && !savedTemplate}
         >
           <Layers className="w-4 h-4" />
           تطبيق على عدة بنود
@@ -126,17 +205,93 @@ export function BulkApplyCostsDialog({
             تطبيق القالب على عدة بنود
           </DialogTitle>
           <DialogDescription>
-            اختر البنود التي تريد تطبيق قالب التكاليف عليها
+            اختر القالب والبنود التي تريد تطبيق التكاليف عليها
           </DialogDescription>
         </DialogHeader>
 
+        {/* Template Selection & Export/Import */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Select 
+              value={selectedTemplateId || (savedTemplate?.id || "")} 
+              onValueChange={setSelectedTemplateId}
+            >
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="اختر قالب التكاليف..." />
+              </SelectTrigger>
+              <SelectContent>
+                {savedTemplates.map((template) => (
+                  <SelectItem key={template.id} value={template.id}>
+                    <div className="flex items-center justify-between gap-2 w-full">
+                      <span>{template.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            {/* Export/Import Buttons */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleExport}
+              disabled={savedTemplates.length === 0}
+              title="تصدير القوالب"
+            >
+              <FileDown className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleImportClick}
+              title="استيراد القوالب"
+            >
+              <FileUp className="w-4 h-4" />
+            </Button>
+            <input
+              type="file"
+              ref={importInputRef}
+              onChange={handleImportFile}
+              accept=".json"
+              className="hidden"
+            />
+          </div>
+
+          {/* Templates List with Delete */}
+          {savedTemplates.length > 0 && (
+            <ScrollArea className="h-20 border rounded p-2">
+              <div className="flex flex-wrap gap-1">
+                {savedTemplates.map((template) => (
+                  <Badge 
+                    key={template.id} 
+                    variant={activeTemplate?.id === template.id ? "default" : "secondary"}
+                    className="cursor-pointer gap-1 pr-1"
+                    onClick={() => setSelectedTemplateId(template.id)}
+                  >
+                    {template.name}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteTemplate(template.id);
+                      }}
+                      className="ml-1 hover:bg-destructive/20 rounded p-0.5"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </div>
+
         {/* Template Summary */}
-        {savedTemplate && templateSummary && (
+        {activeTemplate && templateSummary && (
           <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
             <CardContent className="pt-4">
               <div className="flex items-center gap-2 mb-3">
                 <Calculator className="w-4 h-4 text-primary" />
-                <h4 className="font-semibold text-sm">القالب المحفوظ: {savedTemplate.name}</h4>
+                <h4 className="font-semibold text-sm">القالب: {activeTemplate.name}</h4>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 <div className="bg-background/50 rounded-lg p-2 text-center">
@@ -160,7 +315,7 @@ export function BulkApplyCostsDialog({
           </Card>
         )}
 
-        {!savedTemplate && (
+        {!activeTemplate && savedTemplates.length === 0 && (
           <Card className="border-dashed border-destructive/30 bg-destructive/5">
             <CardContent className="pt-4 text-center">
               <p className="text-sm text-muted-foreground">
@@ -189,7 +344,7 @@ export function BulkApplyCostsDialog({
             </Button>
           </div>
 
-          <ScrollArea className="h-[300px] border rounded-lg">
+          <ScrollArea className="h-[250px] border rounded-lg">
             <div className="p-2 space-y-1">
               {items.map((item) => (
                 <div
@@ -231,7 +386,7 @@ export function BulkApplyCostsDialog({
         {/* Actions */}
         <div className="flex items-center justify-between pt-4 border-t">
           <div className="text-sm text-muted-foreground">
-            {selectedItems.size > 0 && savedTemplate && templateSummary && (
+            {selectedItems.size > 0 && activeTemplate && templateSummary && (
               <span>
                 الإجمالي المتوقع: {formatNumber(templateSummary.unitPrice * selectedItems.size)} {currency}
               </span>
@@ -243,7 +398,7 @@ export function BulkApplyCostsDialog({
             </Button>
             <Button 
               onClick={handleApply} 
-              disabled={selectedItems.size === 0 || !savedTemplate}
+              disabled={selectedItems.size === 0 || !activeTemplate}
               className="gap-1"
             >
               <Check className="w-4 h-4" />
