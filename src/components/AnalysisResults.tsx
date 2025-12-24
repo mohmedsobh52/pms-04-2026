@@ -25,6 +25,7 @@ import { useDynamicCostCalculator, CostInputs, defaultCostInputs } from "@/hooks
 import { useItemCodes } from "@/hooks/useItemCodes";
 import { EditableItemCode } from "./EditableItemCode";
 import { EditableAIRate } from "./EditableAIRate";
+import { ItemCodeSettings } from "./ItemCodeSettings";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -106,17 +107,30 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
     clearAllCosts,
   } = useDynamicCostCalculator();
   
-  // Item codes hook
-  const { getItemCode, setItemCode } = useItemCodes();
+  // Item codes hook with format options
+  const { 
+    getItemCode, 
+    setItemCode, 
+    codeFormat, 
+    customConfig, 
+    updateCodeFormat, 
+    updateCustomConfig, 
+    getAvailableFormats,
+    exportItemCodesToExcel,
+  } = useItemCodes();
   
   // State for clear confirmation dialog
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
+  
+  // State for tracking recently applied AI rates (for visual confirmation)
+  const [recentlyAppliedItems, setRecentlyAppliedItems] = useState<Set<string>>(new Set());
 
   // Revert to original prices handler
   const handleRevertToOriginal = useCallback(() => {
     clearAllCosts();
     setShowRevertConfirm(false);
+    setRecentlyAppliedItems(new Set());
     toast({
       title: isArabic ? "تم الاسترجاع" : "Reverted to Original",
       description: isArabic ? "تم استعادة الأسعار الأصلية ومسح جميع التعديلات" : "Original BOQ prices restored, all AI rates and calculations cleared",
@@ -126,6 +140,15 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
   // Handle AI rates from MarketRateSuggestions - stores in aiSuggestedRate field
   const handleApplyAIRates = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
     setMultipleAISuggestedRates(rates);
+    
+    // Track recently applied items for visual confirmation
+    const appliedItemIds = new Set(rates.map(r => r.itemId));
+    setRecentlyAppliedItems(appliedItemIds);
+    
+    // Clear the visual indicator after 3 seconds
+    setTimeout(() => {
+      setRecentlyAppliedItems(new Set());
+    }, 3000);
     
     toast({
       title: isArabic ? "تم تطبيق الأسعار" : "AI Rates Applied",
@@ -986,6 +1009,15 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
               <Download className="w-4 h-4" />
               CSV
             </Button>
+            <ItemCodeSettings
+              codeFormat={codeFormat}
+              customConfig={customConfig}
+              onUpdateFormat={updateCodeFormat}
+              onUpdateCustomConfig={updateCustomConfig}
+              availableFormats={getAvailableFormats()}
+              onExportToExcel={() => exportItemCodesToExcel(data.items || [])}
+              itemCount={data.items?.length || 0}
+            />
           </div>
         </div>
       </div>
@@ -1293,6 +1325,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                             itemNumber={item.item_number}
                             currentRate={calcCosts.aiSuggestedRate}
                             onSave={(itemNum, rate) => updateAIRate(itemNum, rate)}
+                            isApplied={recentlyAppliedItems.has(item.item_number)}
                           />
                         </td>
                         <td className="px-3 py-3 text-right bg-primary/5">
