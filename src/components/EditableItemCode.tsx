@@ -83,16 +83,20 @@ export function EditableItemCode({ itemNumber, code, onSave }: EditableItemCodeP
         !code && "text-muted-foreground"
       )}
       onClick={() => setIsEditing(true)}
+      title={code ? `كود البند: ${code}` : "انقر لإضافة كود البند"}
     >
       <span className={cn(
         "text-xs font-mono px-2 py-1 rounded transition-colors",
         code 
-          ? "bg-accent/20 text-accent-foreground" 
-          : "bg-muted/50 text-muted-foreground hover:bg-muted"
+          ? "bg-primary/20 text-primary font-semibold border border-primary/30" 
+          : "bg-muted/50 text-muted-foreground hover:bg-muted border border-dashed border-muted-foreground/30"
       )}>
         {code || "—"}
       </span>
-      <Edit2 className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+      <Edit2 className={cn(
+        "w-3 h-3 transition-opacity",
+        code ? "opacity-0 group-hover:opacity-70" : "opacity-30 group-hover:opacity-70"
+      )} />
     </div>
   );
 }

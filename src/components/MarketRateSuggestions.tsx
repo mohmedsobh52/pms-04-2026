@@ -428,6 +428,26 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates, onAp
             </div>
           )}
 
+          {/* Save and Close Button */}
+          {suggestions.length > 0 && !isLoading && (
+            <div className="flex justify-end pt-4 border-t">
+              <Button
+                onClick={() => {
+                  toast({
+                    title: "تم الحفظ",
+                    description: `تم تطبيق ${suggestions.length} سعر بنجاح`,
+                  });
+                  setIsOpen(false);
+                }}
+                className="gap-2"
+                size="lg"
+              >
+                <Check className="w-4 h-4" />
+                حفظ وإغلاق
+              </Button>
+            </div>
+          )}
+
           {/* Suggestions table */}
           {suggestions.length > 0 ? (
             <ScrollArea className="h-[400px] border rounded-lg">
