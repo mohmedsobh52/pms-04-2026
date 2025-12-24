@@ -930,6 +930,12 @@ export function ComprehensiveReport({
     }
   };
 
+  const hasData = analysisData?.items && analysisData.items.length > 0;
+
+  const noDataMessage = isArabic 
+    ? "لا توجد بيانات متاحة. يرجى تحميل ملف BOQ أولاً لإنشاء التقرير."
+    : "No data available. Please upload a BOQ file first to generate the report.";
+
   return (
     <Card>
       <CardHeader>
@@ -939,9 +945,16 @@ export function ComprehensiveReport({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          {t.cardDescription}
-        </p>
+        {!hasData ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p className="text-sm">{noDataMessage}</p>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">
+              {t.cardDescription}
+            </p>
         
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
           <Button
@@ -1023,6 +1036,8 @@ export function ComprehensiveReport({
             </>
           )}
         </Button>
+          </>
+        )}
       </CardContent>
     </Card>
   );
