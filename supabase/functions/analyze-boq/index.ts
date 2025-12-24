@@ -598,7 +598,24 @@ Use the submit_boq_analysis function to return your structured analysis.`;
       throw new Error(`AI Gateway error: ${response.status}`);
     }
 
-    const data = await response.json();
+    // Read response text first to handle empty/malformed responses
+    const responseText = await response.text();
+    console.log(`Response text length: ${responseText.length}`);
+    
+    if (!responseText || responseText.trim() === "") {
+      console.error("Empty response from AI Gateway");
+      throw new Error("Empty response from AI. Please try again.");
+    }
+    
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("Failed to parse AI response:", parseError);
+      console.error("Response preview:", responseText.slice(0, 500));
+      throw new Error("Invalid response from AI. Please try again.");
+    }
+    
     console.log("AI response received successfully");
     console.log("Response structure:", JSON.stringify({
       hasChoices: !!data.choices,
