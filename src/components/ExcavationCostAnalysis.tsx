@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { Calculator, Save, Plus, Trash2, X, Download, FileSpreadsheet, FileText, Copy, Upload, PieChart as PieChartIcon, Sparkles, Loader2 } from "lucide-react";
+import { Calculator, Save, Plus, Trash2, X, Download, FileSpreadsheet, FileText, Copy, Upload, PieChart as PieChartIcon, Sparkles, Loader2, TrendingUp, TrendingDown, Minus, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,6 +96,7 @@ export function ExcavationCostAnalysis({
   const [newItemName, setNewItemName] = useState("");
   const [newTemplateName, setNewTemplateName] = useState("");
   const [showTemplateInput, setShowTemplateInput] = useState(false);
+  const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
   const [savedTemplates, setSavedTemplates] = useState<CostTemplate[]>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -104,6 +105,15 @@ export function ExcavationCostAnalysis({
       return [];
     }
   });
+
+  // Calculate difference percentage between manual and AI values
+  const calculateDifference = useCallback((manual: number, ai: number | undefined): { value: number; type: 'up' | 'down' | 'same' } | null => {
+    if (!ai || ai === 0) return null;
+    if (manual === 0) return { value: 100, type: 'up' };
+    const diff = ((ai - manual) / manual) * 100;
+    if (Math.abs(diff) < 0.1) return { value: 0, type: 'same' };
+    return { value: Math.abs(diff), type: diff > 0 ? 'up' : 'down' };
+  }, []);
 
   // AI Analysis for productivity and rent
   const analyzeWithAI = useCallback(async (itemId: string, itemName: string) => {
@@ -141,6 +151,64 @@ export function ExcavationCostAnalysis({
     }
   }, []);
 
+  // Analyze all items with AI at once
+  const analyzeAllWithAI = useCallback(async () => {
+    setIsAnalyzingAll(true);
+    const itemsToAnalyze = items.filter(item => !item.aiSuggestedProductivity && !item.aiSuggestedRent && item.name.trim());
+    
+    if (itemsToAnalyze.length === 0) {
+      toast.info("جميع البنود تم تحليلها بالفعل");
+      setIsAnalyzingAll(false);
+      return;
+    }
+
+    // Set all items to loading
+    setItems(prev => prev.map(item => 
+      itemsToAnalyze.some(i => i.id === item.id) ? { ...item, isLoadingAI: true } : item
+    ));
+
+    let successCount = 0;
+    let failCount = 0;
+
+    // Process items sequentially to avoid rate limiting
+    for (const item of itemsToAnalyze) {
+      try {
+        const { data, error } = await supabase.functions.invoke('analyze-costs', {
+          body: {
+            itemName: item.name,
+            type: 'excavation_productivity'
+          }
+        });
+
+        if (error) throw error;
+
+        setItems(prev => prev.map(i => {
+          if (i.id !== item.id) return i;
+          return {
+            ...i,
+            aiSuggestedProductivity: data?.suggestedProductivity || 0,
+            aiSuggestedRent: data?.suggestedRent || 0,
+            isLoadingAI: false
+          };
+        }));
+        successCount++;
+      } catch (error) {
+        console.error(`AI analysis error for ${item.name}:`, error);
+        setItems(prev => prev.map(i => 
+          i.id === item.id ? { ...i, isLoadingAI: false } : i
+        ));
+        failCount++;
+      }
+    }
+
+    setIsAnalyzingAll(false);
+    if (successCount > 0) {
+      toast.success(`تم تحليل ${successCount} بند بنجاح${failCount > 0 ? ` (فشل ${failCount})` : ''}`);
+    } else {
+      toast.error("فشل تحليل جميع البنود");
+    }
+  }, [items]);
+
   const applyAISuggestion = useCallback((itemId: string, field: 'productivity' | 'rent') => {
     setItems(prev => prev.map(item => {
       if (item.id !== itemId) return item;
@@ -160,6 +228,24 @@ export function ExcavationCostAnalysis({
       };
     }));
     toast.success("تم تطبيق اقتراح AI");
+  }, []);
+
+  // Apply all AI suggestions at once
+  const applyAllAISuggestions = useCallback(() => {
+    setItems(prev => prev.map(item => {
+      if (!item.aiSuggestedProductivity && !item.aiSuggestedRent) return item;
+      
+      const newProductivity = item.aiSuggestedProductivity || item.dailyProductivity;
+      const newRent = item.aiSuggestedRent || item.dailyRent;
+      
+      return {
+        ...item,
+        dailyProductivity: newProductivity,
+        dailyRent: newRent,
+        costPerCubicMeter: newRent > 0 && newProductivity > 0 ? newRent / newProductivity : 0
+      };
+    }));
+    toast.success("تم تطبيق جميع اقتراحات AI");
   }, []);
 
   // Calculate cost per cubic meter based on productivity and rent
@@ -257,7 +343,7 @@ export function ExcavationCostAnalysis({
     toast.success("تم حذف البند");
   }, []);
 
-  // Template management
+  // Template management - now saves AI results too
   const saveTemplate = useCallback(() => {
     if (!newTemplateName.trim()) {
       toast.error("يرجى إدخال اسم القالب");
@@ -267,7 +353,7 @@ export function ExcavationCostAnalysis({
     const template: CostTemplate = {
       id: `template-${Date.now()}`,
       name: newTemplateName.trim(),
-      items: items.map(({ id, ...rest }) => rest),
+      items: items.map(({ id, ...rest }) => rest), // This now includes aiSuggestedProductivity and aiSuggestedRent
       wastePercentage,
       adminPercentage,
       createdAt: new Date().toISOString(),
@@ -278,7 +364,7 @@ export function ExcavationCostAnalysis({
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTemplates));
     setNewTemplateName("");
     setShowTemplateInput(false);
-    toast.success("تم حفظ القالب بنجاح");
+    toast.success("تم حفظ القالب مع نتائج AI بنجاح");
   }, [newTemplateName, items, wastePercentage, adminPercentage, savedTemplates]);
 
   const loadTemplate = useCallback((templateId: string) => {
@@ -503,6 +589,50 @@ export function ExcavationCostAnalysis({
                 </CardContent>
               </Card>
 
+              {/* AI Bulk Actions */}
+              <Card className="border-amber-500/30 bg-amber-500/5">
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-amber-500" />
+                      <h4 className="font-semibold text-sm">تحليل AI السريع</h4>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={analyzeAllWithAI}
+                        disabled={isAnalyzingAll}
+                        className="gap-1 h-8 text-xs bg-amber-50 hover:bg-amber-100 border-amber-300"
+                      >
+                        {isAnalyzingAll ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            جاري التحليل...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-3 h-3 text-amber-600" />
+                            تحليل جميع البنود
+                          </>
+                        )}
+                      </Button>
+                      {items.some(i => i.aiSuggestedProductivity || i.aiSuggestedRent) && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={applyAllAISuggestions}
+                          className="gap-1 h-8 text-xs"
+                        >
+                          <TrendingUp className="w-3 h-3" />
+                          تطبيق جميع الاقتراحات
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Main Table */}
               <Card className="border-primary/20">
                 <CardContent className="p-0">
@@ -510,23 +640,23 @@ export function ExcavationCostAnalysis({
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-primary/10">
-                          <TableHead className="text-right font-bold text-primary w-[180px]">اعمال الحفر</TableHead>
-                          <TableHead className="text-center font-bold text-primary w-[100px]">الانتاجية اليومية (م3)</TableHead>
-                          <TableHead className="text-center font-bold text-primary w-[80px]">
+                          <TableHead className="text-right font-bold text-primary w-[160px]">اعمال الحفر</TableHead>
+                          <TableHead className="text-center font-bold text-primary w-[80px]">الانتاجية (م3)</TableHead>
+                          <TableHead className="text-center font-bold text-primary w-[100px]">
                             <div className="flex items-center justify-center gap-1">
                               <Sparkles className="w-3 h-3 text-amber-500" />
                               AI إنتاجية
                             </div>
                           </TableHead>
-                          <TableHead className="text-center font-bold text-primary w-[80px]">ايجار/يوم</TableHead>
-                          <TableHead className="text-center font-bold text-primary w-[80px]">
+                          <TableHead className="text-center font-bold text-primary w-[60px]">ايجار/يوم</TableHead>
+                          <TableHead className="text-center font-bold text-primary w-[100px]">
                             <div className="flex items-center justify-center gap-1">
                               <Sparkles className="w-3 h-3 text-amber-500" />
                               AI إيجار
                             </div>
                           </TableHead>
-                          <TableHead className="text-center font-bold text-primary w-[100px]">تكلفة المتر المكعب ({currency})</TableHead>
-                          <TableHead className="w-[80px]"></TableHead>
+                          <TableHead className="text-center font-bold text-primary w-[80px]">تكلفة/م3</TableHead>
+                          <TableHead className="w-[60px]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -552,14 +682,35 @@ export function ExcavationCostAnalysis({
                               {item.isLoadingAI ? (
                                 <Loader2 className="w-4 h-4 animate-spin mx-auto text-primary" />
                               ) : item.aiSuggestedProductivity ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => applyAISuggestion(item.id, 'productivity')}
-                                  className="h-6 px-2 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700"
-                                >
-                                  {item.aiSuggestedProductivity}
-                                </Button>
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => applyAISuggestion(item.id, 'productivity')}
+                                    className="h-5 px-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700"
+                                  >
+                                    {item.aiSuggestedProductivity}
+                                  </Button>
+                                  {(() => {
+                                    const diff = calculateDifference(item.dailyProductivity, item.aiSuggestedProductivity);
+                                    if (!diff) return null;
+                                    return (
+                                      <Badge 
+                                        variant="outline" 
+                                        className={`text-[9px] px-1 py-0 h-4 ${
+                                          diff.type === 'up' ? 'text-green-600 border-green-300 bg-green-50' : 
+                                          diff.type === 'down' ? 'text-red-600 border-red-300 bg-red-50' : 
+                                          'text-muted-foreground'
+                                        }`}
+                                      >
+                                        {diff.type === 'up' && <TrendingUp className="w-2 h-2 mr-0.5" />}
+                                        {diff.type === 'down' && <TrendingDown className="w-2 h-2 mr-0.5" />}
+                                        {diff.type === 'same' && <Minus className="w-2 h-2 mr-0.5" />}
+                                        {diff.value.toFixed(0)}%
+                                      </Badge>
+                                    );
+                                  })()}
+                                </div>
                               ) : (
                                 <Button
                                   variant="ghost"
@@ -576,7 +727,7 @@ export function ExcavationCostAnalysis({
                                 type="number"
                                 value={item.dailyRent || ""}
                                 onChange={(e) => handleItemChange(item.id, 'dailyRent', parseFloat(e.target.value) || 0)}
-                                className="text-center h-7 w-16 mx-auto text-sm"
+                                className="text-center h-7 w-14 mx-auto text-sm"
                                 placeholder="0"
                               />
                             </TableCell>
@@ -584,14 +735,35 @@ export function ExcavationCostAnalysis({
                               {item.isLoadingAI ? (
                                 <Loader2 className="w-4 h-4 animate-spin mx-auto text-primary" />
                               ) : item.aiSuggestedRent ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => applyAISuggestion(item.id, 'rent')}
-                                  className="h-6 px-2 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700"
-                                >
-                                  {item.aiSuggestedRent}
-                                </Button>
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => applyAISuggestion(item.id, 'rent')}
+                                    className="h-5 px-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700"
+                                  >
+                                    {item.aiSuggestedRent}
+                                  </Button>
+                                  {(() => {
+                                    const diff = calculateDifference(item.dailyRent, item.aiSuggestedRent);
+                                    if (!diff) return null;
+                                    return (
+                                      <Badge 
+                                        variant="outline" 
+                                        className={`text-[9px] px-1 py-0 h-4 ${
+                                          diff.type === 'up' ? 'text-red-600 border-red-300 bg-red-50' : 
+                                          diff.type === 'down' ? 'text-green-600 border-green-300 bg-green-50' : 
+                                          'text-muted-foreground'
+                                        }`}
+                                      >
+                                        {diff.type === 'up' && <TrendingUp className="w-2 h-2 mr-0.5" />}
+                                        {diff.type === 'down' && <TrendingDown className="w-2 h-2 mr-0.5" />}
+                                        {diff.type === 'same' && <Minus className="w-2 h-2 mr-0.5" />}
+                                        {diff.value.toFixed(0)}%
+                                      </Badge>
+                                    );
+                                  })()}
+                                </div>
                               ) : (
                                 <Button
                                   variant="ghost"
