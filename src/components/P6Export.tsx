@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { addDays, format } from "date-fns";
+import { addDays, format, isWeekend, isSameDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -132,20 +132,77 @@ export function P6Export({ items, currency = "SAR" }: P6ExportProps) {
   const [calendarType, setCalendarType] = useState("6-day");
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [projectDuration, setProjectDuration] = useState("180");
+  const [excludeHolidays, setExcludeHolidays] = useState(true);
+  const [holidays, setHolidays] = useState<string[]>([
+    // Default Saudi holidays (approximate dates - users can modify)
+    "2025-04-01", // Eid Al-Fitr (example)
+    "2025-04-02",
+    "2025-04-03",
+    "2025-06-06", // Eid Al-Adha (example)
+    "2025-06-07",
+    "2025-06-08",
+    "2025-06-09",
+    "2025-09-23", // Saudi National Day
+  ]);
+  const [newHoliday, setNewHoliday] = useState("");
 
-  // Calculate end date automatically
+  // Calculate end date automatically (excluding holidays if enabled)
   const calculatedEndDate = useMemo(() => {
     if (!startDate || !projectDuration) return "";
     try {
       const start = new Date(startDate);
       const durationDays = parseInt(projectDuration) || 0;
       if (durationDays <= 0) return "";
-      const endDate = addDays(start, durationDays);
-      return format(endDate, "yyyy-MM-dd");
+      
+      if (!excludeHolidays) {
+        const endDate = addDays(start, durationDays);
+        return format(endDate, "yyyy-MM-dd");
+      }
+      
+      // Calculate working days excluding holidays
+      const holidayDates = holidays.map(h => new Date(h));
+      let workingDaysCount = 0;
+      let currentDate = new Date(start);
+      
+      while (workingDaysCount < durationDays) {
+        currentDate = addDays(currentDate, 1);
+        const isHoliday = holidayDates.some(h => isSameDay(h, currentDate));
+        
+        // Check calendar type for weekend days
+        let isWeekendDay = false;
+        if (calendarType === "5-day") {
+          // 5-day week: Friday & Saturday are off
+          const day = currentDate.getDay();
+          isWeekendDay = day === 5 || day === 6;
+        } else if (calendarType === "6-day") {
+          // 6-day week: Only Friday is off
+          isWeekendDay = currentDate.getDay() === 5;
+        }
+        // 7-day week: no weekend days
+        
+        if (!isHoliday && !isWeekendDay) {
+          workingDaysCount++;
+        }
+      }
+      
+      return format(currentDate, "yyyy-MM-dd");
     } catch {
       return "";
     }
-  }, [startDate, projectDuration]);
+  }, [startDate, projectDuration, excludeHolidays, holidays, calendarType]);
+
+  const addHoliday = () => {
+    if (newHoliday && !holidays.includes(newHoliday)) {
+      setHolidays([...holidays, newHoliday].sort());
+      setNewHoliday("");
+      toast.success("Holiday added");
+    }
+  };
+
+  const removeHoliday = (holiday: string) => {
+    setHolidays(holidays.filter(h => h !== holiday));
+    toast.success("Holiday removed");
+  };
 
   const toggleRow = (index: number) => {
     const newSet = new Set(expandedRows);
@@ -542,6 +599,66 @@ export function P6Export({ items, currency = "SAR" }: P6ExportProps) {
                 readOnly
                 className="bg-muted cursor-not-allowed"
               />
+            </div>
+          </div>
+
+          {/* Holiday Management Section */}
+          <div className="mt-6 p-4 rounded-lg border border-border bg-card/50">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-orange-500" />
+                <Label className="text-base font-semibold">Official Holidays</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="excludeHolidays" className="text-sm text-muted-foreground">
+                  Exclude holidays from duration
+                </Label>
+                <input
+                  type="checkbox"
+                  id="excludeHolidays"
+                  checked={excludeHolidays}
+                  onChange={(e) => setExcludeHolidays(e.target.checked)}
+                  className="w-4 h-4 rounded border-border"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 mb-4">
+              <Input
+                type="date"
+                value={newHoliday}
+                onChange={(e) => setNewHoliday(e.target.value)}
+                placeholder="Add holiday date"
+                className="flex-1"
+              />
+              <Button 
+                onClick={addHoliday} 
+                variant="outline" 
+                size="sm"
+                disabled={!newHoliday}
+              >
+                Add Holiday
+              </Button>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {holidays.map((holiday) => (
+                <div
+                  key={holiday}
+                  className="flex items-center gap-1 px-2 py-1 rounded-md bg-orange-500/10 border border-orange-500/20 text-sm"
+                >
+                  <span>{format(new Date(holiday), "dd MMM yyyy")}</span>
+                  <button
+                    onClick={() => removeHoliday(holiday)}
+                    className="ml-1 text-orange-600 hover:text-orange-800"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              {holidays.length === 0 && (
+                <span className="text-sm text-muted-foreground">No holidays added</span>
+              )}
             </div>
           </div>
 
