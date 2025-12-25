@@ -1394,25 +1394,34 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
 
             {/* Category Summary */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-              {Object.entries(groupedItems).map(([category, items]) => (
-                <div 
-                  key={category} 
-                  className="p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Package className="w-4 h-4 text-primary" />
+              {Object.entries(groupedItems).map(([category, categoryItems]) => {
+                // Calculate total with calculated prices
+                const categoryTotal = categoryItems.reduce((sum, item) => {
+                  const calcPrice = getItemCalculatedCosts(item.item_number).calculatedUnitPrice;
+                  const effectivePrice = calcPrice > 0 ? calcPrice : (item.unit_price || 0);
+                  return sum + (effectivePrice * item.quantity);
+                }, 0);
+                
+                return (
+                  <div 
+                    key={category} 
+                    className="p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Package className="w-4 h-4 text-primary" />
+                      </div>
+                      <span className="font-medium text-sm">{category}</span>
                     </div>
-                    <span className="font-medium text-sm">{category}</span>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{categoryItems.length} items</span>
+                      <span className="font-semibold text-primary">
+                        {categoryTotal.toLocaleString()} {data.summary?.currency || 'SAR'}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">{items.length} items</span>
-                    <span className="font-semibold text-primary">
-                      {items.reduce((sum, item) => sum + (item.total_price || 0), 0).toLocaleString()} {data.summary?.currency || 'SAR'}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
