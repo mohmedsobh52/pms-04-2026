@@ -18,7 +18,12 @@ import {
   Filter,
   CalendarDays,
   FileSpreadsheet,
-  TrendingUpDown
+  TrendingUpDown,
+  Printer,
+  AlertTriangle,
+  Image as ImageIcon,
+  Upload,
+  X
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,12 +71,32 @@ interface MainDashboardProps {
   onLoadProject?: (analysisData: any, wbsData: any) => void;
 }
 
+// Budget settings interface
+interface BudgetSettings {
+  maxBudget: number;
+  alertThreshold: number; // percentage (e.g., 80 means alert at 80%)
+}
+
 export function MainDashboard({ onLoadProject }: MainDashboardProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  
+  // Budget settings
+  const [budgetSettings, setBudgetSettings] = useState<BudgetSettings>(() => {
+    const saved = localStorage.getItem("dashboard_budget_settings");
+    return saved ? JSON.parse(saved) : { maxBudget: 1000000, alertThreshold: 80 };
+  });
+  const [showBudgetSettings, setShowBudgetSettings] = useState(false);
+  
+  // Image upload
+  const [uploadedImage, setUploadedImage] = useState<string | null>(() => {
+    return localStorage.getItem("dashboard_uploaded_image");
+  });
+  const [isDragOver, setIsDragOver] = useState(false);
+  
   const { user } = useAuth();
   const { isArabic, t } = useLanguage();
 
@@ -216,6 +241,170 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
 
     XLSX.writeFile(wb, "dashboard-report.xlsx");
     toast.success(isArabic ? "تم تصدير التقرير بنجاح" : "Report exported successfully");
+  };
+
+  // Direct print function
+  const printReport = () => {
+    if (!stats) return;
+    
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${isArabic ? "تقرير لوحة التحكم" : "Dashboard Report"}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; direction: ${isArabic ? 'rtl' : 'ltr'}; }
+          h1 { text-align: center; color: #1e40af; }
+          h2 { color: #374151; margin-top: 30px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th, td { border: 1px solid #e5e7eb; padding: 10px; text-align: ${isArabic ? 'right' : 'left'}; }
+          th { background-color: #3b82f6; color: white; }
+          .stat-card { display: inline-block; width: 23%; margin: 1%; padding: 15px; background: #f3f4f6; border-radius: 8px; text-align: center; }
+          .stat-value { font-size: 24px; font-weight: bold; color: #1e40af; }
+          .stat-label { color: #6b7280; font-size: 14px; }
+          .date { text-align: center; color: #6b7280; margin-bottom: 20px; }
+          @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+        </style>
+      </head>
+      <body>
+        <h1>${isArabic ? "تقرير لوحة التحكم" : "Dashboard Report"}</h1>
+        <p class="date">${new Date().toLocaleDateString(isArabic ? 'ar-SA' : 'en-US')}</p>
+        
+        <div style="text-align: center; margin-bottom: 30px;">
+          <div class="stat-card">
+            <div class="stat-value">${stats.totalProjects}</div>
+            <div class="stat-label">${isArabic ? "المشاريع" : "Projects"}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${stats.totalQuotations}</div>
+            <div class="stat-label">${isArabic ? "العروض" : "Quotations"}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">SAR ${stats.totalValue.toLocaleString()}</div>
+            <div class="stat-label">${isArabic ? "إجمالي القيمة" : "Total Value"}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">SAR ${Math.round(stats.averageQuotationValue).toLocaleString()}</div>
+            <div class="stat-label">${isArabic ? "متوسط العرض" : "Avg. Quotation"}</div>
+          </div>
+        </div>
+
+        <h2>${isArabic ? "المشاريع الأخيرة" : "Recent Projects"}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>${isArabic ? "اسم المشروع" : "Project Name"}</th>
+              <th>${isArabic ? "التاريخ" : "Date"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${stats.recentProjects.map(p => `
+              <tr>
+                <td>${p.name}</td>
+                <td>${new Date(p.created_at).toLocaleDateString(isArabic ? 'ar-SA' : 'en-US')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <h2>${isArabic ? "عروض الأسعار الأخيرة" : "Recent Quotations"}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>${isArabic ? "اسم العرض" : "Quotation"}</th>
+              <th>${isArabic ? "المورد" : "Supplier"}</th>
+              <th>${isArabic ? "المبلغ" : "Amount"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${stats.recentQuotations.map(q => `
+              <tr>
+                <td>${q.name}</td>
+                <td>${q.supplier_name || '-'}</td>
+                <td>${q.total_amount ? `SAR ${q.total_amount.toLocaleString()}` : '-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 250);
+    }
+    toast.success(isArabic ? "جاري الطباعة..." : "Printing...");
+  };
+
+  // Save budget settings
+  const saveBudgetSettings = (newSettings: BudgetSettings) => {
+    setBudgetSettings(newSettings);
+    localStorage.setItem("dashboard_budget_settings", JSON.stringify(newSettings));
+    setShowBudgetSettings(false);
+    toast.success(isArabic ? "تم حفظ إعدادات الميزانية" : "Budget settings saved");
+  };
+
+  // Check budget alerts
+  const checkBudgetAlert = (): { isOverBudget: boolean; isNearThreshold: boolean; percentage: number } => {
+    if (!stats) return { isOverBudget: false, isNearThreshold: false, percentage: 0 };
+    
+    const percentage = (stats.totalValue / budgetSettings.maxBudget) * 100;
+    const isOverBudget = percentage >= 100;
+    const isNearThreshold = percentage >= budgetSettings.alertThreshold && percentage < 100;
+    
+    return { isOverBudget, isNearThreshold, percentage };
+  };
+
+  // Image upload handlers
+  const handleImageUpload = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error(isArabic ? "يرجى تحميل صورة فقط" : "Please upload an image only");
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(isArabic ? "حجم الصورة يجب أن يكون أقل من 5 ميجابايت" : "Image size must be less than 5MB");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setUploadedImage(result);
+      localStorage.setItem("dashboard_uploaded_image", result);
+      toast.success(isArabic ? "تم رفع الصورة بنجاح" : "Image uploaded successfully");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleImageUpload(file);
+  };
+
+  const removeImage = () => {
+    setUploadedImage(null);
+    localStorage.removeItem("dashboard_uploaded_image");
+    toast.success(isArabic ? "تم حذف الصورة" : "Image removed");
   };
 
   const applyDateFilter = () => {
@@ -457,6 +646,12 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             </PopoverContent>
           </Popover>
 
+          {/* Print Report */}
+          <Button variant="outline" size="sm" onClick={printReport}>
+            <Printer className="w-4 h-4 me-2" />
+            {isArabic ? "طباعة" : "Print"}
+          </Button>
+
           {/* Export PDF */}
           <Button variant="outline" size="sm" onClick={exportToPDF}>
             <Download className="w-4 h-4 me-2" />
@@ -469,6 +664,42 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             Excel
           </Button>
 
+          {/* Budget Settings */}
+          <Popover open={showBudgetSettings} onOpenChange={setShowBudgetSettings}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={checkBudgetAlert().isOverBudget || checkBudgetAlert().isNearThreshold ? "border-destructive" : ""}>
+                <AlertTriangle className={`w-4 h-4 me-2 ${checkBudgetAlert().isOverBudget ? 'text-destructive' : checkBudgetAlert().isNearThreshold ? 'text-amber-500' : ''}`} />
+                {isArabic ? "الميزانية" : "Budget"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" align="end">
+              <div className="space-y-4">
+                <h4 className="font-medium">{isArabic ? "إعدادات الميزانية" : "Budget Settings"}</h4>
+                <div className="space-y-2">
+                  <Label>{isArabic ? "الحد الأقصى للميزانية (ر.س)" : "Max Budget (SAR)"}</Label>
+                  <Input
+                    type="number"
+                    value={budgetSettings.maxBudget}
+                    onChange={(e) => setBudgetSettings({...budgetSettings, maxBudget: Number(e.target.value)})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{isArabic ? "نسبة التنبيه (%)" : "Alert Threshold (%)"}</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={budgetSettings.alertThreshold}
+                    onChange={(e) => setBudgetSettings({...budgetSettings, alertThreshold: Number(e.target.value)})}
+                  />
+                </div>
+                <Button size="sm" onClick={() => saveBudgetSettings(budgetSettings)} className="w-full">
+                  {isArabic ? "حفظ" : "Save"}
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+
           {/* Refresh */}
           <Button variant="outline" size="sm" onClick={fetchDashboardData}>
             <Activity className="w-4 h-4 me-2" />
@@ -476,6 +707,86 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
           </Button>
         </div>
       </div>
+
+      {/* Budget Alert Banner */}
+      {(checkBudgetAlert().isOverBudget || checkBudgetAlert().isNearThreshold) && (
+        <Card className={`${checkBudgetAlert().isOverBudget ? 'bg-destructive/10 border-destructive' : 'bg-amber-500/10 border-amber-500'}`}>
+          <CardContent className="p-4 flex items-center gap-3">
+            <AlertTriangle className={`w-6 h-6 ${checkBudgetAlert().isOverBudget ? 'text-destructive' : 'text-amber-500'}`} />
+            <div className="flex-1">
+              <p className="font-medium">
+                {checkBudgetAlert().isOverBudget 
+                  ? (isArabic ? "تجاوزت الميزانية المحددة!" : "Budget exceeded!")
+                  : (isArabic ? "اقتربت من الحد الأقصى للميزانية" : "Approaching budget limit")
+                }
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {isArabic 
+                  ? `إجمالي القيمة: ${formatCurrency(stats.totalValue)} (${checkBudgetAlert().percentage.toFixed(1)}% من الميزانية)`
+                  : `Total value: ${formatCurrency(stats.totalValue)} (${checkBudgetAlert().percentage.toFixed(1)}% of budget)`
+                }
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Image Upload Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ImageIcon className="w-5 h-5 text-primary" />
+            {isArabic ? "رفع صورة" : "Upload Image"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {uploadedImage ? (
+            <div className="relative">
+              <img 
+                src={uploadedImage} 
+                alt="Uploaded" 
+                className="w-full max-h-64 object-contain rounded-lg border border-border"
+              />
+              <Button 
+                variant="destructive" 
+                size="icon" 
+                className="absolute top-2 end-2"
+                onClick={removeImage}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          ) : (
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
+                isDragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+              }`}
+              onClick={() => document.getElementById('image-upload-input')?.click()}
+            >
+              <input
+                id="image-upload-input"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
+              />
+              <div className="flex justify-center gap-2 mb-3">
+                <FileSpreadsheet className="w-8 h-8 text-emerald-500" />
+                <FileText className="w-8 h-8 text-red-500" />
+              </div>
+              <p className="font-medium text-foreground">
+                {isArabic ? "اسحب الملف هنا أو انقر للاختيار" : "Drag file here or click to choose"}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+              {isArabic ? "الحد الأقصى 5 ميجابايت • صور فقط" : "Max 5MB • Images only"}
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
