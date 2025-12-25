@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { addDays, format, isWeekend, isSameDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -17,7 +17,12 @@ import {
   Network,
   Users,
   Target,
-  Layers
+  Layers,
+  Save,
+  Upload,
+  Trash2,
+  Plus,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +43,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -119,6 +125,54 @@ interface P6ExportProps {
   currency?: string;
 }
 
+interface HolidayTemplate {
+  id: string;
+  name: string;
+  holidays: string[];
+  createdAt: string;
+}
+
+// Saudi Official Holidays 2025-2026
+const SAUDI_HOLIDAYS_2025: { date: string; name: string }[] = [
+  // عيد الفطر 2025 (المتوقع)
+  { date: "2025-03-30", name: "عيد الفطر" },
+  { date: "2025-03-31", name: "عيد الفطر" },
+  { date: "2025-04-01", name: "عيد الفطر" },
+  { date: "2025-04-02", name: "عيد الفطر" },
+  // عيد الأضحى 2025 (المتوقع)
+  { date: "2025-06-06", name: "عيد الأضحى" },
+  { date: "2025-06-07", name: "عيد الأضحى" },
+  { date: "2025-06-08", name: "عيد الأضحى" },
+  { date: "2025-06-09", name: "عيد الأضحى" },
+  { date: "2025-06-10", name: "عيد الأضحى" },
+  // اليوم الوطني السعودي
+  { date: "2025-09-23", name: "اليوم الوطني السعودي" },
+  // يوم التأسيس
+  { date: "2025-02-22", name: "يوم التأسيس السعودي" },
+];
+
+const SAUDI_HOLIDAYS_2026: { date: string; name: string }[] = [
+  // عيد الفطر 2026 (المتوقع)
+  { date: "2026-03-20", name: "عيد الفطر" },
+  { date: "2026-03-21", name: "عيد الفطر" },
+  { date: "2026-03-22", name: "عيد الفطر" },
+  { date: "2026-03-23", name: "عيد الفطر" },
+  // عيد الأضحى 2026 (المتوقع)
+  { date: "2026-05-27", name: "عيد الأضحى" },
+  { date: "2026-05-28", name: "عيد الأضحى" },
+  { date: "2026-05-29", name: "عيد الأضحى" },
+  { date: "2026-05-30", name: "عيد الأضحى" },
+  { date: "2026-05-31", name: "عيد الأضحى" },
+  // اليوم الوطني السعودي
+  { date: "2026-09-23", name: "اليوم الوطني السعودي" },
+  // يوم التأسيس
+  { date: "2026-02-22", name: "يوم التأسيس السعودي" },
+];
+
+const ALL_SAUDI_HOLIDAYS = [...SAUDI_HOLIDAYS_2025, ...SAUDI_HOLIDAYS_2026];
+
+const HOLIDAY_TEMPLATES_KEY = 'p6_holiday_templates';
+
 export function P6Export({ items, currency = "SAR" }: P6ExportProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<P6ExportResult | null>(null);
@@ -133,18 +187,21 @@ export function P6Export({ items, currency = "SAR" }: P6ExportProps) {
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [projectDuration, setProjectDuration] = useState("180");
   const [excludeHolidays, setExcludeHolidays] = useState(true);
-  const [holidays, setHolidays] = useState<string[]>([
-    // Default Saudi holidays (approximate dates - users can modify)
-    "2025-04-01", // Eid Al-Fitr (example)
-    "2025-04-02",
-    "2025-04-03",
-    "2025-06-06", // Eid Al-Adha (example)
-    "2025-06-07",
-    "2025-06-08",
-    "2025-06-09",
-    "2025-09-23", // Saudi National Day
-  ]);
+  const [holidays, setHolidays] = useState<string[]>(() => {
+    // Default to Saudi holidays 2025
+    return SAUDI_HOLIDAYS_2025.map(h => h.date);
+  });
   const [newHoliday, setNewHoliday] = useState("");
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [showTemplateInput, setShowTemplateInput] = useState(false);
+  const [savedTemplates, setSavedTemplates] = useState<HolidayTemplate[]>(() => {
+    try {
+      const stored = localStorage.getItem(HOLIDAY_TEMPLATES_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Calculate end date automatically (excluding holidays if enabled)
   const calculatedEndDate = useMemo(() => {
@@ -195,14 +252,63 @@ export function P6Export({ items, currency = "SAR" }: P6ExportProps) {
     if (newHoliday && !holidays.includes(newHoliday)) {
       setHolidays([...holidays, newHoliday].sort());
       setNewHoliday("");
-      toast.success("Holiday added");
+      toast.success("تمت إضافة العطلة");
     }
   };
 
   const removeHoliday = (holiday: string) => {
     setHolidays(holidays.filter(h => h !== holiday));
-    toast.success("Holiday removed");
+    toast.success("تم حذف العطلة");
   };
+
+  // Load Saudi holidays for specific year
+  const loadSaudiHolidays = (year: "2025" | "2026" | "all") => {
+    let newHolidays: string[] = [];
+    if (year === "2025") {
+      newHolidays = SAUDI_HOLIDAYS_2025.map(h => h.date);
+    } else if (year === "2026") {
+      newHolidays = SAUDI_HOLIDAYS_2026.map(h => h.date);
+    } else {
+      newHolidays = ALL_SAUDI_HOLIDAYS.map(h => h.date);
+    }
+    setHolidays([...new Set([...holidays, ...newHolidays])].sort());
+    toast.success(`تم تحميل العطلات الرسمية السعودية ${year === "all" ? "2025-2026" : year}`);
+  };
+
+  // Holiday template management
+  const saveHolidayTemplate = useCallback(() => {
+    if (!newTemplateName.trim()) {
+      toast.error("يرجى إدخال اسم القالب");
+      return;
+    }
+    const template: HolidayTemplate = {
+      id: `template-${Date.now()}`,
+      name: newTemplateName.trim(),
+      holidays: [...holidays],
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [...savedTemplates, template];
+    setSavedTemplates(updated);
+    localStorage.setItem(HOLIDAY_TEMPLATES_KEY, JSON.stringify(updated));
+    setNewTemplateName("");
+    setShowTemplateInput(false);
+    toast.success("تم حفظ قالب العطلات");
+  }, [newTemplateName, holidays, savedTemplates]);
+
+  const loadHolidayTemplate = useCallback((templateId: string) => {
+    const template = savedTemplates.find(t => t.id === templateId);
+    if (template) {
+      setHolidays(template.holidays);
+      toast.success("تم تحميل قالب العطلات");
+    }
+  }, [savedTemplates]);
+
+  const deleteHolidayTemplate = useCallback((templateId: string) => {
+    const updated = savedTemplates.filter(t => t.id !== templateId);
+    setSavedTemplates(updated);
+    localStorage.setItem(HOLIDAY_TEMPLATES_KEY, JSON.stringify(updated));
+    toast.success("تم حذف القالب");
+  }, [savedTemplates]);
 
   const toggleRow = (index: number) => {
     const newSet = new Set(expandedRows);
@@ -607,11 +713,12 @@ export function P6Export({ items, currency = "SAR" }: P6ExportProps) {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-orange-500" />
-                <Label className="text-base font-semibold">Official Holidays</Label>
+                <Label className="text-base font-semibold">العطلات الرسمية</Label>
+                <Badge variant="secondary" className="text-xs">{holidays.length} عطلة</Badge>
               </div>
               <div className="flex items-center gap-2">
                 <Label htmlFor="excludeHolidays" className="text-sm text-muted-foreground">
-                  Exclude holidays from duration
+                  استبعاد العطلات من المدة
                 </Label>
                 <input
                   type="checkbox"
@@ -623,41 +730,75 @@ export function P6Export({ items, currency = "SAR" }: P6ExportProps) {
               </div>
             </div>
 
+            {/* Saudi Holidays Quick Load */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              <Button variant="outline" size="sm" onClick={() => loadSaudiHolidays("2025")} className="gap-1">
+                <Upload className="w-3 h-3" />
+                العطلات السعودية 2025
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => loadSaudiHolidays("2026")} className="gap-1">
+                <Upload className="w-3 h-3" />
+                العطلات السعودية 2026
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => loadSaudiHolidays("all")} className="gap-1">
+                <Upload className="w-3 h-3" />
+                جميع العطلات 2025-2026
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setHolidays([])} className="text-destructive gap-1">
+                <Trash2 className="w-3 h-3" />
+                مسح الكل
+              </Button>
+            </div>
+
+            {/* Holiday Templates */}
+            <div className="flex gap-2 mb-4 flex-wrap">
+              {savedTemplates.length > 0 && (
+                <Select onValueChange={loadHolidayTemplate}>
+                  <SelectTrigger className="w-48 h-8">
+                    <SelectValue placeholder="تحميل قالب..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {savedTemplates.map(t => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {showTemplateInput ? (
+                <div className="flex gap-1">
+                  <Input value={newTemplateName} onChange={(e) => setNewTemplateName(e.target.value)} placeholder="اسم القالب..." className="w-32 h-8" />
+                  <Button size="sm" onClick={saveHolidayTemplate} className="h-8"><Save className="w-3 h-3" /></Button>
+                  <Button variant="ghost" size="sm" onClick={() => setShowTemplateInput(false)} className="h-8"><X className="w-3 h-3" /></Button>
+                </div>
+              ) : (
+                <Button variant="outline" size="sm" onClick={() => setShowTemplateInput(true)} className="gap-1 h-8">
+                  <Plus className="w-3 h-3" />
+                  حفظ كقالب
+                </Button>
+              )}
+            </div>
+
             <div className="flex gap-2 mb-4">
               <Input
                 type="date"
                 value={newHoliday}
                 onChange={(e) => setNewHoliday(e.target.value)}
-                placeholder="Add holiday date"
                 className="flex-1"
               />
-              <Button 
-                onClick={addHoliday} 
-                variant="outline" 
-                size="sm"
-                disabled={!newHoliday}
-              >
-                Add Holiday
+              <Button onClick={addHoliday} variant="outline" size="sm" disabled={!newHoliday}>
+                إضافة عطلة
               </Button>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 max-h-32 overflow-auto">
               {holidays.map((holiday) => (
-                <div
-                  key={holiday}
-                  className="flex items-center gap-1 px-2 py-1 rounded-md bg-orange-500/10 border border-orange-500/20 text-sm"
-                >
+                <div key={holiday} className="flex items-center gap-1 px-2 py-1 rounded-md bg-orange-500/10 border border-orange-500/20 text-sm">
                   <span>{format(new Date(holiday), "dd MMM yyyy")}</span>
-                  <button
-                    onClick={() => removeHoliday(holiday)}
-                    className="ml-1 text-orange-600 hover:text-orange-800"
-                  >
-                    ×
-                  </button>
+                  <button onClick={() => removeHoliday(holiday)} className="ml-1 text-orange-600 hover:text-orange-800">×</button>
                 </div>
               ))}
               {holidays.length === 0 && (
-                <span className="text-sm text-muted-foreground">No holidays added</span>
+                <span className="text-sm text-muted-foreground">لا توجد عطلات</span>
               )}
             </div>
           </div>
