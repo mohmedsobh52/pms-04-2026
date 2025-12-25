@@ -130,6 +130,7 @@ export function P6Export({ items, currency = "SAR" }: P6ExportProps) {
   const [totalContractValue, setTotalContractValue] = useState("");
   const [calendarType, setCalendarType] = useState("6-day");
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [projectDuration, setProjectDuration] = useState("180");
 
   const toggleRow = (index: number) => {
     const newSet = new Set(expandedRows);
@@ -158,6 +159,7 @@ export function P6Export({ items, currency = "SAR" }: P6ExportProps) {
           currency,
           calendar_type: calendarType,
           start_date: startDate,
+          project_duration: projectDuration ? parseInt(projectDuration) : 180,
         }
       });
 
@@ -501,6 +503,18 @@ export function P6Export({ items, currency = "SAR" }: P6ExportProps) {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="projectDuration">Project Duration (Days)</Label>
+              <Input
+                id="projectDuration"
+                type="number"
+                value={projectDuration}
+                onChange={(e) => setProjectDuration(e.target.value)}
+                placeholder="Enter duration in days"
+                min="1"
               />
             </div>
           </div>
