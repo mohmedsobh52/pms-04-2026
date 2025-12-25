@@ -16,7 +16,9 @@ import {
   ArrowDownRight,
   Download,
   Filter,
-  CalendarDays
+  CalendarDays,
+  FileSpreadsheet,
+  TrendingUpDown
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,6 +32,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import {
   BarChart,
   Bar,
@@ -157,6 +160,61 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
     }
 
     doc.save("dashboard-report.pdf");
+    toast.success(isArabic ? "تم تصدير التقرير بنجاح" : "Report exported successfully");
+  };
+
+  const exportToExcel = () => {
+    if (!stats) return;
+
+    const wb = XLSX.utils.book_new();
+
+    // Stats Summary Sheet
+    const summaryData = [
+      [isArabic ? "البند" : "Item", isArabic ? "القيمة" : "Value"],
+      [isArabic ? "إجمالي المشاريع" : "Total Projects", stats.totalProjects],
+      [isArabic ? "عروض الأسعار" : "Quotations", stats.totalQuotations],
+      [isArabic ? "إجمالي القيمة" : "Total Value", stats.totalValue],
+      [isArabic ? "متوسط العرض" : "Avg. Quotation", Math.round(stats.averageQuotationValue)],
+    ];
+    const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summarySheet, isArabic ? "الملخص" : "Summary");
+
+    // Projects Sheet
+    if (stats.recentProjects.length > 0) {
+      const projectsData = [
+        [isArabic ? "اسم المشروع" : "Project Name", isArabic ? "التاريخ" : "Date"],
+        ...stats.recentProjects.map(p => [
+          p.name,
+          new Date(p.created_at).toLocaleDateString("en-US")
+        ])
+      ];
+      const projectsSheet = XLSX.utils.aoa_to_sheet(projectsData);
+      XLSX.utils.book_append_sheet(wb, projectsSheet, isArabic ? "المشاريع" : "Projects");
+    }
+
+    // Quotations Sheet
+    if (stats.recentQuotations.length > 0) {
+      const quotationsData = [
+        [isArabic ? "اسم العرض" : "Quotation", isArabic ? "المورد" : "Supplier", isArabic ? "المبلغ" : "Amount"],
+        ...stats.recentQuotations.map(q => [
+          q.name,
+          q.supplier_name || "-",
+          q.total_amount || 0
+        ])
+      ];
+      const quotationsSheet = XLSX.utils.aoa_to_sheet(quotationsData);
+      XLSX.utils.book_append_sheet(wb, quotationsSheet, isArabic ? "العروض" : "Quotations");
+    }
+
+    // Monthly Activity Sheet
+    const activityData = [
+      [isArabic ? "الشهر" : "Month", isArabic ? "المشاريع" : "Projects", isArabic ? "العروض" : "Quotations"],
+      ...stats.monthlyActivity.map(m => [m.month, m.projects, m.quotations])
+    ];
+    const activitySheet = XLSX.utils.aoa_to_sheet(activityData);
+    XLSX.utils.book_append_sheet(wb, activitySheet, isArabic ? "النشاط الشهري" : "Monthly Activity");
+
+    XLSX.writeFile(wb, "dashboard-report.xlsx");
     toast.success(isArabic ? "تم تصدير التقرير بنجاح" : "Report exported successfully");
   };
 
@@ -402,7 +460,13 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
           {/* Export PDF */}
           <Button variant="outline" size="sm" onClick={exportToPDF}>
             <Download className="w-4 h-4 me-2" />
-            {isArabic ? "تصدير PDF" : "Export PDF"}
+            PDF
+          </Button>
+
+          {/* Export Excel */}
+          <Button variant="outline" size="sm" onClick={exportToExcel}>
+            <FileSpreadsheet className="w-4 h-4 me-2" />
+            Excel
           </Button>
 
           {/* Refresh */}
@@ -583,6 +647,47 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Monthly Comparison Bar Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUpDown className="w-5 h-5 text-primary" />
+            {isArabic ? "مقارنة النشاط بين الشهور" : "Monthly Comparison"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={stats.monthlyActivity} barGap={8}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="month" className="text-xs" />
+                <YAxis className="text-xs" />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px'
+                  }}
+                />
+                <Legend />
+                <Bar
+                  dataKey="projects"
+                  name={isArabic ? "المشاريع" : "Projects"}
+                  fill="hsl(var(--primary))"
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar
+                  dataKey="quotations"
+                  name={isArabic ? "العروض" : "Quotations"}
+                  fill="hsl(var(--accent))"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Recent Items */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
