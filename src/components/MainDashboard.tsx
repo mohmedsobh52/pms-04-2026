@@ -13,14 +13,23 @@ import {
   Activity,
   Loader2,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Download,
+  Filter,
+  CalendarDays
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
+import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   BarChart,
   Bar,
@@ -57,6 +66,9 @@ interface MainDashboardProps {
 export function MainDashboard({ onLoadProject }: MainDashboardProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const { user } = useAuth();
   const { isArabic, t } = useLanguage();
 
@@ -76,24 +88,126 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
     }
   }, [user]);
 
+  const exportToPDF = () => {
+    if (!stats) return;
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Title
+    doc.setFontSize(20);
+    doc.text(isArabic ? "تقرير لوحة التحكم" : "Dashboard Report", pageWidth / 2, 20, { align: "center" });
+    
+    // Date
+    doc.setFontSize(10);
+    doc.text(new Date().toLocaleDateString("en-US"), pageWidth / 2, 28, { align: "center" });
+
+    // Stats Summary
+    doc.setFontSize(14);
+    doc.text(isArabic ? "ملخص الإحصائيات" : "Statistics Summary", 14, 40);
+
+    autoTable(doc, {
+      startY: 45,
+      head: [[isArabic ? "البند" : "Item", isArabic ? "القيمة" : "Value"]],
+      body: [
+        [isArabic ? "إجمالي المشاريع" : "Total Projects", stats.totalProjects.toString()],
+        [isArabic ? "عروض الأسعار" : "Quotations", stats.totalQuotations.toString()],
+        [isArabic ? "إجمالي القيمة" : "Total Value", `SAR ${stats.totalValue.toLocaleString("en-US")}`],
+        [isArabic ? "متوسط العرض" : "Avg. Quotation", `SAR ${stats.averageQuotationValue.toLocaleString("en-US", { maximumFractionDigits: 0 })}`],
+      ],
+      theme: "grid",
+      headStyles: { fillColor: [59, 130, 246] },
+    });
+
+    // Recent Projects
+    const finalY1 = (doc as any).lastAutoTable.finalY || 80;
+    doc.setFontSize(14);
+    doc.text(isArabic ? "المشاريع الأخيرة" : "Recent Projects", 14, finalY1 + 15);
+
+    if (stats.recentProjects.length > 0) {
+      autoTable(doc, {
+        startY: finalY1 + 20,
+        head: [[isArabic ? "اسم المشروع" : "Project Name", isArabic ? "التاريخ" : "Date"]],
+        body: stats.recentProjects.map(p => [
+          p.name,
+          new Date(p.created_at).toLocaleDateString("en-US")
+        ]),
+        theme: "striped",
+        headStyles: { fillColor: [245, 158, 11] },
+      });
+    }
+
+    // Recent Quotations
+    const finalY2 = (doc as any).lastAutoTable.finalY || finalY1 + 40;
+    doc.setFontSize(14);
+    doc.text(isArabic ? "العروض الأخيرة" : "Recent Quotations", 14, finalY2 + 15);
+
+    if (stats.recentQuotations.length > 0) {
+      autoTable(doc, {
+        startY: finalY2 + 20,
+        head: [[isArabic ? "اسم العرض" : "Quotation", isArabic ? "المورد" : "Supplier", isArabic ? "المبلغ" : "Amount"]],
+        body: stats.recentQuotations.map(q => [
+          q.name,
+          q.supplier_name || "-",
+          q.total_amount ? `SAR ${q.total_amount.toLocaleString("en-US")}` : "-"
+        ]),
+        theme: "striped",
+        headStyles: { fillColor: [16, 185, 129] },
+      });
+    }
+
+    doc.save("dashboard-report.pdf");
+    toast.success(isArabic ? "تم تصدير التقرير بنجاح" : "Report exported successfully");
+  };
+
+  const applyDateFilter = () => {
+    fetchDashboardData();
+    setIsFilterOpen(false);
+  };
+
+  const clearDateFilter = () => {
+    setDateFrom("");
+    setDateTo("");
+    fetchDashboardData();
+    setIsFilterOpen(false);
+  };
+
   const fetchDashboardData = async () => {
     if (!user) return;
     
     setIsLoading(true);
     try {
-      // Fetch projects
-      const { data: projects, error: projectsError } = await supabase
+      // Fetch projects with date filter
+      let projectsQuery = supabase
         .from("saved_projects")
         .select("*")
         .order("created_at", { ascending: false });
 
+      if (dateFrom) {
+        projectsQuery = projectsQuery.gte("created_at", dateFrom);
+      }
+      if (dateTo) {
+        projectsQuery = projectsQuery.lte("created_at", dateTo + "T23:59:59");
+      }
+
+      const { data: projects, error: projectsError } = await projectsQuery;
+
       if (projectsError) throw projectsError;
 
-      // Fetch quotations
-      const { data: quotations, error: quotationsError } = await supabase
+      // Fetch quotations with date filter
+      let quotationsQuery = supabase
         .from("price_quotations")
         .select("*")
         .order("created_at", { ascending: false });
+
+      if (dateFrom) {
+        quotationsQuery = quotationsQuery.gte("created_at", dateFrom);
+      }
+      if (dateTo) {
+        quotationsQuery = quotationsQuery.lte("created_at", dateTo + "T23:59:59");
+      }
+
+      const { data: quotations, error: quotationsError } = await quotationsQuery;
 
       if (quotationsError) throw quotationsError;
 
@@ -226,7 +340,7 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
             <LayoutDashboard className="w-5 h-5 text-primary-foreground" />
@@ -240,10 +354,63 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchDashboardData}>
-          <Activity className="w-4 h-4 me-2" />
-          {isArabic ? "تحديث" : "Refresh"}
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Date Filter */}
+          <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={dateFrom || dateTo ? "border-primary" : ""}>
+                <Filter className="w-4 h-4 me-2" />
+                {isArabic ? "فلترة" : "Filter"}
+                {(dateFrom || dateTo) && (
+                  <Badge variant="secondary" className="ms-2 text-xs">
+                    {isArabic ? "مفعّل" : "Active"}
+                  </Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" align="end">
+              <div className="space-y-4">
+                <h4 className="font-medium">{isArabic ? "فلترة حسب التاريخ" : "Filter by Date"}</h4>
+                <div className="space-y-2">
+                  <Label>{isArabic ? "من تاريخ" : "From Date"}</Label>
+                  <Input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{isArabic ? "إلى تاريخ" : "To Date"}</Label>
+                  <Input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={applyDateFilter} className="flex-1">
+                    {isArabic ? "تطبيق" : "Apply"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={clearDateFilter}>
+                    {isArabic ? "مسح" : "Clear"}
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Export PDF */}
+          <Button variant="outline" size="sm" onClick={exportToPDF}>
+            <Download className="w-4 h-4 me-2" />
+            {isArabic ? "تصدير PDF" : "Export PDF"}
+          </Button>
+
+          {/* Refresh */}
+          <Button variant="outline" size="sm" onClick={fetchDashboardData}>
+            <Activity className="w-4 h-4 me-2" />
+            {isArabic ? "تحديث" : "Refresh"}
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
