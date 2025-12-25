@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area } from "recharts";
-import { BarChart3, PieChartIcon, TrendingUp, Sparkles, Loader2, Brain, AreaChartIcon } from "lucide-react";
+import { BarChart3, PieChartIcon, TrendingUp, Sparkles, Loader2, Brain, AreaChartIcon, Maximize2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -59,6 +60,7 @@ export function DataCharts({ items, summary, wbsData }: DataChartsProps) {
   const [activeChart, setActiveChart] = useState<"pie" | "bar" | "line" | "area">("pie");
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
+  const [expandedChart, setExpandedChart] = useState<"category" | "value" | null>(null);
   const { toast } = useToast();
   const { language, isArabic } = useLanguage();
 
@@ -85,6 +87,8 @@ export function DataCharts({ items, summary, wbsData }: DataChartsProps) {
     item: isArabic ? "بند" : "Item",
     count: isArabic ? "العدد" : "Count",
     value: isArabic ? "القيمة" : "Value",
+    expand: isArabic ? "تكبير" : "Expand",
+    close: isArabic ? "إغلاق" : "Close",
   };
 
   // Prepare data for charts
@@ -240,8 +244,19 @@ export function DataCharts({ items, summary, wbsData }: DataChartsProps) {
       <div className="p-6">
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-gradient-to-br from-card to-muted/30 rounded-2xl p-5 min-h-[450px] border border-border/50 shadow-sm">
-            <h4 className="font-semibold mb-4 text-center text-lg">{t.categoryDist}</h4>
+          <div className="bg-gradient-to-br from-card to-muted/30 rounded-2xl p-5 min-h-[450px] border border-border/50 shadow-sm relative">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-semibold text-lg">{t.categoryDist}</h4>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setExpandedChart("category")}
+                title={t.expand}
+              >
+                <Maximize2 className="w-4 h-4" />
+              </Button>
+            </div>
             <ResponsiveContainer width="100%" height={280}>
               {activeChart === "pie" ? (
                 <PieChart>
@@ -368,8 +383,19 @@ export function DataCharts({ items, summary, wbsData }: DataChartsProps) {
             )}
           </div>
 
-          <div className="bg-gradient-to-br from-card to-muted/30 rounded-2xl p-5 min-h-[450px] border border-border/50 shadow-sm">
-            <h4 className="font-semibold mb-5 text-center text-lg">{t.valueByCategory}</h4>
+          <div className="bg-gradient-to-br from-card to-muted/30 rounded-2xl p-5 min-h-[450px] border border-border/50 shadow-sm relative">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-semibold text-lg">{t.valueByCategory}</h4>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setExpandedChart("value")}
+                title={t.expand}
+              >
+                <Maximize2 className="w-4 h-4" />
+              </Button>
+            </div>
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={barData}>
                 <defs>
@@ -457,6 +483,157 @@ export function DataCharts({ items, summary, wbsData }: DataChartsProps) {
           </div>
         )}
       </div>
+
+      {/* Expanded Chart Modal */}
+      <Dialog open={expandedChart !== null} onOpenChange={() => setExpandedChart(null)}>
+        <DialogContent className="max-w-5xl h-[85vh] flex flex-col" dir={isArabic ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle className="text-xl">
+              {expandedChart === "category" ? t.categoryDist : t.valueByCategory}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
+            <ResponsiveContainer width="100%" height="100%">
+              {expandedChart === "category" ? (
+                activeChart === "pie" ? (
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="45%"
+                      innerRadius={80}
+                      outerRadius={160}
+                      paddingAngle={2}
+                      dataKey="count"
+                      animationBegin={0}
+                      animationDuration={800}
+                      label={({ name, percent }) => `${name.slice(0, 20)}${name.length > 20 ? '...' : ''} (${(percent * 100).toFixed(1)}%)`}
+                      labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-exp-${index}`} 
+                          fill={entry.fill}
+                          stroke="hsl(var(--background))"
+                          strokeWidth={2}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                  </PieChart>
+                ) : activeChart === "bar" ? (
+                  <BarChart data={barData} layout="vertical">
+                    <defs>
+                      <linearGradient id="barGradientExp1" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="hsl(16, 85%, 57%)" />
+                        <stop offset="100%" stopColor="hsl(28, 90%, 60%)" />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                    <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <YAxis 
+                      type="category" 
+                      dataKey="fullName" 
+                      width={180}
+                      stroke="hsl(var(--muted-foreground))"
+                      tick={{ fontSize: 12 }}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar 
+                      dataKey="count" 
+                      fill="url(#barGradientExp1)" 
+                      radius={[0, 8, 8, 0]}
+                      animationDuration={600}
+                    />
+                  </BarChart>
+                ) : activeChart === "line" ? (
+                  <LineChart data={topItemsData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Line 
+                      type="monotone" 
+                      dataKey="value" 
+                      stroke="hsl(16, 85%, 57%)" 
+                      strokeWidth={3}
+                      dot={{ fill: "hsl(16, 85%, 57%)", r: 6, strokeWidth: 2, stroke: "white" }}
+                      activeDot={{ r: 10, stroke: "hsl(16, 85%, 57%)", strokeWidth: 2, fill: "white" }}
+                    />
+                  </LineChart>
+                ) : (
+                  <AreaChart data={topItemsData}>
+                    <defs>
+                      <linearGradient id="areaGradientExp" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(16, 85%, 57%)" stopOpacity={0.6}/>
+                        <stop offset="100%" stopColor="hsl(16, 85%, 57%)" stopOpacity={0.05}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Area 
+                      type="monotone" 
+                      dataKey="value" 
+                      stroke="hsl(16, 85%, 57%)" 
+                      fill="url(#areaGradientExp)"
+                      strokeWidth={3}
+                    />
+                  </AreaChart>
+                )
+              ) : (
+                <BarChart data={barData}>
+                  <defs>
+                    <linearGradient id="barGradientExp2" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(260, 60%, 55%)" />
+                      <stop offset="100%" stopColor="hsl(280, 70%, 60%)" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                  <XAxis 
+                    dataKey="fullName" 
+                    stroke="hsl(var(--muted-foreground))"
+                    tick={{ fontSize: 11 }}
+                    angle={-25}
+                    textAnchor="end"
+                    height={100}
+                    interval={0}
+                  />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar 
+                    dataKey="value" 
+                    fill="url(#barGradientExp2)" 
+                    radius={[8, 8, 0, 0]}
+                    animationDuration={600}
+                  />
+                </BarChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+          
+          {/* Legend for expanded pie chart */}
+          {expandedChart === "category" && activeChart === "pie" && (
+            <div className="mt-4 max-h-[150px] overflow-y-auto border-t pt-4">
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+                {pieData.map((entry, index) => (
+                  <div key={index} className="flex items-center gap-2 text-sm">
+                    <div 
+                      className="w-4 h-4 rounded-full flex-shrink-0" 
+                      style={{ backgroundColor: entry.fill }}
+                    />
+                    <span className="truncate" title={entry.name}>
+                      {entry.name}
+                    </span>
+                    <span className="text-muted-foreground ms-auto">({entry.count})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
