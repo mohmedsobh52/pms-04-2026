@@ -5,7 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BarChart3, FileText, TrendingUp, TrendingDown, Minus, Download, Printer, GitCompare, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BarChart3, FileText, TrendingUp, TrendingDown, Minus, Download, Printer, GitCompare, Loader2, Save, FolderOpen, Trash2, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -36,6 +39,16 @@ interface SavedProject {
   wbs_data: any;
 }
 
+interface SavedComparisonReport {
+  id: string;
+  name: string;
+  description: string | null;
+  project_ids: string[];
+  comparison_data: any;
+  created_at: string;
+  updated_at: string;
+}
+
 interface ProjectComparisonReportProps {
   isArabic?: boolean;
 }
@@ -50,12 +63,36 @@ export function ProjectComparisonReport({ isArabic: propIsArabic }: ProjectCompa
   const [isOpen, setIsOpen] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [comparisonData, setComparisonData] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<"new" | "saved">("new");
+  const [savedReports, setSavedReports] = useState<SavedComparisonReport[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [reportName, setReportName] = useState("");
+  const [reportDescription, setReportDescription] = useState("");
+  const [loadedReportId, setLoadedReportId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && user) {
       fetchProjects();
+      fetchSavedReports();
     }
   }, [isOpen, user]);
+
+  const fetchSavedReports = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("comparison_reports")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setSavedReports((data as SavedComparisonReport[]) || []);
+    } catch (error) {
+      console.error("Error fetching saved reports:", error);
+    }
+  };
 
   const fetchProjects = async () => {
     if (!user) return;
@@ -158,6 +195,69 @@ export function ProjectComparisonReport({ isArabic: propIsArabic }: ProjectCompa
         { metric: isArabic ? "الكمية" : "Quantity", ...Object.fromEntries(withDifferences.map(p => [p.name.substring(0, 10), Math.min(p.totalQuantity / 100, 100)])) },
       ],
     });
+    setLoadedReportId(null);
+  };
+
+  const saveComparisonReport = async () => {
+    if (!user || !comparisonData || !reportName.trim()) {
+      toast.error(isArabic ? "يرجى إدخال اسم التقرير" : "Please enter report name");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from("comparison_reports")
+        .insert({
+          user_id: user.id,
+          name: reportName.trim(),
+          description: reportDescription.trim() || null,
+          project_ids: selectedProjects,
+          comparison_data: comparisonData,
+        });
+
+      if (error) throw error;
+
+      toast.success(isArabic ? "تم حفظ التقرير بنجاح" : "Report saved successfully");
+      setShowSaveDialog(false);
+      setReportName("");
+      setReportDescription("");
+      fetchSavedReports();
+    } catch (error) {
+      console.error("Error saving report:", error);
+      toast.error(isArabic ? "خطأ في حفظ التقرير" : "Error saving report");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const loadSavedReport = (report: SavedComparisonReport) => {
+    setComparisonData(report.comparison_data);
+    setSelectedProjects(report.project_ids);
+    setLoadedReportId(report.id);
+    setActiveTab("new");
+    toast.success(isArabic ? "تم تحميل التقرير" : "Report loaded");
+  };
+
+  const deleteSavedReport = async (reportId: string) => {
+    try {
+      const { error } = await supabase
+        .from("comparison_reports")
+        .delete()
+        .eq("id", reportId);
+
+      if (error) throw error;
+
+      toast.success(isArabic ? "تم حذف التقرير" : "Report deleted");
+      fetchSavedReports();
+      
+      if (loadedReportId === reportId) {
+        setLoadedReportId(null);
+      }
+    } catch (error) {
+      console.error("Error deleting report:", error);
+      toast.error(isArabic ? "خطأ في حذف التقرير" : "Error deleting report");
+    }
   };
 
   const formatCurrency = (value: number, currency: string = "SAR") => {
@@ -307,76 +407,150 @@ export function ProjectComparisonReport({ isArabic: propIsArabic }: ProjectCompa
         
         <div className="flex flex-col h-[75vh]">
           {!comparisonData ? (
-            <div className="flex-1 overflow-hidden">
-              <p className="text-sm text-muted-foreground mb-4">
-                {isArabic ? "اختر المشاريع للمقارنة (2-5 مشاريع):" : "Select projects to compare (2-5 projects):"}
-              </p>
-              
-              {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                </div>
-              ) : projects.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  {isArabic ? "لا توجد مشاريع محفوظة" : "No saved projects"}
-                </div>
-              ) : (
-                <ScrollArea className="h-[50vh] pe-4">
-                  <div className="space-y-2">
-                    {projects.map(project => {
-                      const analysisData = project.analysis_data as any;
-                      const itemsCount = analysisData?.items?.length || 0;
-                      const totalValue = analysisData?.summary?.total_value || 0;
-                      
-                      return (
-                        <div
-                          key={project.id}
-                          className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
-                            selectedProjects.includes(project.id) 
-                              ? "border-primary bg-primary/5" 
-                              : "border-border hover:border-primary/50"
-                          }`}
-                          onClick={() => toggleProject(project.id)}
-                        >
-                          <Checkbox
-                            checked={selectedProjects.includes(project.id)}
-                            onCheckedChange={() => toggleProject(project.id)}
-                          />
-                          <div className="flex-1">
-                            <p className="font-medium">{project.name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {new Date(project.created_at).toLocaleDateString(isArabic ? 'ar-SA' : 'en-US')}
-                            </p>
-                          </div>
-                          <div className="text-end">
-                            <Badge variant="secondary">{itemsCount} {isArabic ? "بند" : "items"}</Badge>
-                            {totalValue > 0 && (
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {totalValue.toLocaleString()} SAR
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "new" | "saved")} className="flex-1 flex flex-col overflow-hidden">
+              <TabsList className="mb-4">
+                <TabsTrigger value="new" className="gap-2">
+                  <GitCompare className="w-4 h-4" />
+                  {isArabic ? "مقارنة جديدة" : "New Comparison"}
+                </TabsTrigger>
+                <TabsTrigger value="saved" className="gap-2">
+                  <FolderOpen className="w-4 h-4" />
+                  {isArabic ? "التقارير المحفوظة" : "Saved Reports"}
+                  {savedReports.length > 0 && (
+                    <Badge variant="secondary" className="text-xs ms-1">{savedReports.length}</Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="new" className="flex-1 overflow-hidden mt-0">
+                <p className="text-sm text-muted-foreground mb-4">
+                  {isArabic ? "اختر المشاريع للمقارنة (2-5 مشاريع):" : "Select projects to compare (2-5 projects):"}
+                </p>
+                
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  </div>
+                ) : projects.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    {isArabic ? "لا توجد مشاريع محفوظة" : "No saved projects"}
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[45vh] pe-4">
+                    <div className="space-y-2">
+                      {projects.map(project => {
+                        const analysisData = project.analysis_data as any;
+                        const itemsCount = analysisData?.items?.length || 0;
+                        const totalValue = analysisData?.summary?.total_value || 0;
+                        
+                        return (
+                          <div
+                            key={project.id}
+                            className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                              selectedProjects.includes(project.id) 
+                                ? "border-primary bg-primary/5" 
+                                : "border-border hover:border-primary/50"
+                            }`}
+                            onClick={() => toggleProject(project.id)}
+                          >
+                            <Checkbox
+                              checked={selectedProjects.includes(project.id)}
+                              onCheckedChange={() => toggleProject(project.id)}
+                            />
+                            <div className="flex-1">
+                              <p className="font-medium">{project.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {new Date(project.created_at).toLocaleDateString(isArabic ? 'ar-SA' : 'en-US')}
                               </p>
-                            )}
+                            </div>
+                            <div className="text-end">
+                              <Badge variant="secondary">{itemsCount} {isArabic ? "بند" : "items"}</Badge>
+                              {totalValue > 0 && (
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {totalValue.toLocaleString()} SAR
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                )}
+                
+                <div className="flex justify-between items-center pt-4 border-t mt-4">
+                  <span className="text-sm text-muted-foreground">
+                    {selectedProjects.length} {isArabic ? "مشاريع مختارة" : "projects selected"}
+                  </span>
+                  <Button 
+                    onClick={generateComparison}
+                    disabled={selectedProjects.length < 2}
+                    className="gap-2"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    {isArabic ? "إنشاء المقارنة" : "Generate Comparison"}
+                  </Button>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="saved" className="flex-1 overflow-hidden mt-0">
+                {savedReports.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <FolderOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>{isArabic ? "لا توجد تقارير محفوظة" : "No saved reports"}</p>
+                    <p className="text-sm mt-2">{isArabic ? "قم بإنشاء مقارنة واحفظها للرجوع إليها لاحقاً" : "Create a comparison and save it for later reference"}</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[55vh] pe-4">
+                    <div className="space-y-3">
+                      {savedReports.map(report => (
+                        <div
+                          key={report.id}
+                          className="p-4 rounded-lg border border-border hover:border-primary/50 transition-colors"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-medium">{report.name}</h4>
+                              {report.description && (
+                                <p className="text-sm text-muted-foreground mt-1">{report.description}</p>
+                              )}
+                              <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {new Date(report.created_at).toLocaleDateString(isArabic ? 'ar-SA' : 'en-US')}
+                                </span>
+                                <Badge variant="outline" className="text-xs">
+                                  {report.project_ids.length} {isArabic ? "مشاريع" : "projects"}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => loadSavedReport(report)}
+                                className="gap-1"
+                              >
+                                <FolderOpen className="w-4 h-4" />
+                                {isArabic ? "فتح" : "Open"}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteSavedReport(report.id)}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
-              )}
-              
-              <div className="flex justify-between items-center pt-4 border-t mt-4">
-                <span className="text-sm text-muted-foreground">
-                  {selectedProjects.length} {isArabic ? "مشاريع مختارة" : "projects selected"}
-                </span>
-                <Button 
-                  onClick={generateComparison}
-                  disabled={selectedProjects.length < 2}
-                  className="gap-2"
-                >
-                  <BarChart3 className="w-4 h-4" />
-                  {isArabic ? "إنشاء المقارنة" : "Generate Comparison"}
-                </Button>
-              </div>
-            </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </TabsContent>
+            </Tabs>
           ) : (
             <ScrollArea className="flex-1">
               <div className="space-y-6 pe-4">
@@ -386,6 +560,18 @@ export function ProjectComparisonReport({ isArabic: propIsArabic }: ProjectCompa
                     {isArabic ? "← اختيار مشاريع أخرى" : "← Select different projects"}
                   </Button>
                   <div className="flex gap-2">
+                    {!loadedReportId && (
+                      <Button variant="outline" size="sm" onClick={() => setShowSaveDialog(true)} className="gap-2">
+                        <Save className="w-4 h-4" />
+                        {isArabic ? "حفظ التقرير" : "Save Report"}
+                      </Button>
+                    )}
+                    {loadedReportId && (
+                      <Badge variant="secondary" className="h-9 px-3 flex items-center gap-1">
+                        <FolderOpen className="w-3 h-3" />
+                        {isArabic ? "تقرير محفوظ" : "Saved Report"}
+                      </Badge>
+                    )}
                     <Button variant="outline" size="sm" onClick={printReport} className="gap-2">
                       <Printer className="w-4 h-4" />
                       {isArabic ? "طباعة" : "Print"}
@@ -396,6 +582,52 @@ export function ProjectComparisonReport({ isArabic: propIsArabic }: ProjectCompa
                     </Button>
                   </div>
                 </div>
+
+                {/* Save Dialog */}
+                {showSaveDialog && (
+                  <Card className="border-primary">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Save className="w-5 h-5" />
+                        {isArabic ? "حفظ تقرير المقارنة" : "Save Comparison Report"}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">{isArabic ? "اسم التقرير *" : "Report Name *"}</label>
+                        <Input
+                          value={reportName}
+                          onChange={(e) => setReportName(e.target.value)}
+                          placeholder={isArabic ? "مثال: مقارنة مشاريع 2024" : "e.g., 2024 Projects Comparison"}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">{isArabic ? "الوصف (اختياري)" : "Description (optional)"}</label>
+                        <Textarea
+                          value={reportDescription}
+                          onChange={(e) => setReportDescription(e.target.value)}
+                          placeholder={isArabic ? "أضف ملاحظات أو وصف للتقرير..." : "Add notes or description..."}
+                          rows={2}
+                        />
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <Button variant="ghost" size="sm" onClick={() => setShowSaveDialog(false)}>
+                          {isArabic ? "إلغاء" : "Cancel"}
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          onClick={saveComparisonReport}
+                          disabled={isSaving || !reportName.trim()}
+                          className="gap-2"
+                        >
+                          {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                          <Save className="w-4 h-4" />
+                          {isArabic ? "حفظ" : "Save"}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Comparison Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
