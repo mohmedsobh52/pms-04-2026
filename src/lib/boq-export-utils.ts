@@ -62,10 +62,23 @@ interface ComparisonResult {
   omittedItems: ComparisonItem[];
 }
 
+// Helper function to sanitize text for PDF (handle Arabic/Unicode)
+const sanitizeTextForPDF = (text: string | undefined | null): string => {
+  if (!text) return '-';
+  const cleaned = text
+    .replace(/[\u0600-\u06FF]/g, '') // Remove Arabic characters
+    .replace(/[\u0000-\u001F]/g, '') // Remove control characters
+    .trim();
+  if (!cleaned && text.trim()) {
+    return text.replace(/[^\x20-\x7E\d.,\-+×%²³]/g, ' ').replace(/\s+/g, ' ').trim() || text.substring(0, 50);
+  }
+  return cleaned || '-';
+};
+
 const formatCurrency = (value: number): string => {
   return new Intl.NumberFormat('en-SA', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(value) + ' SAR';
 };
 
@@ -161,20 +174,24 @@ export function exportBOQComparisonToPDF(result: ComparisonResult, projectName?:
   
   yPos += 10;
   
-  const comparisonTableData = result.comparisonItems.map(item => [
-    item.itemCode,
-    item.description.substring(0, 40) + (item.description.length > 40 ? '...' : ''),
-    item.tender ? item.tender.quantity.toString() : '-',
-    item.budget ? item.budget.quantity.toString() : '-',
-    formatPercent(item.variance.quantityPercent),
-    item.tender ? formatCurrency(item.tender.rate) : '-',
-    item.budget ? formatCurrency(item.budget.rate) : '-',
-    formatPercent(item.variance.ratePercent),
-    formatCurrency(item.variance.cost),
-    item.status,
-    item.priority || '-',
-    item.recommendation || '-',
-  ]);
+  const comparisonTableData = result.comparisonItems.map(item => {
+    const desc = sanitizeTextForPDF(item.description);
+    const truncatedDesc = desc.length > 40 ? desc.substring(0, 40) + '...' : desc;
+    return [
+      item.itemCode,
+      truncatedDesc,
+      item.tender ? item.tender.quantity.toString() : '-',
+      item.budget ? item.budget.quantity.toString() : '-',
+      formatPercent(item.variance.quantityPercent),
+      item.tender ? formatCurrency(item.tender.rate) : '-',
+      item.budget ? formatCurrency(item.budget.rate) : '-',
+      formatPercent(item.variance.ratePercent),
+      formatCurrency(item.variance.cost),
+      item.status,
+      item.priority || '-',
+      sanitizeTextForPDF(item.recommendation) || '-',
+    ];
+  });
   
   autoTable(doc, {
     startY: yPos,
@@ -227,15 +244,19 @@ export function exportBOQComparisonToPDF(result: ComparisonResult, projectName?:
     
     yPos += 10;
     
-    const riskTableData = result.highRiskItems.map(item => [
-      item.itemCode,
-      item.description.substring(0, 50) + (item.description.length > 50 ? '...' : ''),
-      item.tender ? formatCurrency(item.tender.amount) : '-',
-      item.budget ? formatCurrency(item.budget.amount) : '-',
-      formatCurrency(item.variance.cost),
-      formatPercent(item.variance.costPercent),
-      item.recommendation || 'Review required',
-    ]);
+    const riskTableData = result.highRiskItems.map(item => {
+      const desc = sanitizeTextForPDF(item.description);
+      const truncatedDesc = desc.length > 50 ? desc.substring(0, 50) + '...' : desc;
+      return [
+        item.itemCode,
+        truncatedDesc,
+        item.tender ? formatCurrency(item.tender.amount) : '-',
+        item.budget ? formatCurrency(item.budget.amount) : '-',
+        formatCurrency(item.variance.cost),
+        formatPercent(item.variance.costPercent),
+        sanitizeTextForPDF(item.recommendation) || 'Review required',
+      ];
+    });
     
     autoTable(doc, {
       startY: yPos,
@@ -257,7 +278,7 @@ export function exportBOQComparisonToPDF(result: ComparisonResult, projectName?:
   yPos += 10;
   
   const categoryTableData = result.categoryVariances.map(cat => [
-    cat.category,
+    sanitizeTextForPDF(cat.category),
     formatCurrency(cat.tenderAmount),
     formatCurrency(cat.budgetAmount),
     formatCurrency(cat.variance),

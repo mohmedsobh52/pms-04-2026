@@ -599,15 +599,35 @@ export function ComprehensiveReport({
         doc.setFont("helvetica", "bold");
         doc.text("2. Bill of Quantities (BOQ)", margin, 16);
 
-        const boqData = analysisData.items.map((item, index) => [
-          String(index + 1),
-          item.item_number || '-',
-          item.description?.substring(0, 35) + (item.description?.length > 35 ? '...' : '') || '-',
-          item.unit || '-',
-          String(item.quantity || 0),
-          item.unit_price ? item.unit_price.toLocaleString() : '-',
-          item.total_price ? item.total_price.toLocaleString() : '-',
-        ]);
+        // Helper function to sanitize text for PDF
+        const sanitizeText = (text: string | undefined | null): string => {
+          if (!text) return '-';
+          const cleaned = text
+            .replace(/[\u0600-\u06FF]/g, '') // Remove Arabic characters
+            .replace(/[\u0000-\u001F]/g, '') // Remove control characters
+            .trim();
+          if (!cleaned && text.trim()) {
+            return text.replace(/[^\x20-\x7E\d.,\-+×%²³]/g, ' ').replace(/\s+/g, ' ').trim() || text.substring(0, 50);
+          }
+          return cleaned || '-';
+        };
+
+        const boqData = analysisData.items.map((item, index) => {
+          const description = sanitizeText(item.description);
+          const truncatedDesc = description.length > 35 ? description.substring(0, 35) + '...' : description;
+          const unitPrice = item.unit_price || 0;
+          const totalPrice = item.total_price || (unitPrice * (item.quantity || 0));
+          
+          return [
+            String(index + 1),
+            item.item_number || '-',
+            truncatedDesc,
+            sanitizeText(item.unit),
+            String(item.quantity || 0),
+            unitPrice > 0 ? unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00',
+            totalPrice > 0 ? totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00',
+          ];
+        });
 
         autoTable(doc, {
           startY: 35,
@@ -638,13 +658,19 @@ export function ComprehensiveReport({
             6: { halign: 'right', cellWidth: 25 },
           },
           margin: { left: margin, right: margin },
-          didDrawPage: (data) => {
+          didDrawPage: () => {
             // Footer
             doc.setFontSize(8);
             doc.setTextColor(100, 116, 139);
             doc.text(`Page ${doc.getCurrentPageInfo().pageNumber}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
           },
         });
+
+        // Calculate actual total from items
+        const calculatedTotal = analysisData.items.reduce((sum, item) => {
+          return sum + (item.total_price || (item.unit_price || 0) * (item.quantity || 0));
+        }, 0);
+        const displayTotal = calculatedTotal > 0 ? calculatedTotal : (analysisData.summary?.total_value || 0);
 
         // Total row
         const finalY = (doc as any).lastAutoTable.finalY || 35;
@@ -655,7 +681,7 @@ export function ComprehensiveReport({
         doc.setFont("helvetica", "bold");
         doc.text("TOTAL:", margin + 5, finalY + 13);
         doc.text(
-          `${(analysisData.summary?.total_value || 0).toLocaleString()} ${analysisData.summary?.currency || 'SAR'}`,
+          `${displayTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })} SAR`,
           pageWidth - margin - 5,
           finalY + 13,
           { align: 'right' }
@@ -673,9 +699,22 @@ export function ComprehensiveReport({
         doc.setFont("helvetica", "bold");
         doc.text("3. Work Breakdown Structure (WBS)", margin, 16);
 
+        // Helper function to sanitize text for PDF
+        const sanitizeWbsText = (text: string | undefined | null): string => {
+          if (!text) return '-';
+          const cleaned = text
+            .replace(/[\u0600-\u06FF]/g, '') // Remove Arabic characters
+            .replace(/[\u0000-\u001F]/g, '') // Remove control characters
+            .trim();
+          if (!cleaned && text.trim()) {
+            return text.replace(/[^\x20-\x7E\d.,\-+×%²³]/g, ' ').replace(/\s+/g, ' ').trim() || text.substring(0, 50);
+          }
+          return cleaned || '-';
+        };
+
         const wbsTableData = wbsData.wbs.map(item => [
           item.code,
-          '  '.repeat(item.level - 1) + item.title,
+          '  '.repeat(item.level - 1) + sanitizeWbsText(item.title),
           String(item.level),
           item.parent_code || '-',
           String(item.items?.length || 0),

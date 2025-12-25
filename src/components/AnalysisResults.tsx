@@ -613,12 +613,29 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
       format: 'a4',
     });
 
-    // Add Arabic font support - use built-in fonts
+    // Use helvetica font (built-in, supports basic characters)
     doc.setFont("helvetica");
     
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
+
+    // Helper function to sanitize text for PDF (convert Arabic to readable form)
+    const sanitizeText = (text: string | undefined | null): string => {
+      if (!text) return '-';
+      // Remove or replace problematic Unicode characters
+      // Keep ASCII and common punctuation, replace Arabic with transliteration or clean version
+      const cleaned = text
+        .replace(/[\u0600-\u06FF]/g, '') // Remove Arabic characters (jsPDF doesn't support them natively)
+        .replace(/[\u0000-\u001F]/g, '') // Remove control characters
+        .trim();
+      // If text becomes empty after removing Arabic, return original with note
+      if (!cleaned && text.trim()) {
+        // Return a simplified version - just keep the basic content
+        return text.replace(/[^\x20-\x7E\d.,\-+×%²³]/g, ' ').replace(/\s+/g, ' ').trim() || text.substring(0, 50);
+      }
+      return cleaned || '-';
+    };
 
     // Get company logo from localStorage
     const storedLogo = getStoredLogo();
@@ -704,8 +721,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
     doc.setFontSize(14);
     doc.setTextColor(34, 197, 94);
     doc.setFont("helvetica", "bold");
-    const totalValue = data.summary?.total_value || 0;
-    doc.text(`${totalValue.toLocaleString()} ${data.summary?.currency || 'SAR'}`, margin + boxWidth + 10, yPos + 20);
+    const totalValue = totalCalculated > 0 ? totalCalculated : (data.summary?.total_value || totalOriginal);
+    doc.text(`${totalValue.toLocaleString()} SAR`, margin + boxWidth + 10, yPos + 20);
     
     // Box 3: Categories
     doc.setFillColor(254, 249, 195);
@@ -729,16 +746,23 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
     
     yPos += 5;
 
-    // Table data
-    const tableData = data.items.map((item, index) => [
-      String(index + 1),
-      item.item_number || '-',
-      item.description?.substring(0, 40) + (item.description?.length > 40 ? '...' : '') || '-',
-      item.unit || '-',
-      String(item.quantity || 0),
-      item.unit_price ? item.unit_price.toLocaleString() : '-',
-      item.total_price ? item.total_price.toLocaleString() : '-',
-    ]);
+    // Table data with sanitized text and proper price handling
+    const tableData = itemsWithCosts.map((item, index) => {
+      const description = sanitizeText(item.description);
+      const truncatedDesc = description.length > 45 ? description.substring(0, 45) + '...' : description;
+      const unitPrice = item.effectivePrice || item.unit_price || 0;
+      const totalPrice = item.effectiveTotal || item.total_price || (unitPrice * item.quantity);
+      
+      return [
+        String(index + 1),
+        item.item_number || '-',
+        truncatedDesc,
+        sanitizeText(item.unit),
+        String(item.quantity || 0),
+        unitPrice > 0 ? unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00',
+        totalPrice > 0 ? totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00',
+      ];
+    });
 
     autoTable(doc, {
       startY: yPos,
@@ -769,7 +793,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
         6: { halign: 'right', cellWidth: 25 },
       },
       margin: { left: margin, right: margin },
-      didDrawPage: (data) => {
+      didDrawPage: () => {
         // Footer on each page
         doc.setFillColor(248, 250, 252);
         doc.rect(0, pageHeight - 15, pageWidth, 15, 'F');
@@ -786,6 +810,18 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
       },
     });
 
+    // Add totals row after table
+    const finalY = (doc as any).lastAutoTable?.finalY || yPos + 100;
+    if (finalY < pageHeight - 40) {
+      doc.setFillColor(59, 130, 246);
+      doc.rect(margin, finalY + 2, pageWidth - margin * 2, 10, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("Grand Total:", margin + 5, finalY + 8);
+      doc.text(`${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })} SAR`, pageWidth - margin - 5, finalY + 8, { align: 'right' });
+    }
+
     // Add WBS section if available
     if (wbsData?.wbs && wbsData.wbs.length > 0) {
       doc.addPage();
@@ -800,7 +836,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
       
       const wbsData_ = wbsData.wbs.map(item => [
         item.code,
-        '  '.repeat(item.level - 1) + item.title,
+        '  '.repeat(item.level - 1) + sanitizeText(item.title),
         String(item.level),
         item.parent_code || '-',
       ]);
@@ -832,6 +868,11 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
 
     // Save PDF
     doc.save('boq_professional_report.pdf');
+    
+    toast({
+      title: isArabic ? "تم إنشاء التقرير" : "Report Generated",
+      description: isArabic ? "تم تحميل التقرير بنجاح" : "PDF report downloaded successfully",
+    });
   };
 
   const tabs = [
