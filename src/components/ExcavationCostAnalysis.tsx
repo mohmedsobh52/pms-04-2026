@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
-import { Calculator, Save, Plus, Trash2, X, Download, FileSpreadsheet, FileText, Copy, Upload, PieChart as PieChartIcon } from "lucide-react";
+import { Calculator, Save, Plus, Trash2, X, Download, FileSpreadsheet, FileText, Copy, Upload, PieChart as PieChartIcon, Sparkles, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +41,9 @@ interface ExcavationItem {
   dailyRent: number;
   costPerCubicMeter: number;
   isEditable: boolean;
+  aiSuggestedProductivity?: number;
+  aiSuggestedRent?: number;
+  isLoadingAI?: boolean;
 }
 
 interface CostTemplate {
@@ -100,6 +104,63 @@ export function ExcavationCostAnalysis({
       return [];
     }
   });
+
+  // AI Analysis for productivity and rent
+  const analyzeWithAI = useCallback(async (itemId: string, itemName: string) => {
+    setItems(prev => prev.map(item => 
+      item.id === itemId ? { ...item, isLoadingAI: true } : item
+    ));
+
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-costs', {
+        body: {
+          itemName,
+          type: 'excavation_productivity'
+        }
+      });
+
+      if (error) throw error;
+
+      setItems(prev => prev.map(item => {
+        if (item.id !== itemId) return item;
+        return {
+          ...item,
+          aiSuggestedProductivity: data?.suggestedProductivity || 0,
+          aiSuggestedRent: data?.suggestedRent || 0,
+          isLoadingAI: false
+        };
+      }));
+
+      toast.success("تم تحليل البند بواسطة AI");
+    } catch (error) {
+      console.error('AI analysis error:', error);
+      setItems(prev => prev.map(item => 
+        item.id === itemId ? { ...item, isLoadingAI: false } : item
+      ));
+      toast.error("فشل تحليل AI، يرجى المحاولة مرة أخرى");
+    }
+  }, []);
+
+  const applyAISuggestion = useCallback((itemId: string, field: 'productivity' | 'rent') => {
+    setItems(prev => prev.map(item => {
+      if (item.id !== itemId) return item;
+      
+      const newProductivity = field === 'productivity' && item.aiSuggestedProductivity 
+        ? item.aiSuggestedProductivity 
+        : item.dailyProductivity;
+      const newRent = field === 'rent' && item.aiSuggestedRent 
+        ? item.aiSuggestedRent 
+        : item.dailyRent;
+      
+      return {
+        ...item,
+        dailyProductivity: newProductivity,
+        dailyRent: newRent,
+        costPerCubicMeter: newRent > 0 && newProductivity > 0 ? newRent / newProductivity : 0
+      };
+    }));
+    toast.success("تم تطبيق اقتراح AI");
+  }, []);
 
   // Calculate cost per cubic meter based on productivity and rent
   const calculateCostPerCubicMeter = useCallback((dailyProductivity: number, dailyRent: number): number => {
@@ -449,11 +510,23 @@ export function ExcavationCostAnalysis({
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-primary/10">
-                          <TableHead className="text-right font-bold text-primary w-[200px]">اعمال الحفر</TableHead>
-                          <TableHead className="text-center font-bold text-primary">الانتاجية اليومية (م3)</TableHead>
-                          <TableHead className="text-center font-bold text-primary">ايجار/يوم</TableHead>
-                          <TableHead className="text-center font-bold text-primary">تكلفة المتر المكعب ({currency})</TableHead>
-                          <TableHead className="w-[40px]"></TableHead>
+                          <TableHead className="text-right font-bold text-primary w-[180px]">اعمال الحفر</TableHead>
+                          <TableHead className="text-center font-bold text-primary w-[100px]">الانتاجية اليومية (م3)</TableHead>
+                          <TableHead className="text-center font-bold text-primary w-[80px]">
+                            <div className="flex items-center justify-center gap-1">
+                              <Sparkles className="w-3 h-3 text-amber-500" />
+                              AI إنتاجية
+                            </div>
+                          </TableHead>
+                          <TableHead className="text-center font-bold text-primary w-[80px]">ايجار/يوم</TableHead>
+                          <TableHead className="text-center font-bold text-primary w-[80px]">
+                            <div className="flex items-center justify-center gap-1">
+                              <Sparkles className="w-3 h-3 text-amber-500" />
+                              AI إيجار
+                            </div>
+                          </TableHead>
+                          <TableHead className="text-center font-bold text-primary w-[100px]">تكلفة المتر المكعب ({currency})</TableHead>
+                          <TableHead className="w-[80px]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -471,18 +544,65 @@ export function ExcavationCostAnalysis({
                                 type="number"
                                 value={item.dailyProductivity || ""}
                                 onChange={(e) => handleItemChange(item.id, 'dailyProductivity', parseFloat(e.target.value) || 0)}
-                                className="text-center h-7 w-20 mx-auto text-sm"
+                                className="text-center h-7 w-16 mx-auto text-sm"
                                 placeholder="0"
                               />
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {item.isLoadingAI ? (
+                                <Loader2 className="w-4 h-4 animate-spin mx-auto text-primary" />
+                              ) : item.aiSuggestedProductivity ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => applyAISuggestion(item.id, 'productivity')}
+                                  className="h-6 px-2 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700"
+                                >
+                                  {item.aiSuggestedProductivity}
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => analyzeWithAI(item.id, item.name)}
+                                  className="h-6 w-6 p-0 text-amber-600 hover:bg-amber-100"
+                                >
+                                  <Sparkles className="w-3 h-3" />
+                                </Button>
+                              )}
                             </TableCell>
                             <TableCell className="text-center">
                               <Input
                                 type="number"
                                 value={item.dailyRent || ""}
                                 onChange={(e) => handleItemChange(item.id, 'dailyRent', parseFloat(e.target.value) || 0)}
-                                className="text-center h-7 w-20 mx-auto text-sm"
+                                className="text-center h-7 w-16 mx-auto text-sm"
                                 placeholder="0"
                               />
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {item.isLoadingAI ? (
+                                <Loader2 className="w-4 h-4 animate-spin mx-auto text-primary" />
+                              ) : item.aiSuggestedRent ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => applyAISuggestion(item.id, 'rent')}
+                                  className="h-6 px-2 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700"
+                                >
+                                  {item.aiSuggestedRent}
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => analyzeWithAI(item.id, item.name)}
+                                  className="h-6 w-6 p-0 text-amber-600 hover:bg-amber-100"
+                                  disabled={item.aiSuggestedProductivity !== undefined}
+                                >
+                                  <Sparkles className="w-3 h-3" />
+                                </Button>
+                              )}
                             </TableCell>
                             <TableCell className="text-center">
                               <Badge variant="secondary" className="font-mono text-xs px-2 py-0.5">
@@ -503,7 +623,7 @@ export function ExcavationCostAnalysis({
                         ))}
                         
                         <TableRow className="bg-muted/30">
-                          <TableCell colSpan={4}>
+                          <TableCell colSpan={6}>
                             <div className="flex gap-2">
                               <Input
                                 value={newItemName}
@@ -514,7 +634,7 @@ export function ExcavationCostAnalysis({
                               />
                               <Button variant="outline" size="sm" onClick={handleAddItem} className="gap-1 h-7 text-xs">
                                 <Plus className="w-3 h-3" />
-                                إضافة
+                                إضافة صف
                               </Button>
                             </div>
                           </TableCell>

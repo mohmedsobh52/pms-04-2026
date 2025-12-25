@@ -41,12 +41,122 @@ serve(async (req) => {
   }
 
   try {
-    const { items, ai_provider, analysis_type, language = 'ar' } = await req.json();
+    const requestBody = await req.json();
+    const { items, ai_provider, analysis_type, language = 'ar', itemName, type } = requestBody;
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     const GENSPARK_API_KEY = Deno.env.get("GENSPARK_API_KEY");
     const MANUS_API_KEY = Deno.env.get("MANUS_API_KEY");
+
+    // Handle excavation productivity analysis
+    if (type === 'excavation_productivity' && itemName) {
+      console.log(`Analyzing excavation productivity for: ${itemName}`);
+      
+      const apiKey = LOVABLE_API_KEY || OPENAI_API_KEY;
+      if (!apiKey) {
+        throw new Error("No AI API key configured");
+      }
+
+      const excavationPrompt = `You are an expert in construction cost estimation for excavation works in Saudi Arabia.
+
+Analyze the following excavation equipment/work item and provide realistic estimates for:
+1. Daily Productivity (in cubic meters per day - م3/يوم)
+2. Daily Rental Rate (in SAR - ريال/يوم)
+
+Work Item: "${itemName}"
+
+Based on Saudi Arabia market conditions and typical construction site operations, provide your estimates.
+
+Consider factors like:
+- Equipment capacity and efficiency
+- Typical working hours (8-10 hours/day)
+- Saudi market rental rates
+- Soil conditions and work complexity
+
+Return ONLY a JSON object with this exact format:
+{
+  "suggestedProductivity": <number>,
+  "suggestedRent": <number>,
+  "reasoning": "<brief explanation in Arabic>"
+}`;
+
+      const aiResponse = await fetch(
+        LOVABLE_API_KEY 
+          ? "https://ai.gateway.lovable.dev/v1/chat/completions"
+          : "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: LOVABLE_API_KEY ? "google/gemini-2.5-flash" : "gpt-4o-mini",
+            messages: [
+              { role: "system", content: "You are a construction cost estimation expert specializing in excavation works in Saudi Arabia. Always respond with valid JSON only." },
+              { role: "user", content: excavationPrompt }
+            ],
+            temperature: 0.3,
+            max_tokens: 500,
+          }),
+        }
+      );
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error("AI API error:", errorText);
+        throw new Error("AI analysis failed");
+      }
+
+      const aiData = await aiResponse.json();
+      let content = aiData.choices?.[0]?.message?.content || "";
+      
+      // Clean up the response
+      content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      
+      try {
+        const result = JSON.parse(content);
+        return new Response(JSON.stringify({
+          suggestedProductivity: result.suggestedProductivity || 0,
+          suggestedRent: result.suggestedRent || 0,
+          reasoning: result.reasoning || ""
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (parseError) {
+        console.error("Failed to parse AI response:", content);
+        // Return default estimates based on common equipment
+        const defaults: Record<string, { productivity: number; rent: number }> = {
+          'بوكلين': { productivity: 1200, rent: 150 },
+          'قلاب': { productivity: 600, rent: 60 },
+          'تربلا': { productivity: 75, rent: 20 },
+          'رص': { productivity: 10, rent: 100 },
+          'نزح': { productivity: 2, rent: 10 },
+        };
+        
+        const lowerName = itemName.toLowerCase();
+        for (const [key, values] of Object.entries(defaults)) {
+          if (lowerName.includes(key)) {
+            return new Response(JSON.stringify({
+              suggestedProductivity: values.productivity,
+              suggestedRent: values.rent,
+              reasoning: "تقدير افتراضي بناءً على نوع المعدة"
+            }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+        
+        return new Response(JSON.stringify({
+          suggestedProductivity: 100,
+          suggestedRent: 50,
+          reasoning: "تقدير عام - يرجى التعديل حسب الموقع"
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     const isArabic = language === 'ar';
     const outputLanguage = isArabic ? 'Arabic' : 'English';
