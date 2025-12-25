@@ -23,7 +23,8 @@ import {
   AlertTriangle,
   Image as ImageIcon,
   Upload,
-  X
+  X,
+  GitCompare
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import { ProjectComparisonReport } from "./ProjectComparisonReport";
 import {
   BarChart,
   Bar,
@@ -699,6 +701,9 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
               </div>
             </PopoverContent>
           </Popover>
+
+          {/* Project Comparison Report */}
+          <ProjectComparisonReport isArabic={isArabic} />
 
           {/* Refresh */}
           <Button variant="outline" size="sm" onClick={fetchDashboardData}>
