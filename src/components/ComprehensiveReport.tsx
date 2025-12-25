@@ -16,6 +16,12 @@ interface BOQItem {
   unit_price?: number;
   total_price?: number;
   category?: string;
+  // Fallback field names from various sources
+  rate?: number;
+  price?: number;
+  qty?: number;
+  amount?: number;
+  total?: number;
 }
 
 interface WBSItem {
@@ -172,15 +178,21 @@ export function ComprehensiveReport({
     doc.setFont("helvetica", "bold");
     doc.text("Bill of Quantities (BOQ)", margin, 16);
 
-    const boqData = analysisData.items.map((item, index) => [
-      String(index + 1),
-      item.item_number || '-',
-      item.description?.substring(0, 40) + (item.description?.length > 40 ? '...' : '') || '-',
-      item.unit || '-',
-      String(item.quantity || 0),
-      item.unit_price ? item.unit_price.toLocaleString() : '-',
-      item.total_price ? item.total_price.toLocaleString() : '-',
-    ]);
+        const boqData = analysisData.items.map((item, index) => {
+          const unitPrice = Number(item.unit_price || item.rate || item.price || 0);
+          const quantity = Number(item.quantity || item.qty || 1);
+          const totalPrice = Number(item.total_price || item.amount || item.total || (unitPrice * quantity));
+          
+          return [
+            String(index + 1),
+            item.item_number || '-',
+            item.description?.substring(0, 40) + (item.description?.length > 40 ? '...' : '') || '-',
+            item.unit || '-',
+            quantity.toLocaleString('en-US', { minimumFractionDigits: 2 }),
+            unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 }),
+            totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 }),
+          ];
+        });
 
     autoTable(doc, {
       startY: 35,
@@ -260,13 +272,18 @@ export function ComprehensiveReport({
     doc.text("Cost Analysis", margin, 16);
 
     const items = analysisData?.items || [];
-    const costTableData = items.map((item, idx) => [
-      String(idx + 1),
-      item.item_number || '-',
-      item.description?.substring(0, 30) || '-',
-      item.unit_price?.toLocaleString() || '-',
-      item.total_price?.toLocaleString() || '-',
-    ]);
+    const costTableData = items.map((item, idx) => {
+      const unitPrice = Number(item.unit_price || item.rate || item.price || 0);
+      const totalPrice = Number(item.total_price || item.amount || item.total || (unitPrice * (item.quantity || 1)));
+      
+      return [
+        String(idx + 1),
+        item.item_number || '-',
+        item.description?.substring(0, 30) || '-',
+        unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 }),
+        totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 }),
+      ];
+    });
 
     autoTable(doc, {
       startY: 35,
@@ -615,17 +632,20 @@ export function ComprehensiveReport({
         const boqData = analysisData.items.map((item, index) => {
           const description = sanitizeText(item.description);
           const truncatedDesc = description.length > 35 ? description.substring(0, 35) + '...' : description;
-          const unitPrice = item.unit_price || 0;
-          const totalPrice = item.total_price || (unitPrice * (item.quantity || 0));
+          
+          // Calculate prices with multiple fallbacks
+          const unitPrice = Number(item.unit_price || item.rate || item.price || 0);
+          const quantity = Number(item.quantity || item.qty || 1);
+          const totalPrice = Number(item.total_price || item.amount || item.total || (unitPrice * quantity));
           
           return [
             String(index + 1),
-            item.item_number || '-',
+            sanitizeText(item.item_number) || '-',
             truncatedDesc,
             sanitizeText(item.unit),
-            String(item.quantity || 0),
-            unitPrice > 0 ? unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00',
-            totalPrice > 0 ? totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00',
+            quantity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
           ];
         });
 
@@ -666,9 +686,12 @@ export function ComprehensiveReport({
           },
         });
 
-        // Calculate actual total from items
+        // Calculate actual total from items with multiple fallbacks
         const calculatedTotal = analysisData.items.reduce((sum, item) => {
-          return sum + (item.total_price || (item.unit_price || 0) * (item.quantity || 0));
+          const unitPrice = Number(item.unit_price || item.rate || item.price || 0);
+          const quantity = Number(item.quantity || item.qty || 1);
+          const totalPrice = Number(item.total_price || item.amount || item.total || (unitPrice * quantity));
+          return sum + totalPrice;
         }, 0);
         const displayTotal = calculatedTotal > 0 ? calculatedTotal : (analysisData.summary?.total_value || 0);
 

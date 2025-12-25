@@ -275,13 +275,23 @@ const Index = () => {
       }
 
       // Normalize item data - map item_no to item_number, rate to unit_price, amount to total_price
-      const normalizedItems = (itemsResult.items || []).map((item: any) => ({
-        ...item,
-        item_number: item.item_number || item.item_no || '',
-        unit_price: item.unit_price ?? item.rate ?? 0,
-        total_price: item.total_price ?? item.amount ?? 0,
-        category: item.category || item.section_trade || 'غير مصنف',
-      })).filter((item: any) => item.item_number); // Filter out items without item_number
+      const normalizedItems = (itemsResult.items || []).map((item: any) => {
+        // Get prices from various possible fields
+        const unitPrice = item.unit_price ?? item.rate ?? item.price ?? item.unitPrice ?? 0;
+        const quantity = item.quantity ?? item.qty ?? 1;
+        const totalPrice = item.total_price ?? item.amount ?? item.total ?? (unitPrice * quantity);
+        
+        return {
+          ...item,
+          item_number: item.item_number || item.item_no || item.itemNo || '',
+          unit_price: unitPrice,
+          quantity: quantity,
+          total_price: totalPrice,
+          category: item.category || item.section_trade || item.section || 'غير مصنف',
+          unit: item.unit || item.uom || 'م',
+          description: item.description || item.desc || item.item_description || '',
+        };
+      }).filter((item: any) => item.item_number); // Filter out items without item_number
 
       const normalizedResult = {
         ...itemsResult,
