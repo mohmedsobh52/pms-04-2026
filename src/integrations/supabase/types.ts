@@ -64,6 +64,39 @@ export type Database = {
           },
         ]
       }
+      comparison_reports: {
+        Row: {
+          comparison_data: Json
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          project_ids: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comparison_data: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          project_ids: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          comparison_data?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          project_ids?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       cost_analysis: {
         Row: {
           admin_cost: number | null
