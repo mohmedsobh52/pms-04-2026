@@ -240,21 +240,25 @@ export function DataCharts({ items, summary, wbsData }: DataChartsProps) {
       <div className="p-6">
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-gradient-to-br from-card to-muted/30 rounded-2xl p-5 min-h-[380px] border border-border/50 shadow-sm">
-            <h4 className="font-semibold mb-5 text-center text-lg">{t.categoryDist}</h4>
-            <ResponsiveContainer width="100%" height={320}>
+          <div className="bg-gradient-to-br from-card to-muted/30 rounded-2xl p-5 min-h-[450px] border border-border/50 shadow-sm">
+            <h4 className="font-semibold mb-4 text-center text-lg">{t.categoryDist}</h4>
+            <ResponsiveContainer width="100%" height={280}>
               {activeChart === "pie" ? (
                 <PieChart>
                   <Pie
                     data={pieData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={70}
-                    outerRadius={110}
-                    paddingAngle={3}
+                    innerRadius={50}
+                    outerRadius={90}
+                    paddingAngle={2}
                     dataKey="count"
                     animationBegin={0}
                     animationDuration={800}
+                    label={({ name, percent }) => 
+                      percent > 0.05 ? `${(percent * 100).toFixed(0)}%` : ''
+                    }
+                    labelLine={false}
                   >
                     {pieData.map((entry, index) => (
                       <Cell 
@@ -337,9 +341,34 @@ export function DataCharts({ items, summary, wbsData }: DataChartsProps) {
                 </AreaChart>
               )}
             </ResponsiveContainer>
+            
+            {/* Custom Legend */}
+            {activeChart === "pie" && (
+              <div className="mt-4 max-h-[120px] overflow-y-auto">
+                <div className="grid grid-cols-2 gap-2">
+                  {pieData.slice(0, 8).map((entry, index) => (
+                    <div key={index} className="flex items-center gap-2 text-xs">
+                      <div 
+                        className="w-3 h-3 rounded-full flex-shrink-0" 
+                        style={{ backgroundColor: entry.fill }}
+                      />
+                      <span className="truncate text-muted-foreground" title={entry.name}>
+                        {entry.name.length > 18 ? entry.name.slice(0, 18) + "..." : entry.name}
+                      </span>
+                      <span className="text-foreground font-medium ms-auto">({entry.count})</span>
+                    </div>
+                  ))}
+                  {pieData.length > 8 && (
+                    <div className="col-span-2 text-center text-xs text-muted-foreground">
+                      +{pieData.length - 8} {isArabic ? "فئات أخرى" : "more categories"}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="bg-gradient-to-br from-card to-muted/30 rounded-2xl p-5 min-h-[380px] border border-border/50 shadow-sm">
+          <div className="bg-gradient-to-br from-card to-muted/30 rounded-2xl p-5 min-h-[450px] border border-border/50 shadow-sm">
             <h4 className="font-semibold mb-5 text-center text-lg">{t.valueByCategory}</h4>
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={barData}>
