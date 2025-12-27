@@ -107,7 +107,6 @@ interface SortableRowProps {
   applyAISuggestion: (id: string, field: 'productivity' | 'rent') => void;
   calculateDifference: (manual: number, ai: number | undefined) => { value: number; type: 'up' | 'down' | 'same' } | null;
   formatNumber: (num: number) => string;
-  isLastItem?: boolean;
 }
 
 function SortableRow({
@@ -119,9 +118,7 @@ function SortableRow({
   applyAISuggestion,
   calculateDifference,
   formatNumber,
-  isLastItem,
 }: SortableRowProps) {
-  const rowRef = useRef<HTMLTableRowElement>(null);
   const {
     attributes,
     listeners,
@@ -131,15 +128,6 @@ function SortableRow({
     isDragging,
   } = useSortable({ id: item.id });
 
-  // Auto scroll to this row when it's the last item and just added
-  useEffect(() => {
-    if (isLastItem && rowRef.current) {
-      setTimeout(() => {
-        rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 100);
-    }
-  }, [isLastItem]);
-
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -147,7 +135,7 @@ function SortableRow({
   };
 
   return (
-    <TableRow ref={(node) => { setNodeRef(node); (rowRef as any).current = node; }} style={style} className="hover:bg-muted/50">
+    <TableRow ref={setNodeRef} style={style} className="hover:bg-muted/50">
       <TableCell className="cursor-grab" {...attributes} {...listeners}>
         <GripVertical className="w-4 h-4 text-muted-foreground" />
       </TableCell>
@@ -298,7 +286,7 @@ function SortableRow({
 
 export default function CostAnalysisPage() {
   const currency = "ريال";
-  const [lastAddedItemId, setLastAddedItemId] = useState<string | null>(null);
+  const scrollViewportRef = useRef<HTMLDivElement>(null);
   
   // Load items from localStorage or use defaults
   const [items, setItems] = useState<CostItem[]>(() => {
@@ -407,9 +395,8 @@ export default function CostAnalysisPage() {
   }, []);
 
   const handleAddNewItem = useCallback(() => {
-    const newItemId = `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newItem: CostItem = {
-      id: newItemId,
+      id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       name: "بند جديد",
       dailyProductivity: 0,
       dailyRent: 0,
@@ -417,8 +404,14 @@ export default function CostAnalysisPage() {
       isEditable: true,
     };
     setItems(prevItems => [...prevItems, newItem]);
-    setLastAddedItemId(newItemId);
     toast.success("تم إضافة صف جديد");
+    
+    // Scroll to bottom after adding
+    setTimeout(() => {
+      if (scrollViewportRef.current) {
+        scrollViewportRef.current.scrollTop = scrollViewportRef.current.scrollHeight;
+      }
+    }, 100);
   }, []);
 
   const calculateDifference = useCallback((manual: number, ai: number | undefined): { value: number; type: 'up' | 'down' | 'same' } | null => {
@@ -928,6 +921,8 @@ export default function CostAnalysisPage() {
                   </Button>
                 </div>
                 <ScrollArea className="max-h-[400px]">
+                  <div ref={scrollViewportRef} data-radix-scroll-area-viewport="" className="h-full w-full rounded-[inherit]" style={{ overflow: 'hidden scroll' }}>
+                    <div style={{ minWidth: '100%', display: 'table' }}>
                   <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
@@ -1009,7 +1004,7 @@ export default function CostAnalysisPage() {
                           items={items.map(item => item.id)}
                           strategy={verticalListSortingStrategy}
                         >
-                          {items.map((item, index) => (
+                          {items.map((item) => (
                             <SortableRow
                               key={item.id}
                               item={item}
@@ -1020,13 +1015,14 @@ export default function CostAnalysisPage() {
                               applyAISuggestion={applyAISuggestion}
                               calculateDifference={calculateDifference}
                               formatNumber={formatNumber}
-                              isLastItem={item.id === lastAddedItemId}
                             />
                           ))}
                         </SortableContext>
                       </TableBody>
                     </Table>
                   </DndContext>
+                    </div>
+                  </div>
                 </ScrollArea>
               </CardContent>
             </Card>
