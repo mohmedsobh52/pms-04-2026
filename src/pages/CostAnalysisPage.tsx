@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Calculator, Save, Plus, Trash2, Download, FileSpreadsheet, FileText, Copy, PieChart as PieChartIcon, Sparkles, Loader2, TrendingUp, TrendingDown, Minus, Zap, GripVertical, Edit2, ArrowRight, Upload, FileUp, RotateCcw } from "lucide-react";
+import { Calculator, Save, Plus, Trash2, Download, FileSpreadsheet, FileText, Copy, PieChart as PieChartIcon, Sparkles, Loader2, TrendingUp, TrendingDown, Minus, Zap, GripVertical, Edit2, ArrowRight, Upload, FileUp, RotateCcw, Link2, ArrowLeftRight } from "lucide-react";
 import { extractDataFromExcel } from "@/lib/excel-utils";
 import {
   DndContext,
@@ -104,6 +104,10 @@ const defaultColumnWidths: ColumnWidths = {
   costPerUnit: 80,
   actions: 80,
 };
+
+// Shared storage keys for linking with main analysis
+const SHARED_ITEMS_KEY = 'shared_boq_items';
+const COST_ANALYSIS_EXPORT_KEY = 'cost_analysis_export';
 
 const defaultItems: Omit<CostItem, 'id'>[] = [
   { name: "رص السيقق+الباتر+الانارة+المولد", dailyProductivity: 10, dailyRent: 100, costPerUnit: 10.00, isEditable: true },
@@ -450,6 +454,38 @@ export default function CostAnalysisPage() {
     toast.success("تم إعادة تعيين عرض الأعمدة");
   }, []);
 
+  // Import items from main BOQ analysis
+  const importFromBOQ = useCallback(() => {
+    try {
+      const stored = localStorage.getItem(SHARED_ITEMS_KEY);
+      if (!stored) {
+        toast.error("لا توجد بنود للاستيراد. يرجى تحليل ملف BOQ أولاً");
+        return;
+      }
+      
+      const boqData = JSON.parse(stored);
+      if (!boqData.items || boqData.items.length === 0) {
+        toast.error("لا توجد بنود في البيانات المحفوظة");
+        return;
+      }
+      
+      const newItems: CostItem[] = boqData.items.map((item: any, index: number) => ({
+        id: `imported-${Date.now()}-${index}`,
+        name: item.description || item.item_number || `بند ${index + 1}`,
+        dailyProductivity: item.quantity || 0,
+        dailyRent: item.unit_price || 0,
+        costPerUnit: item.unit_price && item.quantity ? item.unit_price / item.quantity : 0,
+        isEditable: true,
+      }));
+      
+      setItems(prev => [...prev, ...newItems]);
+      toast.success(`تم استيراد ${newItems.length} بند من تحليل BOQ`);
+    } catch (error) {
+      console.error("Import from BOQ error:", error);
+      toast.error("فشل استيراد البنود");
+    }
+  }, []);
+
   // DnD sensors
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -706,6 +742,40 @@ export default function CostAnalysisPage() {
     
     return { subtotal, wasteAmount, adminAmount, grandTotal };
   }, [items, wastePercentage, adminPercentage]);
+
+  // Export analysis to main BOQ (must be after calculations)
+  const exportToBOQ = useCallback(() => {
+    try {
+      const exportData = {
+        items: items.map(item => ({
+          item_number: item.id,
+          description: item.name,
+          quantity: item.dailyProductivity,
+          unit_price: item.costPerUnit,
+          total_price: item.costPerUnit * item.dailyProductivity,
+          unit: "م3",
+          daily_rent: item.dailyRent,
+          ai_suggested_productivity: item.aiSuggestedProductivity,
+          ai_suggested_rent: item.aiSuggestedRent,
+        })),
+        summary: {
+          subtotal: calculations.subtotal,
+          waste_amount: calculations.wasteAmount,
+          admin_amount: calculations.adminAmount,
+          grand_total: calculations.grandTotal,
+          waste_percentage: wastePercentage,
+          admin_percentage: adminPercentage,
+        },
+        exported_at: new Date().toISOString(),
+      };
+      
+      localStorage.setItem(COST_ANALYSIS_EXPORT_KEY, JSON.stringify(exportData));
+      toast.success("تم تصدير التحليل. يمكنك الآن استخدامه في شاشة البنود الرئيسية");
+    } catch (error) {
+      console.error("Export to BOQ error:", error);
+      toast.error("فشل تصدير التحليل");
+    }
+  }, [items, calculations, wastePercentage, adminPercentage]);
 
   const chartData = useMemo(() => {
     const data = items
@@ -999,6 +1069,38 @@ export default function CostAnalysisPage() {
                     حفظ كقالب جديد
                   </Button>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Link with BOQ Items */}
+            <Card className="border-blue-500/30 bg-blue-500/5">
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Link2 className="w-4 h-4 text-blue-500" />
+                    <h4 className="font-semibold text-sm">ربط مع شاشة البنود</h4>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={importFromBOQ}
+                      className="gap-1 h-8 text-xs bg-blue-50 hover:bg-blue-100 border-blue-300"
+                    >
+                      <Download className="w-3 h-3 text-blue-600" />
+                      استيراد من البنود
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={exportToBOQ}
+                      className="gap-1 h-8 text-xs bg-green-50 hover:bg-green-100 border-green-300"
+                    >
+                      <ArrowLeftRight className="w-3 h-3 text-green-600" />
+                      تصدير للبنود
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 

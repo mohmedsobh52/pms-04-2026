@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -187,6 +187,103 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
   const handleDeleteTemplate = useCallback((templateId: string): boolean => {
     return deleteTemplate(templateId);
   }, [deleteTemplate]);
+
+  // Import cost analysis from CostAnalysisPage
+  const COST_ANALYSIS_EXPORT_KEY = 'cost_analysis_export';
+  
+  const importFromCostAnalysis = useCallback(() => {
+    try {
+      const stored = localStorage.getItem(COST_ANALYSIS_EXPORT_KEY);
+      if (!stored) {
+        toast({
+          title: isArabic ? "لا توجد بيانات" : "No Data",
+          description: isArabic 
+            ? "لا توجد بيانات للاستيراد. يرجى تصدير التحليل من شاشة تحليل التكاليف أولاً" 
+            : "No data to import. Please export from Cost Analysis page first",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const exportedData = JSON.parse(stored);
+      if (!exportedData.items || exportedData.items.length === 0) {
+        toast({
+          title: isArabic ? "لا توجد بنود" : "No Items",
+          description: isArabic ? "لا توجد بنود في البيانات المصدرة" : "No items in exported data",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Apply the costs to matching items or show summary
+      const matchedItems: string[] = [];
+      exportedData.items.forEach((exportedItem: any) => {
+        const matchingItem = (data.items || []).find(item => 
+          item.description?.toLowerCase().includes(exportedItem.description?.toLowerCase()) ||
+          exportedItem.description?.toLowerCase().includes(item.description?.toLowerCase())
+        );
+        
+        if (matchingItem) {
+          matchedItems.push(matchingItem.item_number);
+          // Update the item cost data if applicable
+          if (exportedItem.unit_price) {
+            setItemCostData(matchingItem.item_number, {
+              calculatedUnitPrice: exportedItem.unit_price,
+            } as any);
+          }
+        }
+      });
+      
+      toast({
+        title: isArabic ? "تم الاستيراد" : "Imported Successfully",
+        description: isArabic 
+          ? `تم استيراد ${exportedData.items.length} بند من تحليل التكاليف${matchedItems.length > 0 ? ` (${matchedItems.length} مطابق)` : ''}`
+          : `Imported ${exportedData.items.length} items from Cost Analysis${matchedItems.length > 0 ? ` (${matchedItems.length} matched)` : ''}`,
+      });
+    } catch (error) {
+      console.error("Import from cost analysis error:", error);
+      toast({
+        title: isArabic ? "خطأ" : "Error",
+        description: isArabic ? "فشل استيراد البيانات" : "Failed to import data",
+        variant: "destructive",
+      });
+    }
+  }, [data.items, setItemCostData, isArabic, toast]);
+
+  // Export current items to shared storage for CostAnalysisPage
+  const SHARED_ITEMS_KEY = 'shared_boq_items';
+  
+  const exportToCostAnalysis = useCallback(() => {
+    try {
+      const exportData = {
+        items: (data.items || []).map(item => ({
+          item_number: item.item_number,
+          description: item.description,
+          quantity: item.quantity,
+          unit: item.unit,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          category: item.category,
+        })),
+        exported_at: new Date().toISOString(),
+      };
+      
+      localStorage.setItem(SHARED_ITEMS_KEY, JSON.stringify(exportData));
+      toast({
+        title: isArabic ? "تم التصدير" : "Exported Successfully",
+        description: isArabic 
+          ? `تم تصدير ${(data.items || []).length} بند. يمكنك الآن استيرادها في شاشة تحليل التكاليف`
+          : `Exported ${(data.items || []).length} items. You can now import them in Cost Analysis page`,
+      });
+    } catch (error) {
+      console.error("Export to cost analysis error:", error);
+      toast({
+        title: isArabic ? "خطأ" : "Error",
+        description: isArabic ? "فشل تصدير البيانات" : "Failed to export data",
+        variant: "destructive",
+      });
+    }
+  }, [data.items, isArabic, toast]);
 
   // Get available items for copying costs
   const availableItemsForCopy = useMemo(() => {
@@ -1015,6 +1112,25 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                 {isArabic ? "استرجاع الأصلي" : "Revert to Original"}
               </Button>
             )}
+            {/* Link with Cost Analysis Page */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportToCostAnalysis}
+              className="gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+            >
+              <ArrowDownToLine className="w-4 h-4" />
+              {isArabic ? "تصدير لتحليل التكاليف" : "Export to Cost Analysis"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={importFromCostAnalysis}
+              className="gap-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+            >
+              <Download className="w-4 h-4" />
+              {isArabic ? "استيراد من تحليل التكاليف" : "Import from Cost Analysis"}
+            </Button>
             {/* Price Comparison Report */}
             <PriceComparisonReport
               items={data.items || []}
