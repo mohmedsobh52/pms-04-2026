@@ -345,6 +345,11 @@ export default function CostAnalysisPage() {
     }
   });
 
+  // Debug log for items changes
+  useEffect(() => {
+    console.log('Items updated. Current count:', items.length, 'Items:', items);
+  }, [items]);
+
   // Auto-save to localStorage whenever items, headers, or percentages change
   useEffect(() => {
     const dataToSave = {
@@ -404,7 +409,12 @@ export default function CostAnalysisPage() {
       costPerUnit: 0,
       isEditable: true,
     };
-    setItems(prevItems => [...prevItems, newItem]);
+    console.log('Adding new item:', newItem);
+    setItems(prevItems => {
+      const updated = [...prevItems, newItem];
+      console.log('Updated items count:', updated.length);
+      return updated;
+    });
     toast.success("تم إضافة صف جديد");
     
     // Scroll to bottom after adding
@@ -431,6 +441,7 @@ export default function CostAnalysisPage() {
     try {
       if (isExcel) {
         const result = await extractDataFromExcel(file);
+        console.log('Excel extraction result:', result);
         
         if (result.items.length > 0) {
           const newItems: CostItem[] = result.items.map((item, index) => ({
@@ -442,7 +453,12 @@ export default function CostAnalysisPage() {
             isEditable: true,
           }));
 
-          setItems(prev => [...prev, ...newItems]);
+          console.log('New items to import:', newItems.length);
+          setItems(prev => {
+            const updated = [...prev, ...newItems];
+            console.log('Total items after import:', updated.length);
+            return updated;
+          });
           toast.success(`تم استيراد ${newItems.length} بند من ملف Excel`);
         } else {
           toast.error("لم يتم العثور على بنود في الملف");
