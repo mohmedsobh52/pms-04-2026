@@ -144,12 +144,12 @@ function SortableRow({
           className="text-right h-7 text-sm border-0 bg-transparent focus:bg-background"
         />
       </TableCell>
-      <TableCell className="text-center">
+      <TableCell className="text-center whitespace-nowrap">
         <Input
           type="number"
           value={item.dailyProductivity || ""}
           onChange={(e) => handleItemChange(item.id, 'dailyProductivity', parseFloat(e.target.value) || 0)}
-          className="text-center h-7 w-16 mx-auto text-sm"
+          className="text-center h-7 w-24 mx-auto text-sm"
           placeholder="0"
         />
       </TableCell>
@@ -197,12 +197,12 @@ function SortableRow({
           </Button>
         )}
       </TableCell>
-      <TableCell className="text-center">
+      <TableCell className="text-center whitespace-nowrap">
         <Input
           type="number"
           value={item.dailyRent || ""}
           onChange={(e) => handleItemChange(item.id, 'dailyRent', parseFloat(e.target.value) || 0)}
-          className="text-center h-7 w-14 mx-auto text-sm"
+          className="text-center h-7 w-24 mx-auto text-sm"
           placeholder="0"
         />
       </TableCell>
@@ -251,8 +251,8 @@ function SortableRow({
           </Button>
         )}
       </TableCell>
-      <TableCell className="text-center">
-        <Badge variant="secondary" className="font-mono text-xs px-2 py-0.5">
+      <TableCell className="text-center whitespace-nowrap">
+        <Badge variant="secondary" className="font-mono text-sm px-3 py-1 min-w-[80px]">
           {formatNumber(item.costPerCubicMeter)}
         </Badge>
       </TableCell>
@@ -934,7 +934,7 @@ export function ExcavationCostAnalysis({
                               />
                             ) : headers.workItem}
                           </TableHead>
-                          <TableHead className="text-center font-bold text-primary w-[80px]">
+                          <TableHead className="text-center font-bold text-primary min-w-[120px] whitespace-nowrap">
                             {editingHeaders ? (
                               <Input
                                 value={headers.productivity}
@@ -943,7 +943,7 @@ export function ExcavationCostAnalysis({
                               />
                             ) : headers.productivity}
                           </TableHead>
-                          <TableHead className="text-center font-bold text-primary w-[100px]">
+                          <TableHead className="text-center font-bold text-primary min-w-[100px] whitespace-nowrap">
                             {editingHeaders ? (
                               <Input
                                 value={headers.aiProductivity}
@@ -957,7 +957,7 @@ export function ExcavationCostAnalysis({
                               </div>
                             )}
                           </TableHead>
-                          <TableHead className="text-center font-bold text-primary w-[60px]">
+                          <TableHead className="text-center font-bold text-primary min-w-[100px] whitespace-nowrap">
                             {editingHeaders ? (
                               <Input
                                 value={headers.dailyRent}
@@ -966,7 +966,7 @@ export function ExcavationCostAnalysis({
                               />
                             ) : headers.dailyRent}
                           </TableHead>
-                          <TableHead className="text-center font-bold text-primary w-[100px]">
+                          <TableHead className="text-center font-bold text-primary min-w-[100px] whitespace-nowrap">
                             {editingHeaders ? (
                               <Input
                                 value={headers.aiRent}
@@ -980,7 +980,7 @@ export function ExcavationCostAnalysis({
                               </div>
                             )}
                           </TableHead>
-                          <TableHead className="text-center font-bold text-primary w-[80px]">
+                          <TableHead className="text-center font-bold text-primary min-w-[100px] whitespace-nowrap">
                             {editingHeaders ? (
                               <Input
                                 value={headers.costPerM3}
