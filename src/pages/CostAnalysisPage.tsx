@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Calculator, Save, Plus, Trash2, Download, FileSpreadsheet, FileText, Copy, PieChart as PieChartIcon, Sparkles, Loader2, TrendingUp, TrendingDown, Minus, Zap, GripVertical, Edit2, ArrowRight, Upload, FileUp } from "lucide-react";
+import { Calculator, Save, Plus, Trash2, Download, FileSpreadsheet, FileText, Copy, PieChart as PieChartIcon, Sparkles, Loader2, TrendingUp, TrendingDown, Minus, Zap, GripVertical, Edit2, ArrowRight, Upload, FileUp, RotateCcw } from "lucide-react";
 import { extractDataFromExcel } from "@/lib/excel-utils";
 import {
   DndContext,
@@ -81,6 +81,29 @@ interface HeaderConfig {
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#00C49F', '#FFBB28', '#FF8042', '#0088FE'];
 const STORAGE_KEY = 'cost_analysis_data';
 const TEMPLATES_KEY = 'cost_analysis_templates';
+const COLUMN_WIDTHS_KEY = 'cost_analysis_column_widths';
+
+interface ColumnWidths {
+  drag: number;
+  workItem: number;
+  productivity: number;
+  aiProductivity: number;
+  dailyRent: number;
+  aiRent: number;
+  costPerUnit: number;
+  actions: number;
+}
+
+const defaultColumnWidths: ColumnWidths = {
+  drag: 30,
+  workItem: 160,
+  productivity: 80,
+  aiProductivity: 100,
+  dailyRent: 60,
+  aiRent: 100,
+  costPerUnit: 80,
+  actions: 80,
+};
 
 const defaultItems: Omit<CostItem, 'id'>[] = [
   { name: "رص السيقق+الباتر+الانارة+المولد", dailyProductivity: 10, dailyRent: 100, costPerUnit: 10.00, isEditable: true },
@@ -345,6 +368,20 @@ export default function CostAnalysisPage() {
     }
   });
 
+  // Column widths state
+  const [columnWidths, setColumnWidths] = useState<ColumnWidths>(() => {
+    try {
+      const stored = localStorage.getItem(COLUMN_WIDTHS_KEY);
+      return stored ? { ...defaultColumnWidths, ...JSON.parse(stored) } : defaultColumnWidths;
+    } catch {
+      return defaultColumnWidths;
+    }
+  });
+  const [hasUnsavedColumnWidths, setHasUnsavedColumnWidths] = useState(false);
+  const [resizingColumn, setResizingColumn] = useState<keyof ColumnWidths | null>(null);
+  const [startX, setStartX] = useState(0);
+  const [startWidth, setStartWidth] = useState(0);
+
   // Debug log for items changes
   useEffect(() => {
     console.log('Items updated. Current count:', items.length, 'Items:', items);
@@ -361,6 +398,57 @@ export default function CostAnalysisPage() {
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
   }, [items, wastePercentage, adminPercentage, headers]);
+
+  // Column resizing mouse events
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizingColumn) return;
+      
+      // RTL adjustment - reverse direction
+      const diff = startX - e.clientX;
+      const newWidth = Math.max(40, startWidth + diff);
+      
+      setColumnWidths(prev => ({
+        ...prev,
+        [resizingColumn]: newWidth
+      }));
+      setHasUnsavedColumnWidths(true);
+    };
+
+    const handleMouseUp = () => {
+      setResizingColumn(null);
+    };
+
+    if (resizingColumn) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [resizingColumn, startX, startWidth]);
+
+  const handleColumnResizeStart = useCallback((e: React.MouseEvent, column: keyof ColumnWidths) => {
+    e.preventDefault();
+    setResizingColumn(column);
+    setStartX(e.clientX);
+    setStartWidth(columnWidths[column]);
+  }, [columnWidths]);
+
+  const saveColumnWidths = useCallback(() => {
+    localStorage.setItem(COLUMN_WIDTHS_KEY, JSON.stringify(columnWidths));
+    setHasUnsavedColumnWidths(false);
+    toast.success("تم حفظ عرض الأعمدة");
+  }, [columnWidths]);
+
+  const resetColumnWidths = useCallback(() => {
+    setColumnWidths(defaultColumnWidths);
+    localStorage.removeItem(COLUMN_WIDTHS_KEY);
+    setHasUnsavedColumnWidths(false);
+    toast.success("تم إعادة تعيين عرض الأعمدة");
+  }, []);
 
   // DnD sensors
   const sensors = useSensors(
@@ -992,15 +1080,37 @@ export default function CostAnalysisPage() {
                       </Button>
                     </label>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditingHeaders(!editingHeaders)}
-                    className="gap-1 h-7 text-xs"
-                  >
-                    <Edit2 className="w-3 h-3" />
-                    {editingHeaders ? "إنهاء تعديل الهيدر" : "تعديل الهيدر"}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {hasUnsavedColumnWidths && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={saveColumnWidths}
+                        className="gap-1 h-7 text-xs bg-green-600 hover:bg-green-700"
+                      >
+                        <Save className="w-3 h-3" />
+                        حفظ عرض الأعمدة
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={resetColumnWidths}
+                      className="gap-1 h-7 text-xs"
+                      title="إعادة تعيين عرض الأعمدة"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditingHeaders(!editingHeaders)}
+                      className="gap-1 h-7 text-xs"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      {editingHeaders ? "إنهاء تعديل الهيدر" : "تعديل الهيدر"}
+                    </Button>
+                  </div>
                 </div>
                 <ScrollArea className="max-h-[400px]">
                   <div ref={scrollViewportRef} data-radix-scroll-area-viewport="" className="h-full w-full rounded-[inherit]" style={{ overflow: 'hidden scroll' }}>
@@ -1010,11 +1120,16 @@ export default function CostAnalysisPage() {
                     collisionDetection={closestCenter}
                     onDragEnd={handleDragEnd}
                   >
-                    <Table>
+                    <Table className="table-fixed">
                       <TableHeader>
                         <TableRow className="bg-primary/10">
-                          <TableHead className="w-[30px]"></TableHead>
-                          <TableHead className="text-right font-bold text-primary w-[160px]">
+                          <TableHead style={{ width: columnWidths.drag }} className="relative">
+                            <div
+                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                              onMouseDown={(e) => handleColumnResizeStart(e, 'drag')}
+                            />
+                          </TableHead>
+                          <TableHead style={{ width: columnWidths.workItem }} className="text-right font-bold text-primary relative whitespace-nowrap">
                             {editingHeaders ? (
                               <Input
                                 value={headers.workItem}
@@ -1022,8 +1137,12 @@ export default function CostAnalysisPage() {
                                 className="h-6 text-xs text-right"
                               />
                             ) : headers.workItem}
+                            <div
+                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                              onMouseDown={(e) => handleColumnResizeStart(e, 'workItem')}
+                            />
                           </TableHead>
-                          <TableHead className="text-center font-bold text-primary w-[80px]">
+                          <TableHead style={{ width: columnWidths.productivity }} className="text-center font-bold text-primary relative whitespace-nowrap">
                             {editingHeaders ? (
                               <Input
                                 value={headers.productivity}
@@ -1031,8 +1150,12 @@ export default function CostAnalysisPage() {
                                 className="h-6 text-xs text-center"
                               />
                             ) : headers.productivity}
+                            <div
+                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                              onMouseDown={(e) => handleColumnResizeStart(e, 'productivity')}
+                            />
                           </TableHead>
-                          <TableHead className="text-center font-bold text-primary w-[100px]">
+                          <TableHead style={{ width: columnWidths.aiProductivity }} className="text-center font-bold text-primary relative whitespace-nowrap">
                             {editingHeaders ? (
                               <Input
                                 value={headers.aiProductivity}
@@ -1045,8 +1168,12 @@ export default function CostAnalysisPage() {
                                 {headers.aiProductivity}
                               </div>
                             )}
+                            <div
+                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                              onMouseDown={(e) => handleColumnResizeStart(e, 'aiProductivity')}
+                            />
                           </TableHead>
-                          <TableHead className="text-center font-bold text-primary w-[60px]">
+                          <TableHead style={{ width: columnWidths.dailyRent }} className="text-center font-bold text-primary relative whitespace-nowrap">
                             {editingHeaders ? (
                               <Input
                                 value={headers.dailyRent}
@@ -1054,8 +1181,12 @@ export default function CostAnalysisPage() {
                                 className="h-6 text-xs text-center"
                               />
                             ) : headers.dailyRent}
+                            <div
+                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                              onMouseDown={(e) => handleColumnResizeStart(e, 'dailyRent')}
+                            />
                           </TableHead>
-                          <TableHead className="text-center font-bold text-primary w-[100px]">
+                          <TableHead style={{ width: columnWidths.aiRent }} className="text-center font-bold text-primary relative whitespace-nowrap">
                             {editingHeaders ? (
                               <Input
                                 value={headers.aiRent}
@@ -1068,8 +1199,12 @@ export default function CostAnalysisPage() {
                                 {headers.aiRent}
                               </div>
                             )}
+                            <div
+                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                              onMouseDown={(e) => handleColumnResizeStart(e, 'aiRent')}
+                            />
                           </TableHead>
-                          <TableHead className="text-center font-bold text-primary w-[80px]">
+                          <TableHead style={{ width: columnWidths.costPerUnit }} className="text-center font-bold text-primary relative whitespace-nowrap">
                             {editingHeaders ? (
                               <Input
                                 value={headers.costPerUnit}
@@ -1077,8 +1212,18 @@ export default function CostAnalysisPage() {
                                 className="h-6 text-xs text-center"
                               />
                             ) : headers.costPerUnit}
+                            <div
+                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                              onMouseDown={(e) => handleColumnResizeStart(e, 'costPerUnit')}
+                            />
                           </TableHead>
-                          <TableHead className="w-[80px]">إجراءات</TableHead>
+                          <TableHead style={{ width: columnWidths.actions }} className="relative whitespace-nowrap">
+                            إجراءات
+                            <div
+                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                              onMouseDown={(e) => handleColumnResizeStart(e, 'actions')}
+                            />
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
