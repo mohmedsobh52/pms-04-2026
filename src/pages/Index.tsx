@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard } from "lucide-react";
+import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package } from "lucide-react";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -21,11 +21,13 @@ import { KPIDashboard } from "@/components/KPIDashboard";
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { MainDashboard } from "@/components/MainDashboard";
 import { FeaturesSection } from "@/components/FeaturesSection";
+import { ProcurementResourcesSchedule } from "@/components/ProcurementResourcesSchedule";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { supabase } from "@/integrations/supabase/client";
 import { extractTextFromPDF, validateExtractedText, extractWithOCROnly } from "@/lib/pdf-utils";
 import { extractDataFromExcel, formatExcelDataForAnalysis } from "@/lib/excel-utils";
@@ -39,20 +41,56 @@ const Index = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading, signOut } = useAuth();
   const { language, isArabic, t } = useLanguage();
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  
+  // Use global analysis context for data persistence
+  const { 
+    analysisData, 
+    wbsData, 
+    extractedText: contextExtractedText, 
+    selectedFile: contextSelectedFile,
+    setAnalysisData, 
+    setWbsData, 
+    setExtractedText: setContextExtractedText,
+    setSelectedFile: setContextSelectedFile,
+    clearAll: clearContextData
+  } = useAnalysisData();
+  
+  // Local state that doesn't need persistence
+  const [selectedFile, setSelectedFile] = useState<File | null>(contextSelectedFile);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [extractedText, setExtractedText] = useState<string>("");
+  const [extractedText, setExtractedText] = useState<string>(contextExtractedText);
   const [manualText, setManualText] = useState<string>("");
   const [showManualInput, setShowManualInput] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
-  const [extractionStatus, setExtractionStatus] = useState<"idle" | "extracting" | "success" | "failed">("idle");
+  const [extractionStatus, setExtractionStatus] = useState<"idle" | "extracting" | "success" | "failed">(
+    contextExtractedText ? "success" : "idle"
+  );
   const [isOCRProcessing, setIsOCRProcessing] = useState(false);
   const [ocrProgress, setOcrProgress] = useState<{ current: number; total: number } | null>(null);
   const [pdfProgress, setPdfProgress] = useState<{ current: number; total: number } | null>(null);
-  const [analysisData, setAnalysisData] = useState<any>(null);
-  const [wbsData, setWbsData] = useState<any>(null);
-  const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>(defaultWorkflowSteps);
+  const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>(() => {
+    // Initialize workflow steps based on existing data
+    if (analysisData) {
+      return defaultWorkflowSteps.map(step => ({ ...step, status: 'complete' as StepStatus }));
+    }
+    return defaultWorkflowSteps;
+  });
   const { toast } = useToast();
+
+  // Sync local state with context
+  useEffect(() => {
+    if (contextExtractedText && !extractedText) {
+      setExtractedText(contextExtractedText);
+      setExtractionStatus("success");
+    }
+  }, [contextExtractedText]);
+  
+  // Update context when local analysis data changes
+  useEffect(() => {
+    if (extractedText && extractedText !== contextExtractedText) {
+      setContextExtractedText(extractedText);
+    }
+  }, [extractedText]);
 
   const updateStepStatus = (stepId: string, status: StepStatus, progress?: number) => {
     setWorkflowSteps(prev =>
@@ -818,10 +856,14 @@ const Index = () => {
               {user && (
                 <div className="glass-card p-6 animate-slide-up">
                   <Tabs defaultValue="dashboard" className="w-full">
-                    <TabsList className="grid w-full grid-cols-6 mb-4">
+                    <TabsList className="grid w-full grid-cols-7 mb-4">
                       <TabsTrigger value="dashboard" className="gap-2">
                         <LayoutDashboard className="w-4 h-4" />
                         <span className="hidden sm:inline">{isArabic ? 'لوحة التحكم' : 'Dashboard'}</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="procurement" className="gap-2">
+                        <Package className="w-4 h-4" />
+                        <span className="hidden sm:inline">{isArabic ? 'المشتريات' : 'Procurement'}</span>
                       </TabsTrigger>
                       <TabsTrigger value="upload" className="gap-2">
                         <Receipt className="w-4 h-4" />
@@ -855,6 +897,12 @@ const Index = () => {
                           updateStepStatus("wbs", "complete");
                           updateStepStatus("export", "complete");
                         }}
+                      />
+                    </TabsContent>
+                    <TabsContent value="procurement">
+                      <ProcurementResourcesSchedule 
+                        items={analysisData?.items || []} 
+                        currency={analysisData?.summary?.currency || "SAR"} 
                       />
                     </TabsContent>
                     <TabsContent value="upload">

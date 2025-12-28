@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { LanguageProvider } from "@/hooks/useLanguage";
+import { AnalysisProvider } from "@/hooks/useAnalysisData";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -22,12 +23,13 @@ const App = () => (
   <LanguageProvider>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <UpdateBanner />
-            <Routes>
+        <AnalysisProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <UpdateBanner />
+              <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/shared/:shareCode" element={<SharedView />} />
@@ -38,9 +40,10 @@ const App = () => (
               <Route path="/admin/versions" element={<AdminVersions />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </AnalysisProvider>
       </AuthProvider>
     </QueryClientProvider>
   </LanguageProvider>
