@@ -25,6 +25,7 @@ import { useDynamicCostCalculator, CostInputs, defaultCostInputs } from "@/hooks
 import { useItemCodes } from "@/hooks/useItemCodes";
 import { EditableItemCode } from "./EditableItemCode";
 import { EditableAIRate } from "./EditableAIRate";
+import { EditableUnitPrice } from "./EditableUnitPrice";
 import { ItemCodeSettings } from "./ItemCodeSettings";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -140,6 +141,56 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
   
   // State for tracking recently applied AI rates (for visual confirmation)
   const [recentlyAppliedItems, setRecentlyAppliedItems] = useState<Set<string>>(new Set());
+  
+  // State for manually edited unit prices and totals
+  const [editedPrices, setEditedPrices] = useState<Record<string, { unit_price?: number; total_price?: number }>>({});
+  
+  // Handler for editing unit price
+  const handleEditUnitPrice = useCallback((itemNumber: string, newPrice: number) => {
+    const item = (data.items || []).find(i => i.item_number === itemNumber);
+    if (item) {
+      setEditedPrices(prev => ({
+        ...prev,
+        [itemNumber]: {
+          ...prev[itemNumber],
+          unit_price: newPrice,
+          total_price: newPrice * item.quantity
+        }
+      }));
+      toast({
+        title: isArabic ? "تم التحديث" : "Updated",
+        description: isArabic ? "تم تحديث سعر الوحدة" : "Unit price updated",
+      });
+    }
+  }, [data.items, isArabic, toast]);
+  
+  // Handler for editing total price
+  const handleEditTotalPrice = useCallback((itemNumber: string, newTotal: number) => {
+    const item = (data.items || []).find(i => i.item_number === itemNumber);
+    if (item && item.quantity > 0) {
+      setEditedPrices(prev => ({
+        ...prev,
+        [itemNumber]: {
+          ...prev[itemNumber],
+          total_price: newTotal,
+          unit_price: newTotal / item.quantity
+        }
+      }));
+      toast({
+        title: isArabic ? "تم التحديث" : "Updated",
+        description: isArabic ? "تم تحديث السعر الإجمالي" : "Total price updated",
+      });
+    }
+  }, [data.items, isArabic, toast]);
+  
+  // Get effective price for an item (edited > original)
+  const getEffectivePrice = useCallback((item: BOQItem) => {
+    const edited = editedPrices[item.item_number];
+    return {
+      unit_price: edited?.unit_price ?? item.unit_price ?? 0,
+      total_price: edited?.total_price ?? item.total_price ?? (item.unit_price ? item.unit_price * item.quantity : 0)
+    };
+  }, [editedPrices]);
 
   // Revert to original prices handler
   const handleRevertToOriginal = useCallback(() => {
@@ -1515,14 +1566,24 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                           <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{item.quantity.toLocaleString()}</span>
                         </td>
                         <td className="px-3 py-3 text-right">
-                          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                            {(item.unit_price && item.unit_price > 0) ? item.unit_price.toLocaleString() : '-'}
-                          </span>
+                          <EditableUnitPrice
+                            value={getEffectivePrice(item).unit_price}
+                            onSave={(newPrice) => handleEditUnitPrice(item.item_number, newPrice)}
+                            className={cn(
+                              "text-slate-700 dark:text-slate-200",
+                              editedPrices[item.item_number]?.unit_price !== undefined && "text-blue-600 dark:text-blue-400"
+                            )}
+                          />
                         </td>
                         <td className="px-3 py-3 text-right">
-                          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                            {(item.total_price && item.total_price > 0) ? item.total_price.toLocaleString() : ((item.unit_price && item.unit_price > 0) ? (item.unit_price * item.quantity).toLocaleString() : '-')}
-                          </span>
+                          <EditableUnitPrice
+                            value={getEffectivePrice(item).total_price}
+                            onSave={(newTotal) => handleEditTotalPrice(item.item_number, newTotal)}
+                            className={cn(
+                              "text-slate-700 dark:text-slate-200",
+                              editedPrices[item.item_number]?.total_price !== undefined && "text-blue-600 dark:text-blue-400"
+                            )}
+                          />
                         </td>
                         <td className="px-3 py-3 text-right bg-purple-500/5">
                           <EditableAIRate

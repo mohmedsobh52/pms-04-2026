@@ -464,15 +464,25 @@ Analyze BOQ (Bill of Quantities) documents with precision and accuracy, extracti
 
 ## EXTRACTION REQUIREMENTS
 
-### 1. BOQ Line Items
+### 1. BOQ Line Items - CRITICAL PRICE EXTRACTION
 Extract ALL line items with the following fields:
 - item_no: Item number/code (e.g., "1.1", "A-001", "01.02.03")
 - description: Full item description (clean, readable text)
 - unit: Normalized unit (m, m², m³, kg, pcs, ton, L.S, L.M, ea, lot, day, month, trip, set)
-- quantity: Numeric quantity
-- rate: Unit rate/price
-- amount: Total amount (should equal quantity × rate)
+- quantity: Numeric quantity (MUST be extracted from the document, NOT estimated)
+- rate: Unit rate/price per unit (CRITICAL: Extract the ACTUAL unit price from the document. Look for columns labeled "Rate", "Unit Price", "Price/Unit", "سعر الوحدة", or similar. This is the price for ONE unit.)
+- amount: Total amount (CRITICAL: Extract the ACTUAL total from the document. Look for columns labeled "Amount", "Total", "Total Price", "المبلغ", "الإجمالي", or similar. Should equal quantity × rate)
 - section_trade: MUST categorize EVERY item into one of these standard construction sections:
+
+⚠️ CRITICAL PRICE EXTRACTION RULES:
+1. ALWAYS extract ACTUAL values from the document - never use 0 or placeholder values
+2. If a column shows "Rate" or "Unit Price", that value goes in the "rate" field
+3. If a column shows "Amount" or "Total", that value goes in the "amount" field
+4. Common BOQ column order: Item No | Description | Unit | Qty | Rate | Amount
+5. Arabic BOQs may use: رقم البند | الوصف | الوحدة | الكمية | سعر الوحدة | المبلغ
+6. If rate is missing but amount exists: rate = amount / quantity
+7. If amount is missing but rate exists: amount = rate × quantity
+8. NEVER return rate=0 or amount=0 if there are visible numbers in those columns
   * "Site Preparation & Earthworks" - for excavation, grading, site clearing
   * "Foundations & Substructure" - for foundation work, piles, retaining walls
   * "Concrete Works" - for concrete slabs, columns, beams
@@ -697,20 +707,42 @@ Use the submit_boq_analysis function to return your structured analysis.`;
       }
     }
 
-    // Post-process: normalize units, validate categorization, and recalculate if needed
+    // Post-process: normalize units, validate categorization, calculate prices, and recalculate if needed
     if (result.items) {
       result.items = result.items.map(item => {
         const normalizedUnit = normalizeUnit(item.unit);
-        const calculatedAmount = item.quantity * item.rate;
-        const amountDiff = Math.abs(calculatedAmount - item.amount);
-        const tolerance = item.amount * 0.01;
+        
+        // Ensure rate and amount are valid numbers
+        let rate = parseFloat(String(item.rate)) || 0;
+        let amount = parseFloat(String(item.amount)) || 0;
+        const quantity = parseFloat(String(item.quantity)) || 1;
+        
+        // Calculate missing values
+        if (rate === 0 && amount > 0 && quantity > 0) {
+          rate = amount / quantity;
+        }
+        if (amount === 0 && rate > 0 && quantity > 0) {
+          amount = rate * quantity;
+        }
+        
+        const calculatedAmount = quantity * rate;
+        const amountDiff = Math.abs(calculatedAmount - amount);
+        const tolerance = amount * 0.01;
         
         const validationNotes: string[] = item.validation_notes || [];
         let validationStatus = item.validation_status || "valid";
         
-        if (amountDiff > tolerance && item.amount > 0) {
-          validationNotes.push(`Arithmetic discrepancy: Qty(${item.quantity}) × Rate(${item.rate}) = ${calculatedAmount.toFixed(2)}, but Amount = ${item.amount}`);
+        if (amountDiff > tolerance && amount > 0) {
+          validationNotes.push(`Arithmetic discrepancy: Qty(${quantity}) × Rate(${rate}) = ${calculatedAmount.toFixed(2)}, but Amount = ${amount}`);
           validationStatus = "warning";
+        }
+        
+        // Add note if prices were calculated
+        if (item.rate === 0 && rate > 0) {
+          validationNotes.push(`Rate calculated from amount/quantity: ${rate.toFixed(2)}`);
+        }
+        if (item.amount === 0 && amount > 0) {
+          validationNotes.push(`Amount calculated from rate×quantity: ${amount.toFixed(2)}`);
         }
         
         // Fix uncategorized items by smart categorization based on description
@@ -754,6 +786,8 @@ Use the submit_boq_analysis function to return your structured analysis.`;
         return {
           ...item,
           unit: normalizedUnit,
+          rate: rate,
+          amount: amount,
           section_trade: sectionTrade,
           validation_status: validationStatus as "valid" | "warning" | "error",
           validation_notes: validationNotes
