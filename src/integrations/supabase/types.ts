@@ -64,6 +64,36 @@ export type Database = {
           },
         ]
       }
+      app_versions: {
+        Row: {
+          changes_ar: string[]
+          changes_en: string[]
+          created_at: string
+          id: string
+          is_latest: boolean | null
+          release_date: string
+          version: string
+        }
+        Insert: {
+          changes_ar?: string[]
+          changes_en?: string[]
+          created_at?: string
+          id?: string
+          is_latest?: boolean | null
+          release_date?: string
+          version: string
+        }
+        Update: {
+          changes_ar?: string[]
+          changes_en?: string[]
+          created_at?: string
+          id?: string
+          is_latest?: boolean | null
+          release_date?: string
+          version?: string
+        }
+        Relationships: []
+      }
       comparison_reports: {
         Row: {
           comparison_data: Json
