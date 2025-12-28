@@ -12,6 +12,7 @@ import SharedView from "./pages/SharedView";
 import SavedProjectsPage from "./pages/SavedProjectsPage";
 import About from "./pages/About";
 import CostAnalysisPage from "./pages/CostAnalysisPage";
+import Changelog from "./pages/Changelog";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
               <Route path="/projects" element={<SavedProjectsPage />} />
               <Route path="/about" element={<About />} />
               <Route path="/cost-analysis" element={<CostAnalysisPage />} />
+              <Route path="/changelog" element={<Changelog />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
