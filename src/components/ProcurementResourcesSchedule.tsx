@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { 
   Package, 
   Users, 
@@ -12,7 +12,11 @@ import {
   Filter,
   Search,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Bell,
+  Edit2,
+  X,
+  BarChart3
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,11 +44,24 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
 import { useLanguage } from "@/hooks/useLanguage";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { GanttChart } from "./GanttChart";
 
 interface BOQItem {
   item_number: string;
@@ -64,7 +81,7 @@ interface ProcurementItem {
   quantity: number;
   unit: string;
   estimatedCost: number;
-  leadTime: number; // days
+  leadTime: number;
   supplier?: string;
   orderDate?: string;
   deliveryDate?: string;
@@ -87,6 +104,15 @@ interface ResourceItem {
   status: 'available' | 'assigned' | 'unavailable';
 }
 
+interface ProcurementAlert {
+  id: string;
+  itemId: string;
+  itemDescription: string;
+  type: 'delayed' | 'approaching' | 'overdue';
+  daysRemaining: number;
+  deliveryDate: string;
+}
+
 interface ProcurementResourcesScheduleProps {
   items?: BOQItem[];
   currency?: string;
@@ -101,11 +127,15 @@ export function ProcurementResourcesSchedule({
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+  const [editedItems, setEditedItems] = useState<Record<string, Partial<ProcurementItem>>>({});
+  const [editingItem, setEditingItem] = useState<ProcurementItem | null>(null);
+  const [showAlerts, setShowAlerts] = useState(true);
+  const [activeTab, setActiveTab] = useState("procurement");
 
   // Generate procurement items from BOQ items
-  const procurementItems: ProcurementItem[] = useMemo(() => {
+  const baseProcurementItems: ProcurementItem[] = useMemo(() => {
     return items.map((item, index) => {
-      const leadTime = Math.floor(Math.random() * 30) + 7; // 7-37 days
+      const leadTime = Math.floor(Math.random() * 30) + 7;
       const statuses: ProcurementItem['status'][] = ['pending', 'ordered', 'in_transit', 'delivered', 'delayed'];
       const priorities: ProcurementItem['priority'][] = ['low', 'medium', 'high', 'critical'];
       
@@ -131,6 +161,58 @@ export function ProcurementResourcesSchedule({
     });
   }, [items]);
 
+  // Apply edited values
+  const procurementItems = useMemo(() => {
+    return baseProcurementItems.map(item => ({
+      ...item,
+      ...editedItems[item.id]
+    }));
+  }, [baseProcurementItems, editedItems]);
+
+  // Generate alerts for delayed/approaching items
+  const alerts: ProcurementAlert[] = useMemo(() => {
+    const today = new Date();
+    const alertList: ProcurementAlert[] = [];
+    
+    procurementItems.forEach(item => {
+      if (item.status === 'delivered') return;
+      
+      const deliveryDate = new Date(item.deliveryDate || '');
+      const diffDays = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays < 0 && item.status !== 'delayed') {
+        alertList.push({
+          id: `alert-${item.id}-overdue`,
+          itemId: item.id,
+          itemDescription: item.description,
+          type: 'overdue',
+          daysRemaining: diffDays,
+          deliveryDate: item.deliveryDate || '',
+        });
+      } else if (item.status === 'delayed') {
+        alertList.push({
+          id: `alert-${item.id}-delayed`,
+          itemId: item.id,
+          itemDescription: item.description,
+          type: 'delayed',
+          daysRemaining: diffDays,
+          deliveryDate: item.deliveryDate || '',
+        });
+      } else if (diffDays >= 0 && diffDays <= 7) {
+        alertList.push({
+          id: `alert-${item.id}-approaching`,
+          itemId: item.id,
+          itemDescription: item.description,
+          type: 'approaching',
+          daysRemaining: diffDays,
+          deliveryDate: item.deliveryDate || '',
+        });
+      }
+    });
+    
+    return alertList.sort((a, b) => a.daysRemaining - b.daysRemaining);
+  }, [procurementItems]);
+
   // Generate resource items from BOQ items
   const resourceItems: ResourceItem[] = useMemo(() => {
     const resources: ResourceItem[] = [];
@@ -140,7 +222,6 @@ export function ProcurementResourcesSchedule({
       const category = item.category || 'General';
       const totalCost = item.total_price || item.quantity * (item.unit_price || 0);
       
-      // Labor resource
       if (Math.random() > 0.3) {
         const laborCost = totalCost * 0.3;
         const days = Math.max(7, Math.floor(laborCost / 500));
@@ -160,7 +241,6 @@ export function ProcurementResourcesSchedule({
         });
       }
       
-      // Equipment resource
       if (Math.random() > 0.5) {
         const equipCost = totalCost * 0.2;
         const days = Math.max(3, Math.floor(equipCost / 1000));
@@ -180,7 +260,6 @@ export function ProcurementResourcesSchedule({
         });
       }
       
-      // Material resource
       resources.push({
         id: `res-${resourceId++}`,
         type: 'material',
@@ -199,6 +278,40 @@ export function ProcurementResourcesSchedule({
     
     return resources;
   }, [items, isArabic]);
+
+  // Convert resources to Gantt activities
+  const ganttActivities = useMemo(() => {
+    return resourceItems.map((resource, index) => {
+      const startDate = new Date(resource.startDate);
+      const endDate = new Date(resource.endDate);
+      const duration = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      const totalResourceCost = resourceItems.reduce((sum, r) => sum + r.totalCost, 0);
+      
+      return {
+        id: resource.id,
+        name: resource.name,
+        wbs: resource.category,
+        startDate,
+        endDate,
+        duration: Math.max(1, duration),
+        cost: resource.totalCost,
+        costWeight: totalResourceCost > 0 ? (resource.totalCost / totalResourceCost) * 100 : 0,
+        isCritical: resource.type === 'labor' && resource.utilizationPercentage > 90,
+      };
+    });
+  }, [resourceItems]);
+
+  const projectDates = useMemo(() => {
+    if (ganttActivities.length === 0) {
+      return {
+        start: new Date(),
+        end: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+      };
+    }
+    const start = new Date(Math.min(...ganttActivities.map(a => a.startDate.getTime())));
+    const end = new Date(Math.max(...ganttActivities.map(a => a.endDate.getTime())));
+    return { start, end };
+  }, [ganttActivities]);
 
   // Filter procurement items
   const filteredProcurement = useMemo(() => {
@@ -252,6 +365,25 @@ export function ProcurementResourcesSchedule({
     };
   }, [resourceItems]);
 
+  const handleEditItem = (item: ProcurementItem) => {
+    setEditingItem(item);
+  };
+
+  const handleSaveEdit = (updatedItem: Partial<ProcurementItem>) => {
+    if (!editingItem) return;
+    
+    setEditedItems(prev => ({
+      ...prev,
+      [editingItem.id]: {
+        ...prev[editingItem.id],
+        ...updatedItem
+      }
+    }));
+    
+    toast.success(isArabic ? 'تم حفظ التعديلات' : 'Changes saved');
+    setEditingItem(null);
+  };
+
   const getStatusBadge = (status: ProcurementItem['status']) => {
     const config = {
       pending: { label: isArabic ? 'معلق' : 'Pending', variant: 'secondary' as const },
@@ -286,7 +418,6 @@ export function ProcurementResourcesSchedule({
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();
     
-    // Procurement sheet
     const procData = [
       ['Item No', 'Description', 'Category', 'Quantity', 'Unit', 'Est. Cost', 'Lead Time', 'Supplier', 'Order Date', 'Delivery Date', 'Status', 'Priority'],
       ...procurementItems.map(item => [
@@ -307,7 +438,6 @@ export function ProcurementResourcesSchedule({
     const procSheet = XLSX.utils.aoa_to_sheet(procData);
     XLSX.utils.book_append_sheet(wb, procSheet, 'Procurement');
     
-    // Resources sheet
     const resData = [
       ['Type', 'Name', 'Category', 'Quantity', 'Unit', 'Rate/Day', 'Total Cost', 'Start Date', 'End Date', 'Utilization %', 'Status'],
       ...resourceItems.map(item => [
@@ -338,7 +468,6 @@ export function ProcurementResourcesSchedule({
     doc.setFontSize(18);
     doc.text(isArabic ? 'جدول المشتريات والموارد' : 'Procurement & Resources Schedule', pageWidth / 2, 20, { align: 'center' });
     
-    // Summary
     doc.setFontSize(12);
     doc.text(isArabic ? 'ملخص المشتريات' : 'Procurement Summary', 14, 35);
     
@@ -355,7 +484,6 @@ export function ProcurementResourcesSchedule({
       theme: 'grid',
     });
     
-    // Procurement list
     const finalY = (doc as any).lastAutoTable.finalY || 80;
     doc.text(isArabic ? 'قائمة المشتريات' : 'Procurement List', 14, finalY + 15);
     
@@ -405,6 +533,20 @@ export function ProcurementResourcesSchedule({
           </p>
         </div>
         <div className="flex gap-2">
+          <Button 
+            variant={showAlerts ? "default" : "outline"} 
+            size="sm" 
+            onClick={() => setShowAlerts(!showAlerts)}
+            className="relative"
+          >
+            <Bell className="w-4 h-4 mr-2" />
+            {isArabic ? 'التنبيهات' : 'Alerts'}
+            {alerts.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
+                {alerts.length}
+              </span>
+            )}
+          </Button>
           <Button variant="outline" size="sm" onClick={exportToExcel}>
             <Download className="w-4 h-4 mr-2" />
             Excel
@@ -415,6 +557,56 @@ export function ProcurementResourcesSchedule({
           </Button>
         </div>
       </div>
+
+      {/* Alerts Section */}
+      {showAlerts && alerts.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h4 className="font-semibold flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-destructive" />
+              {isArabic ? 'تنبيهات المشتريات' : 'Procurement Alerts'}
+            </h4>
+            <Button variant="ghost" size="sm" onClick={() => setShowAlerts(false)}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="grid gap-2 max-h-48 overflow-y-auto">
+            {alerts.slice(0, 5).map(alert => (
+              <Alert 
+                key={alert.id} 
+                variant={alert.type === 'overdue' || alert.type === 'delayed' ? 'destructive' : 'default'}
+              >
+                <AlertTriangle className="w-4 h-4" />
+                <AlertTitle className="text-sm">
+                  {alert.type === 'overdue' && (isArabic ? 'متأخر عن الموعد!' : 'Overdue!')}
+                  {alert.type === 'delayed' && (isArabic ? 'تأخير في التسليم' : 'Delivery Delayed')}
+                  {alert.type === 'approaching' && (isArabic ? 'موعد تسليم قريب' : 'Approaching Deadline')}
+                </AlertTitle>
+                <AlertDescription className="text-xs">
+                  <span className="font-medium">{alert.itemDescription.slice(0, 40)}...</span>
+                  <br />
+                  {isArabic ? 'تاريخ التسليم:' : 'Delivery:'} {alert.deliveryDate}
+                  {alert.type === 'approaching' && (
+                    <span className="ml-2">
+                      ({Math.abs(alert.daysRemaining)} {isArabic ? 'أيام متبقية' : 'days left'})
+                    </span>
+                  )}
+                  {alert.type === 'overdue' && (
+                    <span className="ml-2 text-destructive font-semibold">
+                      ({Math.abs(alert.daysRemaining)} {isArabic ? 'أيام تأخير' : 'days overdue'})
+                    </span>
+                  )}
+                </AlertDescription>
+              </Alert>
+            ))}
+          </div>
+          {alerts.length > 5 && (
+            <p className="text-xs text-muted-foreground text-center">
+              +{alerts.length - 5} {isArabic ? 'تنبيهات أخرى' : 'more alerts'}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -476,8 +668,8 @@ export function ProcurementResourcesSchedule({
       </div>
 
       {/* Main Tabs */}
-      <Tabs defaultValue="procurement" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="procurement" className="gap-2">
             <Truck className="w-4 h-4" />
             {isArabic ? 'المشتريات' : 'Procurement'}
@@ -485,6 +677,10 @@ export function ProcurementResourcesSchedule({
           <TabsTrigger value="resources" className="gap-2">
             <Users className="w-4 h-4" />
             {isArabic ? 'الموارد' : 'Resources'}
+          </TabsTrigger>
+          <TabsTrigger value="gantt" className="gap-2">
+            <BarChart3 className="w-4 h-4" />
+            {isArabic ? 'الجدول الزمني' : 'Gantt Chart'}
           </TabsTrigger>
         </TabsList>
 
@@ -529,7 +725,7 @@ export function ProcurementResourcesSchedule({
 
           {/* Categorized Procurement Table */}
           <div className="space-y-3">
-            {Object.entries(categorizedProcurement).map(([category, items]) => (
+            {Object.entries(categorizedProcurement).map(([category, categoryItems]) => (
               <Collapsible 
                 key={category} 
                 open={expandedCategories.includes(category)}
@@ -546,10 +742,10 @@ export function ProcurementResourcesSchedule({
                             <ChevronDown className="w-4 h-4" />
                           )}
                           <CardTitle className="text-base">{category}</CardTitle>
-                          <Badge variant="outline">{items.length} {isArabic ? 'بند' : 'items'}</Badge>
+                          <Badge variant="outline">{categoryItems.length} {isArabic ? 'بند' : 'items'}</Badge>
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {currency} {items.reduce((sum, i) => sum + i.estimatedCost, 0).toLocaleString()}
+                          {currency} {categoryItems.reduce((sum, i) => sum + i.estimatedCost, 0).toLocaleString()}
                         </div>
                       </div>
                     </CardHeader>
@@ -567,10 +763,11 @@ export function ProcurementResourcesSchedule({
                             <TableHead>{isArabic ? 'التسليم' : 'Delivery'}</TableHead>
                             <TableHead>{isArabic ? 'الحالة' : 'Status'}</TableHead>
                             <TableHead>{isArabic ? 'الأولوية' : 'Priority'}</TableHead>
+                            <TableHead>{isArabic ? 'تعديل' : 'Edit'}</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {items.map(item => (
+                          {categoryItems.map(item => (
                             <TableRow key={item.id}>
                               <TableCell className="font-mono text-xs">{item.itemNumber}</TableCell>
                               <TableCell className="max-w-[200px] truncate" title={item.description}>
@@ -582,6 +779,15 @@ export function ProcurementResourcesSchedule({
                               <TableCell className="text-sm">{item.deliveryDate}</TableCell>
                               <TableCell>{getStatusBadge(item.status)}</TableCell>
                               <TableCell>{getPriorityBadge(item.priority)}</TableCell>
+                              <TableCell>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handleEditItem(item)}
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </Button>
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -706,7 +912,131 @@ export function ProcurementResourcesSchedule({
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="gantt" className="space-y-4">
+          {ganttActivities.length > 0 ? (
+            <GanttChart
+              activities={ganttActivities.slice(0, 30)}
+              projectStartDate={projectDates.start}
+              projectEndDate={projectDates.end}
+              currency={currency}
+              title={isArabic ? 'الجدول الزمني للموارد' : 'Resource Timeline'}
+            />
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <BarChart3 className="w-12 h-12 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground text-center">
+                  {isArabic 
+                    ? 'لا توجد بيانات موارد لعرض الجدول الزمني'
+                    : 'No resource data available to display Gantt chart'}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
       </Tabs>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingItem} onOpenChange={() => setEditingItem(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {isArabic ? 'تعديل بند المشتريات' : 'Edit Procurement Item'}
+            </DialogTitle>
+          </DialogHeader>
+          {editingItem && (
+            <EditProcurementForm 
+              item={editingItem} 
+              onSave={handleSaveEdit}
+              onCancel={() => setEditingItem(null)}
+              isArabic={isArabic}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+// Edit Form Component
+interface EditProcurementFormProps {
+  item: ProcurementItem;
+  onSave: (updates: Partial<ProcurementItem>) => void;
+  onCancel: () => void;
+  isArabic: boolean;
+}
+
+function EditProcurementForm({ item, onSave, onCancel, isArabic }: EditProcurementFormProps) {
+  const [deliveryDate, setDeliveryDate] = useState(item.deliveryDate || '');
+  const [priority, setPriority] = useState(item.priority);
+  const [status, setStatus] = useState(item.status);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      deliveryDate,
+      priority,
+      status,
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <label className="text-sm font-medium">
+          {isArabic ? 'تاريخ التسليم' : 'Delivery Date'}
+        </label>
+        <Input
+          type="date"
+          value={deliveryDate}
+          onChange={(e) => setDeliveryDate(e.target.value)}
+        />
+      </div>
+      
+      <div className="space-y-2">
+        <label className="text-sm font-medium">
+          {isArabic ? 'الأولوية' : 'Priority'}
+        </label>
+        <Select value={priority} onValueChange={(v: ProcurementItem['priority']) => setPriority(v)}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="low">{isArabic ? 'منخفض' : 'Low'}</SelectItem>
+            <SelectItem value="medium">{isArabic ? 'متوسط' : 'Medium'}</SelectItem>
+            <SelectItem value="high">{isArabic ? 'عالي' : 'High'}</SelectItem>
+            <SelectItem value="critical">{isArabic ? 'حرج' : 'Critical'}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      <div className="space-y-2">
+        <label className="text-sm font-medium">
+          {isArabic ? 'الحالة' : 'Status'}
+        </label>
+        <Select value={status} onValueChange={(v: ProcurementItem['status']) => setStatus(v)}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="pending">{isArabic ? 'معلق' : 'Pending'}</SelectItem>
+            <SelectItem value="ordered">{isArabic ? 'تم الطلب' : 'Ordered'}</SelectItem>
+            <SelectItem value="in_transit">{isArabic ? 'في الطريق' : 'In Transit'}</SelectItem>
+            <SelectItem value="delivered">{isArabic ? 'تم التسليم' : 'Delivered'}</SelectItem>
+            <SelectItem value="delayed">{isArabic ? 'متأخر' : 'Delayed'}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      <DialogFooter className="gap-2">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          {isArabic ? 'إلغاء' : 'Cancel'}
+        </Button>
+        <Button type="submit">
+          {isArabic ? 'حفظ' : 'Save'}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }
