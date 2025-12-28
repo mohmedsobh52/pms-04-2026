@@ -123,6 +123,9 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
   
+  // State for bulk apply dialog
+  const [bulkApplyOpen, setBulkApplyOpen] = useState(false);
+  
   // State for tracking recently applied AI rates (for visual confirmation)
   const [recentlyAppliedItems, setRecentlyAppliedItems] = useState<Set<string>>(new Set());
 
@@ -171,8 +174,25 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
 
   // Template handlers
   const handleSaveAsTemplate = useCallback((costs: CostInputs, name: string) => {
-    saveAsTemplate(costs, name);
-  }, [saveAsTemplate]);
+    const template = saveAsTemplate(costs, name);
+    toast({
+      title: isArabic ? "تم حفظ القالب بنجاح" : "Template Saved Successfully",
+      description: isArabic 
+        ? `تم حفظ "${template.name}" - اضغط للتطبيق على البنود` 
+        : `"${template.name}" saved - Click to apply to items`,
+      action: (
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => setBulkApplyOpen(true)}
+          className="gap-1"
+        >
+          <Layers className="w-3 h-3" />
+          {isArabic ? "تطبيق" : "Apply"}
+        </Button>
+      ),
+    });
+  }, [saveAsTemplate, isArabic, toast]);
 
   const handleApplyTemplate = useCallback((templateId?: string): CostInputs | null => {
     const template = templateId 
@@ -1038,6 +1058,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
               onExportTemplates={exportTemplates}
               onImportTemplates={importTemplates}
               currency={data.summary?.currency || "SAR"}
+              externalOpen={bulkApplyOpen}
+              onExternalOpenChange={setBulkApplyOpen}
             />
             {/* Clear All Costs Button */}
             {showClearConfirm ? (
