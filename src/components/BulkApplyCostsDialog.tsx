@@ -42,6 +42,8 @@ interface BulkApplyCostsDialogProps {
   onExportTemplates?: () => string;
   onImportTemplates?: (jsonString: string) => { success: boolean; count: number; error?: string };
   currency?: string;
+  externalOpen?: boolean;
+  onExternalOpenChange?: (open: boolean) => void;
 }
 
 export function BulkApplyCostsDialog({
@@ -53,8 +55,19 @@ export function BulkApplyCostsDialog({
   onExportTemplates,
   onImportTemplates,
   currency = "SAR",
+  externalOpen,
+  onExternalOpenChange,
 }: BulkApplyCostsDialogProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setIsOpen = (open: boolean) => {
+    if (onExternalOpenChange) {
+      onExternalOpenChange(open);
+    } else {
+      setInternalOpen(open);
+    }
+  };
+  
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const importInputRef = useRef<HTMLInputElement>(null);
