@@ -185,14 +185,25 @@ export function BulkApplyCostsDialog({
     };
   }, [activeTemplate]);
 
+  const hasTemplates = savedTemplates.length > 0 || savedTemplate !== null;
+
+  const handleOpenChange = (open: boolean) => {
+    if (open && !hasTemplates) {
+      toast.error("لا يوجد قوالب محفوظة", {
+        description: "يرجى حفظ قالب أولاً من قسم 'حفظ كقالب جديد' قبل التطبيق على عدة بنود",
+      });
+      return;
+    }
+    setIsOpen(open);
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button 
           variant="outline" 
           size="sm" 
           className="gap-2"
-          disabled={savedTemplates.length === 0 && !savedTemplate}
         >
           <Layers className="w-4 h-4" />
           تطبيق على عدة بنود
