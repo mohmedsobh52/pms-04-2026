@@ -35,3 +35,9 @@ verify_jwt = false
 
 [functions.send-comment-notification]
 verify_jwt = false
+
+[functions.analyze-procurement]
+verify_jwt = false
+
+[functions.analyze-resources]
+verify_jwt = false

@@ -16,7 +16,10 @@ import {
   Bell,
   Edit2,
   X,
-  BarChart3
+  BarChart3,
+  Sparkles,
+  Loader2,
+  RefreshCw
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -62,6 +65,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { GanttChart } from "./GanttChart";
+import { supabase } from "@/integrations/supabase/client";
 
 interface BOQItem {
   item_number: string;
@@ -87,6 +91,8 @@ interface ProcurementItem {
   deliveryDate?: string;
   status: 'pending' | 'ordered' | 'in_transit' | 'delivered' | 'delayed';
   priority: 'low' | 'medium' | 'high' | 'critical';
+  aiGenerated?: boolean;
+  aiReasoning?: string;
 }
 
 interface ResourceItem {
@@ -102,6 +108,8 @@ interface ResourceItem {
   endDate: string;
   utilizationPercentage: number;
   status: 'available' | 'assigned' | 'unavailable';
+  aiGenerated?: boolean;
+  aiReasoning?: string;
 }
 
 interface ProcurementAlert {
@@ -131,43 +139,130 @@ export function ProcurementResourcesSchedule({
   const [editingItem, setEditingItem] = useState<ProcurementItem | null>(null);
   const [showAlerts, setShowAlerts] = useState(true);
   const [activeTab, setActiveTab] = useState("procurement");
+  
+  // AI Analysis states
+  const [isAnalyzingProcurement, setIsAnalyzingProcurement] = useState(false);
+  const [isAnalyzingResources, setIsAnalyzingResources] = useState(false);
+  const [aiProcurementData, setAiProcurementData] = useState<ProcurementItem[]>([]);
+  const [aiResourceData, setAiResourceData] = useState<ResourceItem[]>([]);
+  const [hasAnalyzedProcurement, setHasAnalyzedProcurement] = useState(false);
+  const [hasAnalyzedResources, setHasAnalyzedResources] = useState(false);
 
-  // Generate procurement items from BOQ items
-  const baseProcurementItems: ProcurementItem[] = useMemo(() => {
-    return items.map((item, index) => {
-      const leadTime = Math.floor(Math.random() * 30) + 7;
-      const statuses: ProcurementItem['status'][] = ['pending', 'ordered', 'in_transit', 'delivered', 'delayed'];
-      const priorities: ProcurementItem['priority'][] = ['low', 'medium', 'high', 'critical'];
-      
-      const today = new Date();
-      const orderDate = new Date(today.getTime() - Math.random() * 30 * 24 * 60 * 60 * 1000);
-      const deliveryDate = new Date(orderDate.getTime() + leadTime * 24 * 60 * 60 * 1000);
-      
-      return {
+  // AI-powered procurement analysis
+  const analyzeProcurement = async () => {
+    if (!items || items.length === 0) {
+      toast.error(isArabic ? 'لا توجد بنود للتحليل' : 'No items to analyze');
+      return;
+    }
+
+    setIsAnalyzingProcurement(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-procurement', {
+        body: {
+          items: items.slice(0, 20), // Limit for performance
+          projectStartDate: new Date().toISOString(),
+          language: isArabic ? 'ar' : 'en'
+        }
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      const procurementItems: ProcurementItem[] = (data.procurement_analysis || []).map((item: any, index: number) => ({
         id: `proc-${index}`,
-        itemNumber: item.item_number,
-        description: item.description,
-        category: item.category || 'General',
-        quantity: item.quantity,
-        unit: item.unit,
-        estimatedCost: item.total_price || item.quantity * (item.unit_price || 0),
-        leadTime,
-        supplier: ['Saudi Suppliers Co.', 'Al-Muhaidib', 'Binladin Group', 'Al-Rajhi Trading'][Math.floor(Math.random() * 4)],
-        orderDate: orderDate.toISOString().split('T')[0],
-        deliveryDate: deliveryDate.toISOString().split('T')[0],
-        status: statuses[Math.floor(Math.random() * statuses.length)],
-        priority: priorities[Math.floor(Math.random() * priorities.length)],
-      };
-    });
-  }, [items]);
+        itemNumber: item.boq_item_number || items[index]?.item_number || `${index + 1}`,
+        description: item.description || items[index]?.description || '',
+        category: item.category || items[index]?.category || 'General',
+        quantity: item.quantity || items[index]?.quantity || 1,
+        unit: item.unit || items[index]?.unit || '',
+        estimatedCost: item.estimated_cost || items[index]?.total_price || 0,
+        leadTime: item.lead_time_days || 14,
+        supplier: item.suggested_suppliers?.[0] || '',
+        orderDate: item.order_date || '',
+        deliveryDate: item.delivery_date || '',
+        status: 'pending' as const,
+        priority: item.priority || 'medium',
+        aiGenerated: true,
+        aiReasoning: item.ai_reasoning || ''
+      }));
 
-  // Apply edited values
+      setAiProcurementData(procurementItems);
+      setHasAnalyzedProcurement(true);
+      toast.success(isArabic ? `تم تحليل ${procurementItems.length} بند بنجاح` : `Successfully analyzed ${procurementItems.length} items`);
+    } catch (error) {
+      console.error('Procurement analysis error:', error);
+      toast.error(isArabic ? 'خطأ في تحليل المشتريات' : 'Error analyzing procurement');
+    } finally {
+      setIsAnalyzingProcurement(false);
+    }
+  };
+
+  // AI-powered resources analysis
+  const analyzeResources = async () => {
+    if (!items || items.length === 0) {
+      toast.error(isArabic ? 'لا توجد بنود للتحليل' : 'No items to analyze');
+      return;
+    }
+
+    setIsAnalyzingResources(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-resources', {
+        body: {
+          items: items.slice(0, 20),
+          projectStartDate: new Date().toISOString(),
+          projectDuration: 180,
+          language: isArabic ? 'ar' : 'en'
+        }
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      const resourceItems: ResourceItem[] = (data.resource_analysis || []).map((item: any, index: number) => ({
+        id: `res-${index}`,
+        type: item.type || 'labor',
+        name: item.name || '',
+        category: item.category || 'General',
+        quantity: item.quantity || 1,
+        unit: item.unit || '',
+        ratePerDay: item.rate_per_day || 0,
+        totalCost: item.total_cost || 0,
+        startDate: item.start_date || new Date().toISOString().split('T')[0],
+        endDate: item.end_date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        utilizationPercentage: item.utilization_percent || 80,
+        status: 'available' as const,
+        aiGenerated: true,
+        aiReasoning: item.ai_reasoning || ''
+      }));
+
+      setAiResourceData(resourceItems);
+      setHasAnalyzedResources(true);
+      toast.success(isArabic ? `تم تحليل ${resourceItems.length} مورد بنجاح` : `Successfully analyzed ${resourceItems.length} resources`);
+    } catch (error) {
+      console.error('Resources analysis error:', error);
+      toast.error(isArabic ? 'خطأ في تحليل الموارد' : 'Error analyzing resources');
+    } finally {
+      setIsAnalyzingResources(false);
+    }
+  };
+
+  // Use AI data if available, otherwise show empty state (no more random data)
   const procurementItems = useMemo(() => {
-    return baseProcurementItems.map(item => ({
-      ...item,
-      ...editedItems[item.id]
-    }));
-  }, [baseProcurementItems, editedItems]);
+    if (aiProcurementData.length > 0) {
+      return aiProcurementData.map(item => ({
+        ...item,
+        ...editedItems[item.id]
+      }));
+    }
+    return [];
+  }, [aiProcurementData, editedItems]);
+
+  const resourceItems = useMemo(() => {
+    if (aiResourceData.length > 0) {
+      return aiResourceData;
+    }
+    return [];
+  }, [aiResourceData]);
 
   // Generate alerts for delayed/approaching items
   const alerts: ProcurementAlert[] = useMemo(() => {

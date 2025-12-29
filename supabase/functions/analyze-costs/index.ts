@@ -358,26 +358,92 @@ ${item.total_price ? `Price: ${item.total_price} SAR` : ''}
     if ((ai_provider === 'genspark' || ai_provider === 'all') && GENSPARK_API_KEY) {
       try {
         console.log("Trying Genspark API...");
-        // Placeholder for Genspark API - implement when API details are available
-        console.log("Genspark not yet implemented, falling back...");
-        response = null;
+        // Genspark API integration - requires valid API key
+        response = await fetch("https://api.genspark.ai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${GENSPARK_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "genspark-pro",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            temperature: 0.2,
+          }),
+        });
+
+        if (response.ok) {
+          providerUsed = 'genspark';
+          console.log("Genspark API succeeded");
+        } else {
+          console.log("Genspark API failed with status:", response.status);
+          response = null;
+        }
       } catch (error) {
         console.error("Genspark error:", error);
         response = null;
       }
+    } else if (ai_provider === 'genspark' && !GENSPARK_API_KEY) {
+      // Return error message for missing API key
+      return new Response(
+        JSON.stringify({ 
+          error: isArabic 
+            ? "مفتاح Genspark API غير موجود. يرجى إضافة GENSPARK_API_KEY في إعدادات المشروع."
+            : "Genspark API key not found. Please add GENSPARK_API_KEY in project settings.",
+          requires_api_key: true,
+          provider: 'genspark'
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Try Manus if available and requested
     if (!response && (ai_provider === 'manus' || ai_provider === 'all') && MANUS_API_KEY) {
       try {
         console.log("Trying Manus API...");
-        // Placeholder for Manus API - implement when API details are available
-        console.log("Manus not yet implemented, falling back...");
-        response = null;
+        // Manus API integration - requires valid API key
+        response = await fetch("https://api.manus.ai/v1/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${MANUS_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "manus-pro",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            temperature: 0.2,
+          }),
+        });
+
+        if (response.ok) {
+          providerUsed = 'manus';
+          console.log("Manus API succeeded");
+        } else {
+          console.log("Manus API failed with status:", response.status);
+          response = null;
+        }
       } catch (error) {
         console.error("Manus error:", error);
         response = null;
       }
+    } else if (ai_provider === 'manus' && !MANUS_API_KEY) {
+      // Return error message for missing API key
+      return new Response(
+        JSON.stringify({ 
+          error: isArabic 
+            ? "مفتاح Manus API غير موجود. يرجى إضافة MANUS_API_KEY في إعدادات المشروع."
+            : "Manus API key not found. Please add MANUS_API_KEY in project settings.",
+          requires_api_key: true,
+          provider: 'manus'
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Try OpenAI if available and requested

@@ -387,6 +387,83 @@ export type Database = {
           },
         ]
       }
+      procurement_items: {
+        Row: {
+          ai_generated: boolean | null
+          ai_reasoning: string | null
+          boq_item_number: string
+          category: string | null
+          created_at: string | null
+          delivery_date: string | null
+          description: string | null
+          estimated_cost: number | null
+          id: string
+          lead_time_days: number | null
+          order_date: string | null
+          priority: string | null
+          project_id: string | null
+          quantity: number | null
+          status: string | null
+          suggested_suppliers: string[] | null
+          unit: string | null
+          updated_at: string | null
+          user_id: string
+          user_modified: boolean | null
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          ai_reasoning?: string | null
+          boq_item_number: string
+          category?: string | null
+          created_at?: string | null
+          delivery_date?: string | null
+          description?: string | null
+          estimated_cost?: number | null
+          id?: string
+          lead_time_days?: number | null
+          order_date?: string | null
+          priority?: string | null
+          project_id?: string | null
+          quantity?: number | null
+          status?: string | null
+          suggested_suppliers?: string[] | null
+          unit?: string | null
+          updated_at?: string | null
+          user_id: string
+          user_modified?: boolean | null
+        }
+        Update: {
+          ai_generated?: boolean | null
+          ai_reasoning?: string | null
+          boq_item_number?: string
+          category?: string | null
+          created_at?: string | null
+          delivery_date?: string | null
+          description?: string | null
+          estimated_cost?: number | null
+          id?: string
+          lead_time_days?: number | null
+          order_date?: string | null
+          priority?: string | null
+          project_id?: string | null
+          quantity?: number | null
+          status?: string | null
+          suggested_suppliers?: string[] | null
+          unit?: string | null
+          updated_at?: string | null
+          user_id?: string
+          user_modified?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procurement_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_data: {
         Row: {
           analysis_data: Json | null
@@ -472,6 +549,80 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "project_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resource_items: {
+        Row: {
+          ai_generated: boolean | null
+          ai_reasoning: string | null
+          category: string | null
+          created_at: string | null
+          end_date: string | null
+          id: string
+          name: string
+          productivity_rate: number | null
+          project_id: string | null
+          quantity: number | null
+          rate_per_day: number | null
+          start_date: string | null
+          status: string | null
+          total_cost: number | null
+          type: string
+          unit: string | null
+          user_id: string
+          user_modified: boolean | null
+          utilization_percent: number | null
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          ai_reasoning?: string | null
+          category?: string | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          productivity_rate?: number | null
+          project_id?: string | null
+          quantity?: number | null
+          rate_per_day?: number | null
+          start_date?: string | null
+          status?: string | null
+          total_cost?: number | null
+          type: string
+          unit?: string | null
+          user_id: string
+          user_modified?: boolean | null
+          utilization_percent?: number | null
+        }
+        Update: {
+          ai_generated?: boolean | null
+          ai_reasoning?: string | null
+          category?: string | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          productivity_rate?: number | null
+          project_id?: string | null
+          quantity?: number | null
+          rate_per_day?: number | null
+          start_date?: string | null
+          status?: string | null
+          total_cost?: number | null
+          type?: string
+          unit?: string | null
+          user_id?: string
+          user_modified?: boolean | null
+          utilization_percent?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_items_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "project_data"

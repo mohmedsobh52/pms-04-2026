@@ -108,6 +108,17 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
       });
 
       if (error) throw error;
+      
+      // Handle API key required error
+      if (data.requires_api_key) {
+        toast({
+          title: data.provider === 'genspark' ? "Genspark API Key Required" : "Manus API Key Required",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+      
       if (data.error) throw new Error(data.error);
 
       setAnalysisResult(data);

@@ -643,13 +643,14 @@ function generateEVMAnalysis(
         periodEV += evInPeriod;
 
         // Calculate AC (Actual Cost)
-        // If no actual cost provided, estimate based on typical construction variance
+        // If no actual cost provided, use 5% variance (industry standard for construction)
         if (actualCosts[activityId] !== undefined) {
           const acRatio = pvInPeriod / activityBudget;
           periodAC += actualCosts[activityId] * acRatio;
         } else if (isPastPeriod || isCurrentPeriod) {
-          // Simulate realistic AC with slight overrun (3-8% variance)
-          const costVariance = 1 + (Math.random() * 0.05 + 0.03);
+          // Use fixed 5% cost variance (typical construction overrun)
+          // This replaces Math.random() with a deterministic estimate
+          const costVariance = 1.05; // 5% overrun - industry standard
           periodAC += evInPeriod * costVariance;
         }
       }
