@@ -308,71 +308,7 @@ export function ProcurementResourcesSchedule({
     return alertList.sort((a, b) => a.daysRemaining - b.daysRemaining);
   }, [procurementItems]);
 
-  // Generate resource items from BOQ items
-  const resourceItems: ResourceItem[] = useMemo(() => {
-    const resources: ResourceItem[] = [];
-    let resourceId = 0;
-    
-    items.forEach((item) => {
-      const category = item.category || 'General';
-      const totalCost = item.total_price || item.quantity * (item.unit_price || 0);
-      
-      if (Math.random() > 0.3) {
-        const laborCost = totalCost * 0.3;
-        const days = Math.max(7, Math.floor(laborCost / 500));
-        resources.push({
-          id: `res-${resourceId++}`,
-          type: 'labor',
-          name: `${category} - ${isArabic ? 'عمال' : 'Workers'}`,
-          category,
-          quantity: Math.max(1, Math.floor(days / 5)),
-          unit: isArabic ? 'عامل' : 'worker',
-          ratePerDay: 150 + Math.random() * 200,
-          totalCost: laborCost,
-          startDate: new Date().toISOString().split('T')[0],
-          endDate: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          utilizationPercentage: 60 + Math.random() * 40,
-          status: ['available', 'assigned', 'unavailable'][Math.floor(Math.random() * 3)] as ResourceItem['status'],
-        });
-      }
-      
-      if (Math.random() > 0.5) {
-        const equipCost = totalCost * 0.2;
-        const days = Math.max(3, Math.floor(equipCost / 1000));
-        resources.push({
-          id: `res-${resourceId++}`,
-          type: 'equipment',
-          name: `${category} - ${isArabic ? 'معدات' : 'Equipment'}`,
-          category,
-          quantity: Math.max(1, Math.floor(Math.random() * 5)),
-          unit: isArabic ? 'وحدة' : 'unit',
-          ratePerDay: 500 + Math.random() * 1500,
-          totalCost: equipCost,
-          startDate: new Date().toISOString().split('T')[0],
-          endDate: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          utilizationPercentage: 40 + Math.random() * 50,
-          status: ['available', 'assigned', 'unavailable'][Math.floor(Math.random() * 3)] as ResourceItem['status'],
-        });
-      }
-      
-      resources.push({
-        id: `res-${resourceId++}`,
-        type: 'material',
-        name: item.description.slice(0, 50),
-        category,
-        quantity: item.quantity,
-        unit: item.unit,
-        ratePerDay: item.unit_price || 0,
-        totalCost: totalCost * 0.5,
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        utilizationPercentage: 100,
-        status: 'assigned',
-      });
-    });
-    
-    return resources;
-  }, [items, isArabic]);
+  // resourceItems is already defined above at line 260 using AI data
 
   // Convert resources to Gantt activities
   const ganttActivities = useMemo(() => {
