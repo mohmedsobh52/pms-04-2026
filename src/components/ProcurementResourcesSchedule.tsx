@@ -19,7 +19,9 @@ import {
   BarChart3,
   Sparkles,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Save,
+  Database
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -124,11 +126,13 @@ interface ProcurementAlert {
 interface ProcurementResourcesScheduleProps {
   items?: BOQItem[];
   currency?: string;
+  projectId?: string;
 }
 
 export function ProcurementResourcesSchedule({ 
   items = [], 
-  currency = "SAR" 
+  currency = "SAR",
+  projectId
 }: ProcurementResourcesScheduleProps) {
   const { isArabic } = useLanguage();
   const [searchTerm, setSearchTerm] = useState("");
@@ -147,6 +151,177 @@ export function ProcurementResourcesSchedule({
   const [aiResourceData, setAiResourceData] = useState<ResourceItem[]>([]);
   const [hasAnalyzedProcurement, setHasAnalyzedProcurement] = useState(false);
   const [hasAnalyzedResources, setHasAnalyzedResources] = useState(false);
+  
+  // Save/Load states
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Load saved data on mount
+  useEffect(() => {
+    if (projectId) {
+      loadSavedData();
+    }
+  }, [projectId]);
+
+  // Load saved procurement and resources from database
+  const loadSavedData = async () => {
+    if (!projectId) return;
+    
+    setIsLoading(true);
+    try {
+      // Load procurement items
+      const { data: procData, error: procError } = await supabase
+        .from('procurement_items')
+        .select('*')
+        .eq('project_id', projectId);
+
+      if (procError) throw procError;
+
+      if (procData && procData.length > 0) {
+        const loadedProcurement: ProcurementItem[] = procData.map(item => ({
+          id: item.id,
+          itemNumber: item.boq_item_number,
+          description: item.description || '',
+          category: item.category || 'General',
+          quantity: Number(item.quantity) || 1,
+          unit: item.unit || '',
+          estimatedCost: Number(item.estimated_cost) || 0,
+          leadTime: item.lead_time_days || 14,
+          supplier: item.suggested_suppliers?.[0] || '',
+          orderDate: item.order_date || '',
+          deliveryDate: item.delivery_date || '',
+          status: (item.status as ProcurementItem['status']) || 'pending',
+          priority: (item.priority as ProcurementItem['priority']) || 'medium',
+          aiGenerated: item.ai_generated || false,
+          aiReasoning: item.ai_reasoning || ''
+        }));
+        setAiProcurementData(loadedProcurement);
+        setHasAnalyzedProcurement(true);
+      }
+
+      // Load resource items
+      const { data: resData, error: resError } = await supabase
+        .from('resource_items')
+        .select('*')
+        .eq('project_id', projectId);
+
+      if (resError) throw resError;
+
+      if (resData && resData.length > 0) {
+        const loadedResources: ResourceItem[] = resData.map(item => ({
+          id: item.id,
+          type: (item.type as ResourceItem['type']) || 'labor',
+          name: item.name,
+          category: item.category || 'General',
+          quantity: Number(item.quantity) || 1,
+          unit: item.unit || '',
+          ratePerDay: Number(item.rate_per_day) || 0,
+          totalCost: Number(item.total_cost) || 0,
+          startDate: item.start_date || new Date().toISOString().split('T')[0],
+          endDate: item.end_date || new Date().toISOString().split('T')[0],
+          utilizationPercentage: Number(item.utilization_percent) || 80,
+          status: (item.status as ResourceItem['status']) || 'available',
+          aiGenerated: item.ai_generated || false,
+          aiReasoning: item.ai_reasoning || ''
+        }));
+        setAiResourceData(loadedResources);
+        setHasAnalyzedResources(true);
+      }
+
+      if ((procData && procData.length > 0) || (resData && resData.length > 0)) {
+        toast.success(isArabic ? 'تم تحميل البيانات المحفوظة' : 'Loaded saved data');
+      }
+    } catch (error) {
+      console.error('Error loading saved data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Save procurement and resources to database
+  const saveToDatabase = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error(isArabic ? 'يجب تسجيل الدخول للحفظ' : 'Please login to save');
+      return;
+    }
+
+    if (aiProcurementData.length === 0 && aiResourceData.length === 0) {
+      toast.error(isArabic ? 'لا توجد بيانات للحفظ' : 'No data to save');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Delete existing items for this project first
+      if (projectId) {
+        await supabase.from('procurement_items').delete().eq('project_id', projectId);
+        await supabase.from('resource_items').delete().eq('project_id', projectId);
+      }
+
+      // Save procurement items
+      if (aiProcurementData.length > 0) {
+        const procurementToSave = aiProcurementData.map(item => ({
+          project_id: projectId || null,
+          user_id: user.id,
+          boq_item_number: item.itemNumber,
+          description: item.description,
+          category: item.category,
+          quantity: item.quantity,
+          unit: item.unit,
+          estimated_cost: item.estimatedCost,
+          lead_time_days: item.leadTime,
+          suggested_suppliers: item.supplier ? [item.supplier] : [],
+          order_date: item.orderDate || null,
+          delivery_date: item.deliveryDate || null,
+          status: item.status,
+          priority: item.priority,
+          ai_generated: item.aiGenerated,
+          ai_reasoning: item.aiReasoning
+        }));
+
+        const { error: procError } = await supabase
+          .from('procurement_items')
+          .insert(procurementToSave);
+
+        if (procError) throw procError;
+      }
+
+      // Save resource items
+      if (aiResourceData.length > 0) {
+        const resourcesToSave = aiResourceData.map(item => ({
+          project_id: projectId || null,
+          user_id: user.id,
+          type: item.type,
+          name: item.name,
+          category: item.category,
+          quantity: item.quantity,
+          unit: item.unit,
+          rate_per_day: item.ratePerDay,
+          total_cost: item.totalCost,
+          start_date: item.startDate,
+          end_date: item.endDate,
+          utilization_percent: item.utilizationPercentage,
+          status: item.status,
+          ai_generated: item.aiGenerated,
+          ai_reasoning: item.aiReasoning
+        }));
+
+        const { error: resError } = await supabase
+          .from('resource_items')
+          .insert(resourcesToSave);
+
+        if (resError) throw resError;
+      }
+
+      toast.success(isArabic ? 'تم حفظ البيانات بنجاح' : 'Data saved successfully');
+    } catch (error) {
+      console.error('Error saving data:', error);
+      toast.error(isArabic ? 'خطأ في حفظ البيانات' : 'Error saving data');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // AI-powered procurement analysis
   const analyzeProcurement = async () => {
@@ -577,6 +752,32 @@ export function ProcurementResourcesSchedule({
                 {alerts.length}
               </span>
             )}
+          </Button>
+          <Button 
+            variant="default" 
+            size="sm" 
+            onClick={saveToDatabase}
+            disabled={isSaving || (aiProcurementData.length === 0 && aiResourceData.length === 0)}
+          >
+            {isSaving ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4 mr-2" />
+            )}
+            {isArabic ? 'حفظ' : 'Save'}
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={loadSavedData}
+            disabled={isLoading || !projectId}
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Database className="w-4 h-4 mr-2" />
+            )}
+            {isArabic ? 'استرجاع' : 'Load'}
           </Button>
           <Button variant="outline" size="sm" onClick={exportToExcel}>
             <Download className="w-4 h-4 mr-2" />
