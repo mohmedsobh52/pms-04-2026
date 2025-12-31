@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package } from "lucide-react";
+import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown } from "lucide-react";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -530,19 +530,16 @@ const Index = () => {
               </div>
             </nav>
 
-            {/* Right Actions */}
-            <div className="flex items-center gap-1 shrink-0">
+            {/* Right Actions - Simplified */}
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Share Button */}
               <ShareAnalysis 
                 analysisData={analysisData}
                 wbsData={wbsData}
                 fileName={selectedFile?.name}
               />
               
-              <BOQVersionComparison 
-                currentItems={analysisData?.items}
-                currentTotalValue={analysisData?.summary?.total_value}
-              />
-              
+              {/* Project Management */}
               <LocalProjectManager
                 analysisData={analysisData}
                 wbsData={wbsData}
