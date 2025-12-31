@@ -483,7 +483,46 @@ export function ProcurementResourcesSchedule({
     return alertList.sort((a, b) => a.daysRemaining - b.daysRemaining);
   }, [procurementItems]);
 
-  // resourceItems is already defined above at line 260 using AI data
+  // Auto-show toast notifications for approaching/delayed items
+  useEffect(() => {
+    if (alerts.length === 0) return;
+    
+    const overdueItems = alerts.filter(a => a.type === 'overdue');
+    const delayedItems = alerts.filter(a => a.type === 'delayed');
+    const approachingItems = alerts.filter(a => a.type === 'approaching');
+
+    // Show overdue alerts
+    if (overdueItems.length > 0) {
+      toast.error(
+        isArabic 
+          ? `⚠️ ${overdueItems.length} بند تجاوز موعد التسليم!` 
+          : `⚠️ ${overdueItems.length} item(s) are overdue!`,
+        { duration: 6000 }
+      );
+    }
+
+    // Show delayed alerts
+    if (delayedItems.length > 0) {
+      toast.warning(
+        isArabic 
+          ? `🔴 ${delayedItems.length} بند متأخر عن الجدول` 
+          : `🔴 ${delayedItems.length} item(s) are delayed`,
+        { duration: 5000 }
+      );
+    }
+
+    // Show approaching alerts
+    if (approachingItems.length > 0) {
+      toast.info(
+        isArabic 
+          ? `⏰ ${approachingItems.length} بند يقترب موعد تسليمه (7 أيام أو أقل)` 
+          : `⏰ ${approachingItems.length} item(s) approaching delivery (7 days or less)`,
+        { duration: 4000 }
+      );
+    }
+  }, [alerts, isArabic]);
+
+  // resourceItems is already defined above using AI data
 
   // Convert resources to Gantt activities
   const ganttActivities = useMemo(() => {
