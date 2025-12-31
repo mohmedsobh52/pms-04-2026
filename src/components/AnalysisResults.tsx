@@ -1,5 +1,12 @@
 import { useState, useMemo, useCallback } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1104,28 +1111,158 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
               </div>
             )}
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <PDFCustomization companyInfo={companyInfo} onSave={setCompanyInfo} />
-            <MarketRateSuggestions 
-              items={data.items || []} 
-              onApplyRate={onApplyRate} 
-              onApplyAIRates={handleApplyAIRates}
-              onApplyAIRatesToCalcPrice={handleApplyAIRatesToCalcPrice}
-            />
-            <BulkApplyCostsDialog
+          <div className="flex gap-2 flex-wrap items-center">
+            {/* Primary Actions Group */}
+            <SaveProjectButton
               items={data.items || []}
-              savedTemplate={savedTemplate}
-              savedTemplates={savedTemplates}
-              onApplyToItems={applyTemplateToMultipleItems}
-              onDeleteTemplate={handleDeleteTemplate}
-              onExportTemplates={exportTemplates}
-              onImportTemplates={importTemplates}
-              currency={data.summary?.currency || "SAR"}
-              externalOpen={bulkApplyOpen}
-              onExternalOpenChange={setBulkApplyOpen}
+              wbsData={wbsData}
+              summary={data.summary}
+              getItemCostData={getItemCostData}
+              getItemCalculatedCosts={getItemCalculatedCosts}
+              fileName={fileName}
             />
-            {/* Clear All Costs Button */}
-            {showClearConfirm ? (
+            
+            {/* Export Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <FileDown className="w-4 h-4" />
+                  {isArabic ? "تصدير" : "Export"}
+                  <ChevronDown className="w-3 h-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuItem onClick={exportToPDF} className="gap-2">
+                  <FileDown className="w-4 h-4 text-primary" />
+                  PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={exportToExcel} className="gap-2">
+                  <FileSpreadsheet className="w-4 h-4 text-green-600" />
+                  Excel
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={exportToWord} className="gap-2">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                  Word
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={exportToJSON} className="gap-2">
+                  <FileJson className="w-4 h-4" />
+                  JSON
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={exportToCSV} className="gap-2">
+                  <Download className="w-4 h-4" />
+                  CSV
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Tools Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Settings className="w-4 h-4" />
+                  {isArabic ? "أدوات" : "Tools"}
+                  <ChevronDown className="w-3 h-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuItem asChild>
+                  <div className="p-0">
+                    <MarketRateSuggestions 
+                      items={data.items || []} 
+                      onApplyRate={onApplyRate} 
+                      onApplyAIRates={handleApplyAIRates}
+                      onApplyAIRatesToCalcPrice={handleApplyAIRatesToCalcPrice}
+                    />
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <div className="p-0">
+                    <BulkApplyCostsDialog
+                      items={data.items || []}
+                      savedTemplate={savedTemplate}
+                      savedTemplates={savedTemplates}
+                      onApplyToItems={applyTemplateToMultipleItems}
+                      onDeleteTemplate={handleDeleteTemplate}
+                      onExportTemplates={exportTemplates}
+                      onImportTemplates={importTemplates}
+                      currency={data.summary?.currency || "SAR"}
+                      externalOpen={bulkApplyOpen}
+                      onExternalOpenChange={setBulkApplyOpen}
+                    />
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={exportToCostAnalysis} className="gap-2 text-blue-600">
+                  <ArrowDownToLine className="w-4 h-4" />
+                  {isArabic ? "تصدير لتحليل التكاليف" : "Export to Cost Analysis"}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={importFromCostAnalysis} className="gap-2 text-green-600">
+                  <Download className="w-4 h-4" />
+                  {isArabic ? "استيراد من تحليل التكاليف" : "Import from Cost Analysis"}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <div className="p-0">
+                    <PDFCustomization companyInfo={companyInfo} onSave={setCompanyInfo} />
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <div className="p-0">
+                    <ItemCodeSettings
+                      codeFormat={codeFormat}
+                      customConfig={customConfig}
+                      onUpdateFormat={updateCodeFormat}
+                      onUpdateCustomConfig={updateCustomConfig}
+                      availableFormats={getAvailableFormats()}
+                      onExportToExcel={() => exportItemCodesToExcel(data.items || [])}
+                      itemCount={data.items?.length || 0}
+                    />
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Compare Button */}
+            <PriceComparisonReport
+              items={data.items || []}
+              getItemCostData={getItemCostData}
+              getItemCalculatedCosts={getItemCalculatedCosts}
+              currency={data.summary?.currency || "SAR"}
+            />
+
+            {/* Danger Actions Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="gap-2 text-muted-foreground hover:text-destructive"
+                  disabled={Object.keys(itemCosts).length === 0}
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem 
+                  onClick={() => setShowClearConfirm(true)}
+                  className="gap-2 text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {isArabic ? "مسح التكاليف" : "Clear Costs"}
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setShowRevertConfirm(true)}
+                  className="gap-2 text-warning focus:text-warning"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  {isArabic ? "استرجاع الأصلي" : "Revert to Original"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Confirmation Dialogs */}
+            {showClearConfirm && (
               <div className="flex items-center gap-1 bg-destructive/10 px-2 py-1 rounded-lg border border-destructive/20">
                 <span className="text-xs text-destructive">{isArabic ? "تأكيد المسح؟" : "Confirm clear?"}</span>
                 <Button 
@@ -1152,20 +1289,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                   {isArabic ? "لا" : "No"}
                 </Button>
               </div>
-            ) : (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setShowClearConfirm(true)}
-                className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                disabled={Object.keys(itemCosts).length === 0}
-              >
-                <Trash2 className="w-4 h-4" />
-                {isArabic ? "مسح التكاليف" : "Clear Costs"}
-              </Button>
             )}
-            {/* Revert to Original Prices Button */}
-            {showRevertConfirm ? (
+            {showRevertConfirm && (
               <div className="flex items-center gap-1 bg-warning/10 px-2 py-1 rounded-lg border border-warning/20">
                 <span className="text-xs text-warning">{isArabic ? "استرجاع الأصلي؟" : "Revert all?"}</span>
                 <Button 
@@ -1185,81 +1310,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                   {isArabic ? "لا" : "No"}
                 </Button>
               </div>
-            ) : (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setShowRevertConfirm(true)}
-                className="gap-2 text-warning hover:text-warning hover:bg-warning/10"
-                disabled={Object.keys(itemCosts).length === 0}
-              >
-                <RotateCcw className="w-4 h-4" />
-                {isArabic ? "استرجاع الأصلي" : "Revert to Original"}
-              </Button>
             )}
-            {/* Link with Cost Analysis Page */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={exportToCostAnalysis}
-              className="gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-            >
-              <ArrowDownToLine className="w-4 h-4" />
-              {isArabic ? "تصدير لتحليل التكاليف" : "Export to Cost Analysis"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={importFromCostAnalysis}
-              className="gap-2 text-green-600 hover:text-green-700 hover:bg-green-50"
-            >
-              <Download className="w-4 h-4" />
-              {isArabic ? "استيراد من تحليل التكاليف" : "Import from Cost Analysis"}
-            </Button>
-            {/* Price Comparison Report */}
-            <PriceComparisonReport
-              items={data.items || []}
-              getItemCostData={getItemCostData}
-              getItemCalculatedCosts={getItemCalculatedCosts}
-              currency={data.summary?.currency || "SAR"}
-            />
-            <SaveProjectButton
-              items={data.items || []}
-              wbsData={wbsData}
-              summary={data.summary}
-              getItemCostData={getItemCostData}
-              getItemCalculatedCosts={getItemCalculatedCosts}
-              fileName={fileName}
-            />
-            <Button variant="default" size="sm" onClick={exportToPDF} className="gap-2 bg-gradient-to-r from-primary to-accent">
-              <FileDown className="w-4 h-4" />
-              PDF
-            </Button>
-            <Button variant="outline" size="sm" onClick={exportToExcel} className="gap-2">
-              <FileSpreadsheet className="w-4 h-4" />
-              Excel
-            </Button>
-            <Button variant="outline" size="sm" onClick={exportToWord} className="gap-2">
-              <FileText className="w-4 h-4" />
-              Word
-            </Button>
-            <Button variant="outline" size="sm" onClick={exportToJSON} className="gap-2">
-              <FileJson className="w-4 h-4" />
-              JSON
-            </Button>
-            <Button variant="outline" size="sm" onClick={exportToCSV} className="gap-2">
-              <Download className="w-4 h-4" />
-              CSV
-            </Button>
-            <ItemCodeSettings
-              codeFormat={codeFormat}
-              customConfig={customConfig}
-              onUpdateFormat={updateCodeFormat}
-              onUpdateCustomConfig={updateCustomConfig}
-              availableFormats={getAvailableFormats()}
-              onExportToExcel={() => exportItemCodesToExcel(data.items || [])}
-              itemCount={data.items?.length || 0}
-            />
           </div>
         </div>
       </div>
