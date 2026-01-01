@@ -78,6 +78,7 @@ const Index = () => {
   const [pdfProgress, setPdfProgress] = useState<{ current: number; total: number } | null>(null);
   const [showBOQComparison, setShowBOQComparison] = useState(false);
   const [showP6Export, setShowP6Export] = useState(false);
+  const [showComprehensiveReport, setShowComprehensiveReport] = useState(false);
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>(() => {
     // Initialize workflow steps based on existing data
     if (analysisData) {
@@ -587,6 +588,12 @@ const Index = () => {
                       <span>{isArabic ? 'تصدير P6' : 'P6 Export'}</span>
                     </div>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <div onClick={() => setShowComprehensiveReport(true)} className="flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      <span>{isArabic ? 'التقرير الشامل' : 'Comprehensive Report'}</span>
+                    </div>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild className="cursor-pointer">
                     <Link to="/changelog" className="flex items-center gap-2">
@@ -1040,6 +1047,18 @@ const Index = () => {
             <P6Export 
               items={analysisData.items}
               currency={analysisData.summary?.currency || "SAR"}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Comprehensive Report Dialog */}
+      {showComprehensiveReport && analysisData && (
+        <Dialog open={showComprehensiveReport} onOpenChange={setShowComprehensiveReport}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <ComprehensiveReport 
+              analysisData={analysisData}
+              wbsData={wbsData}
             />
           </DialogContent>
         </Dialog>
