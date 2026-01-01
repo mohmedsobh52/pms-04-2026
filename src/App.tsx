@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { LanguageProvider } from "@/hooks/useLanguage";
 import { AnalysisProvider } from "@/hooks/useAnalysisData";
 import { UpdateBanner } from "@/components/UpdateBanner";
+import BackgroundImage from "@/components/BackgroundImage";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import SharedView from "./pages/SharedView";
@@ -25,6 +26,7 @@ const App = () => (
       <AuthProvider>
         <AnalysisProvider>
           <TooltipProvider>
+            <BackgroundImage />
             <Toaster />
             <Sonner />
             <BrowserRouter>

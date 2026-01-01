@@ -136,33 +136,6 @@
     position: relative;
   }
 
-  /* Background with parallax effect */
-  #root::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: url('/images/construction-bg.png');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    z-index: -2;
-    will-change: transform;
-  }
-
-  /* Overlay for better readability */
-  #root::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: hsl(var(--background) / 0.88);
-    backdrop-filter: blur(1px);
-    z-index: -1;
-  }
-
-  .dark #root::after {
-    background: hsl(var(--background) / 0.92);
-  }
-
   /* Arabic font support */
   [dir="rtl"] body,
   [lang="ar"] body {
