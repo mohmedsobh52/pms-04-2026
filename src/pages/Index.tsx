@@ -25,6 +25,14 @@ import { ProcurementResourcesSchedule } from "@/components/ProcurementResourcesS
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
@@ -68,6 +76,8 @@ const Index = () => {
   const [isOCRProcessing, setIsOCRProcessing] = useState(false);
   const [ocrProgress, setOcrProgress] = useState<{ current: number; total: number } | null>(null);
   const [pdfProgress, setPdfProgress] = useState<{ current: number; total: number } | null>(null);
+  const [showBOQComparison, setShowBOQComparison] = useState(false);
+  const [showP6Export, setShowP6Export] = useState(false);
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>(() => {
     // Initialize workflow steps based on existing data
     if (analysisData) {
@@ -555,6 +565,38 @@ const Index = () => {
                 }}
               />
               
+              {/* Tools Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-2 text-xs">
+                    <MoreHorizontal className="w-3.5 h-3.5" />
+                    <span className="hidden lg:inline">{isArabic ? 'أدوات' : 'Tools'}</span>
+                    <ChevronDown className="w-3 h-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 bg-popover border shadow-lg z-50">
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <div onClick={() => setShowBOQComparison(true)} className="flex items-center gap-2">
+                      <GitCompare className="w-4 h-4" />
+                      <span>{isArabic ? 'مقارنة النسخ' : 'Compare Versions'}</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <div onClick={() => setShowP6Export(true)} className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      <span>{isArabic ? 'تصدير P6' : 'P6 Export'}</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link to="/changelog" className="flex items-center gap-2">
+                      <FileStack className="w-4 h-4" />
+                      <span>{isArabic ? 'سجل التحديثات' : 'Changelog'}</span>
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
               <ThemeToggle />
               <LanguageToggle />
               
@@ -978,6 +1020,30 @@ const Index = () => {
 
       {/* Features Section */}
       <FeaturesSection />
+
+      {/* BOQ Version Comparison - uses internal dialog trigger */}
+      {showBOQComparison && analysisData?.items && (
+        <Dialog open={showBOQComparison} onOpenChange={setShowBOQComparison}>
+          <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+            <BOQVersionComparison 
+              currentItems={analysisData?.items}
+              currentTotalValue={analysisData?.summary?.total_value}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* P6 Export Dialog */}
+      {showP6Export && analysisData?.items && (
+        <Dialog open={showP6Export} onOpenChange={setShowP6Export}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+            <P6Export 
+              items={analysisData.items}
+              currency={analysisData.summary?.currency || "SAR"}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Footer */}
       <footer className="border-t border-border py-6">
