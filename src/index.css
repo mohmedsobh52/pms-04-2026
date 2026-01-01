@@ -133,24 +133,34 @@
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
     min-height: 100vh;
-    background-image: url('/images/construction-bg.png');
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-    background-repeat: no-repeat;
+    position: relative;
   }
 
-  body::before {
+  /* Background with parallax effect */
+  #root::before {
     content: '';
     position: fixed;
     inset: 0;
-    background: hsl(var(--background) / 0.85);
-    backdrop-filter: blur(2px);
+    background-image: url('/images/construction-bg.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: -2;
+    will-change: transform;
+  }
+
+  /* Overlay for better readability */
+  #root::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: hsl(var(--background) / 0.88);
+    backdrop-filter: blur(1px);
     z-index: -1;
   }
 
-  .dark body::before {
-    background: hsl(var(--background) / 0.9);
+  .dark #root::after {
+    background: hsl(var(--background) / 0.92);
   }
 
   /* Arabic font support */
