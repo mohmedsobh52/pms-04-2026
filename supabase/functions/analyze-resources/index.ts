@@ -186,65 +186,74 @@ Return as JSON with this structure:
     } catch (parseError) {
       console.error("Failed to parse AI response:", content);
       
-      // Generate fallback data based on BOQ items
+      // Generate deterministic fallback data based on BOQ items (no random values)
       const resources: ResourceAnalysis[] = [];
       let totalLaborCost = 0;
       let totalEquipmentCost = 0;
+      let cumulativeDays = 0;
       
       items.forEach((item: BOQItem, index: number) => {
         const totalCost = item.total_price || item.quantity * (item.unit_price || 0);
         const category = item.category || 'General';
+        const desc = item.description.toLowerCase();
+        
+        // Calculate deterministic values based on item properties
+        const { laborRate, laborDays, laborCount, equipmentRate, equipDays, utilizationLabor, utilizationEquip, productivityLabor, productivityEquip } = 
+          getResourceEstimates(desc, category, totalCost, item.quantity);
         
         // Labor resource
         const laborCost = totalCost * 0.35;
-        const laborDays = Math.max(7, Math.ceil(laborCost / 500));
         const laborStart = new Date(startDate);
-        laborStart.setDate(laborStart.getDate() + index * 5);
+        laborStart.setDate(laborStart.getDate() + cumulativeDays);
         const laborEnd = new Date(laborStart);
         laborEnd.setDate(laborEnd.getDate() + laborDays);
         
         resources.push({
           type: 'labor',
-          name: isArabic ? `عمال ${category}` : `${category} Workers`,
+          name: getResourceName(desc, category, 'labor', isArabic),
           category,
-          quantity: Math.max(2, Math.ceil(laborDays / 10)),
+          quantity: laborCount,
           unit: isArabic ? 'عامل' : 'worker',
-          rate_per_day: 180,
+          rate_per_day: laborRate,
           total_cost: laborCost,
           start_date: laborStart.toISOString().split('T')[0],
           end_date: laborEnd.toISOString().split('T')[0],
-          utilization_percent: 75 + Math.random() * 15,
-          productivity_rate: 0.8 + Math.random() * 0.2,
-          ai_reasoning: isArabic ? 'تقدير بناءً على تكلفة البند' : 'Estimated based on item cost'
+          utilization_percent: utilizationLabor,
+          productivity_rate: productivityLabor,
+          ai_reasoning: isArabic 
+            ? `تقدير بناءً على: الكمية ${item.quantity} ${item.unit}، التكلفة ${totalCost.toLocaleString()} ر.س` 
+            : `Estimate based on: Qty ${item.quantity} ${item.unit}, Cost ${totalCost.toLocaleString()} SAR`
         });
         totalLaborCost += laborCost;
         
-        // Equipment resource (for larger items)
-        if (totalCost > 50000 || item.description.toLowerCase().includes('خرسانة') || 
-            item.description.toLowerCase().includes('حفر') || item.description.toLowerCase().includes('concrete')) {
+        // Equipment resource (for specific work types)
+        if (needsEquipment(desc, totalCost)) {
           const equipCost = totalCost * 0.15;
-          const equipDays = Math.max(3, Math.ceil(equipCost / 1500));
           const equipStart = new Date(startDate);
-          equipStart.setDate(equipStart.getDate() + index * 3);
+          equipStart.setDate(equipStart.getDate() + cumulativeDays);
           const equipEnd = new Date(equipStart);
           equipEnd.setDate(equipEnd.getDate() + equipDays);
           
           resources.push({
             type: 'equipment',
-            name: isArabic ? `معدات ${category}` : `${category} Equipment`,
+            name: getResourceName(desc, category, 'equipment', isArabic),
             category,
             quantity: Math.max(1, Math.ceil(equipDays / 15)),
             unit: isArabic ? 'وحدة' : 'unit',
-            rate_per_day: 1200,
+            rate_per_day: equipmentRate,
             total_cost: equipCost,
             start_date: equipStart.toISOString().split('T')[0],
             end_date: equipEnd.toISOString().split('T')[0],
-            utilization_percent: 65 + Math.random() * 20,
-            productivity_rate: 0.7 + Math.random() * 0.25,
-            ai_reasoning: isArabic ? 'تقدير المعدات للأعمال الكبيرة' : 'Equipment estimate for large works'
+            utilization_percent: utilizationEquip,
+            productivity_rate: productivityEquip,
+            ai_reasoning: isArabic 
+              ? `معدات مطلوبة لـ: ${item.description.substring(0, 50)}` 
+              : `Equipment required for: ${item.description.substring(0, 50)}`
           });
           totalEquipmentCost += equipCost;
         }
+        
+        cumulativeDays += Math.ceil(laborDays * 0.7); // Overlap activities
       });
       
       result = {
@@ -272,3 +281,106 @@ Return as JSON with this structure:
     );
   }
 });
+
+// Helper functions for deterministic resource estimation
+
+function getResourceEstimates(desc: string, category: string, cost: number, quantity: number) {
+  const lowerDesc = (desc + ' ' + category).toLowerCase();
+  
+  // Determine work type and set fixed rates/durations
+  if (lowerDesc.includes('خرسانة') || lowerDesc.includes('concrete')) {
+    return {
+      laborRate: 200, laborDays: Math.max(5, Math.ceil(quantity / 20)), laborCount: Math.max(4, Math.ceil(quantity / 50)),
+      equipmentRate: 1800, equipDays: Math.max(3, Math.ceil(quantity / 25)),
+      utilizationLabor: 85, utilizationEquip: 75, productivityLabor: 0.9, productivityEquip: 0.85
+    };
+  }
+  if (lowerDesc.includes('حديد') || lowerDesc.includes('steel') || lowerDesc.includes('rebar')) {
+    return {
+      laborRate: 220, laborDays: Math.max(7, Math.ceil(quantity / 2)), laborCount: Math.max(3, Math.ceil(quantity / 10)),
+      equipmentRate: 800, equipDays: Math.max(5, Math.ceil(quantity / 3)),
+      utilizationLabor: 80, utilizationEquip: 70, productivityLabor: 0.85, productivityEquip: 0.8
+    };
+  }
+  if (lowerDesc.includes('حفر') || lowerDesc.includes('excav') || lowerDesc.includes('ردم') || lowerDesc.includes('fill')) {
+    return {
+      laborRate: 150, laborDays: Math.max(3, Math.ceil(quantity / 100)), laborCount: Math.max(2, Math.ceil(quantity / 500)),
+      equipmentRate: 2000, equipDays: Math.max(2, Math.ceil(quantity / 150)),
+      utilizationLabor: 75, utilizationEquip: 80, productivityLabor: 0.8, productivityEquip: 0.85
+    };
+  }
+  if (lowerDesc.includes('كهرب') || lowerDesc.includes('electric')) {
+    return {
+      laborRate: 280, laborDays: Math.max(10, Math.ceil(cost / 50000)), laborCount: Math.max(2, Math.ceil(cost / 100000)),
+      equipmentRate: 500, equipDays: Math.max(5, Math.ceil(cost / 80000)),
+      utilizationLabor: 85, utilizationEquip: 60, productivityLabor: 0.88, productivityEquip: 0.75
+    };
+  }
+  if (lowerDesc.includes('تكييف') || lowerDesc.includes('hvac') || lowerDesc.includes('air')) {
+    return {
+      laborRate: 300, laborDays: Math.max(14, Math.ceil(cost / 40000)), laborCount: Math.max(3, Math.ceil(cost / 80000)),
+      equipmentRate: 1500, equipDays: Math.max(7, Math.ceil(cost / 60000)),
+      utilizationLabor: 82, utilizationEquip: 70, productivityLabor: 0.85, productivityEquip: 0.8
+    };
+  }
+  if (lowerDesc.includes('سباك') || lowerDesc.includes('plumb') || lowerDesc.includes('صحي')) {
+    return {
+      laborRate: 200, laborDays: Math.max(7, Math.ceil(cost / 30000)), laborCount: Math.max(2, Math.ceil(cost / 60000)),
+      equipmentRate: 400, equipDays: Math.max(3, Math.ceil(cost / 50000)),
+      utilizationLabor: 80, utilizationEquip: 55, productivityLabor: 0.85, productivityEquip: 0.7
+    };
+  }
+  if (lowerDesc.includes('بلاط') || lowerDesc.includes('tile') || lowerDesc.includes('رخام') || lowerDesc.includes('marble')) {
+    return {
+      laborRate: 180, laborDays: Math.max(10, Math.ceil(quantity / 15)), laborCount: Math.max(3, Math.ceil(quantity / 50)),
+      equipmentRate: 300, equipDays: 2,
+      utilizationLabor: 88, utilizationEquip: 40, productivityLabor: 0.9, productivityEquip: 0.5
+    };
+  }
+  if (lowerDesc.includes('دهان') || lowerDesc.includes('paint')) {
+    return {
+      laborRate: 150, laborDays: Math.max(5, Math.ceil(quantity / 50)), laborCount: Math.max(2, Math.ceil(quantity / 200)),
+      equipmentRate: 200, equipDays: 1,
+      utilizationLabor: 90, utilizationEquip: 30, productivityLabor: 0.92, productivityEquip: 0.4
+    };
+  }
+  
+  // Default values based on cost
+  const baseDays = Math.max(5, Math.ceil(cost / 40000));
+  return {
+    laborRate: 180, laborDays: baseDays, laborCount: Math.max(2, Math.ceil(baseDays / 5)),
+    equipmentRate: 1000, equipDays: Math.max(3, Math.ceil(baseDays / 2)),
+    utilizationLabor: 78, utilizationEquip: 65, productivityLabor: 0.82, productivityEquip: 0.75
+  };
+}
+
+function getResourceName(desc: string, category: string, type: 'labor' | 'equipment', isArabic: boolean): string {
+  const lowerDesc = (desc + ' ' + category).toLowerCase();
+  
+  if (type === 'labor') {
+    if (lowerDesc.includes('خرسانة') || lowerDesc.includes('concrete')) return isArabic ? 'عمال صب خرسانة' : 'Concrete Workers';
+    if (lowerDesc.includes('حديد') || lowerDesc.includes('steel')) return isArabic ? 'حدادين مسلح' : 'Rebar Workers';
+    if (lowerDesc.includes('حفر') || lowerDesc.includes('excav')) return isArabic ? 'عمال حفر' : 'Excavation Workers';
+    if (lowerDesc.includes('كهرب') || lowerDesc.includes('electric')) return isArabic ? 'فنيين كهرباء' : 'Electricians';
+    if (lowerDesc.includes('تكييف') || lowerDesc.includes('hvac')) return isArabic ? 'فنيين تكييف' : 'HVAC Technicians';
+    if (lowerDesc.includes('سباك') || lowerDesc.includes('plumb')) return isArabic ? 'سباكين' : 'Plumbers';
+    if (lowerDesc.includes('بلاط') || lowerDesc.includes('tile')) return isArabic ? 'مبلطين' : 'Tile Workers';
+    if (lowerDesc.includes('دهان') || lowerDesc.includes('paint')) return isArabic ? 'دهانين' : 'Painters';
+    if (lowerDesc.includes('نجار') || lowerDesc.includes('carpent') || lowerDesc.includes('wood')) return isArabic ? 'نجارين' : 'Carpenters';
+    return isArabic ? `عمال ${category}` : `${category} Workers`;
+  } else {
+    if (lowerDesc.includes('خرسانة') || lowerDesc.includes('concrete')) return isArabic ? 'مضخة خرسانة' : 'Concrete Pump';
+    if (lowerDesc.includes('حفر') || lowerDesc.includes('excav')) return isArabic ? 'حفار' : 'Excavator';
+    if (lowerDesc.includes('ردم') || lowerDesc.includes('fill')) return isArabic ? 'دحال' : 'Compactor';
+    if (lowerDesc.includes('رفع') || lowerDesc.includes('crane') || lowerDesc.includes('lift')) return isArabic ? 'رافعة' : 'Crane';
+    return isArabic ? `معدات ${category}` : `${category} Equipment`;
+  }
+}
+
+function needsEquipment(desc: string, cost: number): boolean {
+  const lowerDesc = desc.toLowerCase();
+  const heavyWorkKeywords = ['خرسانة', 'concrete', 'حفر', 'excav', 'ردم', 'fill', 'رفع', 'crane', 'lift', 'حديد', 'steel'];
+  
+  // Needs equipment if heavy work or high cost
+  return heavyWorkKeywords.some(kw => lowerDesc.includes(kw)) || cost > 50000;
+}
