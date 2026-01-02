@@ -397,18 +397,21 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع" }: Pro
     }));
   };
 
-  // Generate basic timeline from WBS
+  // Generate basic timeline from WBS with deterministic durations
   const generateBasicTimeline = () => {
     let currentDay = 0;
     const items: TimelineItem[] = wbsData.map((item, idx) => {
-      const baseDuration = item.level === 1 ? 30 : item.level === 2 ? 14 : 7;
-      const duration = baseDuration + (item.items.length * 2);
+      // Calculate duration based on work type and item count
+      const duration = calculatePreciseDuration(item);
       const startDay = currentDay;
       
+      // Determine overlap based on level
       if (item.level === 1) {
-        currentDay += Math.max(duration, 7);
+        currentDay += Math.ceil(duration * 0.8);
       } else if (item.level === 2) {
-        currentDay += Math.max(duration / 2, 5);
+        currentDay += Math.ceil(duration * 0.6);
+      } else {
+        currentDay += Math.ceil(duration * 0.4);
       }
       
       return {
@@ -424,8 +427,50 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع" }: Pro
     setTimelineData(items);
     toast({
       title: "تم إنشاء الجدول الزمني",
-      description: `تم توليد جدول زمني لـ ${items.length} مهمة`,
+      description: `تم توليد جدول زمني لـ ${items.length} مهمة - إجمالي ${currentDay} يوم`,
     });
+  };
+
+  // Calculate precise duration based on work type
+  const calculatePreciseDuration = (item: WBSItem): number => {
+    const title = item.title.toLowerCase();
+    const itemCount = item.items.length;
+    
+    // Base durations by work type (Saudi market standards)
+    if (title.includes('أساسات') || title.includes('foundation')) {
+      return Math.max(21, 14 + itemCount * 3);
+    }
+    if (title.includes('خرسانة') || title.includes('concrete') || title.includes('هيكل') || title.includes('structure')) {
+      return Math.max(30, 21 + itemCount * 4);
+    }
+    if (title.includes('حفر') || title.includes('excavation') || title.includes('ردم')) {
+      return Math.max(7, 5 + itemCount * 1);
+    }
+    if (title.includes('كهرب') || title.includes('electric')) {
+      return Math.max(21, 14 + itemCount * 2);
+    }
+    if (title.includes('تكييف') || title.includes('hvac') || title.includes('ميكانيك')) {
+      return Math.max(28, 21 + itemCount * 2);
+    }
+    if (title.includes('سباك') || title.includes('plumb') || title.includes('صحي')) {
+      return Math.max(14, 10 + itemCount * 2);
+    }
+    if (title.includes('تشطيب') || title.includes('finish') || title.includes('بلاط') || title.includes('دهان')) {
+      return Math.max(21, 14 + itemCount * 2);
+    }
+    if (title.includes('سقف') || title.includes('roof')) {
+      return Math.max(14, 10 + itemCount * 3);
+    }
+    if (title.includes('واجه') || title.includes('facade') || title.includes('نوافذ') || title.includes('أبواب')) {
+      return Math.max(21, 14 + itemCount * 2);
+    }
+    if (title.includes('أعمال خارجي') || title.includes('landscap') || title.includes('تنسيق موقع')) {
+      return Math.max(14, 10 + itemCount * 2);
+    }
+    
+    // Default duration based on level
+    const baseDuration = item.level === 1 ? 28 : item.level === 2 ? 14 : 7;
+    return baseDuration + (itemCount * 2);
   };
 
   // Generate AI-powered timeline
