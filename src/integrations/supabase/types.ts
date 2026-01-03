@@ -702,6 +702,56 @@ export type Database = {
         }
         Relationships: []
       }
+      timeline_estimates: {
+        Row: {
+          created_at: string
+          custom_duration: number | null
+          custom_progress: number | null
+          custom_start_day: number | null
+          id: string
+          notes: string | null
+          project_id: string | null
+          task_code: string
+          task_title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_duration?: number | null
+          custom_progress?: number | null
+          custom_start_day?: number | null
+          id?: string
+          notes?: string | null
+          project_id?: string | null
+          task_code: string
+          task_title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          custom_duration?: number | null
+          custom_progress?: number | null
+          custom_start_day?: number | null
+          id?: string
+          notes?: string | null
+          project_id?: string | null
+          task_code?: string
+          task_title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timeline_estimates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_notification_preferences: {
         Row: {
           created_at: string

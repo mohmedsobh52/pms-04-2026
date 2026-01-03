@@ -1,14 +1,15 @@
-import { useState, useMemo, useCallback } from "react";
-import { Calendar, Clock, Play, ChevronLeft, ChevronRight, Loader2, Brain, Zap, Target, TrendingUp, AlertTriangle, CheckCircle2, Edit3, CalendarDays, Download, FileSpreadsheet, Link2, Unlink } from "lucide-react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { Calendar, Clock, Play, ChevronLeft, ChevronRight, Loader2, Brain, Zap, Target, TrendingUp, AlertTriangle, CheckCircle2, Edit3, CalendarDays, Download, FileSpreadsheet, Link2, Unlink, Save, Database, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, differenceInDays, addDays } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -31,11 +32,13 @@ interface TimelineItem extends WBSItem {
   status?: "not_started" | "in_progress" | "completed" | "delayed";
   predecessors?: string[];
   isCritical?: boolean;
+  isManuallyEdited?: boolean;
 }
 
 interface ProjectTimelineProps {
   wbsData: WBSItem[];
   projectName?: string;
+  projectId?: string;
 }
 
 const COLORS = [
@@ -49,7 +52,7 @@ const COLORS = [
   "hsl(330, 70%, 55%)",
 ];
 
-export function ProjectTimeline({ wbsData, projectName = "المشروع" }: ProjectTimelineProps) {
+export function ProjectTimeline({ wbsData, projectName = "المشروع", projectId }: ProjectTimelineProps) {
   const [viewMode, setViewMode] = useState<"weeks" | "months">("weeks");
   const [isGenerating, setIsGenerating] = useState(false);
   const [timelineData, setTimelineData] = useState<TimelineItem[]>([]);
@@ -58,6 +61,10 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع" }: Pro
   const [editingTask, setEditingTask] = useState<string | null>(null);
   const [showDependencyDialog, setShowDependencyDialog] = useState(false);
   const [selectedTaskForDeps, setSelectedTaskForDeps] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [editingDuration, setEditingDuration] = useState<{ code: string; value: number } | null>(null);
+  const [editingStartDay, setEditingStartDay] = useState<{ code: string; value: number } | null>(null);
   const { toast } = useToast();
   
   // Project date controls
@@ -125,6 +132,144 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع" }: Pro
       isCritical: criticalPath.includes(t.code),
     }));
   }, [timelineData, criticalPath]);
+
+  // Load saved timeline estimates from database
+  useEffect(() => {
+    if (projectId && timelineData.length > 0) {
+      loadSavedEstimates();
+    }
+  }, [projectId]);
+
+  const loadSavedEstimates = async () => {
+    if (!projectId) return;
+    
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('timeline_estimates')
+        .select('*')
+        .eq('project_id', projectId);
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setTimelineData(prev => prev.map(task => {
+          const saved = data.find(d => d.task_code === task.code);
+          if (saved) {
+            return {
+              ...task,
+              duration: saved.custom_duration || task.duration,
+              startDay: saved.custom_start_day ?? task.startDay,
+              progress: saved.custom_progress || task.progress,
+              isManuallyEdited: true,
+            };
+          }
+          return task;
+        }));
+        
+        toast({
+          title: "تم تحميل التقديرات",
+          description: `تم تحميل ${data.length} تقدير زمني محفوظ`,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading estimates:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Save timeline estimates to database
+  const saveEstimates = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: "خطأ",
+        description: "يجب تسجيل الدخول للحفظ",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!projectId) {
+      toast({
+        title: "تنبيه",
+        description: "يجب حفظ المشروع أولاً لحفظ التقديرات الزمنية",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Delete existing estimates for this project
+      await supabase
+        .from('timeline_estimates')
+        .delete()
+        .eq('project_id', projectId);
+
+      // Insert new estimates for manually edited tasks
+      const estimatesToSave = timelineData
+        .filter(t => t.isManuallyEdited)
+        .map(task => ({
+          project_id: projectId,
+          user_id: user.id,
+          task_code: task.code,
+          task_title: task.title,
+          custom_duration: task.duration,
+          custom_start_day: task.startDay,
+          custom_progress: task.progress,
+        }));
+
+      if (estimatesToSave.length > 0) {
+        const { error } = await supabase
+          .from('timeline_estimates')
+          .insert(estimatesToSave);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "تم الحفظ",
+        description: `تم حفظ ${estimatesToSave.length} تقدير زمني`,
+      });
+    } catch (error) {
+      console.error('Error saving estimates:', error);
+      toast({
+        title: "خطأ",
+        description: "فشل حفظ التقديرات الزمنية",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Update task duration manually
+  const updateTaskDuration = (code: string, newDuration: number) => {
+    setTimelineData(prev => prev.map(task => {
+      if (task.code !== code) return task;
+      return {
+        ...task,
+        duration: Math.max(1, newDuration),
+        isManuallyEdited: true,
+      };
+    }));
+    setEditingDuration(null);
+  };
+
+  // Update task start day manually
+  const updateTaskStartDay = (code: string, newStartDay: number) => {
+    setTimelineData(prev => prev.map(task => {
+      if (task.code !== code) return task;
+      return {
+        ...task,
+        startDay: Math.max(0, newStartDay),
+        isManuallyEdited: true,
+      };
+    }));
+    setEditingStartDay(null);
+  };
 
   // Add/remove dependency
   const toggleDependency = useCallback((taskCode: string, predecessorCode: string) => {
@@ -776,6 +921,23 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع" }: Pro
                   PDF
                 </Button>
                 
+                {/* Save Button */}
+                <Button
+                  onClick={saveEstimates}
+                  variant="outline"
+                  size="sm"
+                  disabled={isSaving || !projectId}
+                  className="gap-1"
+                  title={!projectId ? "يجب حفظ المشروع أولاً" : ""}
+                >
+                  {isSaving ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  حفظ التقديرات
+                </Button>
+                
                 <Button
                   onClick={generateAITimeline}
                   variant="outline"
@@ -906,6 +1068,13 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع" }: Pro
                 <div className="w-48 shrink-0 p-2 font-medium text-sm bg-muted/50">
                   المهمة
                 </div>
+                {/* Duration/Start Edit Columns */}
+                <div className="w-20 shrink-0 p-2 font-medium text-sm bg-muted/50 text-center">
+                  البداية
+                </div>
+                <div className="w-20 shrink-0 p-2 font-medium text-sm bg-muted/50 text-center">
+                  المدة
+                </div>
                 {showProgressMode && (
                   <div className="w-24 shrink-0 p-2 font-medium text-sm bg-muted/50 text-center">
                     التقدم
@@ -956,13 +1125,77 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع" }: Pro
                         getStatusIcon(task.status)
                       ) : (
                         <span
-                          className="w-2 h-2 rounded-full shrink-0"
+                          className={cn(
+                            "w-2 h-2 rounded-full shrink-0",
+                            task.isManuallyEdited && "ring-2 ring-primary ring-offset-1"
+                          )}
                           style={{ backgroundColor: task.color }}
                         />
                       )}
                       <span className="text-sm truncate" title={task.title}>
                         {task.title}
                       </span>
+                      {task.isManuallyEdited && (
+                        <span title="تم تعديله يدوياً">
+                          <Pencil className="w-3 h-3 text-primary shrink-0" />
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Start Day Edit */}
+                    <div className="w-20 shrink-0 p-1 flex items-center justify-center">
+                      {editingStartDay?.code === task.code ? (
+                        <Input
+                          type="number"
+                          value={editingStartDay.value}
+                          onChange={(e) => setEditingStartDay({ code: task.code, value: parseInt(e.target.value) || 0 })}
+                          onBlur={() => updateTaskStartDay(task.code, editingStartDay.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') updateTaskStartDay(task.code, editingStartDay.value);
+                            if (e.key === 'Escape') setEditingStartDay(null);
+                          }}
+                          className="w-16 h-7 text-xs text-center p-1"
+                          autoFocus
+                          min={0}
+                        />
+                      ) : (
+                        <button
+                          onClick={() => setEditingStartDay({ code: task.code, value: task.startDay })}
+                          className="text-xs font-mono bg-muted/50 hover:bg-muted px-2 py-1 rounded transition-colors flex items-center gap-1"
+                          title="تعديل يوم البداية"
+                        >
+                          {task.startDay}
+                          <Pencil className="w-2.5 h-2.5 opacity-50" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Duration Edit */}
+                    <div className="w-20 shrink-0 p-1 flex items-center justify-center">
+                      {editingDuration?.code === task.code ? (
+                        <Input
+                          type="number"
+                          value={editingDuration.value}
+                          onChange={(e) => setEditingDuration({ code: task.code, value: parseInt(e.target.value) || 1 })}
+                          onBlur={() => updateTaskDuration(task.code, editingDuration.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') updateTaskDuration(task.code, editingDuration.value);
+                            if (e.key === 'Escape') setEditingDuration(null);
+                          }}
+                          className="w-16 h-7 text-xs text-center p-1"
+                          autoFocus
+                          min={1}
+                        />
+                      ) : (
+                        <button
+                          onClick={() => setEditingDuration({ code: task.code, value: task.duration })}
+                          className="text-xs font-mono bg-muted/50 hover:bg-muted px-2 py-1 rounded transition-colors flex items-center gap-1"
+                          title="تعديل المدة (أيام)"
+                        >
+                          {task.duration}d
+                          <Pencil className="w-2.5 h-2.5 opacity-50" />
+                        </button>
+                      )}
                     </div>
 
                     {/* Progress Control */}

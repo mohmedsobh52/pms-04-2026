@@ -26,6 +26,7 @@ import { BulkApplyCostsDialog } from "./BulkApplyCostsDialog";
 import { SaveProjectButton } from "./SaveProjectButton";
 import { PriceComparisonReport } from "./PriceComparisonReport";
 import { WBSTreeDiagram } from "./WBSTreeDiagram";
+import { ComprehensivePDFReport } from "./ComprehensivePDFReport";
 import { WBSFlowDiagram } from "./WBSFlowDiagram";
 import { CompanyLogoUpload, getStoredLogo } from "./CompanyLogoUpload";
 import { useDynamicCostCalculator, CostInputs, defaultCostInputs } from "@/hooks/useDynamicCostCalculator";
@@ -1152,6 +1153,26 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                 <DropdownMenuItem onClick={exportToCSV} className="gap-2">
                   <Download className="w-4 h-4" />
                   CSV
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <div className="p-0">
+                    <ComprehensivePDFReport
+                      projectName={fileName || "المشروع"}
+                      boqItems={data.items || []}
+                      timelineItems={wbsData?.wbs?.map((item, idx) => ({
+                        code: item.code,
+                        title: item.title,
+                        level: item.level,
+                        startDay: idx * 7,
+                        duration: 14 + (item.items?.length || 0) * 2,
+                        progress: 0,
+                        isCritical: idx < 3,
+                      })) || []}
+                      currency={data.summary?.currency || "SAR"}
+                      analysisData={data}
+                    />
+                  </div>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
