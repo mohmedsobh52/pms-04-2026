@@ -20,7 +20,7 @@ interface SaveProjectDialogProps {
   analysisData: any;
   wbsData: any;
   fileName?: string;
-  onSaved?: () => void;
+  onSaved?: (projectId: string) => void;
 }
 
 export function SaveProjectDialog({
@@ -55,13 +55,13 @@ export function SaveProjectDialog({
 
     setIsSaving(true);
 
-    const { error } = await supabase.from("saved_projects").insert({
+    const { data: savedData, error } = await supabase.from("saved_projects").insert({
       user_id: user.id,
       name: projectName.trim(),
       file_name: fileName || null,
       analysis_data: analysisData,
       wbs_data: wbsData,
-    });
+    }).select('id').single();
 
     if (error) {
       toast({
@@ -75,7 +75,7 @@ export function SaveProjectDialog({
       });
       setOpen(false);
       setProjectName("");
-      onSaved?.();
+      onSaved?.(savedData.id);
     }
 
     setIsSaving(false);

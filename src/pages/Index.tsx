@@ -79,6 +79,7 @@ const Index = () => {
   const [showBOQComparison, setShowBOQComparison] = useState(false);
   const [showP6Export, setShowP6Export] = useState(false);
   const [showComprehensiveReport, setShowComprehensiveReport] = useState(false);
+  const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>(() => {
     // Initialize workflow steps based on existing data
     if (analysisData) {
@@ -884,10 +885,16 @@ const Index = () => {
                         analysisData={analysisData}
                         wbsData={wbsData}
                         fileName={selectedFile?.name}
+                        onSaved={(projectId) => setSavedProjectId(projectId)}
                       />
                     </div>
                   )}
-                  <AnalysisResults data={analysisData} wbsData={wbsData} onApplyRate={handleApplyRate} />
+                  <AnalysisResults 
+                    data={analysisData} 
+                    wbsData={wbsData} 
+                    onApplyRate={handleApplyRate}
+                    savedProjectId={savedProjectId || undefined}
+                  />
                   
                   {/* Comprehensive Report Section */}
                   <ComprehensiveReport

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { TrendingUp, TrendingDown, Minus, Sparkles, MapPin, Loader2, Check, AlertTriangle, CheckCheck, BarChart3, Calculator, Bot, Globe } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Sparkles, MapPin, Loader2, Check, AlertTriangle, CheckCheck, BarChart3, Calculator, Bot, Globe, Save, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -35,6 +35,7 @@ interface MarketRateSuggestion {
 
 interface MarketRateSuggestionsProps {
   items: BOQItem[];
+  projectId?: string;
   onApplyRate?: (itemNumber: string, newRate: number) => void;
   onApplyAIRates?: (rates: Array<{ itemId: string; rate: number }>) => void;
   onApplyAIRatesToCalcPrice?: (rates: Array<{ itemId: string; rate: number }>) => void;
@@ -66,9 +67,10 @@ const AI_AGENTS = [
   { value: "standard", label: "Standard AI", description: "Fast analysis from training data", icon: "⚡" },
 ];
 
-export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates, onApplyAIRatesToCalcPrice }: MarketRateSuggestionsProps) {
+export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAIRates, onApplyAIRatesToCalcPrice }: MarketRateSuggestionsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [location, setLocation] = useState("Riyadh");
   const [region, setRegion] = useState("saudi");
   const [aiAgent, setAiAgent] = useState("manus");
@@ -79,6 +81,7 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates, onAp
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [totalItemsCount, setTotalItemsCount] = useState(0);
   const [analyzedItemsCount, setAnalyzedItemsCount] = useState(0);
+  const [savedToDb, setSavedToDb] = useState(false);
   const { toast } = useToast();
 
   const handleSuggestRates = async () => {
@@ -243,6 +246,84 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates, onAp
   const averageSuggestedRate = suggestions.length > 0
     ? suggestions.reduce((sum, s) => sum + s.suggested_avg, 0) / suggestions.length
     : 0;
+
+  // Save AI rates to database
+  const handleSaveToDatabase = async () => {
+    if (!projectId || suggestions.length === 0) {
+      toast({
+        title: "خطأ",
+        description: projectId ? "لا توجد أسعار للحفظ" : "يجب حفظ المشروع أولاً",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Get project items to map item_number to project_item_id
+      const { data: projectItems, error: itemsError } = await supabase
+        .from('project_items')
+        .select('id, item_number')
+        .eq('project_id', projectId);
+
+      if (itemsError) throw itemsError;
+
+      if (!projectItems || projectItems.length === 0) {
+        toast({
+          title: "خطأ",
+          description: "لم يتم العثور على بنود المشروع",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create a map of item_number to project_item_id
+      const itemMap = new Map(projectItems.map(item => [item.item_number, item.id]));
+
+      // Prepare upsert data
+      const upsertData = suggestions
+        .filter(s => itemMap.has(s.item_number))
+        .map(suggestion => ({
+          project_item_id: itemMap.get(suggestion.item_number)!,
+          ai_suggested_rate: suggestion.suggested_avg,
+        }));
+
+      if (upsertData.length === 0) {
+        toast({
+          title: "تحذير",
+          description: "لم يتم مطابقة أي بند مع البنود المحفوظة",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Upsert item costs with AI suggested rates
+      for (const data of upsertData) {
+        const { error: upsertError } = await supabase
+          .from('item_costs')
+          .upsert(data, { onConflict: 'project_item_id' });
+
+        if (upsertError) {
+          console.error('Error upserting item cost:', upsertError);
+        }
+      }
+
+      setSavedToDb(true);
+      toast({
+        title: "✅ تم الحفظ بنجاح",
+        description: `تم حفظ ${upsertData.length} سعر AI في قاعدة البيانات`,
+      });
+    } catch (error: any) {
+      console.error('Error saving to database:', error);
+      toast({
+        title: "خطأ في الحفظ",
+        description: error.message || "فشل في حفظ الأسعار",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -476,26 +557,59 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates, onAp
             </div>
           )}
 
-          {/* Save and Close Button - Enhanced */}
+          {/* Save to Database and Close Buttons - Enhanced */}
           {suggestions.length > 0 && !isLoading && (
             <div className="flex items-center justify-between pt-4 border-t border-primary/20 bg-gradient-to-r from-primary/5 to-transparent -mx-6 px-6 pb-2 mt-4">
               <div className="text-sm text-muted-foreground">
                 <span className="font-medium text-foreground">{suggestions.length}</span> سعر جاهز للتطبيق
+                {savedToDb && (
+                  <Badge variant="outline" className="mr-2 text-green-600 border-green-600">
+                    <Database className="w-3 h-3 ml-1" />
+                    محفوظ في قاعدة البيانات
+                  </Badge>
+                )}
               </div>
-              <Button
-                onClick={() => {
-                  toast({
-                    title: "✅ تم الحفظ بنجاح",
-                    description: `تم تطبيق ${suggestions.length} سعر من أسعار AI`,
-                  });
-                  setIsOpen(false);
-                }}
-                className="gap-2 bg-green-600 hover:bg-green-700 text-white shadow-lg"
-                size="lg"
-              >
-                <Check className="w-5 h-5" />
-                حفظ وإغلاق
-              </Button>
+              <div className="flex items-center gap-2">
+                {projectId && (
+                  <Button
+                    onClick={handleSaveToDatabase}
+                    disabled={isSaving || savedToDb}
+                    variant="outline"
+                    className="gap-2 border-primary text-primary hover:bg-primary/10"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        جارٍ الحفظ...
+                      </>
+                    ) : savedToDb ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        تم الحفظ
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        حفظ في قاعدة البيانات
+                      </>
+                    )}
+                  </Button>
+                )}
+                <Button
+                  onClick={() => {
+                    toast({
+                      title: "✅ تم الحفظ بنجاح",
+                      description: `تم تطبيق ${suggestions.length} سعر من أسعار AI`,
+                    });
+                    setIsOpen(false);
+                  }}
+                  className="gap-2 bg-green-600 hover:bg-green-700 text-white shadow-lg"
+                  size="lg"
+                >
+                  <Check className="w-5 h-5" />
+                  حفظ وإغلاق
+                </Button>
+              </div>
             </div>
           )}
 

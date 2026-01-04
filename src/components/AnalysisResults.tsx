@@ -102,6 +102,7 @@ interface AnalysisResultsProps {
   wbsData?: AnalysisData;
   onApplyRate?: (itemNumber: string, newRate: number) => void;
   fileName?: string;
+  savedProjectId?: string;
 }
 
 // Cost range definitions
@@ -111,7 +112,7 @@ const getCostRange = (price: number): string => {
   return "high";
 };
 
-export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: AnalysisResultsProps) {
+export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedProjectId }: AnalysisResultsProps) {
   const { isArabic } = useLanguage();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"items" | "wbs" | "costs" | "summary" | "charts" | "timeline" | "integration">("items");
@@ -1245,6 +1246,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                   <div className="p-0">
                     <MarketRateSuggestions 
                       items={data.items || []} 
+                      projectId={savedProjectId}
                       onApplyRate={onApplyRate} 
                       onApplyAIRates={handleApplyAIRates}
                       onApplyAIRatesToCalcPrice={handleApplyAIRatesToCalcPrice}
