@@ -30,6 +30,8 @@ import { ComprehensivePDFReport } from "./ComprehensivePDFReport";
 import { WBSFlowDiagram } from "./WBSFlowDiagram";
 import { SCurveChart } from "./SCurveChart";
 import { PrintableReport } from "./PrintableReport";
+import { WordExportDialog } from "./WordExportDialog";
+import { EVMDashboard } from "./EVMDashboard";
 import { CompanyLogoUpload, getStoredLogo } from "./CompanyLogoUpload";
 import { useDynamicCostCalculator, CostInputs, defaultCostInputs } from "@/hooks/useDynamicCostCalculator";
 import { useItemCodes } from "@/hooks/useItemCodes";
@@ -1145,7 +1147,26 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={exportToWord} className="gap-2">
                   <FileText className="w-4 h-4 text-blue-600" />
-                  Word
+                  Word (Basic)
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <div className="p-0">
+                    <WordExportDialog
+                      projectName={fileName || "المشروع"}
+                      boqItems={data.items || []}
+                      timelineItems={wbsData?.wbs?.map((item, idx) => ({
+                        code: item.code,
+                        title: item.title,
+                        level: item.level,
+                        startDay: idx * 7,
+                        duration: 14 + (item.items?.length || 0) * 2,
+                        progress: 0,
+                        isCritical: idx < 3,
+                      })) || []}
+                      currency={data.summary?.currency || "SAR"}
+                      companyName={companyInfo?.name}
+                    />
+                  </div>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={exportToJSON} className="gap-2">
@@ -1873,6 +1894,13 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
               currency={data.summary?.currency || "SAR"}
               actualProgress={35}
               actualSpentPercentage={38}
+            />
+            <EVMDashboard
+              bac={data.summary?.total_value || data.items.reduce((sum, item) => sum + (item.total_price || 0), 0)}
+              actualProgress={35}
+              actualSpent={(data.summary?.total_value || 1000000) * 0.38}
+              plannedProgress={40}
+              currency={data.summary?.currency || "SAR"}
             />
           </div>
         )}

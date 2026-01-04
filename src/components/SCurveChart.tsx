@@ -7,7 +7,9 @@ import {
   AlertCircle,
   Download,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Edit3,
+  Save
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -74,6 +78,8 @@ interface SCurveChartProps {
   currency?: string;
   actualProgress?: number; // 0-100
   actualSpentPercentage?: number; // 0-100
+  onProgressChange?: (progress: number, spent: number) => void;
+  enableManualInput?: boolean;
 }
 
 export function SCurveChart({
@@ -81,13 +87,32 @@ export function SCurveChart({
   timelineItems = [],
   projectStartDate = new Date(),
   currency = "SAR",
-  actualProgress = 35,
-  actualSpentPercentage = 40,
+  actualProgress: initialProgress = 35,
+  actualSpentPercentage: initialSpent = 40,
+  onProgressChange,
+  enableManualInput = true,
 }: SCurveChartProps) {
   const { isArabic } = useLanguage();
   const [showActual, setShowActual] = useState(true);
   const [showForecast, setShowForecast] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showInputPanel, setShowInputPanel] = useState(false);
+  
+  // Local state for manual input
+  const [actualProgress, setActualProgress] = useState(initialProgress);
+  const [actualSpentPercentage, setActualSpentPercentage] = useState(initialSpent);
+  
+  // Handle progress change
+  const handleProgressChange = (value: number) => {
+    setActualProgress(value);
+    onProgressChange?.(value, actualSpentPercentage);
+  };
+  
+  // Handle spent change
+  const handleSpentChange = (value: number) => {
+    setActualSpentPercentage(value);
+    onProgressChange?.(actualProgress, value);
+  };
 
   // Calculate total project value
   const totalProjectValue = useMemo(() => {
@@ -325,6 +350,17 @@ export function SCurveChart({
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {enableManualInput && (
+              <Button 
+                variant={showInputPanel ? "secondary" : "outline"} 
+                size="sm"
+                onClick={() => setShowInputPanel(!showInputPanel)}
+                className="gap-2"
+              >
+                <Edit3 className="w-4 h-4" />
+                {isArabic ? "إدخال يدوي" : "Manual Input"}
+              </Button>
+            )}
             <div className="flex items-center gap-2">
               <Switch
                 id="showActual"
@@ -365,6 +401,106 @@ export function SCurveChart({
       </CardHeader>
       
       <CardContent className="p-6">
+        {/* Manual Input Panel */}
+        {showInputPanel && enableManualInput && (
+          <div className="mb-6 p-4 rounded-lg bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-200 dark:border-indigo-800 space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-indigo-600" />
+                {isArabic ? "إدخال التقدم الفعلي والتكاليف" : "Enter Actual Progress & Costs"}
+              </h4>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Actual Progress */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">{isArabic ? "التقدم الفعلي" : "Actual Progress"}</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={actualProgress}
+                      onChange={(e) => handleProgressChange(Number(e.target.value))}
+                      className="w-20 h-8 text-center"
+                    />
+                    <span className="text-sm text-muted-foreground">%</span>
+                  </div>
+                </div>
+                <Slider
+                  value={[actualProgress]}
+                  onValueChange={([v]) => handleProgressChange(v)}
+                  min={0}
+                  max={100}
+                  step={1}
+                  className="[&>span]:bg-indigo-500"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {isArabic 
+                    ? "نسبة العمل المنجز فعلياً من إجمالي المشروع" 
+                    : "Percentage of work actually completed"}
+                </p>
+              </div>
+
+              {/* Actual Spent */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">{isArabic ? "الإنفاق الفعلي" : "Actual Spent"}</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={150}
+                      value={actualSpentPercentage}
+                      onChange={(e) => handleSpentChange(Number(e.target.value))}
+                      className="w-20 h-8 text-center"
+                    />
+                    <span className="text-sm text-muted-foreground">%</span>
+                  </div>
+                </div>
+                <Slider
+                  value={[actualSpentPercentage]}
+                  onValueChange={([v]) => handleSpentChange(v)}
+                  min={0}
+                  max={150}
+                  step={1}
+                  className="[&>span]:bg-emerald-500"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {isArabic 
+                    ? "نسبة المصروفات الفعلية من الميزانية" 
+                    : "Percentage of budget actually spent"}
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Summary */}
+            <div className="flex items-center gap-4 pt-2 border-t border-indigo-200 dark:border-indigo-700">
+              <div className="flex items-center gap-2 text-sm">
+                <div className={cn(
+                  "w-2 h-2 rounded-full",
+                  evmMetrics.spi >= 1 ? "bg-green-500" : "bg-red-500"
+                )} />
+                <span className="text-muted-foreground">SPI:</span>
+                <span className="font-medium">{evmMetrics.spi.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <div className={cn(
+                  "w-2 h-2 rounded-full",
+                  evmMetrics.cpi >= 1 ? "bg-green-500" : "bg-red-500"
+                )} />
+                <span className="text-muted-foreground">CPI:</span>
+                <span className="font-medium">{evmMetrics.cpi.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">{isArabic ? "التكلفة المتوقعة:" : "EAC:"}</span>
+                <span className="font-medium">{formatCurrency(evmMetrics.eac)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* EVM Metrics Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
           <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
