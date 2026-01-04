@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { FolderOpen, Trash2, Loader2, Calendar, FileText } from "lucide-react";
+import { FolderOpen, Trash2, Loader2, Calendar, FileText, Sparkles, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,10 +24,11 @@ interface SavedProject {
   analysis_data: any;
   wbs_data: any;
   created_at: string;
+  has_ai_rates?: boolean;
 }
 
 interface SavedProjectsProps {
-  onLoadProject: (analysisData: any, wbsData: any) => void;
+  onLoadProject: (analysisData: any, wbsData: any, projectId?: string) => void;
 }
 
 export function SavedProjects({ onLoadProject }: SavedProjectsProps) {
@@ -39,20 +41,46 @@ export function SavedProjects({ onLoadProject }: SavedProjectsProps) {
     if (!user) return;
     
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from("saved_projects")
-      .select("*")
-      .order("created_at", { ascending: false });
+    try {
+      // Fetch projects
+      const { data: projectsData, error: projectsError } = await supabase
+        .from("saved_projects")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-    if (error) {
+      if (projectsError) throw projectsError;
+
+      // Check which projects have AI rates saved
+      const projectsWithRates = await Promise.all(
+        (projectsData || []).map(async (project) => {
+          // Get project items
+          const { data: projectItems } = await supabase
+            .from("project_items")
+            .select("id")
+            .eq("project_id", project.id)
+            .limit(1);
+
+          if (projectItems && projectItems.length > 0) {
+            // Check if any item has AI rates
+            const { count } = await supabase
+              .from("item_costs")
+              .select("*", { count: "exact", head: true })
+              .eq("project_item_id", projectItems[0].id);
+
+            return { ...project, has_ai_rates: (count || 0) > 0 };
+          }
+          return { ...project, has_ai_rates: false };
+        })
+      );
+
+      setProjects(projectsWithRates);
+    } catch (error: any) {
       console.error("Error fetching projects:", error);
       toast({
         title: "خطأ في تحميل المشاريع",
         description: error.message,
         variant: "destructive",
       });
-    } else {
-      setProjects(data || []);
     }
     setIsLoading(false);
   };
@@ -81,8 +109,54 @@ export function SavedProjects({ onLoadProject }: SavedProjectsProps) {
     }
   };
 
-  const handleLoad = (project: SavedProject) => {
-    onLoadProject(project.analysis_data, project.wbs_data);
+  const handleLoad = async (project: SavedProject) => {
+    let analysisData = project.analysis_data;
+    
+    // Restore AI rates from database
+    try {
+      const { data: projectItems } = await supabase
+        .from("project_items")
+        .select("id, item_number")
+        .eq("project_id", project.id);
+
+      if (projectItems && projectItems.length > 0) {
+        const itemIds = projectItems.map(item => item.id);
+        const { data: itemCosts } = await supabase
+          .from("item_costs")
+          .select("project_item_id, ai_suggested_rate")
+          .in("project_item_id", itemIds);
+
+        if (itemCosts && itemCosts.length > 0) {
+          // Create a map of project_item_id to ai_suggested_rate
+          const ratesMap = new Map(
+            itemCosts.map(cost => {
+              const projectItem = projectItems.find(pi => pi.id === cost.project_item_id);
+              return [projectItem?.item_number, cost.ai_suggested_rate];
+            })
+          );
+
+          // Update analysis items with saved AI rates
+          if (analysisData?.items) {
+            analysisData = {
+              ...analysisData,
+              items: analysisData.items.map((item: any) => ({
+                ...item,
+                aiSuggestedRate: ratesMap.get(item.item_number) || item.aiSuggestedRate,
+              })),
+            };
+          }
+
+          toast({
+            title: "تم استعادة أسعار AI",
+            description: `تم تحميل ${itemCosts.filter(c => c.ai_suggested_rate).length} سعر محفوظ`,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error loading AI rates:", error);
+    }
+
+    onLoadProject(analysisData, project.wbs_data, project.id);
     toast({
       title: "تم تحميل المشروع",
       description: project.name,
@@ -127,10 +201,18 @@ export function SavedProjects({ onLoadProject }: SavedProjectsProps) {
                     {project.file_name}
                   </p>
                 )}
-                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                  <Calendar className="w-3 h-3" />
-                  {new Date(project.created_at).toLocaleDateString("ar-SA")}
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    {new Date(project.created_at).toLocaleDateString("ar-SA")}
+                  </p>
+                  {project.has_ai_rates && (
+                    <Badge variant="secondary" className="gap-1 text-xs px-1.5 py-0 h-5">
+                      <Sparkles className="w-3 h-3 text-purple-500" />
+                      AI
+                    </Badge>
+                  )}
+                </div>
               </div>
               <div className="flex gap-1">
                 <Button

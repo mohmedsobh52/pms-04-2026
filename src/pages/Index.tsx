@@ -941,9 +941,12 @@ const Index = () => {
                     </TabsList>
                     <TabsContent value="dashboard">
                       <MainDashboard 
-                        onLoadProject={(loadedAnalysis, loadedWbs) => {
+                        onLoadProject={(loadedAnalysis, loadedWbs, projectId) => {
                           setAnalysisData(loadedAnalysis);
                           setWbsData(loadedWbs);
+                          if (projectId) {
+                            setSavedProjectId(projectId);
+                          }
                           updateStepStatus("upload", "complete");
                           updateStepStatus("extract", "complete");
                           updateStepStatus("analyze", "complete");
@@ -985,9 +988,12 @@ const Index = () => {
               {/* Saved Projects - only for logged in users */}
               {user && (
                 <SavedProjects
-                  onLoadProject={(analysisData, wbsData) => {
+                  onLoadProject={(analysisData, wbsData, projectId) => {
                     setAnalysisData(analysisData);
                     setWbsData(wbsData);
+                    if (projectId) {
+                      setSavedProjectId(projectId);
+                    }
                     updateStepStatus("upload", "complete");
                     updateStepStatus("extract", "complete");
                     updateStepStatus("analyze", "complete");

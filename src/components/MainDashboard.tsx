@@ -70,7 +70,7 @@ interface DashboardStats {
 }
 
 interface MainDashboardProps {
-  onLoadProject?: (analysisData: any, wbsData: any) => void;
+  onLoadProject?: (analysisData: any, wbsData: any, projectId?: string) => void;
 }
 
 // Budget settings interface
@@ -1022,7 +1022,7 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
                   <div
                     key={project.id}
                     className="flex items-center justify-between p-3 rounded-lg border border-border hover:border-primary/30 transition-colors cursor-pointer"
-                    onClick={() => onLoadProject?.(project.analysis_data, project.wbs_data)}
+                    onClick={() => onLoadProject?.(project.analysis_data, project.wbs_data, project.id)}
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
