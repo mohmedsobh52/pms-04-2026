@@ -30,7 +30,7 @@ interface MarketRateSuggestion {
 // Retry configuration
 const MAX_RETRIES = 3;
 const INITIAL_DELAY_MS = 1000;
-const REQUEST_TIMEOUT_MS = 30000;
+const REQUEST_TIMEOUT_MS = 60000; // Increased timeout to 60 seconds
 
 // Fetch with timeout
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
@@ -269,8 +269,8 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Process in batches of 25 items to handle large BOQ files
-    const BATCH_SIZE = 25;
+    // Process in batches of 15 items (reduced for better reliability)
+    const BATCH_SIZE = 15;
     const allSuggestions: MarketRateSuggestion[] = [];
     const totalBatches = Math.ceil(items.length / BATCH_SIZE);
     
@@ -286,13 +286,27 @@ serve(async (req) => {
         allSuggestions.push(...batchSuggestions);
         console.log(`Batch ${batchNumber} completed: ${batchSuggestions.length} suggestions`);
       } catch (batchError) {
-        console.error(`Batch ${batchNumber} failed after all retries:`, batchError);
-        // Continue with next batch even if one fails
+        console.error(`Batch ${batchNumber} failed:`, batchError);
+        // Generate fallback suggestions for failed items
+        const fallbackSuggestions = batchItems.map(item => ({
+          item_number: item.item_number,
+          description: item.description,
+          current_price: item.unit_price || 0,
+          suggested_min: (item.unit_price || 100) * 0.85,
+          suggested_max: (item.unit_price || 100) * 1.15,
+          suggested_avg: item.unit_price || 100,
+          confidence: "Low" as const,
+          trend: "Stable" as const,
+          notes: "Fallback estimate - AI analysis unavailable",
+          variance_percent: 0
+        }));
+        allSuggestions.push(...fallbackSuggestions);
+        console.log(`Batch ${batchNumber} using ${fallbackSuggestions.length} fallback suggestions`);
       }
       
-      // Small delay between batches to avoid rate limiting
+      // Delay between batches to avoid rate limiting
       if (i + BATCH_SIZE < items.length) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 800));
       }
     }
 
