@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown } from "lucide-react";
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -22,6 +22,7 @@ import { NotificationSettings } from "@/components/NotificationSettings";
 import { MainDashboard } from "@/components/MainDashboard";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { ProcurementResourcesSchedule } from "@/components/ProcurementResourcesSchedule";
+import { FloatingToolbar } from "@/components/FloatingToolbar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -80,6 +81,8 @@ const Index = () => {
   const [showP6Export, setShowP6Export] = useState(false);
   const [showComprehensiveReport, setShowComprehensiveReport] = useState(false);
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const tabsRef = useRef<HTMLDivElement>(null);
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>(() => {
     // Initialize workflow steps based on existing data
     if (analysisData) {
@@ -88,6 +91,13 @@ const Index = () => {
     return defaultWorkflowSteps;
   });
   const { toast } = useToast();
+
+  // Handle floating toolbar navigation
+  const handleToolbarNavigate = (tab: string) => {
+    setActiveTab(tab);
+    // Scroll to tabs section
+    tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   // Sync local state with context
   useEffect(() => {
@@ -907,8 +917,8 @@ const Index = () => {
 
               {/* Quotations Section */}
               {user && (
-                <div className="glass-card p-6 animate-slide-up">
-                  <Tabs defaultValue="dashboard" className="w-full">
+                <div ref={tabsRef} className="glass-card p-6 animate-slide-up">
+                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="grid w-full grid-cols-7 mb-4">
                       <TabsTrigger value="dashboard" className="gap-2">
                         <LayoutDashboard className="w-4 h-4" />
@@ -1075,6 +1085,17 @@ const Index = () => {
             />
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Floating Toolbar - only for logged in users */}
+      {user && (
+        <FloatingToolbar 
+          onNavigate={handleToolbarNavigate}
+          currentTab={activeTab}
+          hasAnalysisData={!!analysisData}
+          onShowBOQComparison={() => setShowBOQComparison(true)}
+          onShowReport={() => setShowComprehensiveReport(true)}
+        />
       )}
 
       {/* Footer */}
