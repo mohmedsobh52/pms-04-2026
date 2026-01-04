@@ -1232,6 +1232,15 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
               </DropdownMenuContent>
             </DropdownMenu>
 
+            {/* AI Market Rate Suggestions - Standalone Button */}
+            <MarketRateSuggestions 
+              items={data.items || []} 
+              projectId={savedProjectId}
+              onApplyRate={onApplyRate} 
+              onApplyAIRates={handleApplyAIRates}
+              onApplyAIRatesToCalcPrice={handleApplyAIRatesToCalcPrice}
+            />
+
             {/* Tools Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1242,17 +1251,6 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
-                <DropdownMenuItem asChild>
-                  <div className="p-0">
-                    <MarketRateSuggestions 
-                      items={data.items || []} 
-                      projectId={savedProjectId}
-                      onApplyRate={onApplyRate} 
-                      onApplyAIRates={handleApplyAIRates}
-                      onApplyAIRatesToCalcPrice={handleApplyAIRatesToCalcPrice}
-                    />
-                  </div>
-                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <div className="p-0">
                     <BulkApplyCostsDialog
