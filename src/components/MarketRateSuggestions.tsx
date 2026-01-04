@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { TrendingUp, TrendingDown, Minus, Sparkles, MapPin, Loader2, Check, AlertTriangle, CheckCheck, BarChart3, Calculator, Bot, Globe, Save, Database } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Sparkles, MapPin, Loader2, Check, AlertTriangle, CheckCheck, BarChart3, Calculator, Bot, Globe, Save, Database, Info, ExternalLink, BookOpen, Building2, Truck, HardHat, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,6 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { ApplyRateDialog } from "./ApplyRateDialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface BOQItem {
   item_number: string;
@@ -67,6 +69,102 @@ const AI_AGENTS = [
   { value: "standard", label: "Standard AI", description: "Fast analysis from training data", icon: "⚡" },
 ];
 
+// Saudi Market Price Sources
+const SAUDI_PRICE_SOURCES = [
+  {
+    name: "هيئة المحتوى المحلي (LCGPA)",
+    nameEn: "Local Content Authority",
+    description: "أسعار مرجعية للمقاولين الحكوميين",
+    url: "https://lcgpa.gov.sa",
+    icon: Building2,
+    category: "حكومي"
+  },
+  {
+    name: "Saudi Aramco IK",
+    nameEn: "Saudi Aramco In-Kingdom",
+    description: "قوائم أسعار المواد والمعدات المعتمدة",
+    url: "https://iktva.sa",
+    icon: Package,
+    category: "صناعي"
+  },
+  {
+    name: "موقع معلومات السوق السعودي",
+    nameEn: "Saudi Market Info",
+    description: "بيانات أسعار مواد البناء اليومية",
+    url: "https://www.argaam.com/ar/sector/construction",
+    icon: BarChart3,
+    category: "سوق"
+  },
+  {
+    name: "غرفة الرياض التجارية",
+    nameEn: "Riyadh Chamber",
+    description: "أدلة أسعار الموردين المحليين",
+    url: "https://www.riyadhchamber.com",
+    icon: Building2,
+    category: "تجاري"
+  },
+  {
+    name: "مقاولون سعوديون",
+    nameEn: "Saudi Contractors",
+    description: "شبكة مقاولين لأسعار العمالة والمعدات",
+    url: "https://www.saudicontractors.com",
+    icon: HardHat,
+    category: "مقاولات"
+  },
+  {
+    name: "موردي مواد البناء",
+    nameEn: "Building Materials",
+    description: "أسعار الحديد والأسمنت والخرسانة",
+    url: "https://www.alibaba.com/countrysearch/SA/building-materials.html",
+    icon: Truck,
+    category: "موردين"
+  }
+];
+
+// AI Methodology Info
+const AI_METHODOLOGY = {
+  model: "Google Gemini 2.5 Flash",
+  approach: [
+    {
+      step: 1,
+      title: "تحليل وصف البند",
+      titleEn: "Item Description Analysis",
+      description: "يحلل AI وصف كل بند لتحديد نوع العمل والمواد المطلوبة"
+    },
+    {
+      step: 2,
+      title: "مطابقة السوق",
+      titleEn: "Market Matching",
+      description: "يقارن مع قاعدة بيانات أسعار السوق السعودي (2024-2025)"
+    },
+    {
+      step: 3,
+      title: "حساب النطاق",
+      titleEn: "Range Calculation",
+      description: "يحسب الحد الأدنى (-15%) والأقصى (+15%) بناءً على تقلبات السوق"
+    },
+    {
+      step: 4,
+      title: "تقييم الثقة",
+      titleEn: "Confidence Assessment",
+      description: "يحدد مستوى الثقة (عالي/متوسط/منخفض) بناءً على وضوح الوصف"
+    },
+    {
+      step: 5,
+      title: "تحليل الاتجاه",
+      titleEn: "Trend Analysis",
+      description: "يحدد اتجاه السعر (صاعد/مستقر/هابط) بناءً على بيانات السوق"
+    }
+  ],
+  factors: [
+    { name: "أسعار المواد الخام", impact: "40%" },
+    { name: "تكلفة العمالة", impact: "25%" },
+    { name: "المعدات والآلات", impact: "20%" },
+    { name: "النقل والتوصيل", impact: "10%" },
+    { name: "هامش الربح", impact: "5%" }
+  ]
+};
+
 export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAIRates, onApplyAIRatesToCalcPrice }: MarketRateSuggestionsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -82,6 +180,8 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
   const [totalItemsCount, setTotalItemsCount] = useState(0);
   const [analyzedItemsCount, setAnalyzedItemsCount] = useState(0);
   const [savedToDb, setSavedToDb] = useState(false);
+  const [showMethodology, setShowMethodology] = useState(false);
+  const [showSources, setShowSources] = useState(false);
   const { toast } = useToast();
 
   const handleSuggestRates = async () => {
@@ -412,6 +512,139 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
               )}
             </div>
           )}
+
+          {/* AI Methodology & Market Sources Section */}
+          <Accordion type="multiple" className="w-full">
+            {/* AI Methodology */}
+            <AccordionItem value="methodology" className="border rounded-lg mb-2 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/20">
+              <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                    <BookOpen className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-sm">منهجية حساب AI</p>
+                    <p className="text-xs text-muted-foreground">كيف يتم الوصول للأسعار المقترحة</p>
+                  </div>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 pb-4">
+                <div className="space-y-4">
+                  {/* Model Info */}
+                  <div className="flex items-center gap-2 p-2 bg-primary/10 rounded-lg">
+                    <Bot className="w-5 h-5 text-primary" />
+                    <div>
+                      <p className="text-sm font-medium">نموذج الذكاء الاصطناعي</p>
+                      <p className="text-xs text-muted-foreground">{AI_METHODOLOGY.model}</p>
+                    </div>
+                  </div>
+
+                  {/* Steps */}
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold flex items-center gap-2">
+                      <Calculator className="w-4 h-4" />
+                      خطوات التحليل:
+                    </p>
+                    <div className="grid gap-2">
+                      {AI_METHODOLOGY.approach.map((step) => (
+                        <div key={step.step} className="flex items-start gap-3 p-2 bg-background/60 rounded-lg border">
+                          <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">
+                            {step.step}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{step.title}</p>
+                            <p className="text-xs text-muted-foreground">{step.description}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Factors */}
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4" />
+                      عوامل التسعير:
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {AI_METHODOLOGY.factors.map((factor) => (
+                        <div key={factor.name} className="flex items-center justify-between p-2 bg-background/60 rounded-lg border">
+                          <span className="text-xs">{factor.name}</span>
+                          <Badge variant="secondary" className="text-xs">{factor.impact}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Disclaimer */}
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="text-xs text-amber-800 dark:text-amber-200">
+                        <p className="font-medium">تنويه مهم:</p>
+                        <p>الأسعار المقترحة تقديرية بناءً على بيانات السوق المتاحة وقد تختلف عن الأسعار الفعلية. يُنصح بالتحقق من الموردين المحليين للحصول على عروض أسعار دقيقة.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* Market Sources */}
+            <AccordionItem value="sources" className="border rounded-lg bg-gradient-to-r from-green-50/50 to-emerald-50/50 dark:from-green-950/20 dark:to-emerald-950/20">
+              <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                    <Globe className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-sm">مصادر أسعار السوق السعودي</p>
+                    <p className="text-xs text-muted-foreground">روابط لمصادر بيانات حقيقية</p>
+                  </div>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 pb-4">
+                <div className="grid gap-3">
+                  {SAUDI_PRICE_SOURCES.map((source) => {
+                    const IconComponent = source.icon;
+                    return (
+                      <a
+                        key={source.name}
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-3 bg-background/60 rounded-lg border hover:border-primary/50 hover:bg-primary/5 transition-all group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                            <IconComponent className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{source.name}</p>
+                            <p className="text-xs text-muted-foreground">{source.description}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">{source.category}</Badge>
+                          <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </div>
+                      </a>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                    <div className="text-xs text-blue-800 dark:text-blue-200">
+                      <p className="font-medium">نصيحة:</p>
+                      <p>استخدم هذه المصادر للحصول على عروض أسعار مباشرة من الموردين ومقارنتها مع تقديرات AI للحصول على أدق النتائج.</p>
+                    </div>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
 
           {/* Location, Region, Agent selector and analyze button */}
           <div className="flex flex-col gap-4 p-4 bg-muted/50 rounded-lg">
