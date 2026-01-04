@@ -42,6 +42,7 @@ import { ProjectComparisonPDFExport } from "./ProjectComparisonPDFExport";
 import { EVMAlertSettings } from "./EVMAlertSettings";
 import { RiskDetailedReport } from "./RiskDetailedReport";
 import { ContractLinkage } from "./ContractLinkage";
+import { SummaryDashboard } from "./SummaryDashboard";
 import { CompanyLogoUpload, getStoredLogo } from "./CompanyLogoUpload";
 import { useDynamicCostCalculator, CostInputs, defaultCostInputs } from "@/hooks/useDynamicCostCalculator";
 import { useItemCodes } from "@/hooks/useItemCodes";
@@ -1927,6 +1928,9 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                 currency={data.summary?.currency || "SAR"}
               />
             </div>
+            
+            {/* Summary Dashboard */}
+            <SummaryDashboard />
             
             {/* Risk, Contract & Cost-Benefit Management */}
             <div className="grid grid-cols-1 gap-6">
