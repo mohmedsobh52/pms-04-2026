@@ -222,6 +222,51 @@ export type Database = {
           },
         ]
       }
+      evm_alert_settings: {
+        Row: {
+          cpi_critical_threshold: number | null
+          cpi_warning_threshold: number | null
+          created_at: string
+          email: string
+          id: string
+          notifications_enabled: boolean | null
+          spi_critical_threshold: number | null
+          spi_warning_threshold: number | null
+          updated_at: string
+          user_id: string
+          vac_critical_percentage: number | null
+          vac_warning_percentage: number | null
+        }
+        Insert: {
+          cpi_critical_threshold?: number | null
+          cpi_warning_threshold?: number | null
+          created_at?: string
+          email: string
+          id?: string
+          notifications_enabled?: boolean | null
+          spi_critical_threshold?: number | null
+          spi_warning_threshold?: number | null
+          updated_at?: string
+          user_id: string
+          vac_critical_percentage?: number | null
+          vac_warning_percentage?: number | null
+        }
+        Update: {
+          cpi_critical_threshold?: number | null
+          cpi_warning_threshold?: number | null
+          created_at?: string
+          email?: string
+          id?: string
+          notifications_enabled?: boolean | null
+          spi_critical_threshold?: number | null
+          spi_warning_threshold?: number | null
+          updated_at?: string
+          user_id?: string
+          vac_critical_percentage?: number | null
+          vac_warning_percentage?: number | null
+        }
+        Relationships: []
+      }
       item_costs: {
         Row: {
           admin: number | null
@@ -552,6 +597,62 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "project_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_progress_history: {
+        Row: {
+          actual_cost: number | null
+          actual_progress: number | null
+          actual_spent_percentage: number | null
+          cpi: number | null
+          created_at: string
+          id: string
+          notes: string | null
+          planned_progress: number | null
+          project_id: string | null
+          record_date: string
+          spi: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actual_cost?: number | null
+          actual_progress?: number | null
+          actual_spent_percentage?: number | null
+          cpi?: number | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          planned_progress?: number | null
+          project_id?: string | null
+          record_date?: string
+          spi?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actual_cost?: number | null
+          actual_progress?: number | null
+          actual_spent_percentage?: number | null
+          cpi?: number | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          planned_progress?: number | null
+          project_id?: string | null
+          record_date?: string
+          spi?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_progress_history_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "saved_projects"
             referencedColumns: ["id"]
           },
         ]

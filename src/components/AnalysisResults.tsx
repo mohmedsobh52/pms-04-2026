@@ -32,6 +32,8 @@ import { SCurveChart } from "./SCurveChart";
 import { PrintableReport } from "./PrintableReport";
 import { WordExportDialog } from "./WordExportDialog";
 import { EVMDashboard } from "./EVMDashboard";
+import { MultiProjectEVMComparison } from "./MultiProjectEVMComparison";
+import { ProgressHistoryPanel } from "./ProgressHistoryPanel";
 import { CompanyLogoUpload, getStoredLogo } from "./CompanyLogoUpload";
 import { useDynamicCostCalculator, CostInputs, defaultCostInputs } from "@/hooks/useDynamicCostCalculator";
 import { useItemCodes } from "@/hooks/useItemCodes";
@@ -1902,6 +1904,20 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
               plannedProgress={40}
               currency={data.summary?.currency || "SAR"}
             />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <MultiProjectEVMComparison
+                currency={data.summary?.currency || "SAR"}
+              />
+              <ProgressHistoryPanel
+                currentProgress={35}
+                currentSpent={38}
+                plannedProgress={40}
+                totalBudget={data.summary?.total_value || data.items.reduce((sum, item) => sum + (item.total_price || 0), 0)}
+                spi={0.875}
+                cpi={0.921}
+                currency={data.summary?.currency || "SAR"}
+              />
+            </div>
           </div>
         )}
 
