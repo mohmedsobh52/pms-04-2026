@@ -23,7 +23,12 @@ import {
   FileSpreadsheet,
   DollarSign,
   ClipboardList,
-  Building2
+  Building2,
+  Layers,
+  Network,
+  PieChart,
+  Clock,
+  Link2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,7 +67,7 @@ export function FloatingToolbar({
 }: FloatingToolbarProps) {
   const [isOpen, setIsOpen] = useState(true); // Start open by default
   const [searchQuery, setSearchQuery] = useState("");
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(["analysis"]);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(["items-menu"]);
   const { isArabic } = useLanguage();
 
   const menuItems: MenuItem[] = [
@@ -73,7 +78,52 @@ export function FloatingToolbar({
       labelAr: "لوحة التحكم",
     },
     {
-      id: "analysis",
+      id: "items-menu",
+      icon: <Layers className="w-4 h-4" />,
+      label: "Items",
+      labelAr: "البنود",
+      badge: String(6),
+      children: [
+        {
+          id: "analysis",
+          icon: <FileStack className="w-4 h-4" />,
+          label: "Items",
+          labelAr: "البنود",
+        },
+        {
+          id: "wbs",
+          icon: <Network className="w-4 h-4" />,
+          label: "WBS",
+          labelAr: "هيكل تقسيم العمل",
+        },
+        {
+          id: "cost-brief",
+          icon: <DollarSign className="w-4 h-4" />,
+          label: "Cost Brief",
+          labelAr: "ملخص التكاليف",
+        },
+        {
+          id: "charts",
+          icon: <PieChart className="w-4 h-4" />,
+          label: "Charts",
+          labelAr: "الرسوم البيانية",
+        },
+        {
+          id: "time-schedule",
+          icon: <Clock className="w-4 h-4" />,
+          label: "Time Schedule",
+          labelAr: "الجدول الزمني",
+        },
+        {
+          id: "schedule-integration",
+          icon: <Link2 className="w-4 h-4" />,
+          label: "Schedule Integration",
+          labelAr: "تكامل الجدولة",
+        },
+      ],
+    },
+    {
+      id: "analysis-tools",
       icon: <BarChart3 className="w-4 h-4" />,
       label: "Analysis Tools",
       labelAr: "أدوات التحليل",
