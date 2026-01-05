@@ -28,6 +28,9 @@ import SettingsPage from "./pages/SettingsPage";
 import AnalysisToolsPage from "./pages/AnalysisToolsPage";
 import BOQItemsPage from "./pages/BOQItemsPage";
 import AttachmentsPage from "./pages/AttachmentsPage";
+import TemplatesPage from "./pages/TemplatesPage";
+import P6ExportPage from "./pages/P6ExportPage";
+import CompareVersionsPage from "./pages/CompareVersionsPage";
 
 const queryClient = new QueryClient();
 
@@ -51,7 +54,7 @@ const App = () => (
               <Route path="/cost-analysis" element={<CostAnalysisPage />} />
               <Route path="/changelog" element={<Changelog />} />
               <Route path="/admin/versions" element={<AdminVersions />} />
-              {/* New separate pages */}
+              {/* Separate pages for each section */}
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/items" element={<BOQItemsPage />} />
               <Route path="/analysis-tools" element={<AnalysisToolsPage />} />
@@ -63,6 +66,9 @@ const App = () => (
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/attachments" element={<AttachmentsPage />} />
+              <Route path="/templates" element={<TemplatesPage />} />
+              <Route path="/p6-export" element={<P6ExportPage />} />
+              <Route path="/compare-versions" element={<CompareVersionsPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
               </Routes>

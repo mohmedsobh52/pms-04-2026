@@ -235,7 +235,7 @@ export function FloatingToolbar({
   const { isArabic } = useLanguage();
   const navigate = useNavigate();
 
-  // Route mapping for navigation
+  // Route mapping for navigation - all go to separate pages
   const routeMap: Record<string, string> = {
     "dashboard": "/",
     "home": "/",
@@ -257,8 +257,8 @@ export function FloatingToolbar({
     "upload": "/quotations",
     "reports": "/reports",
     "report": "/reports",
-    "version-compare": "/reports",
-    "p6-export": "/reports",
+    "version-compare": "/compare-versions",
+    "p6-export": "/p6-export",
     "risk": "/risk",
     "contracts": "/contracts",
     "settings": "/settings",
@@ -266,6 +266,7 @@ export function FloatingToolbar({
     "help": "/about",
     "subcontractors": "/subcontractors",
     "attachments": "/attachments",
+    "templates": "/templates",
   };
 
   const defaultMenuItems: MenuItem[] = [
@@ -392,16 +393,12 @@ export function FloatingToolbar({
           icon: <FileSpreadsheet className="w-4 h-4" />,
           label: "Full Report",
           labelAr: "التقرير الشامل",
-          onClick: onShowReport,
-          disabled: !hasAnalysisData,
         },
         {
           id: "version-compare",
           icon: <GitCompare className="w-4 h-4" />,
           label: "Version Compare",
           labelAr: "مقارنة الإصدارات",
-          onClick: onShowBOQComparison,
-          disabled: !hasAnalysisData,
         },
         {
           id: "p6-export",
@@ -410,6 +407,12 @@ export function FloatingToolbar({
           labelAr: "تصدير P6",
         },
       ],
+    },
+    {
+      id: "templates",
+      icon: <Layers className="w-4 h-4" />,
+      label: "Templates",
+      labelAr: "القوالب",
     },
     {
       id: "risk",
