@@ -1036,6 +1036,71 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_reports: {
+        Row: {
+          created_at: string
+          id: string
+          include_charts: boolean | null
+          include_comparison: boolean | null
+          is_active: boolean | null
+          last_sent_at: string | null
+          next_scheduled_at: string | null
+          project_id: string | null
+          recipient_emails: string[]
+          report_name: string
+          report_type: string
+          schedule_day: number | null
+          schedule_hour: number | null
+          schedule_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          include_charts?: boolean | null
+          include_comparison?: boolean | null
+          is_active?: boolean | null
+          last_sent_at?: string | null
+          next_scheduled_at?: string | null
+          project_id?: string | null
+          recipient_emails: string[]
+          report_name: string
+          report_type?: string
+          schedule_day?: number | null
+          schedule_hour?: number | null
+          schedule_type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          include_charts?: boolean | null
+          include_comparison?: boolean | null
+          is_active?: boolean | null
+          last_sent_at?: string | null
+          next_scheduled_at?: string | null
+          project_id?: string | null
+          recipient_emails?: string[]
+          report_name?: string
+          report_type?: string
+          schedule_day?: number | null
+          schedule_hour?: number | null
+          schedule_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "saved_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shared_analyses: {
         Row: {
           analysis_data: Json
@@ -1124,6 +1189,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_analysis_preferences: {
+        Row: {
+          analysis_language: string | null
+          auto_analyze_on_upload: boolean | null
+          created_at: string
+          default_analysis_type: string | null
+          email_notifications: boolean | null
+          id: string
+          include_market_comparison: boolean | null
+          include_recommendations: boolean | null
+          is_default: boolean | null
+          preference_name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis_language?: string | null
+          auto_analyze_on_upload?: boolean | null
+          created_at?: string
+          default_analysis_type?: string | null
+          email_notifications?: boolean | null
+          id?: string
+          include_market_comparison?: boolean | null
+          include_recommendations?: boolean | null
+          is_default?: boolean | null
+          preference_name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis_language?: string | null
+          auto_analyze_on_upload?: boolean | null
+          created_at?: string
+          default_analysis_type?: string | null
+          email_notifications?: boolean | null
+          id?: string
+          include_market_comparison?: boolean | null
+          include_recommendations?: boolean | null
+          is_default?: boolean | null
+          preference_name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_notification_preferences: {
         Row: {

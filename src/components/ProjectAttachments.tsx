@@ -63,6 +63,11 @@ import { FilesComparisonDialog } from "./FilesComparisonDialog";
 import { BatchAnalysisDialog } from "./BatchAnalysisDialog";
 import { ReAnalyzeDialog } from "./ReAnalyzeDialog";
 import { MergedAnalysisReport } from "./MergedAnalysisReport";
+import { DrawingQuantityExtractor } from "./DrawingQuantityExtractor";
+import { ProjectFilesReport } from "./ProjectFilesReport";
+import { AnalysisPreferencesDialog } from "./AnalysisPreferencesDialog";
+import { ScheduledReportsDialog } from "./ScheduledReportsDialog";
+import { AnalysisCharts } from "./AnalysisCharts";
 import { useAnalysisNotifications } from "@/hooks/useAnalysisNotifications";
 import * as XLSX from "xlsx";
 
@@ -449,6 +454,21 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
               {isArabic ? "مرفقات المشروع" : "Project Attachments"}
             </CardTitle>
             <div className="flex items-center gap-2 flex-wrap">
+              {/* Quantity Takeoff */}
+              <DrawingQuantityExtractor 
+                attachments={attachments} 
+                onAnalysisComplete={fetchAttachments}
+              />
+              
+              {/* Files Report */}
+              <ProjectFilesReport attachments={attachments} />
+              
+              {/* Analysis Preferences */}
+              <AnalysisPreferencesDialog />
+              
+              {/* Scheduled Reports */}
+              <ScheduledReportsDialog projectId={projectId} />
+              
               {/* Batch Analysis Button */}
               {unanalyzedFiles.length > 0 && (
                 <Button
@@ -854,6 +874,13 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
         onClose={() => setIsMergeDialogOpen(false)}
         analyzedFiles={analyzedFiles}
       />
+
+      {/* Analysis Charts */}
+      {analyzedFiles.length > 0 && (
+        <div className="mt-6">
+          <AnalysisCharts attachments={attachments} />
+        </div>
+      )}
     </>
   );
 }

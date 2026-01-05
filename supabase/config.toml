@@ -47,3 +47,9 @@ verify_jwt = false
 
 [functions.analyze-attachment]
 verify_jwt = false
+
+[functions.analyze-drawings]
+verify_jwt = false
+
+[functions.send-scheduled-report]
+verify_jwt = false
