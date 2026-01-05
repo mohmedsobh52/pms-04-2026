@@ -27,6 +27,7 @@ import ReportsPage from "./pages/ReportsPage";
 import SettingsPage from "./pages/SettingsPage";
 import AnalysisToolsPage from "./pages/AnalysisToolsPage";
 import BOQItemsPage from "./pages/BOQItemsPage";
+import AttachmentsPage from "./pages/AttachmentsPage";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +62,7 @@ const App = () => (
               <Route path="/risk" element={<RiskPage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/attachments" element={<AttachmentsPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
               </Routes>

@@ -265,6 +265,7 @@ export function FloatingToolbar({
     "preferences": "/settings",
     "help": "/about",
     "subcontractors": "/subcontractors",
+    "attachments": "/attachments",
   };
 
   const defaultMenuItems: MenuItem[] = [
@@ -423,6 +424,12 @@ export function FloatingToolbar({
       icon: <Building2 className="w-4 h-4" />,
       label: "Contracts",
       labelAr: "العقود",
+    },
+    {
+      id: "attachments",
+      icon: <FileStack className="w-4 h-4" />,
+      label: "Attachments",
+      labelAr: "المرفقات",
     },
   ];
 
