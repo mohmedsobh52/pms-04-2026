@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -40,17 +40,20 @@ import {
   Filter,
   MoreVertical,
   CheckCircle,
-  Clock,
   AlertCircle,
-  X,
-  Loader2
+  Loader2,
+  Brain,
+  Sparkles
 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { FilePreviewDialog } from "./FilePreviewDialog";
+import * as XLSX from "xlsx";
 
 interface ProjectAttachment {
   id: string;
@@ -118,6 +121,9 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
   const [selectedCategory, setSelectedCategory] = useState("general");
   const [description, setDescription] = useState("");
   const [dragActive, setDragActive] = useState(false);
+  const [previewFile, setPreviewFile] = useState<ProjectAttachment | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [analyzingFileId, setAnalyzingFileId] = useState<string | null>(null);
 
   const fetchAttachments = useCallback(async () => {
     if (!user) return;
@@ -146,9 +152,104 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
     }
   }, [user, projectId, isArabic]);
 
-  useState(() => {
+  useEffect(() => {
     fetchAttachments();
-  });
+  }, [fetchAttachments]);
+
+  const extractFileContent = async (file: File): Promise<string> => {
+    const fileType = file.type;
+    
+    // Handle text files
+    if (fileType.includes("text") || file.name.endsWith(".txt") || 
+        file.name.endsWith(".json") || file.name.endsWith(".xml") ||
+        file.name.endsWith(".csv")) {
+      return await file.text();
+    }
+    
+    // Handle Excel files
+    if (fileType.includes("sheet") || fileType.includes("excel") ||
+        file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: "array" });
+      let content = "";
+      workbook.SheetNames.forEach(sheetName => {
+        const sheet = workbook.Sheets[sheetName];
+        content += `\n=== Sheet: ${sheetName} ===\n`;
+        content += XLSX.utils.sheet_to_csv(sheet);
+      });
+      return content;
+    }
+    
+    // For PDF and other files, return a placeholder
+    // In production, you'd use OCR or PDF parsing
+    return `[File: ${file.name}, Type: ${fileType}]`;
+  };
+
+  const handleAnalyzeFile = async (attachment: ProjectAttachment) => {
+    if (!user) return;
+    
+    setAnalyzingFileId(attachment.id);
+    
+    toast.info(isArabic ? "جاري تحليل الملف..." : "Analyzing file...");
+    
+    try {
+      // Download the file
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from("project-files")
+        .download(attachment.file_path);
+
+      if (downloadError) throw downloadError;
+
+      // Extract content based on file type
+      const blob = fileData as Blob;
+      const file = new window.File([blob], attachment.file_name, { type: attachment.file_type || "" });
+      const content = await extractFileContent(file);
+
+      // Determine analysis type based on category
+      let analysisType = "extract_data";
+      if (attachment.category === "boq") {
+        analysisType = "extract_boq";
+      } else if (attachment.category === "quotations") {
+        analysisType = "cost_analysis";
+      }
+
+      // Call the analysis function
+      const { data: analysisResult, error: analysisError } = await supabase.functions.invoke("analyze-attachment", {
+        body: {
+          fileContent: content.slice(0, 50000), // Limit content size
+          fileName: attachment.file_name,
+          fileType: attachment.file_type,
+          analysisType
+        }
+      });
+
+      if (analysisError) throw analysisError;
+
+      if (analysisResult.error) {
+        throw new Error(analysisResult.error);
+      }
+
+      // Update the attachment with analysis result
+      const { error: updateError } = await supabase
+        .from("project_attachments")
+        .update({
+          is_analyzed: true,
+          analysis_result: analysisResult.analysis
+        })
+        .eq("id", attachment.id);
+
+      if (updateError) throw updateError;
+
+      toast.success(isArabic ? "تم تحليل الملف بنجاح" : "File analyzed successfully");
+      fetchAttachments();
+      
+    } catch (error) {
+      console.error("Analysis error:", error);
+      toast.error(isArabic ? "خطأ في تحليل الملف" : "Error analyzing file");
+    } finally {
+      setAnalyzingFileId(null);
+    }
+  };
 
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0 || !user) return;
@@ -258,6 +359,11 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
     }
   };
 
+  const handlePreview = (attachment: ProjectAttachment) => {
+    setPreviewFile(attachment);
+    setIsPreviewOpen(true);
+  };
+
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -306,269 +412,322 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <FolderOpen className="w-5 h-5" />
-            {isArabic ? "مرفقات المشروع" : "Project Attachments"}
-          </CardTitle>
-          <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-2">
-                <Plus className="w-4 h-4" />
-                {isArabic ? "رفع ملفات" : "Upload Files"}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>
-                  {isArabic ? "رفع ملفات جديدة" : "Upload New Files"}
-                </DialogTitle>
-                <DialogDescription>
-                  {isArabic
-                    ? "اسحب الملفات هنا أو اختر من جهازك"
-                    : "Drag files here or choose from your device"}
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="space-y-4">
-                {/* Category Selection */}
-                <div className="space-y-2">
-                  <Label>{isArabic ? "التصنيف" : "Category"}</Label>
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {FILE_CATEGORIES.map((cat) => (
-                        <SelectItem key={cat.value} value={cat.value}>
-                          {isArabic ? cat.labelAr : cat.labelEn}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+    <>
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <FolderOpen className="w-5 h-5" />
+              {isArabic ? "مرفقات المشروع" : "Project Attachments"}
+            </CardTitle>
+            <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  {isArabic ? "رفع ملفات" : "Upload Files"}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>
+                    {isArabic ? "رفع ملفات جديدة" : "Upload New Files"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {isArabic
+                      ? "اسحب الملفات هنا أو اختر من جهازك"
+                      : "Drag files here or choose from your device"}
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4">
+                  {/* Category Selection */}
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "التصنيف" : "Category"}</Label>
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FILE_CATEGORIES.map((cat) => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {isArabic ? cat.labelAr : cat.labelEn}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                {/* Description */}
-                <div className="space-y-2">
-                  <Label>{isArabic ? "وصف (اختياري)" : "Description (optional)"}</Label>
-                  <Input
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder={isArabic ? "أضف وصفاً للملفات..." : "Add description..."}
-                  />
-                </div>
+                  {/* Description */}
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "وصف (اختياري)" : "Description (optional)"}</Label>
+                    <Input
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder={isArabic ? "أضف وصفاً للملفات..." : "Add description..."}
+                    />
+                  </div>
 
-                {/* Upload Zone */}
-                <div
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                  className={cn(
-                    "border-2 border-dashed rounded-xl p-8 text-center transition-all",
-                    dragActive
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/50"
-                  )}
-                >
-                  {isUploading ? (
-                    <div className="space-y-3">
-                      <Loader2 className="w-10 h-10 mx-auto text-primary animate-spin" />
-                      <p className="text-sm text-muted-foreground">
-                        {isArabic ? "جاري الرفع..." : "Uploading..."}
-                      </p>
-                      <Progress value={uploadProgress} className="w-full" />
-                    </div>
-                  ) : (
-                    <>
-                      <Upload className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-                      <p className="text-sm text-muted-foreground mb-3">
-                        {isArabic
-                          ? "اسحب الملفات هنا أو"
-                          : "Drag files here or"}
-                      </p>
-                      <label>
-                        <input
-                          type="file"
-                          multiple
-                          className="hidden"
-                          onChange={(e) => handleUpload(e.target.files)}
-                          accept=".pdf,.xlsx,.xls,.doc,.docx,.png,.jpg,.jpeg,.csv,.xml,.json,.txt"
-                        />
-                        <Button variant="outline" size="sm" asChild>
-                          <span className="cursor-pointer">
-                            {isArabic ? "اختر ملفات" : "Choose Files"}
-                          </span>
-                        </Button>
-                      </label>
-                      <p className="text-xs text-muted-foreground mt-3">
-                        {isArabic
-                          ? "PDF, Excel, Word, صور (حد أقصى 50MB)"
-                          : "PDF, Excel, Word, Images (max 50MB)"}
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Search and Filter */}
-        <div className="flex flex-col sm:flex-row gap-3 mt-4">
-          <div className="relative flex-1">
-            <Search className={cn(
-              "absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground",
-              isArabic ? "right-3" : "left-3"
-            )} />
-            <Input
-              placeholder={isArabic ? "بحث في الملفات..." : "Search files..."}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={isArabic ? "pr-9" : "pl-9"}
-            />
-          </div>
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <Filter className="w-4 h-4 mr-2" />
-              <SelectValue placeholder={isArabic ? "التصنيف" : "Category"} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">
-                {isArabic ? "جميع التصنيفات" : "All Categories"}
-              </SelectItem>
-              {FILE_CATEGORIES.map((cat) => (
-                <SelectItem key={cat.value} value={cat.value}>
-                  {isArabic ? cat.labelAr : cat.labelEn}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </CardHeader>
-
-      <CardContent>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
-        ) : filteredAttachments.length === 0 ? (
-          <div className="text-center py-12">
-            <FolderOpen className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">
-              {searchQuery || categoryFilter !== "all"
-                ? isArabic
-                  ? "لا توجد نتائج"
-                  : "No results found"
-                : isArabic
-                ? "لا توجد ملفات مرفوعة"
-                : "No files uploaded"}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {filteredAttachments.map((attachment) => (
-              <div
-                key={attachment.id}
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-lg border",
-                  "hover:bg-muted/50 transition-colors group"
-                )}
-              >
-                {/* File Icon */}
-                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                  {getFileIcon(attachment.file_type)}
-                </div>
-
-                {/* File Info */}
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">
-                    {attachment.file_name}
-                  </p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{formatFileSize(attachment.file_size)}</span>
-                    <span>•</span>
-                    <Badge variant="outline" className="text-[10px] px-1.5">
-                      {getCategoryLabel(attachment.category)}
-                    </Badge>
-                    {attachment.is_analyzed && (
+                  {/* Upload Zone */}
+                  <div
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                    className={cn(
+                      "border-2 border-dashed rounded-xl p-8 text-center transition-all",
+                      dragActive
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    )}
+                  >
+                    {isUploading ? (
+                      <div className="space-y-3">
+                        <Loader2 className="w-10 h-10 mx-auto text-primary animate-spin" />
+                        <p className="text-sm text-muted-foreground">
+                          {isArabic ? "جاري الرفع..." : "Uploading..."}
+                        </p>
+                        <Progress value={uploadProgress} className="w-full" />
+                      </div>
+                    ) : (
                       <>
-                        <span>•</span>
-                        <Badge variant="secondary" className="text-[10px] px-1.5 gap-1">
-                          <CheckCircle className="w-3 h-3" />
-                          {isArabic ? "تم التحليل" : "Analyzed"}
-                        </Badge>
+                        <Upload className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
+                        <p className="text-sm text-muted-foreground mb-3">
+                          {isArabic
+                            ? "اسحب الملفات هنا أو"
+                            : "Drag files here or"}
+                        </p>
+                        <label>
+                          <input
+                            type="file"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => handleUpload(e.target.files)}
+                            accept=".pdf,.xlsx,.xls,.doc,.docx,.png,.jpg,.jpeg,.csv,.xml,.json,.txt"
+                          />
+                          <Button variant="outline" size="sm" asChild>
+                            <span className="cursor-pointer">
+                              {isArabic ? "اختر ملفات" : "Choose Files"}
+                            </span>
+                          </Button>
+                        </label>
+                        <p className="text-xs text-muted-foreground mt-3">
+                          {isArabic
+                            ? "PDF, Excel, Word, صور (حد أقصى 50MB)"
+                            : "PDF, Excel, Word, Images (max 50MB)"}
+                        </p>
                       </>
                     )}
                   </div>
                 </div>
+              </DialogContent>
+            </Dialog>
+          </div>
 
-                {/* Actions */}
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => handleDownload(attachment)}
-                    title={isArabic ? "تحميل" : "Download"}
-                  >
-                    <Download className="w-4 h-4" />
-                  </Button>
-                  {onFileAnalyze && !attachment.is_analyzed && (
+          {/* Search and Filter */}
+          <div className="flex flex-col sm:flex-row gap-3 mt-4">
+            <div className="relative flex-1">
+              <Search className={cn(
+                "absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground",
+                isArabic ? "right-3" : "left-3"
+              )} />
+              <Input
+                placeholder={isArabic ? "بحث في الملفات..." : "Search files..."}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={isArabic ? "pr-9" : "pl-9"}
+              />
+            </div>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder={isArabic ? "التصنيف" : "Category"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  {isArabic ? "جميع التصنيفات" : "All Categories"}
+                </SelectItem>
+                {FILE_CATEGORIES.map((cat) => (
+                  <SelectItem key={cat.value} value={cat.value}>
+                    {isArabic ? cat.labelAr : cat.labelEn}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+
+        <CardContent>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : filteredAttachments.length === 0 ? (
+            <div className="text-center py-12">
+              <FolderOpen className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">
+                {searchQuery || categoryFilter !== "all"
+                  ? isArabic
+                    ? "لا توجد نتائج"
+                    : "No results found"
+                  : isArabic
+                  ? "لا توجد ملفات مرفوعة"
+                  : "No files uploaded"}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredAttachments.map((attachment) => (
+                <div
+                  key={attachment.id}
+                  className={cn(
+                    "flex items-center gap-3 p-3 rounded-lg border",
+                    "hover:bg-muted/50 transition-colors group cursor-pointer"
+                  )}
+                  onClick={() => handlePreview(attachment)}
+                >
+                  {/* File Icon */}
+                  <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                    {getFileIcon(attachment.file_type)}
+                  </div>
+
+                  {/* File Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">
+                      {attachment.file_name}
+                    </p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{formatFileSize(attachment.file_size)}</span>
+                      <span>•</span>
+                      <Badge variant="outline" className="text-[10px] px-1.5">
+                        {getCategoryLabel(attachment.category)}
+                      </Badge>
+                      {attachment.is_analyzed && (
+                        <>
+                          <span>•</span>
+                          <Badge variant="secondary" className="text-[10px] px-1.5 gap-1 bg-green-500/10 text-green-600">
+                            <Sparkles className="w-3 h-3" />
+                            {isArabic ? "تم التحليل" : "Analyzed"}
+                          </Badge>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => onFileAnalyze(attachment)}
-                      title={isArabic ? "تحليل" : "Analyze"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePreview(attachment);
+                      }}
+                      title={isArabic ? "معاينة" : "Preview"}
                     >
                       <Eye className="w-4 h-4" />
                     </Button>
-                  )}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleDownload(attachment)}>
-                        <Download className="w-4 h-4 mr-2" />
-                        {isArabic ? "تحميل" : "Download"}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleDelete(attachment)}
-                        className="text-destructive focus:text-destructive"
+                    {!attachment.is_analyzed && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAnalyzeFile(attachment);
+                        }}
+                        disabled={analyzingFileId === attachment.id}
+                        title={isArabic ? "تحليل AI" : "AI Analysis"}
                       >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        {isArabic ? "حذف" : "Delete"}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        {analyzingFileId === attachment.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Brain className="w-4 h-4" />
+                        )}
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownload(attachment);
+                      }}
+                      title={isArabic ? "تحميل" : "Download"}
+                    >
+                      <Download className="w-4 h-4" />
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handlePreview(attachment)}>
+                          <Eye className="w-4 h-4 mr-2" />
+                          {isArabic ? "معاينة" : "Preview"}
+                        </DropdownMenuItem>
+                        {!attachment.is_analyzed && (
+                          <DropdownMenuItem onClick={() => handleAnalyzeFile(attachment)}>
+                            <Brain className="w-4 h-4 mr-2" />
+                            {isArabic ? "تحليل AI" : "AI Analysis"}
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onClick={() => handleDownload(attachment)}>
+                          <Download className="w-4 h-4 mr-2" />
+                          {isArabic ? "تحميل" : "Download"}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleDelete(attachment)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          {isArabic ? "حذف" : "Delete"}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
 
-        {/* Summary */}
-        {attachments.length > 0 && (
-          <div className="mt-4 pt-4 border-t flex items-center justify-between text-sm text-muted-foreground">
-            <span>
-              {isArabic
-                ? `${attachments.length} ملف`
-                : `${attachments.length} file(s)`}
-            </span>
-            <span>
-              {formatFileSize(
-                attachments.reduce((acc, f) => acc + (f.file_size || 0), 0)
-              )}
-            </span>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          {/* Summary */}
+          {attachments.length > 0 && (
+            <div className="mt-4 pt-4 border-t flex items-center justify-between text-sm text-muted-foreground">
+              <span>
+                {isArabic
+                  ? `${attachments.length} ملف • ${attachments.filter(a => a.is_analyzed).length} تم تحليله`
+                  : `${attachments.length} file(s) • ${attachments.filter(a => a.is_analyzed).length} analyzed`}
+              </span>
+              <span>
+                {formatFileSize(
+                  attachments.reduce((acc, f) => acc + (f.file_size || 0), 0)
+                )}
+              </span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* File Preview Dialog */}
+      <FilePreviewDialog
+        isOpen={isPreviewOpen}
+        onClose={() => {
+          setIsPreviewOpen(false);
+          setPreviewFile(null);
+        }}
+        file={previewFile}
+        onAnalyze={handleAnalyzeFile}
+      />
+    </>
   );
 }

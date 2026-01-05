@@ -60,7 +60,7 @@ export function FloatingToolbar({
   onShowP6Export,
   onShowReport
 }: FloatingToolbarProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true); // Start open by default
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedMenus, setExpandedMenus] = useState<string[]>(["analysis"]);
   const { isArabic } = useLanguage();
