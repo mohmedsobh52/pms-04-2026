@@ -14,7 +14,8 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronUp,
-  Languages
+  Languages,
+  FileDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -37,6 +38,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/useLanguage";
 import { cn } from "@/lib/utils";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, ShadingType, PageBreak } from "docx";
 
 // FIDIC Contract Types
 const FIDIC_CONTRACT_TYPES = [
@@ -394,6 +396,148 @@ export function FIDICContractTemplates() {
     });
   };
 
+  const handleExportToWord = async (template: SubcontractTemplate) => {
+    const fidic = FIDIC_CONTRACT_TYPES.find(f => f.id === template.fidic_type);
+    const isAr = activeLanguage === "ar";
+    
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: [
+          // Header
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 200, after: 400 },
+            children: [
+              new TextRun({
+                text: isAr ? "عقد مقاولة من الباطن" : "SUBCONTRACT AGREEMENT",
+                bold: true,
+                size: 48,
+                color: "2563EB",
+              }),
+            ],
+          }),
+          // FIDIC Type Badge
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 100, after: 300 },
+            children: [
+              new TextRun({
+                text: isAr ? `وفقاً لنظام فيديك - ${fidic?.nameAr || ""}` : `Based on FIDIC - ${fidic?.nameEn || ""}`,
+                size: 24,
+                italics: true,
+                color: "64748B",
+              }),
+            ],
+          }),
+          // Template Title
+          new Paragraph({
+            heading: HeadingLevel.HEADING_1,
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 400, after: 200 },
+            children: [
+              new TextRun({
+                text: isAr ? template.contentAr : template.contentEn,
+                bold: true,
+                size: 36,
+              }),
+            ],
+          }),
+          // Description
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 100, after: 400 },
+            children: [
+              new TextRun({
+                text: isAr ? template.descriptionAr : template.descriptionEn,
+                size: 22,
+                color: "64748B",
+              }),
+            ],
+          }),
+          // Date
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 200, after: 600 },
+            children: [
+              new TextRun({
+                text: `${isAr ? "التاريخ" : "Date"}: ${new Date().toLocaleDateString(isAr ? 'ar-SA' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`,
+                size: 20,
+              }),
+            ],
+          }),
+          // Separator
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+              new TextRun({
+                text: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+                color: "E2E8F0",
+              }),
+            ],
+          }),
+          new Paragraph({ children: [new PageBreak()] }),
+          // Sections
+          ...template.sections.flatMap((section, idx) => [
+            new Paragraph({
+              heading: HeadingLevel.HEADING_2,
+              spacing: { before: 400, after: 200 },
+              shading: {
+                type: ShadingType.SOLID,
+                fill: "F8FAFC",
+              },
+              children: [
+                new TextRun({
+                  text: `${idx + 1}. ${isAr ? section.titleAr : section.titleEn}`,
+                  bold: true,
+                  size: 28,
+                  color: "1E293B",
+                }),
+              ],
+            }),
+            new Paragraph({
+              spacing: { before: 100, after: 300 },
+              children: [
+                new TextRun({
+                  text: isAr ? section.contentAr : section.contentEn,
+                  size: 22,
+                }),
+              ],
+            }),
+          ]),
+          // Footer
+          new Paragraph({
+            spacing: { before: 800 },
+            alignment: AlignmentType.CENTER,
+            children: [
+              new TextRun({
+                text: isAr 
+                  ? "تم إنشاء هذا العقد وفقاً لمعايير فيديك الدولية"
+                  : "This contract was generated according to FIDIC International Standards",
+                italics: true,
+                size: 18,
+                color: "94A3B8",
+              }),
+            ],
+          }),
+        ],
+      }],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `FIDIC_${template.id}_${activeLanguage}.docx`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: isArabic ? "تم التصدير" : "Exported",
+      description: isArabic ? "تم تصدير العقد إلى Word بنجاح" : "Contract exported to Word successfully"
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* FIDIC Overview */}
@@ -592,6 +736,16 @@ export function FIDICContractTemplates() {
                         onClick={() => handleCopyTemplate(template)}
                       >
                         <Copy className="w-4 h-4" />
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => handleExportToWord(template)}
+                      >
+                        <FileDown className="w-4 h-4" />
+                        Word
                       </Button>
                       
                       <Button
