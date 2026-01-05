@@ -46,7 +46,9 @@ import {
   Sparkles,
   GitCompare,
   Layers,
-  FileOutput
+  FileOutput,
+  RefreshCw,
+  Combine
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -59,6 +61,9 @@ import { FilePreviewDialog } from "./FilePreviewDialog";
 import { AnalysisExportDialog } from "./AnalysisExportDialog";
 import { FilesComparisonDialog } from "./FilesComparisonDialog";
 import { BatchAnalysisDialog } from "./BatchAnalysisDialog";
+import { ReAnalyzeDialog } from "./ReAnalyzeDialog";
+import { MergedAnalysisReport } from "./MergedAnalysisReport";
+import { useAnalysisNotifications } from "@/hooks/useAnalysisNotifications";
 import * as XLSX from "xlsx";
 
 interface ProjectAttachment {
@@ -133,6 +138,14 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isCompareDialogOpen, setIsCompareDialogOpen] = useState(false);
   const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
+  const [isReAnalyzeDialogOpen, setIsReAnalyzeDialogOpen] = useState(false);
+  const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false);
+  const [selectedFileForReAnalysis, setSelectedFileForReAnalysis] = useState<ProjectAttachment | null>(null);
+
+  const { startTask, completeTask } = useAnalysisNotifications({
+    enabled: true,
+    onComplete: () => fetchAttachments()
+  });
 
   const analyzedFiles = attachments.filter(a => a.is_analyzed);
   const unanalyzedFiles = attachments.filter(a => !a.is_analyzed);
@@ -201,8 +214,7 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
     if (!user) return;
     
     setAnalyzingFileId(attachment.id);
-    
-    toast.info(isArabic ? "جاري تحليل الملف..." : "Analyzing file...");
+    startTask(attachment.id, attachment.file_name);
     
     try {
       // Download the file
@@ -252,15 +264,19 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
 
       if (updateError) throw updateError;
 
-      toast.success(isArabic ? "تم تحليل الملف بنجاح" : "File analyzed successfully");
+      completeTask(attachment.id, true);
       fetchAttachments();
-      
-    } catch (error) {
+    } catch (error: any) {
       console.error("Analysis error:", error);
-      toast.error(isArabic ? "خطأ في تحليل الملف" : "Error analyzing file");
+      completeTask(attachment.id, false, error.message);
     } finally {
       setAnalyzingFileId(null);
     }
+  };
+
+  const handleReAnalyze = (attachment: ProjectAttachment) => {
+    setSelectedFileForReAnalysis(attachment);
+    setIsReAnalyzeDialogOpen(true);
   };
 
   const handleUpload = async (files: FileList | null) => {
@@ -456,6 +472,19 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
                 >
                   <GitCompare className="w-4 h-4" />
                   {isArabic ? "مقارنة" : "Compare"}
+                </Button>
+              )}
+              
+              {/* Merge Button */}
+              {analyzedFiles.length >= 2 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setIsMergeDialogOpen(true)}
+                >
+                  <Combine className="w-4 h-4" />
+                  {isArabic ? "دمج" : "Merge"}
                 </Button>
               )}
               
@@ -726,10 +755,15 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
                           <Eye className="w-4 h-4 mr-2" />
                           {isArabic ? "معاينة" : "Preview"}
                         </DropdownMenuItem>
-                        {!attachment.is_analyzed && (
+                        {!attachment.is_analyzed ? (
                           <DropdownMenuItem onClick={() => handleAnalyzeFile(attachment)}>
                             <Brain className="w-4 h-4 mr-2" />
                             {isArabic ? "تحليل AI" : "AI Analysis"}
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={() => handleReAnalyze(attachment)}>
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            {isArabic ? "إعادة التحليل" : "Re-Analyze"}
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem onClick={() => handleDownload(attachment)}>
@@ -801,6 +835,24 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
         onClose={() => setIsBatchDialogOpen(false)}
         files={attachments}
         onComplete={fetchAttachments}
+      />
+
+      {/* Re-Analyze Dialog */}
+      <ReAnalyzeDialog
+        isOpen={isReAnalyzeDialogOpen}
+        onClose={() => {
+          setIsReAnalyzeDialogOpen(false);
+          setSelectedFileForReAnalysis(null);
+        }}
+        file={selectedFileForReAnalysis}
+        onComplete={fetchAttachments}
+      />
+
+      {/* Merged Analysis Report Dialog */}
+      <MergedAnalysisReport
+        isOpen={isMergeDialogOpen}
+        onClose={() => setIsMergeDialogOpen(false)}
+        analyzedFiles={analyzedFiles}
       />
     </>
   );
