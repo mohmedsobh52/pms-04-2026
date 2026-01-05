@@ -69,25 +69,25 @@ export function TableControls({
     return availableColumns.map(col => col.id);
   });
 
-  // Sync visible columns on mount
-  useEffect(() => {
-    onVisibleColumnsChange?.(visibleColumns);
-  }, []); // Run once on mount
-
+  // Sync zoom on mount and change
   useEffect(() => {
     localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom));
     onZoomChange(zoom);
   }, [zoom, onZoomChange]);
 
+  // Sync pinned columns on mount and change
   useEffect(() => {
     localStorage.setItem(PINNED_COLUMNS_KEY, JSON.stringify(pinnedColumns));
     onPinnedColumnsChange(pinnedColumns);
   }, [pinnedColumns, onPinnedColumnsChange]);
 
+  // Sync visible columns on mount and change
   useEffect(() => {
     localStorage.setItem(VISIBLE_COLUMNS_KEY, JSON.stringify(visibleColumns));
-    onVisibleColumnsChange?.(visibleColumns);
-  }, [visibleColumns]);
+    if (onVisibleColumnsChange) {
+      onVisibleColumnsChange(visibleColumns);
+    }
+  }, [visibleColumns, onVisibleColumnsChange]);
 
   const handleZoomIn = () => {
     setZoom(prev => Math.min(150, prev + 10));
