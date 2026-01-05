@@ -32,6 +32,7 @@ export function PageLayout({ children }: PageLayoutProps) {
     if (path === "/risk") return "risk";
     if (path === "/reports") return "reports";
     if (path === "/settings") return "settings";
+    if (path === "/attachments") return "attachments";
     return "dashboard";
   };
 
@@ -62,6 +63,7 @@ export function PageLayout({ children }: PageLayoutProps) {
       "settings": "/settings",
       "preferences": "/settings",
       "help": "/about",
+      "attachments": "/attachments",
     };
     
     const route = routes[tab] || "/";
