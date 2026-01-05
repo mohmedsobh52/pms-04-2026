@@ -33,13 +33,18 @@ export function PageLayout({ children }: PageLayoutProps) {
     if (path === "/reports") return "reports";
     if (path === "/settings") return "settings";
     if (path === "/attachments") return "attachments";
+    if (path === "/templates") return "templates";
+    if (path === "/p6-export") return "p6-export";
+    if (path === "/compare-versions") return "version-compare";
     return "dashboard";
   };
 
   const handleNavigate = (tab: string) => {
     const routes: Record<string, string> = {
       "dashboard": "/",
+      "home": "/",
       "analysis": "/items",
+      "items-menu": "/items",
       "wbs": "/items",
       "cost-brief": "/items",
       "charts": "/items",
@@ -56,14 +61,16 @@ export function PageLayout({ children }: PageLayoutProps) {
       "upload": "/quotations",
       "reports": "/reports",
       "report": "/reports",
-      "version-compare": "/reports",
-      "p6-export": "/reports",
+      "version-compare": "/compare-versions",
+      "p6-export": "/p6-export",
       "risk": "/risk",
       "contracts": "/contracts",
       "settings": "/settings",
       "preferences": "/settings",
       "help": "/about",
       "attachments": "/attachments",
+      "templates": "/templates",
+      "subcontractors": "/subcontractors",
     };
     
     const route = routes[tab] || "/";
