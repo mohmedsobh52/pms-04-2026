@@ -94,6 +94,60 @@ export type Database = {
         }
         Relationships: []
       }
+      attachment_folders: {
+        Row: {
+          color: string | null
+          created_at: string
+          icon: string | null
+          id: string
+          name: string
+          name_ar: string | null
+          parent_id: string | null
+          project_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name: string
+          name_ar?: string | null
+          parent_id?: string | null
+          project_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name?: string
+          name_ar?: string | null
+          parent_id?: string | null
+          project_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attachment_folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "attachment_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachment_folders_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "saved_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       boq_templates: {
         Row: {
           category: string | null
@@ -708,6 +762,7 @@ export type Database = {
           file_path: string
           file_size: number | null
           file_type: string | null
+          folder_id: string | null
           id: string
           is_analyzed: boolean | null
           project_id: string | null
@@ -723,6 +778,7 @@ export type Database = {
           file_path: string
           file_size?: number | null
           file_type?: string | null
+          folder_id?: string | null
           id?: string
           is_analyzed?: boolean | null
           project_id?: string | null
@@ -738,6 +794,7 @@ export type Database = {
           file_path?: string
           file_size?: number | null
           file_type?: string | null
+          folder_id?: string | null
           id?: string
           is_analyzed?: boolean | null
           project_id?: string | null
@@ -746,6 +803,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "project_attachments_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "attachment_folders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "project_attachments_project_id_fkey"
             columns: ["project_id"]

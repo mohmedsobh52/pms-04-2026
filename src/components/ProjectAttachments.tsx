@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -48,7 +48,8 @@ import {
   Layers,
   FileOutput,
   RefreshCw,
-  Combine
+  Combine,
+  FolderInput
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -56,6 +57,10 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import { FilePreviewDialog } from "./FilePreviewDialog";
 import { AnalysisExportDialog } from "./AnalysisExportDialog";
@@ -69,8 +74,11 @@ import { AnalysisPreferencesDialog } from "./AnalysisPreferencesDialog";
 import { ScheduledReportsDialog } from "./ScheduledReportsDialog";
 import { AnalysisCharts } from "./AnalysisCharts";
 import { CloudStorageIntegration } from "./CloudStorageIntegration";
+import { AttachmentFolders } from "./AttachmentFolders";
+import { AdvancedFilters, FilterState } from "./AdvancedFilters";
 import { useAnalysisNotifications } from "@/hooks/useAnalysisNotifications";
 import * as XLSX from "xlsx";
+import { format } from "date-fns";
 
 interface ProjectAttachment {
   id: string;
@@ -86,6 +94,14 @@ interface ProjectAttachment {
   analysis_result: any;
   uploaded_at: string | null;
   updated_at: string | null;
+  folder_id: string | null;
+}
+
+interface AttachmentFolder {
+  id: string;
+  name: string;
+  name_ar: string | null;
+  color: string;
 }
 
 interface ProjectAttachmentsProps {
@@ -129,13 +145,16 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
   const { isArabic } = useLanguage();
   const { user } = useAuth();
   const [attachments, setAttachments] = useState<ProjectAttachment[]>([]);
+  const [folders, setFolders] = useState<AttachmentFolder[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("general");
+  const [selectedUploadFolder, setSelectedUploadFolder] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [previewFile, setPreviewFile] = useState<ProjectAttachment | null>(null);
@@ -147,11 +166,46 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
   const [isReAnalyzeDialogOpen, setIsReAnalyzeDialogOpen] = useState(false);
   const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false);
   const [selectedFileForReAnalysis, setSelectedFileForReAnalysis] = useState<ProjectAttachment | null>(null);
+  
+  // Advanced filters state
+  const [advancedFilters, setAdvancedFilters] = useState<FilterState>({
+    fileType: "all",
+    dateFrom: undefined,
+    dateTo: undefined,
+    sizeMin: "",
+    sizeMax: "",
+    isAnalyzed: "all",
+  });
 
   const { startTask, completeTask } = useAnalysisNotifications({
     enabled: true,
     onComplete: () => fetchAttachments()
   });
+
+  // Calculate active filters count
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (advancedFilters.fileType !== "all") count++;
+    if (advancedFilters.dateFrom) count++;
+    if (advancedFilters.dateTo) count++;
+    if (advancedFilters.sizeMin) count++;
+    if (advancedFilters.sizeMax) count++;
+    if (advancedFilters.isAnalyzed !== "all") count++;
+    return count;
+  }, [advancedFilters]);
+
+  // Calculate folder counts for sidebar
+  const folderCounts = useMemo(() => {
+    const counts: { [key: string]: number } = { root: 0 };
+    attachments.forEach((attachment) => {
+      if (!attachment.folder_id) {
+        counts.root = (counts.root || 0) + 1;
+      } else {
+        counts[attachment.folder_id] = (counts[attachment.folder_id] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [attachments]);
 
   const analyzedFiles = attachments.filter(a => a.is_analyzed);
   const unanalyzedFiles = attachments.filter(a => !a.is_analyzed);
@@ -183,9 +237,31 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
     }
   }, [user, projectId, isArabic]);
 
+  // Fetch folders
+  const fetchFolders = useCallback(async () => {
+    if (!user) return;
+    try {
+      let query = supabase
+        .from("attachment_folders")
+        .select("id, name, name_ar, color")
+        .eq("user_id", user.id);
+
+      if (projectId) {
+        query = query.eq("project_id", projectId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setFolders(data || []);
+    } catch (error) {
+      console.error("Error fetching folders:", error);
+    }
+  }, [user, projectId]);
+
   useEffect(() => {
     fetchAttachments();
-  }, [fetchAttachments]);
+    fetchFolders();
+  }, [fetchAttachments, fetchFolders]);
 
   const extractFileContent = async (file: File): Promise<string> => {
     const fileType = file.type;
@@ -319,6 +395,7 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
             file_type: file.type,
             category: selectedCategory,
             description: description || null,
+            folder_id: selectedUploadFolder || null,
           });
 
         if (dbError) throw dbError;
@@ -336,7 +413,9 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
       setIsUploadDialogOpen(false);
       setDescription("");
       setSelectedCategory("general");
+      setSelectedUploadFolder(null);
       fetchAttachments();
+      fetchFolders();
     } catch (error) {
       console.error("Upload error:", error);
       toast.error(isArabic ? "خطأ في رفع الملفات" : "Error uploading files");
@@ -418,14 +497,100 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
     }
   };
 
-  const filteredAttachments = attachments.filter((attachment) => {
-    const matchesSearch = attachment.file_name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    const matchesCategory =
-      categoryFilter === "all" || attachment.category === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
+  // Move file to folder
+  const handleMoveToFolder = async (attachment: ProjectAttachment, folderId: string | null) => {
+    try {
+      const { error } = await supabase
+        .from("project_attachments")
+        .update({ folder_id: folderId })
+        .eq("id", attachment.id);
+
+      if (error) throw error;
+
+      toast.success(isArabic ? "تم نقل الملف" : "File moved");
+      fetchAttachments();
+    } catch (error) {
+      console.error("Error moving file:", error);
+      toast.error(isArabic ? "خطأ في نقل الملف" : "Error moving file");
+    }
+  };
+
+  // Advanced filtering logic
+  const filteredAttachments = useMemo(() => {
+    return attachments.filter((attachment) => {
+      // Search filter
+      const matchesSearch = attachment.file_name
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
+      
+      // Category filter
+      const matchesCategory =
+        categoryFilter === "all" || attachment.category === categoryFilter;
+      
+      // Folder filter
+      let matchesFolder = true;
+      if (selectedFolderId === "root") {
+        matchesFolder = !attachment.folder_id;
+      } else if (selectedFolderId) {
+        matchesFolder = attachment.folder_id === selectedFolderId;
+      }
+      
+      // File type filter
+      let matchesFileType = true;
+      if (advancedFilters.fileType !== "all") {
+        const fileType = attachment.file_type?.toLowerCase() || "";
+        switch (advancedFilters.fileType) {
+          case "pdf":
+            matchesFileType = fileType.includes("pdf");
+            break;
+          case "image":
+            matchesFileType = fileType.includes("image");
+            break;
+          case "excel":
+            matchesFileType = fileType.includes("sheet") || fileType.includes("excel") || fileType.includes("csv");
+            break;
+          case "word":
+            matchesFileType = fileType.includes("word") || fileType.includes("document");
+            break;
+          case "text":
+            matchesFileType = fileType.includes("text") || attachment.file_name.endsWith(".txt");
+            break;
+        }
+      }
+      
+      // Date filter
+      let matchesDate = true;
+      if (advancedFilters.dateFrom && attachment.uploaded_at) {
+        const uploadDate = new Date(attachment.uploaded_at);
+        matchesDate = uploadDate >= advancedFilters.dateFrom;
+      }
+      if (matchesDate && advancedFilters.dateTo && attachment.uploaded_at) {
+        const uploadDate = new Date(attachment.uploaded_at);
+        const dateTo = new Date(advancedFilters.dateTo);
+        dateTo.setHours(23, 59, 59, 999);
+        matchesDate = uploadDate <= dateTo;
+      }
+      
+      // Size filter
+      let matchesSize = true;
+      if (advancedFilters.sizeMin && attachment.file_size) {
+        matchesSize = attachment.file_size >= parseInt(advancedFilters.sizeMin);
+      }
+      if (matchesSize && advancedFilters.sizeMax && attachment.file_size) {
+        matchesSize = attachment.file_size <= parseInt(advancedFilters.sizeMax);
+      }
+      
+      // Analysis status filter
+      let matchesAnalysis = true;
+      if (advancedFilters.isAnalyzed === "analyzed") {
+        matchesAnalysis = attachment.is_analyzed === true;
+      } else if (advancedFilters.isAnalyzed === "not_analyzed") {
+        matchesAnalysis = !attachment.is_analyzed;
+      }
+      
+      return matchesSearch && matchesCategory && matchesFolder && matchesFileType && matchesDate && matchesSize && matchesAnalysis;
+    });
+  }, [attachments, searchQuery, categoryFilter, selectedFolderId, advancedFilters]);
 
   const getCategoryLabel = (value: string | null) => {
     const category = FILE_CATEGORIES.find((c) => c.value === value);
@@ -563,6 +728,32 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
                     </Select>
                   </div>
 
+                  {/* Folder Selection */}
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "المجلد" : "Folder"}</Label>
+                    <Select 
+                      value={selectedUploadFolder || "root"} 
+                      onValueChange={(v) => setSelectedUploadFolder(v === "root" ? null : v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={isArabic ? "بدون مجلد" : "No folder"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="root">
+                          {isArabic ? "بدون مجلد" : "No folder"}
+                        </SelectItem>
+                        {folders.map((folder) => (
+                          <SelectItem key={folder.id} value={folder.id}>
+                            <span className="flex items-center gap-2">
+                              <span className="w-3 h-3 rounded-full" style={{ backgroundColor: folder.color }} />
+                              {isArabic && folder.name_ar ? folder.name_ar : folder.name}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {/* Description */}
                   <div className="space-y-2">
                     <Label>{isArabic ? "وصف (اختياري)" : "Description (optional)"}</Label>
@@ -658,10 +849,30 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
                 ))}
               </SelectContent>
             </Select>
+            
+            {/* Advanced Filters */}
+            <AdvancedFilters
+              filters={advancedFilters}
+              onFiltersChange={setAdvancedFilters}
+              activeFiltersCount={activeFiltersCount}
+            />
           </div>
         </CardHeader>
 
         <CardContent>
+          <div className="flex gap-6">
+            {/* Folders Sidebar */}
+            <div className="hidden md:block w-56 flex-shrink-0 border-r pr-4">
+              <AttachmentFolders
+                projectId={projectId}
+                selectedFolderId={selectedFolderId}
+                onSelectFolder={setSelectedFolderId}
+                attachmentsCount={folderCounts}
+              />
+            </div>
+
+            {/* Files List */}
+            <div className="flex-1 min-w-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -700,12 +911,30 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
                     <p className="font-medium text-sm truncate">
                       {attachment.file_name}
                     </p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                       <span>{formatFileSize(attachment.file_size)}</span>
                       <span>•</span>
                       <Badge variant="outline" className="text-[10px] px-1.5">
                         {getCategoryLabel(attachment.category)}
                       </Badge>
+                      {attachment.folder_id && (
+                        <>
+                          <span>•</span>
+                          <Badge 
+                            variant="outline" 
+                            className="text-[10px] px-1.5 gap-1"
+                            style={{ 
+                              borderColor: folders.find(f => f.id === attachment.folder_id)?.color,
+                              color: folders.find(f => f.id === attachment.folder_id)?.color
+                            }}
+                          >
+                            {(() => {
+                              const folder = folders.find(f => f.id === attachment.folder_id);
+                              return folder ? (isArabic && folder.name_ar ? folder.name_ar : folder.name) : "";
+                            })()}
+                          </Badge>
+                        </>
+                      )}
                       {attachment.is_analyzed && (
                         <>
                           <span>•</span>
@@ -794,6 +1023,38 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
                           <Download className="w-4 h-4 mr-2" />
                           {isArabic ? "تحميل" : "Download"}
                         </DropdownMenuItem>
+                        
+                        {/* Move to Folder */}
+                        <DropdownMenuSub>
+                          <DropdownMenuSubTrigger>
+                            <FolderInput className="w-4 h-4 mr-2" />
+                            {isArabic ? "نقل إلى مجلد" : "Move to Folder"}
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuPortal>
+                            <DropdownMenuSubContent>
+                              <DropdownMenuItem 
+                                onClick={() => handleMoveToFolder(attachment, null)}
+                                className={!attachment.folder_id ? "bg-muted" : ""}
+                              >
+                                {isArabic ? "بدون مجلد" : "No folder"}
+                              </DropdownMenuItem>
+                              {folders.map((folder) => (
+                                <DropdownMenuItem 
+                                  key={folder.id}
+                                  onClick={() => handleMoveToFolder(attachment, folder.id)}
+                                  className={attachment.folder_id === folder.id ? "bg-muted" : ""}
+                                >
+                                  <span 
+                                    className="w-3 h-3 rounded-full mr-2" 
+                                    style={{ backgroundColor: folder.color }} 
+                                  />
+                                  {isArabic && folder.name_ar ? folder.name_ar : folder.name}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuPortal>
+                        </DropdownMenuSub>
+                        
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={() => handleDelete(attachment)}
@@ -825,6 +1086,8 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
               </span>
             </div>
           )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
