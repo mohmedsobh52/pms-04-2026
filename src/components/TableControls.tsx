@@ -55,10 +55,24 @@ export function TableControls({
   });
   const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
     const saved = localStorage.getItem(VISIBLE_COLUMNS_KEY);
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch {
+        // Fall through to default
+      }
+    }
     // Default: show all columns
     return availableColumns.map(col => col.id);
   });
+
+  // Sync visible columns on mount
+  useEffect(() => {
+    onVisibleColumnsChange?.(visibleColumns);
+  }, []); // Run once on mount
 
   useEffect(() => {
     localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom));
@@ -73,7 +87,7 @@ export function TableControls({
   useEffect(() => {
     localStorage.setItem(VISIBLE_COLUMNS_KEY, JSON.stringify(visibleColumns));
     onVisibleColumnsChange?.(visibleColumns);
-  }, [visibleColumns, onVisibleColumnsChange]);
+  }, [visibleColumns]);
 
   const handleZoomIn = () => {
     setZoom(prev => Math.min(150, prev + 10));
