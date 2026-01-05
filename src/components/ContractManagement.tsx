@@ -89,7 +89,13 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
     notes: "",
   });
 
+  // FIDIC-based contract types
   const contractTypes = [
+    { value: "fidic_red", labelEn: "FIDIC Red Book (Construction)", labelAr: "فيديك الكتاب الأحمر (البناء)" },
+    { value: "fidic_yellow", labelEn: "FIDIC Yellow Book (Design-Build)", labelAr: "فيديك الكتاب الأصفر (التصميم والبناء)" },
+    { value: "fidic_silver", labelEn: "FIDIC Silver Book (EPC/Turnkey)", labelAr: "فيديك الكتاب الفضي (تسليم مفتاح)" },
+    { value: "fidic_green", labelEn: "FIDIC Green Book (Short Form)", labelAr: "فيديك الكتاب الأخضر (النموذج القصير)" },
+    { value: "fidic_pink", labelEn: "FIDIC Pink Book (MDB)", labelAr: "فيديك الكتاب الوردي (بنوك التنمية)" },
     { value: "fixed_price", labelEn: "Fixed Price", labelAr: "سعر ثابت" },
     { value: "cost_plus", labelEn: "Cost Plus", labelAr: "التكلفة زائد" },
     { value: "time_materials", labelEn: "Time & Materials", labelAr: "الوقت والمواد" },

@@ -1,5 +1,6 @@
-import { useState, useMemo, useCallback } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal } from "lucide-react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin } from "lucide-react";
+import { TableControls, BOQ_TABLE_COLUMNS } from "./TableControls";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -165,6 +166,16 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   
   // State for tracking recently applied AI rates (for visual confirmation)
   const [recentlyAppliedItems, setRecentlyAppliedItems] = useState<Set<string>>(new Set());
+  
+  // Table zoom and pinned columns state
+  const [tableZoom, setTableZoom] = useState(() => {
+    const saved = localStorage.getItem("boq_table_zoom");
+    return saved ? parseFloat(saved) : 100;
+  });
+  const [pinnedColumns, setPinnedColumns] = useState<string[]>(() => {
+    const saved = localStorage.getItem("boq_pinned_columns");
+    return saved ? JSON.parse(saved) : ["item_number", "description"];
+  });
   
   // State for manually edited unit prices and totals
   const [editedPrices, setEditedPrices] = useState<Record<string, { unit_price?: number; total_price?: number }>>({});
@@ -1464,6 +1475,13 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                     {isArabic ? "مسح" : "Clear"}
                   </Button>
                 )}
+                
+                {/* Table Controls - Zoom & Pin Columns */}
+                <TableControls
+                  onZoomChange={setTableZoom}
+                  onPinnedColumnsChange={setPinnedColumns}
+                  availableColumns={BOQ_TABLE_COLUMNS}
+                />
               </div>
 
               {/* Filter Dropdowns */}
@@ -1592,21 +1610,46 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
             )}
 
             {/* BOQ Items Table - With Calculated Costs */}
-            <div className="overflow-x-auto border border-border rounded-xl shadow-sm w-full">
+            <div 
+              className="overflow-x-auto border border-border rounded-xl shadow-sm w-full"
+              style={{ 
+                transform: `scale(${tableZoom / 100})`,
+                transformOrigin: 'top left',
+                width: tableZoom !== 100 ? `${10000 / tableZoom}%` : '100%'
+              }}
+            >
               <table className="w-full min-w-[1200px]" dir="ltr">
                 <thead>
                   <tr className="bg-slate-100 dark:bg-slate-800 border-b-2 border-primary/20">
-                    <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                    <th className={cn(
+                      "px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap",
+                      pinnedColumns.includes("index") && "sticky left-0 z-10 bg-slate-100 dark:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                    )}>
                       #
                     </th>
-                    <th className="px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                      Item No.
+                    <th className={cn(
+                      "px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap",
+                      pinnedColumns.includes("item_number") && "sticky left-[40px] z-10 bg-slate-100 dark:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                    )}>
+                      <div className="flex items-center gap-1">
+                        Item No.
+                        {pinnedColumns.includes("item_number") && <Pin className="w-3 h-3 text-primary" />}
+                      </div>
                     </th>
-                    <th className="px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                    <th className={cn(
+                      "px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap",
+                      pinnedColumns.includes("item_code") && "sticky left-[120px] z-10 bg-slate-100 dark:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                    )}>
                       Item Code
                     </th>
-                    <th className="px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 min-w-[300px]">
-                      Description
+                    <th className={cn(
+                      "px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 min-w-[300px]",
+                      pinnedColumns.includes("description") && "sticky left-[200px] z-10 bg-slate-100 dark:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                    )}>
+                      <div className="flex items-center gap-1">
+                        Description
+                        {pinnedColumns.includes("description") && <Pin className="w-3 h-3 text-primary" />}
+                      </div>
                     </th>
                     <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
                       Unit
@@ -1663,24 +1706,40 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                           idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
                         )}
                       >
-                        <td className="px-3 py-3 text-center">
+                        <td className={cn(
+                          "px-3 py-3 text-center",
+                          pinnedColumns.includes("index") && "sticky left-0 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
+                          idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
+                        )}>
                           <span className="font-mono text-sm font-medium text-slate-600 dark:text-slate-300">
                             {idx + 1}
                           </span>
                         </td>
-                        <td className="px-3 py-3 text-left">
+                        <td className={cn(
+                          "px-3 py-3 text-left",
+                          pinnedColumns.includes("item_number") && "sticky left-[40px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
+                          idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
+                        )}>
                           <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-1 rounded font-medium">
                             {item.item_number}
                           </span>
                         </td>
-                        <td className="px-3 py-3 text-left">
+                        <td className={cn(
+                          "px-3 py-3 text-left",
+                          pinnedColumns.includes("item_code") && "sticky left-[120px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
+                          idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
+                        )}>
                           <EditableItemCode
                             itemNumber={item.item_number}
                             code={getItemCode(item.item_number, idx)}
                             onSave={setItemCode}
                           />
                         </td>
-                        <td className="px-3 py-3 text-left min-w-[300px] max-w-[450px]">
+                        <td className={cn(
+                          "px-3 py-3 text-left min-w-[300px] max-w-[450px]",
+                          pinnedColumns.includes("description") && "sticky left-[200px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
+                          idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
+                        )}>
                           <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words" title={cleanText(item.description)}>
                             {cleanText(item.description)}
                           </p>

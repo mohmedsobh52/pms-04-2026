@@ -15,8 +15,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Users, Plus, Phone, Mail, Star, Building2, FileText, 
-  Trash2, Edit, CheckCircle, Clock, AlertTriangle, TrendingUp 
+  Trash2, Edit, CheckCircle, Clock, AlertTriangle, TrendingUp,
+  Scale
 } from "lucide-react";
+import { FIDICContractTemplates } from "./FIDICContractTemplates";
 
 interface Subcontractor {
   id: string;
@@ -293,13 +295,17 @@ export function SubcontractorManagement() {
       <Tabs defaultValue="subcontractors" className="space-y-4">
         <div className="flex items-center justify-between">
           <TabsList>
-            <TabsTrigger value="subcontractors" className="gap-2">
+          <TabsTrigger value="subcontractors" className="gap-2">
               <Users className="w-4 h-4" />
               {isArabic ? "المقاولين" : "Subcontractors"}
             </TabsTrigger>
             <TabsTrigger value="assignments" className="gap-2">
               <FileText className="w-4 h-4" />
               {isArabic ? "المهام" : "Assignments"}
+            </TabsTrigger>
+            <TabsTrigger value="templates" className="gap-2">
+              <Scale className="w-4 h-4" />
+              {isArabic ? "قوالب فيديك" : "FIDIC Templates"}
             </TabsTrigger>
           </TabsList>
 
@@ -585,6 +591,11 @@ export function SubcontractorManagement() {
               })}
             </div>
           )}
+        </TabsContent>
+        
+        {/* FIDIC Templates Tab */}
+        <TabsContent value="templates">
+          <FIDICContractTemplates />
         </TabsContent>
       </Tabs>
     </div>
