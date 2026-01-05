@@ -94,6 +94,48 @@ export type Database = {
         }
         Relationships: []
       }
+      boq_templates: {
+        Row: {
+          category: string | null
+          created_at: string
+          currency: string | null
+          description: string | null
+          id: string
+          is_public: boolean | null
+          items: Json
+          name: string
+          updated_at: string
+          usage_count: number | null
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          items?: Json
+          name: string
+          updated_at?: string
+          usage_count?: number | null
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          items?: Json
+          name?: string
+          updated_at?: string
+          usage_count?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       comparison_reports: {
         Row: {
           comparison_data: Json
@@ -1137,6 +1179,114 @@ export type Database = {
           share_code?: string
           viewer_count?: number | null
           wbs_data?: Json | null
+        }
+        Relationships: []
+      }
+      subcontractor_assignments: {
+        Row: {
+          contract_value: number | null
+          created_at: string
+          end_date: string | null
+          id: string
+          notes: string | null
+          payment_status: string | null
+          progress_percentage: number | null
+          project_id: string | null
+          scope_of_work: string | null
+          start_date: string | null
+          status: string | null
+          subcontractor_id: string
+          updated_at: string
+        }
+        Insert: {
+          contract_value?: number | null
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          notes?: string | null
+          payment_status?: string | null
+          progress_percentage?: number | null
+          project_id?: string | null
+          scope_of_work?: string | null
+          start_date?: string | null
+          status?: string | null
+          subcontractor_id: string
+          updated_at?: string
+        }
+        Update: {
+          contract_value?: number | null
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          notes?: string | null
+          payment_status?: string | null
+          progress_percentage?: number | null
+          project_id?: string | null
+          scope_of_work?: string | null
+          start_date?: string | null
+          status?: string | null
+          subcontractor_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcontractor_assignments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "saved_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontractor_assignments_subcontractor_id_fkey"
+            columns: ["subcontractor_id"]
+            isOneToOne: false
+            referencedRelation: "subcontractors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subcontractors: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          license_number: string | null
+          name: string
+          notes: string | null
+          phone: string | null
+          rating: number | null
+          specialty: string | null
+          status: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          license_number?: string | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          rating?: number | null
+          specialty?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          license_number?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          rating?: number | null
+          specialty?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

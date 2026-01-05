@@ -68,6 +68,7 @@ import { ProjectFilesReport } from "./ProjectFilesReport";
 import { AnalysisPreferencesDialog } from "./AnalysisPreferencesDialog";
 import { ScheduledReportsDialog } from "./ScheduledReportsDialog";
 import { AnalysisCharts } from "./AnalysisCharts";
+import { CloudStorageIntegration } from "./CloudStorageIntegration";
 import { useAnalysisNotifications } from "@/hooks/useAnalysisNotifications";
 import * as XLSX from "xlsx";
 
@@ -520,6 +521,9 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
                   {isArabic ? "تصدير" : "Export"}
                 </Button>
               )}
+              
+              {/* Cloud Storage Button */}
+              <CloudStorageIntegration projectId={projectId} />
               
               {/* Upload Button */}
               <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown, Paperclip } from "lucide-react";
+import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown, Paperclip, Users, Copy } from "lucide-react";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -26,6 +26,8 @@ import { FeaturesSection } from "@/components/FeaturesSection";
 import { ProcurementResourcesSchedule } from "@/components/ProcurementResourcesSchedule";
 import { FloatingToolbar } from "@/components/FloatingToolbar";
 import { ProjectAttachments } from "@/components/ProjectAttachments";
+import { SubcontractorManagement } from "@/components/SubcontractorManagement";
+import { BOQTemplates } from "@/components/BOQTemplates";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -922,10 +924,18 @@ const Index = () => {
               {user && (
                 <div ref={tabsRef} className="glass-card p-6 animate-slide-up">
                   <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-8 mb-4">
+                    <TabsList className="w-full flex flex-wrap justify-start gap-1 h-auto p-1 bg-muted/50 mb-4">
                       <TabsTrigger value="dashboard" className="gap-2">
                         <LayoutDashboard className="w-4 h-4" />
                         <span className="hidden sm:inline">{isArabic ? 'لوحة التحكم' : 'Dashboard'}</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="boq-compare" className="gap-2">
+                        <FileStack className="w-4 h-4" />
+                        <span className="hidden sm:inline">BOQ</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="templates" className="gap-2">
+                        <Copy className="w-4 h-4" />
+                        <span className="hidden sm:inline">{isArabic ? 'القوالب' : 'Templates'}</span>
                       </TabsTrigger>
                       <TabsTrigger value="attachments" className="gap-2">
                         <Paperclip className="w-4 h-4" />
@@ -935,17 +945,13 @@ const Index = () => {
                         <Package className="w-4 h-4" />
                         <span className="hidden sm:inline">{isArabic ? 'المشتريات' : 'Procurement'}</span>
                       </TabsTrigger>
-                      <TabsTrigger value="upload" className="gap-2">
-                        <Receipt className="w-4 h-4" />
-                        <span className="hidden sm:inline">{t('uploadQuotations')}</span>
+                      <TabsTrigger value="subcontractors" className="gap-2">
+                        <Users className="w-4 h-4" />
+                        <span className="hidden sm:inline">{isArabic ? 'المقاولين' : 'Subcontractors'}</span>
                       </TabsTrigger>
                       <TabsTrigger value="compare" className="gap-2">
                         <Scale className="w-4 h-4" />
-                        <span className="hidden sm:inline">{t('compareQuotations')}</span>
-                      </TabsTrigger>
-                      <TabsTrigger value="boq-compare" className="gap-2">
-                        <FileStack className="w-4 h-4" />
-                        <span className="hidden sm:inline">BOQ</span>
+                        <span className="hidden sm:inline">{isArabic ? 'مقارنة' : 'Compare'}</span>
                       </TabsTrigger>
                       <TabsTrigger value="p6-export" className="gap-2">
                         <Calendar className="w-4 h-4" />
@@ -953,7 +959,7 @@ const Index = () => {
                       </TabsTrigger>
                       <TabsTrigger value="settings" className="gap-2">
                         <Bell className="w-4 h-4" />
-                        <span className="hidden sm:inline">{isArabic ? 'إشعارات' : 'Notifications'}</span>
+                        <span className="hidden sm:inline">{isArabic ? 'الإشعارات' : 'Settings'}</span>
                       </TabsTrigger>
                     </TabsList>
                     <TabsContent value="dashboard">
@@ -972,6 +978,21 @@ const Index = () => {
                         }}
                       />
                     </TabsContent>
+                    <TabsContent value="boq-compare">
+                      <BOQComparison />
+                    </TabsContent>
+                    <TabsContent value="templates">
+                      <BOQTemplates 
+                        currentItems={analysisData?.items || []}
+                        onUseTemplate={(items) => {
+                          setAnalysisData(prev => prev ? { ...prev, items } : { items, summary: {} });
+                          toast({
+                            title: isArabic ? "تم تطبيق القالب" : "Template Applied",
+                            description: isArabic ? "تم استيراد بنود القالب" : "Template items imported"
+                          });
+                        }}
+                      />
+                    </TabsContent>
                     <TabsContent value="attachments">
                       <ProjectAttachments projectId={savedProjectId || undefined} />
                     </TabsContent>
@@ -981,14 +1002,11 @@ const Index = () => {
                         currency={analysisData?.summary?.currency || "SAR"} 
                       />
                     </TabsContent>
-                    <TabsContent value="upload">
-                      <QuotationUpload />
+                    <TabsContent value="subcontractors">
+                      <SubcontractorManagement />
                     </TabsContent>
                     <TabsContent value="compare">
                       <QuotationComparison />
-                    </TabsContent>
-                    <TabsContent value="boq-compare">
-                      <BOQComparison />
                     </TabsContent>
                     <TabsContent value="p6-export">
                       <P6Export items={analysisData?.items || []} currency="SAR" />

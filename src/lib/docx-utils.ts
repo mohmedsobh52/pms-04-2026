@@ -50,6 +50,7 @@ interface WordExportOptions {
   currency?: string;
   companyName?: string;
   companyLogo?: string;
+  language?: 'ar' | 'en';
   includeSections?: {
     coverPage?: boolean;
     tableOfContents?: boolean;
@@ -61,8 +62,112 @@ interface WordExportOptions {
   };
 }
 
+// Translations for Arabic support
+const translations = {
+  ar: {
+    billOfQuantities: "جدول الكميات",
+    comprehensiveReport: "تقرير شامل للمشروع",
+    executiveSummary: "الملخص التنفيذي",
+    summaryDescription: "يقدم هذا التقرير الشامل تحليلاً مفصلاً للمشروع يشمل جدول الكميات، جدول المشتريات، توزيع الموارد، والجدول الزمني.",
+    totalItems: "إجمالي البنود",
+    totalValue: "إجمالي القيمة",
+    procurementItems: "بنود المشتريات",
+    resourceCount: "عدد الموارد",
+    projectDuration: "مدة المشروع",
+    days: "يوم",
+    generatedOn: "تاريخ الإنشاء",
+    boqTitle: "جدول الكميات (BOQ)",
+    itemNo: "رقم البند",
+    description: "الوصف",
+    unit: "الوحدة",
+    quantity: "الكمية",
+    unitPrice: "سعر الوحدة",
+    total: "الإجمالي",
+    procurementSchedule: "جدول المشتريات",
+    item: "البند",
+    qty: "الكمية",
+    leadTime: "فترة التوريد",
+    status: "الحالة",
+    priority: "الأولوية",
+    pending: "معلق",
+    medium: "متوسط",
+    resourcesAllocation: "توزيع الموارد",
+    name: "الاسم",
+    type: "النوع",
+    ratePerDay: "السعر اليومي",
+    totalCost: "التكلفة الإجمالية",
+    projectTimeline: "الجدول الزمني للمشروع",
+    code: "الكود",
+    task: "المهمة",
+    startDay: "يوم البدء",
+    duration: "المدة",
+    progress: "التقدم",
+    critical: "حرج",
+    yes: "نعم",
+    no: "لا",
+    page: "صفحة",
+    of: "من"
+  },
+  en: {
+    billOfQuantities: "Bill of Quantities",
+    comprehensiveReport: "COMPREHENSIVE PROJECT REPORT",
+    executiveSummary: "Executive Summary",
+    summaryDescription: "This comprehensive report provides a detailed analysis of the project including Bill of Quantities, procurement schedule, resource allocation, and timeline estimates.",
+    totalItems: "Total BOQ Items",
+    totalValue: "Total BOQ Value",
+    procurementItems: "Procurement Items",
+    resourceCount: "Resource Count",
+    projectDuration: "Project Duration",
+    days: "days",
+    generatedOn: "Generated",
+    boqTitle: "Bill of Quantities (BOQ)",
+    itemNo: "Item No.",
+    description: "Description",
+    unit: "Unit",
+    quantity: "Qty",
+    unitPrice: "Unit Price",
+    total: "Total",
+    procurementSchedule: "Procurement Schedule",
+    item: "Item",
+    qty: "Qty",
+    leadTime: "Lead Time",
+    status: "Status",
+    priority: "Priority",
+    pending: "Pending",
+    medium: "Medium",
+    resourcesAllocation: "Resources Allocation",
+    name: "Name",
+    type: "Type",
+    ratePerDay: "Rate/Day",
+    totalCost: "Total Cost",
+    projectTimeline: "Project Timeline",
+    code: "Code",
+    task: "Task",
+    startDay: "Start Day",
+    duration: "Duration",
+    progress: "Progress",
+    critical: "Critical",
+    yes: "Yes",
+    no: "No",
+    page: "Page",
+    of: "of"
+  }
+};
+
 const formatCurrency = (value: number, currency = "SAR"): string => {
-  return `${value.toLocaleString()} ${currency}`;
+  const currencySymbols: Record<string, string> = {
+    SAR: "ر.س",
+    USD: "$",
+    EUR: "€",
+    AED: "د.إ",
+    KWD: "د.ك",
+    QAR: "ر.ق",
+    BHD: "د.ب",
+    OMR: "ر.ع",
+    EGP: "ج.م",
+    JOD: "د.أ"
+  };
+  return `${value.toLocaleString('ar-SA')} ${currencySymbols[currency] || currency}`;
 };
 
 const createCoverPage = (projectName: string, companyName?: string): Paragraph[] => {
