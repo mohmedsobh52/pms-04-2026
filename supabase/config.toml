@@ -45,6 +45,10 @@ verify_jwt = false
 [functions.send-evm-alert]
 verify_jwt = false
 
+[functions.generate-p6-export]
+enabled = true
+verify_jwt = false
+
 [functions.analyze-attachment]
 verify_jwt = false
 
