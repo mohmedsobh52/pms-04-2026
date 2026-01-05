@@ -16,9 +16,10 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   Users, Plus, Phone, Mail, Star, Building2, FileText, 
   Trash2, Edit, CheckCircle, Clock, AlertTriangle, TrendingUp,
-  Scale
+  Scale, BarChart3
 } from "lucide-react";
 import { FIDICContractTemplates } from "./FIDICContractTemplates";
+import { SubcontractorProgressDashboard } from "./SubcontractorProgressDashboard";
 
 interface Subcontractor {
   id: string;
@@ -292,10 +293,14 @@ export function SubcontractorManagement() {
         </Card>
       </div>
 
-      <Tabs defaultValue="subcontractors" className="space-y-4">
+      <Tabs defaultValue="dashboard" className="space-y-4">
         <div className="flex items-center justify-between">
           <TabsList>
-          <TabsTrigger value="subcontractors" className="gap-2">
+            <TabsTrigger value="dashboard" className="gap-2">
+              <BarChart3 className="w-4 h-4" />
+              {isArabic ? "لوحة التحكم" : "Dashboard"}
+            </TabsTrigger>
+            <TabsTrigger value="subcontractors" className="gap-2">
               <Users className="w-4 h-4" />
               {isArabic ? "المقاولين" : "Subcontractors"}
             </TabsTrigger>
@@ -451,6 +456,13 @@ export function SubcontractorManagement() {
             </Dialog>
           </div>
         </div>
+
+        <TabsContent value="dashboard">
+          <SubcontractorProgressDashboard 
+            subcontractors={subcontractors} 
+            assignments={assignments} 
+          />
+        </TabsContent>
 
         <TabsContent value="subcontractors" className="space-y-4">
           {subcontractors.length === 0 ? (
