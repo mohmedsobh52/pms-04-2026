@@ -20,6 +20,8 @@ import { P6Export } from "@/components/P6Export";
 import { KPIDashboard } from "@/components/KPIDashboard";
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { MainDashboard } from "@/components/MainDashboard";
+import { MainDashboardOverview } from "@/components/MainDashboardOverview";
+import { P6ExportDialog } from "@/components/P6ExportDialog";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { ProcurementResourcesSchedule } from "@/components/ProcurementResourcesSchedule";
 import { FloatingToolbar } from "@/components/FloatingToolbar";
