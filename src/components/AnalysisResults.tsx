@@ -168,7 +168,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   // State for tracking recently applied AI rates (for visual confirmation)
   const [recentlyAppliedItems, setRecentlyAppliedItems] = useState<Set<string>>(new Set());
   
-  // Table zoom and pinned columns state
+  // Table zoom, pinned columns, and visible columns state
   const [tableZoom, setTableZoom] = useState(() => {
     const saved = localStorage.getItem("boq_table_zoom");
     return saved ? parseFloat(saved) : 100;
@@ -176,6 +176,10 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   const [pinnedColumns, setPinnedColumns] = useState<string[]>(() => {
     const saved = localStorage.getItem("boq_pinned_columns");
     return saved ? JSON.parse(saved) : ["item_number", "description"];
+  });
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
+    const saved = localStorage.getItem("boq_visible_columns");
+    return saved ? JSON.parse(saved) : BOQ_TABLE_COLUMNS.map(col => col.id);
   });
   
   // State for manually edited unit prices and totals
@@ -1478,10 +1482,11 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                   </Button>
                 )}
                 
-                {/* Table Controls - Zoom & Pin Columns */}
+                {/* Table Controls - Zoom, Visibility & Pin Columns */}
                 <TableControls
                   onZoomChange={setTableZoom}
                   onPinnedColumnsChange={setPinnedColumns}
+                  onVisibleColumnsChange={setVisibleColumns}
                   availableColumns={BOQ_TABLE_COLUMNS}
                 />
               </div>
@@ -1623,54 +1628,74 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
               <table className="w-full min-w-[1200px]" dir="ltr">
                 <thead>
                   <tr className="bg-slate-100 dark:bg-slate-800 border-b-2 border-primary/20">
-                    <th className={cn(
-                      "px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap",
-                      pinnedColumns.includes("index") && "sticky left-0 z-10 bg-slate-100 dark:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
-                    )}>
-                      #
-                    </th>
-                    <th className={cn(
-                      "px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap",
-                      pinnedColumns.includes("item_number") && "sticky left-[40px] z-10 bg-slate-100 dark:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
-                    )}>
-                      <div className="flex items-center gap-1">
-                        Item No.
-                        {pinnedColumns.includes("item_number") && <Pin className="w-3 h-3 text-primary" />}
-                      </div>
-                    </th>
-                    <th className={cn(
-                      "px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap",
-                      pinnedColumns.includes("item_code") && "sticky left-[120px] z-10 bg-slate-100 dark:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
-                    )}>
-                      Item Code
-                    </th>
-                    <th className={cn(
-                      "px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 min-w-[300px]",
-                      pinnedColumns.includes("description") && "sticky left-[200px] z-10 bg-slate-100 dark:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
-                    )}>
-                      <div className="flex items-center gap-1">
-                        Description
-                        {pinnedColumns.includes("description") && <Pin className="w-3 h-3 text-primary" />}
-                      </div>
-                    </th>
-                    <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                      Unit
-                    </th>
-                    <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                      Qty
-                    </th>
-                    <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                      Unit Price
-                    </th>
-                    <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                      Total
-                    </th>
-                    <th className="px-3 py-3 text-right font-bold text-sm text-purple-700 dark:text-purple-300 whitespace-nowrap bg-purple-500/10">
-                      AI Rate
-                    </th>
-                    <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap bg-primary/10">
-                      Calc. Price
-                    </th>
+                    {visibleColumns.includes("index") && (
+                      <th className={cn(
+                        "px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap",
+                        pinnedColumns.includes("index") && "sticky left-0 z-10 bg-slate-100 dark:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                      )}>
+                        #
+                      </th>
+                    )}
+                    {visibleColumns.includes("item_number") && (
+                      <th className={cn(
+                        "px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap",
+                        pinnedColumns.includes("item_number") && "sticky left-[40px] z-10 bg-slate-100 dark:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                      )}>
+                        <div className="flex items-center gap-1">
+                          Item No.
+                          {pinnedColumns.includes("item_number") && <Pin className="w-3 h-3 text-primary" />}
+                        </div>
+                      </th>
+                    )}
+                    {visibleColumns.includes("item_code") && (
+                      <th className={cn(
+                        "px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap",
+                        pinnedColumns.includes("item_code") && "sticky left-[120px] z-10 bg-slate-100 dark:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                      )}>
+                        Item Code
+                      </th>
+                    )}
+                    {visibleColumns.includes("description") && (
+                      <th className={cn(
+                        "px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 min-w-[300px]",
+                        pinnedColumns.includes("description") && "sticky left-[200px] z-10 bg-slate-100 dark:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                      )}>
+                        <div className="flex items-center gap-1">
+                          Description
+                          {pinnedColumns.includes("description") && <Pin className="w-3 h-3 text-primary" />}
+                        </div>
+                      </th>
+                    )}
+                    {visibleColumns.includes("unit") && (
+                      <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                        Unit
+                      </th>
+                    )}
+                    {visibleColumns.includes("quantity") && (
+                      <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                        Qty
+                      </th>
+                    )}
+                    {visibleColumns.includes("unit_price") && (
+                      <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                        Unit Price
+                      </th>
+                    )}
+                    {visibleColumns.includes("total") && (
+                      <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                        Total
+                      </th>
+                    )}
+                    {visibleColumns.includes("ai_rate") && (
+                      <th className="px-3 py-3 text-right font-bold text-sm text-purple-700 dark:text-purple-300 whitespace-nowrap bg-purple-500/10">
+                        AI Rate
+                      </th>
+                    )}
+                    {visibleColumns.includes("calc_price") && (
+                      <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap bg-primary/10">
+                        Calc. Price
+                      </th>
+                    )}
                     <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
                       Actions
                     </th>
@@ -1708,86 +1733,106 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                           idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
                         )}
                       >
-                        <td className={cn(
-                          "px-3 py-3 text-center",
-                          pinnedColumns.includes("index") && "sticky left-0 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
-                          idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
-                        )}>
-                          <span className="font-mono text-sm font-medium text-slate-600 dark:text-slate-300">
-                            {idx + 1}
-                          </span>
-                        </td>
-                        <td className={cn(
-                          "px-3 py-3 text-left",
-                          pinnedColumns.includes("item_number") && "sticky left-[40px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
-                          idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
-                        )}>
-                          <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-1 rounded font-medium">
-                            {item.item_number}
-                          </span>
-                        </td>
-                        <td className={cn(
-                          "px-3 py-3 text-left",
-                          pinnedColumns.includes("item_code") && "sticky left-[120px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
-                          idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
-                        )}>
-                          <EditableItemCode
-                            itemNumber={item.item_number}
-                            code={getItemCode(item.item_number, idx)}
-                            onSave={setItemCode}
-                          />
-                        </td>
-                        <td className={cn(
-                          "px-3 py-3 text-left min-w-[300px] max-w-[450px]",
-                          pinnedColumns.includes("description") && "sticky left-[200px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
-                          idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
-                        )}>
-                          <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words" title={cleanText(item.description)}>
-                            {cleanText(item.description)}
-                          </p>
-                        </td>
-                        <td className="px-3 py-3 text-center">
-                          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{item.unit}</span>
-                        </td>
-                        <td className="px-3 py-3 text-center">
-                          <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{item.quantity.toLocaleString()}</span>
-                        </td>
-                        <td className="px-3 py-3 text-right">
-                          <EditableUnitPrice
-                            value={getEffectivePrice(item).unit_price}
-                            onSave={(newPrice) => handleEditUnitPrice(item.item_number, newPrice)}
-                            className={cn(
-                              "text-slate-700 dark:text-slate-200",
-                              editedPrices[item.item_number]?.unit_price !== undefined && "text-blue-600 dark:text-blue-400"
-                            )}
-                          />
-                        </td>
-                        <td className="px-3 py-3 text-right">
-                          <EditableUnitPrice
-                            value={getEffectivePrice(item).total_price}
-                            onSave={(newTotal) => handleEditTotalPrice(item.item_number, newTotal)}
-                            className={cn(
-                              "text-slate-700 dark:text-slate-200",
-                              editedPrices[item.item_number]?.total_price !== undefined && "text-blue-600 dark:text-blue-400"
-                            )}
-                          />
-                        </td>
-                        <td className="px-3 py-3 text-right bg-purple-500/5">
-                          <EditableAIRate
-                            itemNumber={item.item_number}
-                            currentRate={calcCosts.aiSuggestedRate}
-                            onSave={(itemNum, rate) => updateAIRate(itemNum, rate)}
-                            isApplied={recentlyAppliedItems.has(item.item_number)}
-                          />
-                        </td>
-                        <td className="px-3 py-3 text-right bg-primary/5">
-                          <span className={cn(
-                            "text-sm font-bold",
-                            calculatedPrice > 0 ? "text-primary" : "text-slate-500"
+                        {visibleColumns.includes("index") && (
+                          <td className={cn(
+                            "px-3 py-3 text-center",
+                            pinnedColumns.includes("index") && "sticky left-0 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
+                            idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
                           )}>
-                            {calculatedPrice > 0 ? calculatedPrice.toLocaleString() : '-'}
-                          </span>
-                        </td>
+                            <span className="font-mono text-sm font-medium text-slate-600 dark:text-slate-300">
+                              {idx + 1}
+                            </span>
+                          </td>
+                        )}
+                        {visibleColumns.includes("item_number") && (
+                          <td className={cn(
+                            "px-3 py-3 text-left",
+                            pinnedColumns.includes("item_number") && "sticky left-[40px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
+                            idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
+                          )}>
+                            <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-1 rounded font-medium">
+                              {item.item_number}
+                            </span>
+                          </td>
+                        )}
+                        {visibleColumns.includes("item_code") && (
+                          <td className={cn(
+                            "px-3 py-3 text-left",
+                            pinnedColumns.includes("item_code") && "sticky left-[120px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
+                            idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
+                          )}>
+                            <EditableItemCode
+                              itemNumber={item.item_number}
+                              code={getItemCode(item.item_number, idx)}
+                              onSave={setItemCode}
+                            />
+                          </td>
+                        )}
+                        {visibleColumns.includes("description") && (
+                          <td className={cn(
+                            "px-3 py-3 text-left min-w-[300px] max-w-[450px]",
+                            pinnedColumns.includes("description") && "sticky left-[200px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
+                            idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
+                          )}>
+                            <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words" title={cleanText(item.description)}>
+                              {cleanText(item.description)}
+                            </p>
+                          </td>
+                        )}
+                        {visibleColumns.includes("unit") && (
+                          <td className="px-3 py-3 text-center">
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{item.unit}</span>
+                          </td>
+                        )}
+                        {visibleColumns.includes("quantity") && (
+                          <td className="px-3 py-3 text-center">
+                            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{item.quantity.toLocaleString()}</span>
+                          </td>
+                        )}
+                        {visibleColumns.includes("unit_price") && (
+                          <td className="px-3 py-3 text-right">
+                            <EditableUnitPrice
+                              value={getEffectivePrice(item).unit_price}
+                              onSave={(newPrice) => handleEditUnitPrice(item.item_number, newPrice)}
+                              className={cn(
+                                "text-slate-700 dark:text-slate-200",
+                                editedPrices[item.item_number]?.unit_price !== undefined && "text-blue-600 dark:text-blue-400"
+                              )}
+                            />
+                          </td>
+                        )}
+                        {visibleColumns.includes("total") && (
+                          <td className="px-3 py-3 text-right">
+                            <EditableUnitPrice
+                              value={getEffectivePrice(item).total_price}
+                              onSave={(newTotal) => handleEditTotalPrice(item.item_number, newTotal)}
+                              className={cn(
+                                "text-slate-700 dark:text-slate-200",
+                                editedPrices[item.item_number]?.total_price !== undefined && "text-blue-600 dark:text-blue-400"
+                              )}
+                            />
+                          </td>
+                        )}
+                        {visibleColumns.includes("ai_rate") && (
+                          <td className="px-3 py-3 text-right bg-purple-500/5">
+                            <EditableAIRate
+                              itemNumber={item.item_number}
+                              currentRate={calcCosts.aiSuggestedRate}
+                              onSave={(itemNum, rate) => updateAIRate(itemNum, rate)}
+                              isApplied={recentlyAppliedItems.has(item.item_number)}
+                            />
+                          </td>
+                        )}
+                        {visibleColumns.includes("calc_price") && (
+                          <td className="px-3 py-3 text-right bg-primary/5">
+                            <span className={cn(
+                              "text-sm font-bold",
+                              calculatedPrice > 0 ? "text-primary" : "text-slate-500"
+                            )}>
+                              {calculatedPrice > 0 ? calculatedPrice.toLocaleString() : '-'}
+                            </span>
+                          </td>
+                        )}
                         <td className="px-3 py-3 text-center">
                           <ItemCostEditor
                             itemId={item.item_number}

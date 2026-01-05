@@ -6,7 +6,10 @@ import {
   PinOff, 
   RotateCcw, 
   Settings2,
-  Columns
+  Columns,
+  Eye,
+  EyeOff,
+  Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,22 +21,26 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useLanguage } from "@/hooks/useLanguage";
 import { cn } from "@/lib/utils";
 
 interface TableControlsProps {
   onZoomChange: (zoom: number) => void;
   onPinnedColumnsChange: (columns: string[]) => void;
+  onVisibleColumnsChange?: (columns: string[]) => void;
   availableColumns: { id: string; label: string; labelAr: string }[];
   className?: string;
 }
 
 const ZOOM_STORAGE_KEY = "boq_table_zoom";
 const PINNED_COLUMNS_KEY = "boq_pinned_columns";
+const VISIBLE_COLUMNS_KEY = "boq_visible_columns";
 
 export function TableControls({
   onZoomChange,
   onPinnedColumnsChange,
+  onVisibleColumnsChange,
   availableColumns,
   className
 }: TableControlsProps) {
@@ -46,6 +53,12 @@ export function TableControls({
     const saved = localStorage.getItem(PINNED_COLUMNS_KEY);
     return saved ? JSON.parse(saved) : ["item_number", "description"];
   });
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
+    const saved = localStorage.getItem(VISIBLE_COLUMNS_KEY);
+    if (saved) return JSON.parse(saved);
+    // Default: show all columns
+    return availableColumns.map(col => col.id);
+  });
 
   useEffect(() => {
     localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom));
@@ -56,6 +69,11 @@ export function TableControls({
     localStorage.setItem(PINNED_COLUMNS_KEY, JSON.stringify(pinnedColumns));
     onPinnedColumnsChange(pinnedColumns);
   }, [pinnedColumns, onPinnedColumnsChange]);
+
+  useEffect(() => {
+    localStorage.setItem(VISIBLE_COLUMNS_KEY, JSON.stringify(visibleColumns));
+    onVisibleColumnsChange?.(visibleColumns);
+  }, [visibleColumns, onVisibleColumnsChange]);
 
   const handleZoomIn = () => {
     setZoom(prev => Math.min(150, prev + 10));
@@ -80,6 +98,28 @@ export function TableControls({
   const resetPinnedColumns = () => {
     setPinnedColumns(["item_number", "description"]);
   };
+
+  const toggleVisibleColumn = (columnId: string) => {
+    setVisibleColumns(prev => {
+      if (prev.includes(columnId)) {
+        // Don't allow hiding all columns - keep at least one
+        if (prev.length <= 1) return prev;
+        return prev.filter(id => id !== columnId);
+      }
+      return [...prev, columnId];
+    });
+  };
+
+  const showAllColumns = () => {
+    setVisibleColumns(availableColumns.map(col => col.id));
+  };
+
+  const hideAllOptionalColumns = () => {
+    // Keep only essential columns
+    setVisibleColumns(["item_number", "description", "quantity", "unit"]);
+  };
+
+  const hiddenColumnsCount = availableColumns.length - visibleColumns.length;
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
@@ -143,6 +183,106 @@ export function TableControls({
         </Button>
       </div>
 
+      {/* Column Visibility Control */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className="gap-2 h-9">
+            <Eye className="h-4 w-4" />
+            <span className="hidden sm:inline">
+              {isArabic ? "عرض الأعمدة" : "Columns"}
+            </span>
+            {hiddenColumnsCount > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                {visibleColumns.length}/{availableColumns.length}
+              </Badge>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80" align="end">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-semibold">
+                {isArabic ? "إظهار/إخفاء الأعمدة" : "Show/Hide Columns"}
+              </Label>
+            </div>
+            
+            <p className="text-xs text-muted-foreground">
+              {isArabic 
+                ? "اختر الأعمدة التي تريد عرضها في الجدول"
+                : "Select which columns to display in the table"}
+            </p>
+
+            {/* Quick Actions */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={showAllColumns}
+                className="flex-1 text-xs h-8"
+              >
+                {isArabic ? "إظهار الكل" : "Show All"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={hideAllOptionalColumns}
+                className="flex-1 text-xs h-8"
+              >
+                {isArabic ? "الأساسية فقط" : "Essential Only"}
+              </Button>
+            </div>
+
+            <div className="max-h-[300px] overflow-y-auto space-y-1 border rounded-lg p-2">
+              {availableColumns.map((column) => {
+                const isVisible = visibleColumns.includes(column.id);
+                const isEssential = ["item_number", "description"].includes(column.id);
+                
+                return (
+                  <div
+                    key={column.id}
+                    className={cn(
+                      "flex items-center gap-3 p-2 rounded-md transition-colors cursor-pointer hover:bg-muted/50",
+                      isVisible && "bg-primary/5"
+                    )}
+                    onClick={() => toggleVisibleColumn(column.id)}
+                  >
+                    <Checkbox
+                      checked={isVisible}
+                      onCheckedChange={() => toggleVisibleColumn(column.id)}
+                      disabled={isEssential && visibleColumns.length <= 2}
+                    />
+                    <div className="flex-1 flex items-center gap-2">
+                      {isVisible ? (
+                        <Eye className="h-3.5 w-3.5 text-primary" />
+                      ) : (
+                        <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
+                      <span className={cn(
+                        "text-sm",
+                        !isVisible && "text-muted-foreground"
+                      )}>
+                        {isArabic ? column.labelAr : column.label}
+                      </span>
+                    </div>
+                    {isEssential && (
+                      <Badge variant="outline" className="text-[10px] h-5">
+                        {isArabic ? "أساسي" : "Essential"}
+                      </Badge>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="pt-2 border-t text-xs text-muted-foreground">
+              {isArabic 
+                ? `${visibleColumns.length} من ${availableColumns.length} عمود ظاهر`
+                : `${visibleColumns.length} of ${availableColumns.length} columns visible`}
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+
       {/* Pin Columns Control */}
       <Popover>
         <PopoverTrigger asChild>
@@ -182,7 +322,7 @@ export function TableControls({
             </p>
 
             <div className="space-y-2">
-              {availableColumns.map((column) => (
+              {availableColumns.filter(col => visibleColumns.includes(col.id)).map((column) => (
                 <div
                   key={column.id}
                   className={cn(
