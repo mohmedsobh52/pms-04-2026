@@ -1751,21 +1751,36 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                 </tbody>
                 <tfoot>
                   <tr className="bg-primary/10 border-t-2 border-primary/30">
-                    <td colSpan={9} className="px-4 py-4 text-right font-bold text-slate-800 dark:text-slate-100">
-                      Grand Total
+                    <td colSpan={5} className="px-4 py-4 text-right font-bold text-slate-800 dark:text-slate-100">
+                      {isArabic ? "الإجمالي الكلي" : "Grand Total"}
                     </td>
-                    <td colSpan={2} className="px-4 py-4 text-right bg-primary/20">
-                      <span className="font-bold text-lg text-primary">
-                        {(() => {
-                          const calculatedTotal = filteredItems.reduce((sum, item) => {
-                            const calcPrice = getItemCalculatedCosts(item.item_number).calculatedUnitPrice;
-                            const effectivePrice = calcPrice > 0 ? calcPrice : (item.unit_price || 0);
-                            return sum + (effectivePrice * item.quantity);
-                          }, 0);
-                          return calculatedTotal > 0 ? calculatedTotal.toLocaleString() : 
-                            (data.summary?.total_value || data.items?.reduce((sum, item) => sum + (item.total_price || 0), 0) || 0).toLocaleString();
-                        })()} {data.summary?.currency || 'SAR'}
-                      </span>
+                    <td className="px-4 py-4 text-center font-bold text-slate-800 dark:text-slate-100">
+                      {filteredItems.reduce((sum, item) => sum + (item.quantity || 0), 0).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-4 text-right font-bold text-slate-800 dark:text-slate-100">
+                      -
+                    </td>
+                    <td className="px-4 py-4 text-right font-bold text-primary bg-primary/20">
+                      {(() => {
+                        const totalSum = filteredItems.reduce((sum, item) => {
+                          const effectivePrice = getEffectivePrice(item);
+                          return sum + effectivePrice.total_price;
+                        }, 0);
+                        return totalSum.toLocaleString();
+                      })()} {data.summary?.currency || 'SAR'}
+                    </td>
+                    <td className="px-4 py-4 text-right bg-purple-500/10">
+                      -
+                    </td>
+                    <td className="px-4 py-4 text-right font-bold text-primary bg-primary/20">
+                      {(() => {
+                        const calculatedTotal = filteredItems.reduce((sum, item) => {
+                          const calcPrice = getItemCalculatedCosts(item.item_number).calculatedUnitPrice;
+                          const effectivePrice = calcPrice > 0 ? calcPrice : (item.unit_price || 0);
+                          return sum + (effectivePrice * item.quantity);
+                        }, 0);
+                        return calculatedTotal > 0 ? calculatedTotal.toLocaleString() : '-';
+                      })()} {data.summary?.currency || 'SAR'}
                     </td>
                     <td className="px-4 py-4"></td>
                   </tr>

@@ -25,6 +25,7 @@ import { P6ExportDialog } from "@/components/P6ExportDialog";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { ProcurementResourcesSchedule } from "@/components/ProcurementResourcesSchedule";
 import { FloatingToolbar } from "@/components/FloatingToolbar";
+import { HorizontalScrollBar } from "@/components/HorizontalScrollBar";
 import { ProjectAttachments } from "@/components/ProjectAttachments";
 import { SubcontractorManagement } from "@/components/SubcontractorManagement";
 import { BOQTemplates } from "@/components/BOQTemplates";
@@ -88,6 +89,7 @@ const Index = () => {
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("dashboard");
   const tabsRef = useRef<HTMLDivElement>(null);
+  const mainContentRef = useRef<HTMLDivElement>(null);
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>(() => {
     // Initialize workflow steps based on existing data
     if (analysisData) {
@@ -511,7 +513,7 @@ const Index = () => {
   }, [analysisData, toast, t]);
 
   return (
-    <div className="min-h-screen bg-background" dir={isArabic ? 'rtl' : 'ltr'}>
+    <div className="min-h-screen bg-background overflow-x-auto" dir={isArabic ? 'rtl' : 'ltr'} ref={mainContentRef}>
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3">
@@ -1125,6 +1127,9 @@ const Index = () => {
           onShowReport={() => setShowComprehensiveReport(true)}
         />
       )}
+
+      {/* Horizontal Scroll Bar */}
+      <HorizontalScrollBar containerRef={mainContentRef} />
 
       {/* Footer */}
       <footer className="border-t border-border py-6">
