@@ -19,6 +19,7 @@ import { ProjectTimeline } from "./ProjectTimeline";
 import { CostAnalysis } from "./CostAnalysis";
 import { ScheduleIntegration } from "./ScheduleIntegration";
 import { KPIDashboard } from "./KPIDashboard";
+import { EnhancedKPIDashboard } from "./EnhancedKPIDashboard";
 import { MarketRateSuggestions } from "./MarketRateSuggestions";
 import { useLanguage } from "@/hooks/useLanguage";
 import { PDFCustomization, getSavedCompanyInfo, CompanyInfo } from "./PDFCustomization";
@@ -1102,11 +1103,12 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
 
   return (
     <div className="glass-card overflow-hidden animate-slide-up">
-      {/* KPI Dashboard at the top */}
+      {/* Project Name and KPI Dashboard at the top */}
       <div className="p-4 border-b border-border bg-gradient-to-r from-primary/5 to-accent/5">
-        <KPIDashboard 
+        <EnhancedKPIDashboard 
           data={kpiData} 
-          title="Project KPIs / مؤشرات المشروع" 
+          title={isArabic ? "مؤشرات الأداء الرئيسية" : "Key Performance Indicators"}
+          projectName={fileName?.replace(/\.[^/.]+$/, "") || (isArabic ? "مشروع BOQ" : "BOQ Project")}
         />
       </div>
       

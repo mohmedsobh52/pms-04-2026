@@ -25,7 +25,10 @@ import { P6ExportDialog } from "@/components/P6ExportDialog";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { ProcurementResourcesSchedule } from "@/components/ProcurementResourcesSchedule";
 import { FloatingToolbar } from "@/components/FloatingToolbar";
-import { HorizontalScrollBar } from "@/components/HorizontalScrollBar";
+import { DualHorizontalScrollBar } from "@/components/DualHorizontalScrollBar";
+import { EnhancedKPIDashboard } from "@/components/EnhancedKPIDashboard";
+import { SubcontractorBOQLink } from "@/components/SubcontractorBOQLink";
+import { ContractNotifications } from "@/components/ContractNotifications";
 import { ProjectAttachments } from "@/components/ProjectAttachments";
 import { SubcontractorManagement } from "@/components/SubcontractorManagement";
 import { BOQTemplates } from "@/components/BOQTemplates";
@@ -1005,7 +1008,25 @@ const Index = () => {
                       />
                     </TabsContent>
                     <TabsContent value="subcontractors">
-                      <SubcontractorManagement />
+                      <Tabs defaultValue="management" className="space-y-4">
+                        <TabsList>
+                          <TabsTrigger value="management">
+                            {isArabic ? "إدارة المقاولين" : "Management"}
+                          </TabsTrigger>
+                          <TabsTrigger value="boq-link">
+                            {isArabic ? "ربط بالبنود" : "BOQ Link"}
+                          </TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="management">
+                          <SubcontractorManagement />
+                        </TabsContent>
+                        <TabsContent value="boq-link">
+                          <SubcontractorBOQLink 
+                            boqItems={analysisData?.items || []} 
+                            projectId={savedProjectId || undefined}
+                          />
+                        </TabsContent>
+                      </Tabs>
                     </TabsContent>
                     <TabsContent value="compare">
                       <QuotationComparison />
@@ -1014,7 +1035,22 @@ const Index = () => {
                       <P6Export items={analysisData?.items || []} currency="SAR" />
                     </TabsContent>
                     <TabsContent value="settings">
-                      <NotificationSettings />
+                      <Tabs defaultValue="notifications" className="space-y-4">
+                        <TabsList>
+                          <TabsTrigger value="notifications">
+                            {isArabic ? "الإشعارات" : "Notifications"}
+                          </TabsTrigger>
+                          <TabsTrigger value="contracts">
+                            {isArabic ? "تذكيرات العقود" : "Contract Alerts"}
+                          </TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="notifications">
+                          <NotificationSettings />
+                        </TabsContent>
+                        <TabsContent value="contracts">
+                          <ContractNotifications />
+                        </TabsContent>
+                      </Tabs>
                     </TabsContent>
                   </Tabs>
                 </div>
@@ -1128,8 +1164,9 @@ const Index = () => {
         />
       )}
 
-      {/* Horizontal Scroll Bar */}
-      <HorizontalScrollBar containerRef={mainContentRef} />
+      {/* Horizontal Scroll Bars - Top and Bottom */}
+      <DualHorizontalScrollBar containerRef={mainContentRef} position="top" />
+      <DualHorizontalScrollBar containerRef={mainContentRef} position="bottom" />
 
       {/* Footer */}
       <footer className="border-t border-border py-6">
