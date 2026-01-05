@@ -8,6 +8,9 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { LogIn, LogOut, User } from "lucide-react";
 import BackgroundImage from "@/components/BackgroundImage";
+import { PageLoadingProgress } from "@/components/PageLoadingProgress";
+import { PageTransition } from "@/components/PageTransition";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 interface PageLayoutProps {
   children: ReactNode;
@@ -80,6 +83,7 @@ export function PageLayout({ children }: PageLayoutProps) {
   return (
     <div className="min-h-screen flex flex-col">
       <BackgroundImage />
+      <PageLoadingProgress />
       
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
@@ -129,7 +133,10 @@ export function PageLayout({ children }: PageLayoutProps) {
 
       {/* Main Content */}
       <main className="flex-1 container mx-auto px-4 py-8">
-        {children}
+        <Breadcrumbs />
+        <PageTransition>
+          {children}
+        </PageTransition>
       </main>
 
       {/* Floating Toolbar */}
