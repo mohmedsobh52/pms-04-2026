@@ -210,7 +210,8 @@ For each item, return:
 
 function aggregateResults(
   items: BOQItem[],
-  analyzerResults: { analyzerId: string; results: any[] }[]
+  analyzerResults: { analyzerId: string; results: any[] }[],
+  customWeights?: Record<string, number>
 ): EnhancedPricingSuggestion[] {
   return items.map(item => {
     const itemResults: { analyzer: typeof ANALYZERS[0]; result: any }[] = [];
@@ -223,7 +224,7 @@ function aggregateResults(
       }
     }
 
-    // Calculate weighted average
+    // Calculate weighted average using custom weights if provided
     let weightedSum = 0;
     let totalWeight = 0;
     const prices: number[] = [];
@@ -232,7 +233,13 @@ function aggregateResults(
     for (const { analyzer, result } of itemResults) {
       const price = result.suggested_price || item.unit_price || 0;
       const confidence = result.confidence || 50;
-      const weight = analyzer.weight * (confidence / 100);
+      
+      // Use custom weight if provided, otherwise use default
+      const baseWeight = customWeights && customWeights[analyzer.id] !== undefined 
+        ? customWeights[analyzer.id] 
+        : analyzer.weight;
+      
+      const weight = baseWeight * (confidence / 100);
       
       weightedSum += price * weight;
       totalWeight += weight;
@@ -319,12 +326,14 @@ serve(async (req) => {
       items, 
       location = "Riyadh",
       model = "google/gemini-2.5-flash",
-      analyzers = ["construction_expert", "market_analyst", "quantity_surveyor", "risk_assessor"]
+      analyzers = ["construction_expert", "market_analyst", "quantity_surveyor", "risk_assessor"],
+      weights
     }: { 
       items: BOQItem[]; 
       location: string;
       model?: string;
       analyzers?: string[];
+      weights?: Record<string, number>;
     } = await req.json();
 
     if (!items || items.length === 0) {
@@ -359,8 +368,8 @@ serve(async (req) => {
 
       const analyzerResults = await Promise.all(analyzerPromises);
       
-      // Aggregate results for this batch
-      const batchSuggestions = aggregateResults(batchItems, analyzerResults);
+      // Aggregate results for this batch with custom weights
+      const batchSuggestions = aggregateResults(batchItems, analyzerResults, weights);
       allSuggestions.push(...batchSuggestions);
 
       // Small delay between batches
