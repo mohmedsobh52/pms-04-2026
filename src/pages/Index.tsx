@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown, Paperclip, Users, Copy } from "lucide-react";
+import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown, Paperclip, Users, Copy, Settings2 } from "lucide-react";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -32,6 +32,8 @@ import { ContractNotifications } from "@/components/ContractNotifications";
 import { ProjectAttachments } from "@/components/ProjectAttachments";
 import { SubcontractorManagement } from "@/components/SubcontractorManagement";
 import { BOQTemplates } from "@/components/BOQTemplates";
+import { AnalysisSettingsDialog, getAnalysisSettings, type AnalysisSettings } from "@/components/AnalysisSettingsDialog";
+import { ConnectionErrorDialog, detectErrorType, type ConnectionError } from "@/components/ConnectionErrorDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -101,6 +103,13 @@ const Index = () => {
     return defaultWorkflowSteps;
   });
   const { toast } = useToast();
+  
+  // Analysis settings and error handling
+  const [analysisSettings, setAnalysisSettings] = useState<AnalysisSettings>(getAnalysisSettings);
+  const [connectionError, setConnectionError] = useState<ConnectionError | null>(null);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const retryCallbackRef = useRef<(() => void) | null>(null);
 
   // Handle floating toolbar navigation
   const handleToolbarNavigate = (tab: string) => {
@@ -318,9 +327,9 @@ const Index = () => {
   };
 
   const runAnalysis = async () => {
-    const textToAnalyze = extractedText || manualText;
+    const rawText = extractedText || manualText;
     
-    if (!textToAnalyze || textToAnalyze.length < 50) {
+    if (!rawText || rawText.length < 50) {
       toast({
         title: t('notEnoughText'),
         description: t('enterBOQForAnalysis'),
@@ -329,20 +338,39 @@ const Index = () => {
       return;
     }
 
+    // Apply text truncation based on settings
+    const maxChars = analysisSettings.maxTextLength * 1000;
+    const textToAnalyze = analysisSettings.autoTruncate && rawText.length > maxChars
+      ? rawText.slice(0, maxChars)
+      : rawText;
+    
+    if (rawText.length > maxChars && analysisSettings.autoTruncate) {
+      toast({
+        title: isArabic ? 'تم تقليص النص' : 'Text Truncated',
+        description: isArabic 
+          ? `تم تقليص النص من ${Math.round(rawText.length/1000)}K إلى ${analysisSettings.maxTextLength}K حرف`
+          : `Text reduced from ${Math.round(rawText.length/1000)}K to ${analysisSettings.maxTextLength}K chars`,
+      });
+    }
+
     setIsProcessing(true);
     updateStepStatus("analyze", "processing", 10);
+    
+    // Track current attempt for error dialog
+    let currentAttempt = 0;
+    const maxRetries = analysisSettings.enableRetry ? analysisSettings.maxRetries : 1;
 
     // Helper function to invoke backend function with retry logic (network resilience)
     const invokeWithRetry = async (
       functionName: string,
-      body: any,
-      maxRetries: number = 3,
-      initialRetryDelay: number = 2000
+      body: any
     ) => {
       let lastError: any;
-      let retryDelay = initialRetryDelay;
+      let retryDelay = analysisSettings.retryDelay * 1000;
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        currentAttempt = attempt;
+        
         try {
           const result = await supabase.functions.invoke(functionName, {
             body,
@@ -362,11 +390,15 @@ const Index = () => {
             message.includes('FunctionsFetchError') ||
             message.toLowerCase().includes('network');
 
-          if (isRetryable && attempt < maxRetries) {
+          if (isRetryable && attempt < maxRetries && analysisSettings.enableRetry) {
             console.warn(
               `Function invoke failed (attempt ${attempt}/${maxRetries}); retrying in ${Math.round(retryDelay)}ms`,
               err
             );
+            toast({
+              title: isArabic ? `محاولة ${attempt}/${maxRetries} فشلت` : `Attempt ${attempt}/${maxRetries} failed`,
+              description: isArabic ? 'جاري إعادة المحاولة...' : 'Retrying...',
+            });
             await new Promise((resolve) => setTimeout(resolve, retryDelay));
             retryDelay *= 1.5; // exponential backoff
             lastError = err;
@@ -385,15 +417,35 @@ const Index = () => {
             message.includes('FunctionsFetchError') ||
             message.toLowerCase().includes('network');
 
-          if (isRetryable && attempt < maxRetries) {
+          if (isRetryable && attempt < maxRetries && analysisSettings.enableRetry) {
             console.warn(
               `Function invoke threw (attempt ${attempt}/${maxRetries}); retrying in ${Math.round(retryDelay)}ms`,
               err
             );
+            toast({
+              title: isArabic ? `محاولة ${attempt}/${maxRetries} فشلت` : `Attempt ${attempt}/${maxRetries} failed`,
+              description: isArabic ? 'جاري إعادة المحاولة...' : 'Retrying...',
+            });
             await new Promise((resolve) => setTimeout(resolve, retryDelay));
             retryDelay *= 1.5;
             lastError = err;
             continue;
+          }
+
+          // Show error dialog for connection errors
+          const errorType = detectErrorType(err);
+          if (['network', 'timeout', 'cors'].includes(errorType)) {
+            setConnectionError({
+              type: errorType,
+              message: err.message || 'Unknown error',
+              details: err.stack || String(err),
+              timestamp: new Date().toISOString(),
+              attempt: currentAttempt,
+              maxAttempts: maxRetries,
+              functionName,
+            });
+            retryCallbackRef.current = runAnalysis;
+            setShowErrorDialog(true);
           }
 
           throw err;
@@ -756,6 +808,20 @@ const Index = () => {
               {/* File Upload & Extraction Status */}
               {!extractedText && !analysisData && !showManualInput && (
                 <>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-muted-foreground">
+                      {isArabic ? 'ارفع ملف BOQ للتحليل' : 'Upload BOQ file for analysis'}
+                    </span>
+                    <AnalysisSettingsDialog 
+                      trigger={
+                        <Button variant="ghost" size="sm" className="gap-1.5 h-7 px-2 text-xs">
+                          <Settings2 className="h-3.5 w-3.5" />
+                          {isArabic ? 'إعدادات' : 'Settings'}
+                        </Button>
+                      }
+                      onSettingsChange={setAnalysisSettings}
+                    />
+                  </div>
                   <FileUpload
                     onFileSelect={handleFileSelect}
                     isProcessing={isExtracting}
@@ -956,9 +1022,22 @@ const Index = () => {
                       <h3 className="font-display text-lg font-semibold">{t('textReadyForAnalysis')}</h3>
                       <p className="text-sm text-muted-foreground">
                         {extractedText.length.toLocaleString()} {t('characters')}
+                        {analysisSettings.autoTruncate && extractedText.length > analysisSettings.maxTextLength * 1000 && (
+                          <span className="text-yellow-600 ml-2">
+                            ({isArabic ? 'سيتم تقليصه إلى' : 'will be truncated to'} {analysisSettings.maxTextLength}K)
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div className="flex gap-2">
+                      <AnalysisSettingsDialog 
+                        trigger={
+                          <Button variant="ghost" size="sm" className="gap-1.5">
+                            <Settings2 className="h-4 w-4" />
+                          </Button>
+                        }
+                        onSettingsChange={setAnalysisSettings}
+                      />
                       <Button variant="outline" size="sm" onClick={handleClearFile}>
                         {t('edit')}
                       </Button>
@@ -1251,6 +1330,22 @@ const Index = () => {
       {/* Horizontal Scroll Bars - Top and Bottom */}
       <DualHorizontalScrollBar containerRef={mainContentRef} position="top" />
       <DualHorizontalScrollBar containerRef={mainContentRef} position="bottom" />
+
+      {/* Connection Error Dialog */}
+      <ConnectionErrorDialog
+        open={showErrorDialog}
+        onOpenChange={setShowErrorDialog}
+        error={connectionError}
+        onRetry={() => {
+          setShowErrorDialog(false);
+          setIsRetrying(true);
+          setTimeout(() => {
+            setIsRetrying(false);
+            retryCallbackRef.current?.();
+          }, 500);
+        }}
+        isRetrying={isRetrying}
+      />
 
       {/* Footer */}
       <footer className="border-t border-border py-6">
