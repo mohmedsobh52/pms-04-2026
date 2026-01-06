@@ -392,4 +392,5 @@ export const BOQ_TABLE_COLUMNS = [
   { id: "total", label: "Total", labelAr: "الإجمالي" },
   { id: "ai_rate", label: "AI Rate", labelAr: "سعر AI" },
   { id: "calc_price", label: "Calc. Price", labelAr: "السعر المحسوب" },
+  { id: "balance_status", label: "Balance", labelAr: "التوازن" },
 ];

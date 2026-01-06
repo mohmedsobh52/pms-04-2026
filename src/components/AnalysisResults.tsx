@@ -27,6 +27,9 @@ import { ItemCostEditor } from "./ItemCostEditor";
 import { BulkApplyCostsDialog } from "./BulkApplyCostsDialog";
 import { SaveProjectButton } from "./SaveProjectButton";
 import { PriceComparisonReport } from "./PriceComparisonReport";
+import { BalancedPricingReport } from "./BalancedPricingReport";
+import { PricingBalanceSummary } from "./PricingBalanceSummary";
+import { BalanceStatusColumn } from "./BalanceStatusColumn";
 import { WBSTreeDiagram } from "./WBSTreeDiagram";
 import { ComprehensivePDFReport } from "./ComprehensivePDFReport";
 import { WBSFlowDiagram } from "./WBSFlowDiagram";
@@ -1323,6 +1326,13 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
               currency={data.summary?.currency || "SAR"}
             />
 
+            {/* Balanced Pricing Report Button */}
+            <BalancedPricingReport
+              items={data.items || []}
+              getItemCalculatedCosts={getItemCalculatedCosts}
+              currency={data.summary?.currency || "SAR"}
+            />
+
             {/* Danger Actions Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1541,6 +1551,12 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                 </div>
               )}
 
+              {/* Pricing Balance Summary Bar */}
+              <PricingBalanceSummary
+                items={data.items || []}
+                getItemCalculatedCosts={getItemCalculatedCosts}
+              />
+
               {/* Items Found Counter */}
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>
@@ -1696,6 +1712,11 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                         Calc. Price
                       </th>
                     )}
+                    {visibleColumns.includes("balance_status") && (
+                      <th className="px-3 py-3 text-center font-bold text-sm text-emerald-700 dark:text-emerald-300 whitespace-nowrap bg-emerald-500/10">
+                        {isArabic ? "التوازن" : "Balance"}
+                      </th>
+                    )}
                     <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
                       Actions
                     </th>
@@ -1831,6 +1852,15 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                             )}>
                               {calculatedPrice > 0 ? calculatedPrice.toLocaleString() : '-'}
                             </span>
+                          </td>
+                        )}
+                        {visibleColumns.includes("balance_status") && (
+                          <td className="px-3 py-3 text-center bg-emerald-500/5">
+                            <BalanceStatusColumn
+                              originalPrice={item.unit_price || 0}
+                              aiSuggestedPrice={calcCosts.aiSuggestedRate || 0}
+                              calculatedPrice={calculatedPrice}
+                            />
                           </td>
                         )}
                         <td className="px-3 py-3 text-center">
