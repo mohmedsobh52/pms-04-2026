@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Brain, Sparkles, TrendingUp, TrendingDown, Minus, CheckCircle2, AlertTriangle, Loader2, Settings2, BarChart3, Users, Shield, Calculator, ChevronDown, ChevronRight, Target, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -13,7 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useAnalysisTracking } from "@/hooks/useAnalysisTracking";
-
+import { AnalyzerWeightsDialog } from "./AnalyzerWeightsDialog";
+import { HistoricalPriceComparison } from "./HistoricalPriceComparison";
+import { EnhancedAnalysisPDFReport } from "./EnhancedAnalysisPDFReport";
 interface BOQItem {
   item_number: string;
   description: string;
@@ -74,8 +76,28 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
   const [suggestions, setSuggestions] = useState<EnhancedSuggestion[]>([]);
   const [summary, setSummary] = useState<any>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [customWeights, setCustomWeights] = useState<Record<string, number>>({});
   const { toast } = useToast();
   const { selectedModel } = useAnalysisTracking();
+
+  // Load saved weights on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("analyzer_weights");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Normalize to 0-1 scale
+        const total = Object.values(parsed).reduce((sum: number, val: any) => sum + (val as number), 0) as number;
+        const normalized: Record<string, number> = {};
+        for (const [key, val] of Object.entries(parsed)) {
+          normalized[key] = total > 0 ? (val as number) / total : 0.25;
+        }
+        setCustomWeights(normalized);
+      } catch (e) {
+        console.error("Failed to load analyzer weights:", e);
+      }
+    }
+  }, []);
 
   const toggleAnalyzer = (id: string) => {
     setActiveAnalyzers(prev => 
@@ -134,10 +156,10 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
           items: validItems,
           location,
           model: selectedModel,
-          analyzers: activeAnalyzers
+          analyzers: activeAnalyzers,
+          weights: Object.keys(customWeights).length > 0 ? customWeights : undefined
         },
       });
-
       clearInterval(progressInterval);
 
       if (error) throw error;
@@ -300,11 +322,28 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
               </Button>
 
               {suggestions.length > 0 && (
-                <Button variant="secondary" onClick={handleApplyAll} className="gap-2">
-                  <CheckCircle2 className="w-4 h-4" />
-                  تطبيق جميع الأسعار
-                </Button>
+                <>
+                  <Button variant="secondary" onClick={handleApplyAll} className="gap-2">
+                    <CheckCircle2 className="w-4 h-4" />
+                    تطبيق جميع الأسعار
+                  </Button>
+
+                  <HistoricalPriceComparison 
+                    items={items} 
+                    suggestions={suggestions}
+                    onApplyAdjustedPrices={onApplyRates}
+                  />
+
+                  <EnhancedAnalysisPDFReport 
+                    suggestions={suggestions}
+                    summary={summary}
+                  />
+                </>
               )}
+
+              <div className="mr-auto">
+                <AnalyzerWeightsDialog onWeightsChange={setCustomWeights} />
+              </div>
             </div>
 
             {/* Progress Bar */}
