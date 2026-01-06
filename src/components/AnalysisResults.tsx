@@ -1572,6 +1572,16 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                 getItemCalculatedCosts={getItemCalculatedCosts}
               />
 
+              {/* Project Name Header */}
+              {fileName && (
+                <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 mb-2">
+                  <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    {isArabic ? "المشروع:" : "Project:"} {fileName.replace(/\.(xlsx|xls|csv|pdf)$/i, '')}
+                  </h2>
+                </div>
+              )}
+
               {/* Items Found Counter */}
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>
