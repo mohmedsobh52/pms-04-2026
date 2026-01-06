@@ -334,9 +334,15 @@ const Index = () => {
 
     try {
       // Extract items analysis
+      // Use AbortController for timeout handling (120 seconds for large BOQ files)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
+      
       const { data: itemsResult, error: itemsError } = await supabase.functions.invoke("analyze-boq", {
         body: { text: textToAnalyze, analysis_type: "extract_items", language },
       });
+      
+      clearTimeout(timeoutId);
 
       if (itemsError) throw itemsError;
       
@@ -389,9 +395,14 @@ const Index = () => {
       // Create WBS
       updateStepStatus("wbs", "processing", 30);
       
+      const wbsController = new AbortController();
+      const wbsTimeoutId = setTimeout(() => wbsController.abort(), 120000);
+      
       const { data: wbsResult, error: wbsError } = await supabase.functions.invoke("analyze-boq", {
         body: { text: textToAnalyze, analysis_type: "create_wbs", language },
       });
+      
+      clearTimeout(wbsTimeoutId);
 
       if (wbsError) throw wbsError;
 
@@ -465,6 +476,16 @@ const Index = () => {
       } else if (error?.message?.includes("Rate limits exceeded")) {
         errorTitle = t('rateLimitExceeded');
         errorDescription = t('tryAgainLater');
+      } else if (error?.name === 'AbortError' || error?.message?.includes('aborted') || error?.message?.includes('timeout')) {
+        errorTitle = language === 'ar' ? 'انتهت مهلة التحليل' : 'Analysis Timeout';
+        errorDescription = language === 'ar' 
+          ? 'الملف كبير جداً. حاول تقسيمه إلى أجزاء أصغر أو حاول مرة أخرى.'
+          : 'The file is too large. Try splitting it or retry.';
+      } else if (error?.message?.includes('Failed to fetch') || error?.message?.includes('FunctionsFetchError')) {
+        errorTitle = language === 'ar' ? 'خطأ في الاتصال' : 'Connection Error';
+        errorDescription = language === 'ar' 
+          ? 'فشل الاتصال بالخادم. تحقق من اتصالك بالإنترنت وحاول مرة أخرى.'
+          : 'Failed to connect to server. Check your internet and retry.';
       } else if (error instanceof Error) {
         errorDescription = error.message;
       }
