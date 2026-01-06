@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { TrendingUp, TrendingDown, Minus, Sparkles, MapPin, Loader2, Check, AlertTriangle, CheckCheck, BarChart3, Calculator, Bot, Globe, Save, Database, Info, ExternalLink, BookOpen, Building2, Truck, HardHat, Package } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Sparkles, MapPin, Loader2, Check, AlertTriangle, CheckCheck, BarChart3, Calculator, Bot, Globe, Save, Database, Info, ExternalLink, BookOpen, Building2, Truck, HardHat, Package, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { ApplyRateDialog } from "./ApplyRateDialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { useAnalysisTracking, useTrackAnalysis } from "@/hooks/useAnalysisTracking";
 
 interface BOQItem {
   item_number: string;
@@ -182,7 +183,16 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
   const [savedToDb, setSavedToDb] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
   const [showSources, setShowSources] = useState(false);
+  const [dataSourceInfo, setDataSourceInfo] = useState<{ ai_count: number; fallback_count: number; ai_rate: string } | null>(null);
   const { toast } = useToast();
+  
+  // Analysis tracking
+  const { selectedModel, getModelDisplayName, getModelDisplayNameAr } = useAnalysisTracking();
+  const { startTracking, completeTracking } = useTrackAnalysis(
+    'suggest-market-rates',
+    'Market Rate Suggestions',
+    'اقتراحات أسعار السوق'
+  );
 
   const handleSuggestRates = async () => {
     if (!items || items.length === 0) {
@@ -206,13 +216,15 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
       return;
     }
 
-    
+    // Start tracking
+    const trackingId = startTracking(validItems.length);
 
     setIsLoading(true);
     setSuggestions([]);
     setTotalItemsCount(validItems.length);
     setAnalyzedItemsCount(0);
     setAnalysisProgress(0);
+    setDataSourceInfo(null);
 
     try {
       // Send ALL valid items to the API with region and agent info
@@ -223,7 +235,8 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
           location, 
           region: regionInfo?.label || "Saudi Arabia",
           aiAgent,
-          useWebSearch: aiAgent === "manus"
+          useWebSearch: aiAgent === "manus",
+          model: selectedModel
         },
       });
 
@@ -237,6 +250,19 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
       setSuggestions(receivedSuggestions);
       setAnalyzedItemsCount(data.analyzed_items || receivedSuggestions.length);
       setAnalysisProgress(100);
+      
+      // Store data source info
+      if (data.data_source) {
+        setDataSourceInfo(data.data_source);
+      }
+      
+      // Complete tracking with success
+      const isFallback = data.data_source?.fallback_count > 0 && data.data_source?.ai_count === 0;
+      completeTracking(trackingId, true, isFallback, {
+        itemsAnalyzed: receivedSuggestions.length,
+        confidence: data.data_source ? parseFloat(data.data_source.ai_rate) : 100,
+        details: `Model: ${data.model_used || selectedModel}, AI: ${data.data_source?.ai_count || 0}, Fallback: ${data.data_source?.fallback_count || 0}`
+      });
       
       // Apply AI rates to the calculator if callback provided
       if (receivedSuggestions.length > 0) {
@@ -257,6 +283,12 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
       });
     } catch (error: any) {
       console.error("Error getting market rates:", error);
+      
+      // Complete tracking with error
+      completeTracking(trackingId, false, false, {
+        error: error.message || "Failed to get market rate suggestions"
+      });
+      
       toast({
         title: "Analysis failed",
         description: error.message || "Failed to get market rate suggestions",
@@ -487,7 +519,7 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
           
           {/* Completed Analysis Summary */}
           {suggestions.length > 0 && !isLoading && (
-            <div className="p-4 bg-green-500/10 rounded-lg space-y-2 border border-green-500/20">
+            <div className="p-4 bg-green-500/10 rounded-lg space-y-3 border border-green-500/20">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
@@ -504,6 +536,43 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
                   {Math.round((analyzedItemsCount / totalItemsCount) * 100)}% مكتمل
                 </Badge>
               </div>
+              
+              {/* Data Source Indicator */}
+              {dataSourceInfo && (
+                <div className="flex items-center gap-4 pt-2 border-t border-green-500/20">
+                  <div className="flex items-center gap-2">
+                    <Brain className="w-4 h-4 text-primary" />
+                    <span className="text-xs font-medium">نموذج AI:</span>
+                    <Badge variant="outline" className="text-xs">
+                      {getModelDisplayNameAr(selectedModel)}
+                    </Badge>
+                  </div>
+                  <div className="flex-1 flex items-center gap-4">
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded-full bg-green-500" />
+                      <span className="text-xs">AI: {dataSourceInfo.ai_count}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded-full bg-orange-500" />
+                      <span className="text-xs">بديل: {dataSourceInfo.fallback_count}</span>
+                    </div>
+                    <Badge 
+                      variant={parseFloat(dataSourceInfo.ai_rate) >= 90 ? "default" : "secondary"}
+                      className={cn(
+                        "text-xs",
+                        parseFloat(dataSourceInfo.ai_rate) >= 90 
+                          ? "bg-green-600" 
+                          : parseFloat(dataSourceInfo.ai_rate) >= 50 
+                            ? "bg-yellow-600" 
+                            : "bg-red-600"
+                      )}
+                    >
+                      {dataSourceInfo.ai_rate}% تحليل حقيقي
+                    </Badge>
+                  </div>
+                </div>
+              )}
+              
               {analyzedItemsCount < totalItemsCount && (
                 <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
                   <AlertTriangle className="w-3 h-3" />

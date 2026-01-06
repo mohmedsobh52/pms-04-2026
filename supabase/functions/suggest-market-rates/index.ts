@@ -96,8 +96,9 @@ async function fetchWithRetry(
 async function processBatch(
   items: BOQItem[],
   location: string,
-  apiKey: string
-): Promise<MarketRateSuggestion[]> {
+  apiKey: string,
+  model: string = "google/gemini-2.5-flash"
+): Promise<{ suggestions: MarketRateSuggestion[]; isAI: boolean }> {
   // Prepare items summary for AI
   const itemsSummary = items.map(item => ({
     item_number: item.item_number,
@@ -149,7 +150,7 @@ Return a JSON array of suggestions with this structure for each item:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
@@ -244,7 +245,7 @@ Return a JSON array of suggestions with this structure for each item:
     }
   }
 
-  return suggestions;
+  return { suggestions, isAI: suggestions.length > 0 };
 }
 
 serve(async (req) => {
@@ -253,7 +254,7 @@ serve(async (req) => {
   }
 
   try {
-    const { items, location = "Riyadh" }: { items: BOQItem[]; location: string } = await req.json();
+    const { items, location = "Riyadh", model = "google/gemini-2.5-flash" }: { items: BOQItem[]; location: string; model?: string } = await req.json();
 
     if (!items || items.length === 0) {
       return new Response(JSON.stringify({ error: "No items provided" }), {
@@ -262,7 +263,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Analyzing market rates for ${items.length} items in ${location}`);
+    console.log(`Analyzing market rates for ${items.length} items in ${location} using model: ${model}`);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -273,6 +274,8 @@ serve(async (req) => {
     const BATCH_SIZE = 15;
     const allSuggestions: MarketRateSuggestion[] = [];
     const totalBatches = Math.ceil(items.length / BATCH_SIZE);
+    let aiSuccessCount = 0;
+    let fallbackCount = 0;
     
     console.log(`Processing ${totalBatches} batches of ${BATCH_SIZE} items each`);
 
@@ -282,9 +285,12 @@ serve(async (req) => {
       console.log(`Processing batch ${batchNumber}/${totalBatches} (${batchItems.length} items)`);
       
       try {
-        const batchSuggestions = await processBatch(batchItems, location, LOVABLE_API_KEY);
-        allSuggestions.push(...batchSuggestions);
-        console.log(`Batch ${batchNumber} completed: ${batchSuggestions.length} suggestions`);
+        const batchResult = await processBatch(batchItems, location, LOVABLE_API_KEY, model);
+        allSuggestions.push(...batchResult.suggestions);
+        if (batchResult.isAI) {
+          aiSuccessCount += batchResult.suggestions.length;
+        }
+        console.log(`Batch ${batchNumber} completed: ${batchResult.suggestions.length} suggestions (AI: ${batchResult.isAI})`);
       } catch (batchError) {
         console.error(`Batch ${batchNumber} failed:`, batchError);
         // Generate fallback suggestions for failed items
@@ -301,6 +307,7 @@ serve(async (req) => {
           variance_percent: 0
         }));
         allSuggestions.push(...fallbackSuggestions);
+        fallbackCount += fallbackSuggestions.length;
         console.log(`Batch ${batchNumber} using ${fallbackSuggestions.length} fallback suggestions`);
       }
       
@@ -326,7 +333,13 @@ serve(async (req) => {
       analyzed_at: new Date().toISOString(),
       total_items: items.length,
       analyzed_items: suggestionsWithVariance.length,
-      batches_processed: totalBatches
+      batches_processed: totalBatches,
+      model_used: model,
+      data_source: {
+        ai_count: aiSuccessCount,
+        fallback_count: fallbackCount,
+        ai_rate: items.length > 0 ? ((aiSuccessCount / items.length) * 100).toFixed(1) : "0"
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

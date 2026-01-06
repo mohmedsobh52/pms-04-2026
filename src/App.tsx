@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { LanguageProvider } from "@/hooks/useLanguage";
 import { AnalysisProvider } from "@/hooks/useAnalysisData";
+import { AnalysisTrackingProvider } from "@/hooks/useAnalysisTracking";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import BackgroundImage from "@/components/BackgroundImage";
 import Index from "./pages/Index";
@@ -39,41 +40,43 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <AnalysisProvider>
-          <TooltipProvider>
-            <BackgroundImage />
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <UpdateBanner />
-              <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/shared/:shareCode" element={<SharedView />} />
-              <Route path="/projects" element={<SavedProjectsPage />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/cost-analysis" element={<CostAnalysisPage />} />
-              <Route path="/changelog" element={<Changelog />} />
-              <Route path="/admin/versions" element={<AdminVersions />} />
-              {/* Separate pages for each section */}
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/items" element={<BOQItemsPage />} />
-              <Route path="/analysis-tools" element={<AnalysisToolsPage />} />
-              <Route path="/procurement" element={<ProcurementPage />} />
-              <Route path="/quotations" element={<QuotationsPage />} />
-              <Route path="/subcontractors" element={<SubcontractorsPage />} />
-              <Route path="/contracts" element={<ContractsPage />} />
-              <Route path="/risk" element={<RiskPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/attachments" element={<AttachmentsPage />} />
-              <Route path="/templates" element={<TemplatesPage />} />
-              <Route path="/p6-export" element={<P6ExportPage />} />
-              <Route path="/compare-versions" element={<CompareVersionsPage />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
+          <AnalysisTrackingProvider>
+            <TooltipProvider>
+              <BackgroundImage />
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <UpdateBanner />
+                <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/shared/:shareCode" element={<SharedView />} />
+                <Route path="/projects" element={<SavedProjectsPage />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/cost-analysis" element={<CostAnalysisPage />} />
+                <Route path="/changelog" element={<Changelog />} />
+                <Route path="/admin/versions" element={<AdminVersions />} />
+                {/* Separate pages for each section */}
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/items" element={<BOQItemsPage />} />
+                <Route path="/analysis-tools" element={<AnalysisToolsPage />} />
+                <Route path="/procurement" element={<ProcurementPage />} />
+                <Route path="/quotations" element={<QuotationsPage />} />
+                <Route path="/subcontractors" element={<SubcontractorsPage />} />
+                <Route path="/contracts" element={<ContractsPage />} />
+                <Route path="/risk" element={<RiskPage />} />
+                <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/attachments" element={<AttachmentsPage />} />
+                <Route path="/templates" element={<TemplatesPage />} />
+                <Route path="/p6-export" element={<P6ExportPage />} />
+                <Route path="/compare-versions" element={<CompareVersionsPage />} />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </TooltipProvider>
+          </AnalysisTrackingProvider>
         </AnalysisProvider>
       </AuthProvider>
     </QueryClientProvider>
