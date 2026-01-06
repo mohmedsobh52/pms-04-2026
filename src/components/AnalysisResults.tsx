@@ -21,6 +21,7 @@ import { ScheduleIntegration } from "./ScheduleIntegration";
 import { KPIDashboard } from "./KPIDashboard";
 import { EnhancedKPIDashboard } from "./EnhancedKPIDashboard";
 import { MarketRateSuggestions } from "./MarketRateSuggestions";
+import { EnhancedPricingAnalysis } from "./EnhancedPricingAnalysis";
 import { useLanguage } from "@/hooks/useLanguage";
 import { PDFCustomization, getSavedCompanyInfo, CompanyInfo } from "./PDFCustomization";
 import { ItemCostEditor } from "./ItemCostEditor";
@@ -1260,6 +1261,12 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
               onApplyRate={onApplyRate} 
               onApplyAIRates={handleApplyAIRates}
               onApplyAIRatesToCalcPrice={handleApplyAIRatesToCalcPrice}
+            />
+
+            {/* Enhanced Multi-Analyzer Pricing */}
+            <EnhancedPricingAnalysis 
+              items={data.items || []}
+              onApplyRates={handleApplyAIRates}
             />
 
             {/* Tools Dropdown */}
