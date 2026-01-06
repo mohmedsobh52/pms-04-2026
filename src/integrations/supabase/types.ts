@@ -64,6 +64,69 @@ export type Database = {
           },
         ]
       }
+      analysis_jobs: {
+        Row: {
+          chunk_results: Json | null
+          completed_at: string | null
+          created_at: string
+          current_step: string | null
+          error_message: string | null
+          file_name: string | null
+          id: string
+          input_text_compressed: string | null
+          input_text_length: number | null
+          job_type: string
+          processed_chunks: number | null
+          progress_percentage: number | null
+          result_data: Json | null
+          started_at: string | null
+          status: string
+          total_chunks: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          chunk_results?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          current_step?: string | null
+          error_message?: string | null
+          file_name?: string | null
+          id?: string
+          input_text_compressed?: string | null
+          input_text_length?: number | null
+          job_type: string
+          processed_chunks?: number | null
+          progress_percentage?: number | null
+          result_data?: Json | null
+          started_at?: string | null
+          status?: string
+          total_chunks?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          chunk_results?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          current_step?: string | null
+          error_message?: string | null
+          file_name?: string | null
+          id?: string
+          input_text_compressed?: string | null
+          input_text_length?: number | null
+          job_type?: string
+          processed_chunks?: number | null
+          progress_percentage?: number | null
+          result_data?: Json | null
+          started_at?: string | null
+          status?: string
+          total_chunks?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       app_versions: {
         Row: {
           changes_ar: string[]

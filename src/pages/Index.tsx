@@ -34,6 +34,8 @@ import { SubcontractorManagement } from "@/components/SubcontractorManagement";
 import { BOQTemplates } from "@/components/BOQTemplates";
 import { AnalysisSettingsDialog, getAnalysisSettings, type AnalysisSettings } from "@/components/AnalysisSettingsDialog";
 import { ConnectionErrorDialog, detectErrorType, type ConnectionError } from "@/components/ConnectionErrorDialog";
+import { ChunkedAnalysisProgress } from "@/components/ChunkedAnalysisProgress";
+import { useChunkedAnalysis, compressText } from "@/hooks/useChunkedAnalysis";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -110,6 +112,16 @@ const Index = () => {
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const retryCallbackRef = useRef<(() => void) | null>(null);
+
+  // Chunked analysis hook
+  const {
+    progress: chunkProgress,
+    currentJob,
+    analyzeWithChunks,
+    createAnalysisJob,
+    startPolling,
+    cancelAnalysis,
+  } = useChunkedAnalysis();
 
   // Handle floating toolbar navigation
   const handleToolbarNavigate = (tab: string) => {
@@ -338,13 +350,16 @@ const Index = () => {
       return;
     }
 
-    // Apply text truncation based on settings
+    // Check if we should use chunked analysis for large files
+    const chunkThreshold = analysisSettings.chunkSize * 1000;
+    const shouldUseChunks = analysisSettings.enableChunkedAnalysis && rawText.length > chunkThreshold;
+
+    // Apply text truncation based on settings (only if not using chunks)
     const maxChars = analysisSettings.maxTextLength * 1000;
-    const textToAnalyze = analysisSettings.autoTruncate && rawText.length > maxChars
-      ? rawText.slice(0, maxChars)
-      : rawText;
+    let textToAnalyze = rawText;
     
-    if (rawText.length > maxChars && analysisSettings.autoTruncate) {
+    if (!shouldUseChunks && analysisSettings.autoTruncate && rawText.length > maxChars) {
+      textToAnalyze = rawText.slice(0, maxChars);
       toast({
         title: isArabic ? 'تم تقليص النص' : 'Text Truncated',
         description: isArabic 
@@ -355,6 +370,97 @@ const Index = () => {
 
     setIsProcessing(true);
     updateStepStatus("analyze", "processing", 10);
+
+    // Use Job Queue for very large files (if enabled and user is logged in)
+    if (analysisSettings.useJobQueue && rawText.length > 200000 && user) {
+      try {
+        const jobId = await createAnalysisJob(rawText, 'extract_items', selectedFile?.name);
+        if (jobId) {
+          toast({
+            title: isArabic ? 'تم إنشاء مهمة التحليل' : 'Analysis Job Created',
+            description: isArabic 
+              ? 'سيتم معالجة الملف في الخلفية. يمكنك متابعة التقدم.'
+              : 'File will be processed in background. You can track progress.',
+          });
+          
+          // Start polling for job status
+          startPolling(
+            jobId,
+            (result) => {
+              setAnalysisData(result);
+              updateStepStatus("analyze", "complete", 100);
+              setIsProcessing(false);
+              toast({
+                title: isArabic ? 'اكتمل التحليل' : 'Analysis Complete',
+                description: isArabic 
+                  ? `تم تحليل ${result?.items?.length || 0} بند`
+                  : `Analyzed ${result?.items?.length || 0} items`,
+              });
+            },
+            (error) => {
+              updateStepStatus("analyze", "error");
+              setIsProcessing(false);
+              toast({
+                title: isArabic ? 'فشل التحليل' : 'Analysis Failed',
+                description: error,
+                variant: "destructive",
+              });
+            }
+          );
+          return;
+        }
+      } catch (jobError) {
+        console.error('Job queue error:', jobError);
+        // Fall back to regular analysis
+      }
+    }
+
+    // Use chunked analysis for large files
+    if (shouldUseChunks) {
+      try {
+        toast({
+          title: isArabic ? 'بدء التحليل المجزأ' : 'Starting Chunked Analysis',
+          description: isArabic 
+            ? `الملف كبير (${Math.round(rawText.length/1000)}K). سيتم تقسيمه لتحليل أفضل.`
+            : `Large file (${Math.round(rawText.length/1000)}K). Splitting for better analysis.`,
+        });
+
+        const result = await analyzeWithChunks(rawText, 'analyze-boq', {
+          chunkSize: analysisSettings.chunkSize * 1000,
+          useCompression: analysisSettings.enableCompression,
+          maxRetries: analysisSettings.maxRetries,
+        });
+
+        if (result?.items) {
+          // Normalize items
+          const normalizedItems = result.items.map((item: any) => ({
+            ...item,
+            item_number: item.itemNumber || item.item_number || '',
+            unit_price: item.unitPrice || item.unit_price || 0,
+            total_price: item.totalPrice || item.total_price || 0,
+            description: item.description || '',
+            unit: item.unit || 'م',
+            category: item.category || 'غير مصنف',
+          }));
+
+          setAnalysisData({
+            items: normalizedItems,
+            summary: result.summary,
+            chunksProcessed: result.chunksProcessed,
+          });
+          updateStepStatus("analyze", "complete", 100);
+          updateStepStatus("wbs", "complete");
+          updateStepStatus("export", "complete");
+        }
+
+        setIsProcessing(false);
+        return;
+      } catch (chunkError: any) {
+        console.error('Chunked analysis error:', chunkError);
+        // Fall back to regular analysis with truncation
+        textToAnalyze = rawText.slice(0, maxChars);
+      }
+    }
     
     // Track current attempt for error dialog
     let currentAttempt = 0;
@@ -367,6 +473,13 @@ const Index = () => {
     ) => {
       let lastError: any;
       let retryDelay = analysisSettings.retryDelay * 1000;
+
+      // Apply compression if enabled
+      if (analysisSettings.enableCompression && body.text) {
+        body.textCompressed = compressText(body.text);
+        body.isCompressed = true;
+        delete body.text;
+      }
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         currentAttempt = attempt;
@@ -919,6 +1032,15 @@ const Index = () => {
                         )}
                       </div>
                     </div>
+                  )}
+
+                  {/* Chunked Analysis Progress */}
+                  {chunkProgress.status !== 'idle' && (
+                    <ChunkedAnalysisProgress
+                      progress={chunkProgress}
+                      job={currentJob}
+                      onCancel={cancelAnalysis}
+                    />
                   )}
 
                   {!selectedFile && !isExtracting && (

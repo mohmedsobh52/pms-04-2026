@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings2, Zap, FileText, Gauge } from 'lucide-react';
+import { Settings2, Zap, FileText, Gauge, Layers, Archive } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,11 @@ export interface AnalysisSettings {
   enableRetry: boolean;
   maxRetries: number;
   retryDelay: number; // in seconds
+  // New chunked analysis settings
+  enableChunkedAnalysis: boolean;
+  chunkSize: number; // in thousands (20, 30, 40, 50)
+  enableCompression: boolean;
+  useJobQueue: boolean;
 }
 
 const DEFAULT_SETTINGS: AnalysisSettings = {
@@ -29,6 +34,10 @@ const DEFAULT_SETTINGS: AnalysisSettings = {
   enableRetry: true,
   maxRetries: 3,
   retryDelay: 2,
+  enableChunkedAnalysis: true,
+  chunkSize: 30,
+  enableCompression: true,
+  useJobQueue: false,
 };
 
 const STORAGE_KEY = 'analysis_settings';
@@ -213,6 +222,83 @@ export function AnalysisSettingsDialog({ trigger, onSettingsChange }: AnalysisSe
               </div>
             </div>
           )}
+
+          {/* Chunked Analysis Section */}
+          <div className="pt-4 border-t">
+            <div className="flex items-center justify-between mb-4">
+              <div className="space-y-0.5">
+                <Label className="flex items-center gap-2">
+                  <Layers className="h-4 w-4" />
+                  {isArabic ? 'التحليل المجزأ' : 'Chunked Analysis'}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {isArabic 
+                    ? 'تقسيم الملفات الكبيرة لتحليل أفضل' 
+                    : 'Split large files for better analysis'}
+                </p>
+              </div>
+              <Switch
+                checked={settings.enableChunkedAnalysis}
+                onCheckedChange={(checked) => setSettings(s => ({ ...s, enableChunkedAnalysis: checked }))}
+              />
+            </div>
+
+            {settings.enableChunkedAnalysis && (
+              <div className="space-y-4 pl-6 border-l-2 border-muted">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <Label>{isArabic ? 'حجم الجزء' : 'Chunk Size'}</Label>
+                    <span className="text-sm font-medium">{settings.chunkSize}K</span>
+                  </div>
+                  <Slider
+                    value={[settings.chunkSize]}
+                    onValueChange={([value]) => setSettings(s => ({ ...s, chunkSize: value }))}
+                    min={20}
+                    max={50}
+                    step={10}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Compression */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="flex items-center gap-2">
+                <Archive className="h-4 w-4" />
+                {isArabic ? 'ضغط البيانات' : 'Data Compression'}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {isArabic 
+                  ? 'ضغط النص قبل الإرسال (LZ-String)' 
+                  : 'Compress text before sending (LZ-String)'}
+              </p>
+            </div>
+            <Switch
+              checked={settings.enableCompression}
+              onCheckedChange={(checked) => setSettings(s => ({ ...s, enableCompression: checked }))}
+            />
+          </div>
+
+          {/* Job Queue (requires login) */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="flex items-center gap-2">
+                <Gauge className="h-4 w-4" />
+                {isArabic ? 'المعالجة الخلفية' : 'Background Processing'}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {isArabic 
+                  ? 'للملفات الضخمة (يتطلب تسجيل الدخول)' 
+                  : 'For huge files (requires login)'}
+              </p>
+            </div>
+            <Switch
+              checked={settings.useJobQueue}
+              onCheckedChange={(checked) => setSettings(s => ({ ...s, useJobQueue: checked }))}
+            />
+          </div>
         </div>
 
         <div className="flex gap-2 justify-end">
