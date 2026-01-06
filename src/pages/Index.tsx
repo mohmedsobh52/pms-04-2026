@@ -332,65 +332,83 @@ const Index = () => {
     setIsProcessing(true);
     updateStepStatus("analyze", "processing", 10);
 
-    // Helper function to invoke edge function with retry logic
+    // Helper function to invoke backend function with retry logic (network resilience)
     const invokeWithRetry = async (
-      functionName: string, 
-      body: any, 
+      functionName: string,
+      body: any,
       maxRetries: number = 3,
-      retryDelay: number = 2000
+      initialRetryDelay: number = 2000
     ) => {
       let lastError: any;
+      let retryDelay = initialRetryDelay;
+
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 120000);
-          
-          const result = await supabase.functions.invoke(functionName, { body });
-          
-          clearTimeout(timeoutId);
-          
-          if (result.error) {
-            // Check if it's a retryable error
-            const isRetryable = result.error.message?.includes('Failed to fetch') ||
-                               result.error.message?.includes('FunctionsFetchError') ||
-                               result.error.message?.includes('network') ||
-                               result.error.name === 'AbortError';
-            
-            if (isRetryable && attempt < maxRetries) {
-              console.warn(`Attempt ${attempt} failed, retrying in ${retryDelay}ms...`, result.error);
-              await new Promise(resolve => setTimeout(resolve, retryDelay));
-              retryDelay *= 1.5; // Exponential backoff
-              lastError = result.error;
-              continue;
-            }
-            throw result.error;
-          }
-          
-          return result;
-        } catch (err: any) {
-          const isRetryable = err.message?.includes('Failed to fetch') ||
-                             err.message?.includes('FunctionsFetchError') ||
-                             err.message?.includes('network') ||
-                             err.name === 'AbortError';
-          
+          const result = await supabase.functions.invoke(functionName, {
+            body,
+            timeout: 120000, // allow slow AI analysis
+          });
+
+          if (!result.error) return result;
+
+          const err: any = result.error;
+          const message = String(err?.message || '');
+          const name = String(err?.name || '');
+
+          const isRetryable =
+            name === 'FunctionsFetchError' ||
+            name === 'AbortError' ||
+            message.includes('Failed to fetch') ||
+            message.includes('FunctionsFetchError') ||
+            message.toLowerCase().includes('network');
+
           if (isRetryable && attempt < maxRetries) {
-            console.warn(`Attempt ${attempt} failed, retrying in ${retryDelay}ms...`, err);
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            console.warn(
+              `Function invoke failed (attempt ${attempt}/${maxRetries}); retrying in ${Math.round(retryDelay)}ms`,
+              err
+            );
+            await new Promise((resolve) => setTimeout(resolve, retryDelay));
+            retryDelay *= 1.5; // exponential backoff
+            lastError = err;
+            continue;
+          }
+
+          throw err;
+        } catch (err: any) {
+          const message = String(err?.message || '');
+          const name = String(err?.name || '');
+
+          const isRetryable =
+            name === 'FunctionsFetchError' ||
+            name === 'AbortError' ||
+            message.includes('Failed to fetch') ||
+            message.includes('FunctionsFetchError') ||
+            message.toLowerCase().includes('network');
+
+          if (isRetryable && attempt < maxRetries) {
+            console.warn(
+              `Function invoke threw (attempt ${attempt}/${maxRetries}); retrying in ${Math.round(retryDelay)}ms`,
+              err
+            );
+            await new Promise((resolve) => setTimeout(resolve, retryDelay));
             retryDelay *= 1.5;
             lastError = err;
             continue;
           }
+
           throw err;
         }
       }
+
       throw lastError;
     };
 
     try {
       // Extract items analysis with retry
+      // NOTE: disable schedule generation here to keep response smaller and more reliable
       const { data: itemsResult, error: itemsError } = await invokeWithRetry(
-        "analyze-boq", 
-        { text: textToAnalyze, analysis_type: "extract_items", language }
+        "analyze-boq",
+        { text: textToAnalyze, analysis_type: "extract_items", language, generate_schedule: false }
       );
 
       if (itemsError) throw itemsError;
@@ -446,7 +464,7 @@ const Index = () => {
       
       const { data: wbsResult, error: wbsError } = await invokeWithRetry(
         "analyze-boq",
-        { text: textToAnalyze, analysis_type: "create_wbs", language }
+        { text: textToAnalyze, analysis_type: "create_wbs", language, generate_schedule: false }
       );
 
       if (wbsError) throw wbsError;
