@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud } from "lucide-react";
 import { TableControls, BOQ_TABLE_COLUMNS } from "./TableControls";
 import {
   DropdownMenu,
@@ -53,6 +53,8 @@ import { SummaryDashboard } from "./SummaryDashboard";
 import { CompanyLogoUpload, getStoredLogo } from "./CompanyLogoUpload";
 import { useDynamicCostCalculator, CostInputs, defaultCostInputs } from "@/hooks/useDynamicCostCalculator";
 import { useItemCodes } from "@/hooks/useItemCodes";
+import { useEditedPrices } from "@/hooks/useEditedPrices";
+import { useAuth } from "@/hooks/useAuth";
 import { EditableItemCode } from "./EditableItemCode";
 import { EditableAIRate } from "./EditableAIRate";
 import { EditableUnitPrice } from "./EditableUnitPrice";
@@ -151,6 +153,7 @@ const getCostRange = (price: number): string => {
 export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedProjectId }: AnalysisResultsProps) {
   const { isArabic } = useLanguage();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"items" | "wbs" | "costs" | "summary" | "charts" | "timeline" | "integration">("items");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(getSavedCompanyInfo());
@@ -216,145 +219,73 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     return saved ? JSON.parse(saved) : BOQ_TABLE_COLUMNS.map(col => col.id);
   });
   
-  // ---- Manual edits persistence (Unit Price / Total) ----
-  const itemsSignature = useMemo(() => {
-    const ids = (data.items || [])
-      .map(i => i.item_number)
-      .filter(Boolean)
-      .sort();
-    const str = ids.join("|");
-    // simple stable hash (32-bit)
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
-    }
-    return hash.toString(16);
-  }, [data.items]);
-
-  const editedPricesKey = useMemo(() => {
-    if (savedProjectId) return `boq_edited_prices_project_${savedProjectId}`;
-    if (fileName) return `boq_edited_prices_file_${fileName}_${itemsSignature}`;
-    return `boq_edited_prices_default_${itemsSignature}`;
-  }, [savedProjectId, fileName, itemsSignature]);
-
-  const loadEditedPrices = useCallback((key: string) => {
-    try {
-      const saved = localStorage.getItem(key);
-      if (!saved) return {};
-      const parsed = JSON.parse(saved);
-      return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch (error) {
-      console.warn('Failed to load edited prices from localStorage:', error);
-      return {};
-    }
-  }, []);
-
-  const persistEditedPrices = useCallback((next: Record<string, { unit_price?: number; total_price?: number }>) => {
-    try {
-      localStorage.setItem(editedPricesKey, JSON.stringify(next));
-    } catch (error) {
-      // Avoid breaking editing if storage is blocked
-      console.warn('Failed to save edited prices to localStorage:', error);
-    }
-  }, [editedPricesKey]);
-
-  // State for manually edited unit prices and totals (loaded from storage)
-  const [editedPrices, setEditedPrices] = useState<Record<string, { unit_price?: number; total_price?: number }>>(() => {
-    const primary = loadEditedPrices(editedPricesKey);
-    if (Object.keys(primary).length > 0) return primary;
-
-    // Legacy fallback (older versions stored everything under default)
-    const legacy = loadEditedPrices('boq_edited_prices_default');
-    return legacy;
+  // ---- Manual edits persistence using database (instead of localStorage) ----
+  const {
+    editedPrices: dbEditedPrices,
+    isLoading: isLoadingPrices,
+    isSaving: isSavingPrices,
+    updateUnitPrice,
+    updateTotalPrice,
+    clearAllPrices,
+    getEditedPrice,
+    hasEditedPrice,
+    editedCount,
+  } = useEditedPrices({ 
+    savedProjectId, 
+    fileName: fileName || undefined 
   });
 
-  // Keep a ref so we can persist even if the component unmounts right after editing
-  const editedPricesRef = useRef(editedPrices);
-  const lastKeyRef = useRef(editedPricesKey);
+  // Convert database format to local format for compatibility
+  const editedPrices = useMemo(() => {
+    const result: Record<string, { unit_price?: number; total_price?: number }> = {};
+    Object.entries(dbEditedPrices).forEach(([itemNumber, price]) => {
+      result[itemNumber] = {
+        unit_price: price.unitPrice,
+        total_price: price.totalPrice,
+      };
+    });
+    return result;
+  }, [dbEditedPrices]);
 
-  useEffect(() => {
-    editedPricesRef.current = editedPrices;
-  }, [editedPrices]);
-
-  // If the key changes (new file / savedProjectId), load or migrate
-  useEffect(() => {
-    const prevKey = lastKeyRef.current;
-    if (prevKey === editedPricesKey) return;
-
-    // If we already have edits, migrate them to the new key
-    if (Object.keys(editedPricesRef.current || {}).length > 0) {
-      try {
-        localStorage.setItem(editedPricesKey, JSON.stringify(editedPricesRef.current));
-      } catch {}
-    } else {
-      setEditedPrices(loadEditedPrices(editedPricesKey));
-    }
-
-    lastKeyRef.current = editedPricesKey;
-  }, [editedPricesKey, loadEditedPrices]);
-
-  // Backup save (in case the user stays on the page)
-  useEffect(() => {
-    if (Object.keys(editedPrices).length > 0) {
-      persistEditedPrices(editedPrices);
-    }
-  }, [editedPrices, persistEditedPrices]);
-
-  // Handler for editing unit price (persist immediately)
+  // Handler for editing unit price (saves to database)
   const handleEditUnitPrice = useCallback((itemNumber: string, newPrice: number) => {
     const item = (data.items || []).find(i => i.item_number === itemNumber);
     if (!item) return;
 
     const qty = Number(item.quantity) || 0;
+    const newTotal = qty > 0 ? newPrice * qty : 0;
 
-    const next = {
-      ...editedPricesRef.current,
-      [itemNumber]: {
-        ...editedPricesRef.current[itemNumber],
-        unit_price: newPrice,
-        total_price: qty > 0 ? newPrice * qty : (editedPricesRef.current[itemNumber]?.total_price ?? 0),
-      },
-    };
-
-    // Persist BEFORE state update (so it won't be lost if the component unmounts right away)
-    persistEditedPrices(next);
-
-    editedPricesRef.current = next;
-    setEditedPrices(next);
+    // Update both unit price and calculated total
+    updateUnitPrice(itemNumber, newPrice);
+    if (qty > 0) {
+      updateTotalPrice(itemNumber, newTotal);
+    }
 
     toast({
       title: isArabic ? "تم التحديث" : "Updated",
       description: isArabic ? "تم تحديث سعر الوحدة" : "Unit price updated",
     });
-  }, [data.items, isArabic, toast, persistEditedPrices]);
+  }, [data.items, isArabic, toast, updateUnitPrice, updateTotalPrice]);
   
-  // Handler for editing total price (persist immediately)
+  // Handler for editing total price (saves to database)
   const handleEditTotalPrice = useCallback((itemNumber: string, newTotal: number) => {
     const item = (data.items || []).find(i => i.item_number === itemNumber);
     if (!item) return;
 
     const qty = Number(item.quantity) || 0;
-    const unit = qty > 0 ? newTotal / qty : (editedPricesRef.current[itemNumber]?.unit_price ?? 0);
+    const newUnitPrice = qty > 0 ? newTotal / qty : 0;
 
-    const next = {
-      ...editedPricesRef.current,
-      [itemNumber]: {
-        ...editedPricesRef.current[itemNumber],
-        total_price: newTotal,
-        unit_price: unit,
-      },
-    };
-
-    persistEditedPrices(next);
-
-    editedPricesRef.current = next;
-    setEditedPrices(next);
+    // Update both total price and calculated unit price
+    updateTotalPrice(itemNumber, newTotal);
+    if (qty > 0) {
+      updateUnitPrice(itemNumber, newUnitPrice);
+    }
 
     toast({
       title: isArabic ? "تم التحديث" : "Updated",
       description: isArabic ? "تم تحديث السعر الإجمالي" : "Total price updated",
     });
-  }, [data.items, isArabic, toast, persistEditedPrices]);
+  }, [data.items, isArabic, toast, updateUnitPrice, updateTotalPrice]);
   
   // Get effective price for an item (edited > original)
   const getEffectivePrice = useCallback((item: BOQItem) => {
@@ -366,22 +297,17 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   }, [editedPrices]);
 
   // Revert to original prices handler
-  const handleRevertToOriginal = useCallback(() => {
+  const handleRevertToOriginal = useCallback(async () => {
     clearAllCosts();
-    // Clear edited prices from state and localStorage
-    setEditedPrices({});
-    try {
-      localStorage.removeItem(editedPricesKey);
-    } catch (error) {
-      console.warn('Failed to clear edited prices from localStorage:', error);
-    }
+    // Clear edited prices from database
+    await clearAllPrices();
     setShowRevertConfirm(false);
     setRecentlyAppliedItems(new Set());
     toast({
       title: isArabic ? "تم الاسترجاع" : "Reverted to Original",
       description: isArabic ? "تم استعادة الأسعار الأصلية ومسح جميع التعديلات" : "Original BOQ prices restored, all AI rates and calculations cleared",
     });
-  }, [clearAllCosts, isArabic, toast, editedPricesKey]);
+  }, [clearAllCosts, clearAllPrices, isArabic, toast]);
 
   // Handle AI rates from MarketRateSuggestions - stores in aiSuggestedRate field
   const handleApplyAIRates = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
@@ -1282,6 +1208,33 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                 <Clock className="w-3 h-3" />
                 <span>{isArabic ? 'آخر حفظ:' : 'Auto-saved:'}</span>
                 <span className="font-medium">{lastSavedAt.toLocaleTimeString()}</span>
+              </div>
+            )}
+            {/* Cloud Sync Indicator for Edited Prices */}
+            {user && (
+              <div className={cn(
+                "flex items-center gap-1.5 text-xs px-2 py-1 rounded",
+                isSavingPrices 
+                  ? "text-yellow-600 bg-yellow-50 dark:bg-yellow-950/30" 
+                  : editedCount > 0 
+                    ? "text-green-600 bg-green-50 dark:bg-green-950/30"
+                    : "text-muted-foreground bg-muted/50"
+              )}>
+                <Cloud className={cn("w-3 h-3", isSavingPrices && "animate-pulse")} />
+                <span>
+                  {isSavingPrices 
+                    ? (isArabic ? 'جاري الحفظ...' : 'Syncing...') 
+                    : editedCount > 0 
+                      ? (isArabic ? `${editedCount} بند معدل (محفوظ)` : `${editedCount} edited (synced)`)
+                      : (isArabic ? 'متزامن' : 'Synced')
+                  }
+                </span>
+              </div>
+            )}
+            {!user && editedCount > 0 && (
+              <div className="flex items-center gap-1.5 text-xs text-orange-600 bg-orange-50 dark:bg-orange-950/30 px-2 py-1 rounded">
+                <CloudOff className="w-3 h-3" />
+                <span>{isArabic ? 'سجل دخول لحفظ التعديلات' : 'Login to save edits'}</span>
               </div>
             )}
           </div>

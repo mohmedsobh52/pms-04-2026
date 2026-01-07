@@ -529,6 +529,60 @@ export type Database = {
           },
         ]
       }
+      edited_boq_prices: {
+        Row: {
+          created_at: string
+          edited_total_price: number | null
+          edited_unit_price: number | null
+          file_name: string | null
+          id: string
+          item_number: string
+          project_id: string | null
+          saved_project_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          edited_total_price?: number | null
+          edited_unit_price?: number | null
+          file_name?: string | null
+          id?: string
+          item_number: string
+          project_id?: string | null
+          saved_project_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          edited_total_price?: number | null
+          edited_unit_price?: number | null
+          file_name?: string | null
+          id?: string
+          item_number?: string
+          project_id?: string | null
+          saved_project_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edited_boq_prices_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "edited_boq_prices_saved_project_id_fkey"
+            columns: ["saved_project_id"]
+            isOneToOne: false
+            referencedRelation: "saved_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       evm_alert_settings: {
         Row: {
           cpi_critical_threshold: number | null
