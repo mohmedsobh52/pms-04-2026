@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Database, Upload, FileSpreadsheet, Trash2, Eye, Calendar, MapPin, CheckCircle, XCircle, Plus, Search, Filter, ArrowLeft, BarChart3 } from "lucide-react";
+import { Database, Upload, FileSpreadsheet, FileText, Trash2, Eye, Calendar, MapPin, CheckCircle, XCircle, Plus, Search, Filter, ArrowLeft, BarChart3, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -123,30 +123,38 @@ export default function HistoricalPricingPage() {
     try {
       setIsUploading(true);
       setUploadedFileName(file.name);
-
-      const result = await extractDataFromExcel(file);
       
-      if (result.items && result.items.length > 0) {
-        const items: BOQItem[] = result.items.map((item: any) => ({
-          item_number: item.item_number || "",
-          description: item.description || "",
-          unit: item.unit || "",
-          quantity: parseFloat(item.quantity) || 0,
-          unit_price: parseFloat(item.unit_price) || 0,
-          total_price: parseFloat(item.total_price) || 0,
-        }));
-        setUploadedItems(items);
-        
-        toast({
-          title: "✅ تم قراءة الملف",
-          description: `تم استخراج ${items.length} بند من الملف`,
-        });
+      const isPDF = file.name.toLowerCase().endsWith('.pdf');
+      
+      if (isPDF) {
+        // Handle PDF with OCR
+        await handlePDFUpload(file);
       } else {
-        toast({
-          title: "لا توجد بنود",
-          description: "لم يتم العثور على بنود في الملف",
-          variant: "destructive",
-        });
+        // Handle Excel files
+        const result = await extractDataFromExcel(file);
+        
+        if (result.items && result.items.length > 0) {
+          const items: BOQItem[] = result.items.map((item: any) => ({
+            item_number: item.item_number || "",
+            description: item.description || "",
+            unit: item.unit || "",
+            quantity: parseFloat(item.quantity) || 0,
+            unit_price: parseFloat(item.unit_price) || 0,
+            total_price: parseFloat(item.total_price) || 0,
+          }));
+          setUploadedItems(items);
+          
+          toast({
+            title: "✅ تم قراءة الملف",
+            description: `تم استخراج ${items.length} بند من الملف`,
+          });
+        } else {
+          toast({
+            title: "لا توجد بنود",
+            description: "لم يتم العثور على بنود في الملف",
+            variant: "destructive",
+          });
+        }
       }
     } catch (error: any) {
       console.error("File upload error:", error);
@@ -157,6 +165,124 @@ export default function HistoricalPricingPage() {
       });
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handlePDFUpload = async (file: File) => {
+    try {
+      toast({
+        title: "جاري معالجة PDF...",
+        description: "قد يستغرق هذا بعض الوقت حسب حجم الملف",
+      });
+
+      // Import pdfjs dynamically
+      const pdfjsLib = await import('pdfjs-dist');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+      
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const numPages = pdf.numPages;
+      
+      toast({
+        title: "جاري استخراج الصفحات...",
+        description: `تم العثور على ${numPages} صفحة`,
+      });
+
+      const pageImages: string[] = [];
+      const maxPages = Math.min(numPages, 20); // Limit to 20 pages
+      
+      for (let i = 1; i <= maxPages; i++) {
+        const page = await pdf.getPage(i);
+        const scale = 2; // Higher scale for better OCR
+        const viewport = page.getViewport({ scale });
+        
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        
+        await page.render({
+          canvasContext: context!,
+          viewport: viewport
+        }).promise;
+        
+        const imageData = canvas.toDataURL('image/png');
+        pageImages.push(imageData);
+      }
+
+      toast({
+        title: "جاري استخراج النص (OCR)...",
+        description: `معالجة ${pageImages.length} صفحة`,
+      });
+
+      // Call OCR edge function
+      const { data: ocrResult, error: ocrError } = await supabase.functions.invoke('extract-text-ocr', {
+        body: {
+          images: pageImages,
+          fileName: file.name
+        }
+      });
+
+      if (ocrError) throw ocrError;
+
+      if (!ocrResult?.text) {
+        throw new Error('لم يتم استخراج نص من الملف');
+      }
+
+      toast({
+        title: "جاري تحليل البنود...",
+        description: "استخدام الذكاء الاصطناعي لاستخراج البنود",
+      });
+
+      // Parse BOQ items from OCR text using AI
+      const items = await parseOCRTextToBOQItems(ocrResult.text, file.name);
+      
+      if (items.length > 0) {
+        setUploadedItems(items);
+        toast({
+          title: "✅ تم استخراج البنود",
+          description: `تم استخراج ${items.length} بند من ملف PDF`,
+        });
+      } else {
+        toast({
+          title: "لم يتم العثور على بنود",
+          description: "حاول رفع ملف PDF يحتوي على جدول BOQ واضح",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("PDF processing error:", error);
+      throw error;
+    }
+  };
+
+  const parseOCRTextToBOQItems = async (text: string, fileName: string): Promise<BOQItem[]> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-boq', {
+        body: {
+          text: text.substring(0, 50000), // Limit text size
+          fileName,
+          extractItems: true
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.items && Array.isArray(data.items)) {
+        return data.items.map((item: any) => ({
+          item_number: item.item_number || item.itemNumber || "",
+          description: item.description || "",
+          unit: item.unit || "",
+          quantity: parseFloat(item.quantity) || 0,
+          unit_price: parseFloat(item.unit_price || item.unitPrice) || 0,
+          total_price: parseFloat(item.total_price || item.totalPrice) || 0,
+        }));
+      }
+      
+      return [];
+    } catch (error) {
+      console.error("Error parsing OCR text:", error);
+      return [];
     }
   };
 
@@ -325,20 +451,30 @@ export default function HistoricalPricingPage() {
               <div className="space-y-4">
                 {/* File Upload */}
                 <div className="space-y-2">
-                  <Label>ملف Excel</Label>
-                  <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                  <Label>ملف Excel أو PDF</Label>
+                  <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
                     <input
                       type="file"
-                      accept=".xlsx,.xls,.csv"
+                      accept=".xlsx,.xls,.csv,.pdf"
                       onChange={handleFileUpload}
                       className="hidden"
                       id="file-upload"
                       disabled={isUploading}
                     />
                     <label htmlFor="file-upload" className="cursor-pointer">
-                      <FileSpreadsheet className="w-12 h-12 mx-auto mb-2 text-muted-foreground" />
+                      {isUploading ? (
+                        <Loader2 className="w-12 h-12 mx-auto mb-2 text-primary animate-spin" />
+                      ) : (
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                          <FileSpreadsheet className="w-10 h-10 text-green-600" />
+                          <FileText className="w-10 h-10 text-red-600" />
+                        </div>
+                      )}
                       <p className="text-sm text-muted-foreground">
-                        {isUploading ? "جاري القراءة..." : "اضغط لاختيار ملف Excel"}
+                        {isUploading ? "جاري المعالجة..." : "اضغط لاختيار ملف Excel أو PDF"}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        xlsx, xls, csv, pdf
                       </p>
                       {uploadedFileName && (
                         <Badge variant="secondary" className="mt-2">
