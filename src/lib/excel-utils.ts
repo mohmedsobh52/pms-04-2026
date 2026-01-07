@@ -53,18 +53,21 @@ function detectColumnMapping(headers: string[]): Record<string, number> {
   return mapping;
 }
 
-function extractBOQItems(sheet: XLSX.WorkSheet): ExcelBOQItem[] {
+function extractBOQItems(sheet: XLSX.WorkSheet, maxRows: number = 500): ExcelBOQItem[] {
   const items: ExcelBOQItem[] = [];
-  const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
   
-  // Get all data as array of arrays
-  const data = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: '' });
+  // Use faster JSON conversion with row limit
+  const data = XLSX.utils.sheet_to_json<string[]>(sheet, { 
+    header: 1, 
+    defval: '',
+    range: maxRows // Limit rows for speed
+  });
   
   if (data.length < 2) return items;
   
-  // Try to find header row (usually first row with text)
+  // Find header row quickly
   let headerRowIndex = 0;
-  for (let i = 0; i < Math.min(10, data.length); i++) {
+  for (let i = 0; i < Math.min(5, data.length); i++) {
     const row = data[i];
     const nonEmptyCells = row.filter(cell => cell && cell.toString().trim()).length;
     if (nonEmptyCells >= 3) {
@@ -76,14 +79,15 @@ function extractBOQItems(sheet: XLSX.WorkSheet): ExcelBOQItem[] {
   const headers = data[headerRowIndex].map(h => h?.toString() || '');
   const columnMapping = detectColumnMapping(headers);
   
-  // Extract items from data rows
-  for (let i = headerRowIndex + 1; i < data.length; i++) {
+  // Extract items - limit to maxRows
+  const endRow = Math.min(data.length, maxRows);
+  for (let i = headerRowIndex + 1; i < endRow; i++) {
     const row = data[i];
     if (!row || row.every(cell => !cell || cell.toString().trim() === '')) continue;
     
     const item: ExcelBOQItem = {};
     
-    // Map known columns
+    // Map known columns only (skip raw data for speed)
     if (columnMapping.itemNo !== undefined) {
       item.itemNo = row[columnMapping.itemNo]?.toString();
     }
@@ -106,15 +110,6 @@ function extractBOQItems(sheet: XLSX.WorkSheet): ExcelBOQItem[] {
       item.totalPrice = isNaN(total) ? undefined : total;
     }
     
-    // Include all columns as raw data
-    headers.forEach((header, index) => {
-      if (header && row[index] !== undefined && row[index] !== '') {
-        const key = header.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_');
-        item[key] = row[index];
-      }
-    });
-    
-    // Only include items that have at least a description or item number
     if (item.description || item.itemNo) {
       items.push(item);
     }
@@ -123,13 +118,23 @@ function extractBOQItems(sheet: XLSX.WorkSheet): ExcelBOQItem[] {
   return items;
 }
 
-function sheetToText(sheet: XLSX.WorkSheet): string {
-  const data = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: '' });
+function sheetToText(sheet: XLSX.WorkSheet, maxRows: number = 300): string {
+  const data = XLSX.utils.sheet_to_json<string[]>(sheet, { 
+    header: 1, 
+    defval: '',
+    range: maxRows 
+  });
   
-  return data
-    .map(row => row.map(cell => cell?.toString().trim() || '').filter(Boolean).join(' | '))
-    .filter(row => row.length > 0)
-    .join('\n');
+  const rows: string[] = [];
+  const limit = Math.min(data.length, maxRows);
+  
+  for (let i = 0; i < limit; i++) {
+    const row = data[i];
+    const text = row.map(cell => cell?.toString().trim() || '').filter(Boolean).join(' | ');
+    if (text) rows.push(text);
+  }
+  
+  return rows.join('\n');
 }
 
 export interface ExcelProgressCallback {
@@ -158,14 +163,16 @@ export async function extractDataFromExcel(
         onProgress?.('parsing', 0, 'جاري تحليل البيانات...');
         
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        // Read with codepage support for Arabic (Windows-1256)
+        
+        // OPTIMIZED: Use minimal parsing options for speed
         const workbook = XLSX.read(data, { 
           type: 'array',
-          codepage: 65001, // UTF-8
-          cellDates: true,
-          cellNF: true,
-          cellStyles: true,
-          raw: false,
+          codepage: 65001,
+          cellFormula: false,  // Skip formulas
+          cellHTML: false,     // Skip HTML
+          cellStyles: false,   // Skip styles - major speedup!
+          cellNF: false,       // Skip number formats
+          sheetRows: 500,      // Limit rows per sheet
         });
         
         onProgress?.('parsing', 50, 'تم تحليل الملف بنجاح');
@@ -175,26 +182,28 @@ export async function extractDataFromExcel(
         let allItems: ExcelBOQItem[] = [];
         let totalRows = 0;
         
-        const totalSheets = sheetNames.length;
+        // OPTIMIZED: Process max 3 sheets
+        const sheetsToProcess = Math.min(sheetNames.length, 3);
         
-        sheetNames.forEach((sheetName, index) => {
-          const sheetProgress = Math.round(((index + 1) / totalSheets) * 100);
-          onProgress?.('extracting', sheetProgress, `جاري استخراج الورقة ${index + 1} من ${totalSheets}: ${sheetName}`);
+        for (let i = 0; i < sheetsToProcess; i++) {
+          const sheetName = sheetNames[i];
+          const sheetProgress = Math.round(((i + 1) / sheetsToProcess) * 100);
+          onProgress?.('extracting', sheetProgress, `جاري استخراج الورقة ${i + 1} من ${sheetsToProcess}: ${sheetName}`);
           
           const sheet = workbook.Sheets[sheetName];
-          const text = sheetToText(sheet);
-          const items = extractBOQItems(sheet);
+          const text = sheetToText(sheet, 300);
+          const items = extractBOQItems(sheet, 500);
           
           if (text) {
-            if (index > 0) allText += '\n\n--- ' + sheetName + ' ---\n\n';
+            if (i > 0) allText += '\n\n--- ' + sheetName + ' ---\n\n';
             allText += text;
           }
           
-          allItems = [...allItems, ...items];
+          allItems = allItems.concat(items);
           
           const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
-          totalRows += range.e.r - range.s.r + 1;
-        });
+          totalRows += Math.min(range.e.r - range.s.r + 1, 500);
+        }
         
         onProgress?.('formatting', 50, 'جاري تنسيق البيانات...');
         
