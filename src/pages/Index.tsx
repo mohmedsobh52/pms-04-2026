@@ -1199,6 +1199,7 @@ const Index = () => {
                     wbsData={wbsData} 
                     onApplyRate={handleApplyRate}
                     savedProjectId={savedProjectId || undefined}
+                    fileName={selectedFile?.name}
                   />
                   
                   {/* Comprehensive Report Section */}

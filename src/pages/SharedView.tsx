@@ -170,6 +170,7 @@ export default function SharedView() {
         <AnalysisResults 
           data={sharedData.analysis_data} 
           wbsData={sharedData.wbs_data} 
+          fileName={sharedData.file_name || undefined}
         />
       </main>
 
