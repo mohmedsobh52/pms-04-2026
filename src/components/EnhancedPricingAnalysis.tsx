@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Brain, Sparkles, TrendingUp, TrendingDown, Minus, CheckCircle2, AlertTriangle, Loader2, Settings2, BarChart3, Users, Shield, Calculator, ChevronDown, ChevronRight, Target, Lightbulb } from "lucide-react";
+import { Brain, Sparkles, TrendingUp, TrendingDown, Minus, CheckCircle2, AlertTriangle, Loader2, Settings2, BarChart3, Users, Shield, Calculator, ChevronDown, ChevronRight, Target, Lightbulb, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import { useAnalysisTracking } from "@/hooks/useAnalysisTracking";
 import { AnalyzerWeightsDialog } from "./AnalyzerWeightsDialog";
 import { HistoricalPriceComparison } from "./HistoricalPriceComparison";
 import { EnhancedAnalysisPDFReport } from "./EnhancedAnalysisPDFReport";
+import { Link } from "react-router-dom";
 interface BOQItem {
   item_number: string;
   description: string;
@@ -341,7 +342,13 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
                 </>
               )}
 
-              <div className="mr-auto">
+              <div className="mr-auto flex items-center gap-2">
+                <Link to="/historical-pricing">
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Database className="w-4 h-4" />
+                    قاعدة البيانات التاريخية
+                  </Button>
+                </Link>
                 <AnalyzerWeightsDialog onWeightsChange={setCustomWeights} />
               </div>
             </div>

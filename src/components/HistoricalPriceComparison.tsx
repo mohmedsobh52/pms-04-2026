@@ -64,22 +64,51 @@ export function HistoricalPriceComparison({ items, suggestions, onApplyAdjustedP
   const [historicalProjects, setHistoricalProjects] = useState<any[]>([]);
   const { toast } = useToast();
 
-  // Load historical projects from saved projects
+  // Load historical projects from saved projects AND historical pricing files
   useEffect(() => {
     const loadHistoricalData = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data, error } = await supabase
+        // Load from saved_projects
+        const { data: savedProjects, error: savedError } = await supabase
           .from("saved_projects")
           .select("id, name, analysis_data, created_at")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .limit(20);
 
-        if (error) throw error;
-        setHistoricalProjects(data || []);
+        if (savedError) throw savedError;
+
+        // Load from historical_pricing_files (new dedicated table)
+        const { data: historicalFiles, error: histError } = await supabase
+          .from("historical_pricing_files")
+          .select("id, project_name, items, project_date, is_verified, project_location")
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        if (histError) {
+          console.error("Failed to load historical files:", histError);
+        }
+
+        // Combine both sources
+        const combined = [
+          ...(savedProjects || []).map(p => ({
+            ...p,
+            source: 'saved_project' as const
+          })),
+          ...(historicalFiles || []).map(h => ({
+            id: h.id,
+            name: h.project_name,
+            analysis_data: { items: h.items },
+            created_at: h.project_date || new Date().toISOString(),
+            is_verified: h.is_verified,
+            source: 'historical_file' as const
+          }))
+        ];
+
+        setHistoricalProjects(combined);
       } catch (error) {
         console.error("Failed to load historical projects:", error);
       }

@@ -628,6 +628,57 @@ export type Database = {
         }
         Relationships: []
       }
+      historical_pricing_files: {
+        Row: {
+          created_at: string
+          currency: string | null
+          file_name: string
+          id: string
+          is_verified: boolean | null
+          items: Json
+          items_count: number | null
+          notes: string | null
+          project_date: string | null
+          project_location: string | null
+          project_name: string
+          total_value: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string | null
+          file_name: string
+          id?: string
+          is_verified?: boolean | null
+          items?: Json
+          items_count?: number | null
+          notes?: string | null
+          project_date?: string | null
+          project_location?: string | null
+          project_name: string
+          total_value?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string | null
+          file_name?: string
+          id?: string
+          is_verified?: boolean | null
+          items?: Json
+          items_count?: number | null
+          notes?: string | null
+          project_date?: string | null
+          project_location?: string | null
+          project_name?: string
+          total_value?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       item_costs: {
         Row: {
           admin: number | null
