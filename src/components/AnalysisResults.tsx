@@ -216,8 +216,55 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     return saved ? JSON.parse(saved) : BOQ_TABLE_COLUMNS.map(col => col.id);
   });
   
-  // State for manually edited unit prices and totals
-  const [editedPrices, setEditedPrices] = useState<Record<string, { unit_price?: number; total_price?: number }>>({});
+  // Storage key for edited prices (unique per file)
+  const editedPricesKey = `boq_edited_prices_${fileName || 'default'}`;
+  
+  // State for manually edited unit prices and totals - load from localStorage
+  const [editedPrices, setEditedPrices] = useState<Record<string, { unit_price?: number; total_price?: number }>>(() => {
+    try {
+      const saved = localStorage.getItem(editedPricesKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        console.log('Loaded edited prices from storage:', Object.keys(parsed).length, 'items');
+        return parsed;
+      }
+    } catch (error) {
+      console.warn('Failed to load edited prices from localStorage:', error);
+    }
+    return {};
+  });
+  
+  // Save edited prices to localStorage whenever they change
+  useEffect(() => {
+    if (Object.keys(editedPrices).length > 0) {
+      try {
+        localStorage.setItem(editedPricesKey, JSON.stringify(editedPrices));
+        console.log('Saved edited prices to storage:', Object.keys(editedPrices).length, 'items');
+      } catch (error) {
+        console.warn('Failed to save edited prices to localStorage:', error);
+      }
+    }
+  }, [editedPrices, editedPricesKey]);
+  
+  // Clear edited prices when data changes (new file uploaded)
+  useEffect(() => {
+    // Only clear if the data items have actually changed (new file)
+    const currentItemNumbers = (data.items || []).map(i => i.item_number).sort().join(',');
+    const storedKey = `boq_items_signature_${fileName || 'default'}`;
+    const savedSignature = localStorage.getItem(storedKey);
+    
+    if (savedSignature && savedSignature !== currentItemNumbers) {
+      // Items have changed, clear edited prices for this file
+      console.log('Data items changed, clearing edited prices');
+      setEditedPrices({});
+      localStorage.removeItem(editedPricesKey);
+    }
+    
+    // Save current signature
+    if (currentItemNumbers) {
+      localStorage.setItem(storedKey, currentItemNumbers);
+    }
+  }, [data.items, fileName, editedPricesKey]);
   
   // Handler for editing unit price
   const handleEditUnitPrice = useCallback((itemNumber: string, newPrice: number) => {
@@ -269,13 +316,20 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   // Revert to original prices handler
   const handleRevertToOriginal = useCallback(() => {
     clearAllCosts();
+    // Clear edited prices from state and localStorage
+    setEditedPrices({});
+    try {
+      localStorage.removeItem(editedPricesKey);
+    } catch (error) {
+      console.warn('Failed to clear edited prices from localStorage:', error);
+    }
     setShowRevertConfirm(false);
     setRecentlyAppliedItems(new Set());
     toast({
       title: isArabic ? "تم الاسترجاع" : "Reverted to Original",
       description: isArabic ? "تم استعادة الأسعار الأصلية ومسح جميع التعديلات" : "Original BOQ prices restored, all AI rates and calculations cleared",
     });
-  }, [clearAllCosts, isArabic, toast]);
+  }, [clearAllCosts, isArabic, toast, editedPricesKey]);
 
   // Handle AI rates from MarketRateSuggestions - stores in aiSuggestedRate field
   const handleApplyAIRates = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
