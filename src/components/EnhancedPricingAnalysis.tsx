@@ -53,10 +53,10 @@ interface EnhancedPricingAnalysisProps {
 }
 
 const ANALYZERS = [
-  { id: "construction_expert", name: "Construction Expert", nameAr: "خبير البناء", icon: Users, description: "20+ years Saudi construction experience" },
-  { id: "market_analyst", name: "Market Analyst", nameAr: "محلل السوق", icon: BarChart3, description: "Current market trends & pricing" },
-  { id: "quantity_surveyor", name: "Quantity Surveyor", nameAr: "مهندس كميات", icon: Calculator, description: "Detailed cost breakdowns" },
-  { id: "risk_assessor", name: "Risk Assessor", nameAr: "مقيّم المخاطر", icon: Shield, description: "Risk-adjusted pricing" },
+  { id: "construction_expert", name: "Construction Expert", nameAr: "خبير البناء", icon: Users, description: "خبرة 25+ سنة في السعودية مع أسعار مرجعية" },
+  { id: "market_analyst", name: "Market Analyst", nameAr: "محلل السوق", icon: BarChart3, description: "أسعار السوق الحالية 2024-2025" },
+  { id: "quantity_surveyor", name: "Quantity Surveyor", nameAr: "مهندس كميات", icon: Calculator, description: "تحليل تفصيلي للتكاليف" },
+  { id: "database_comparator", name: "Historical Database", nameAr: "قاعدة بيانات تاريخية", icon: Shield, description: "مقارنة مع مشاريع سابقة حقيقية" },
 ];
 
 const LOCATIONS = [
@@ -72,7 +72,7 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [location, setLocation] = useState("Riyadh");
-  const [activeAnalyzers, setActiveAnalyzers] = useState<string[]>(["construction_expert", "market_analyst", "quantity_surveyor", "risk_assessor"]);
+  const [activeAnalyzers, setActiveAnalyzers] = useState<string[]>(["construction_expert", "market_analyst", "quantity_surveyor", "database_comparator"]);
   const [suggestions, setSuggestions] = useState<EnhancedSuggestion[]>([]);
   const [summary, setSummary] = useState<any>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
