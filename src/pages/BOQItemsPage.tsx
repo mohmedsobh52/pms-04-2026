@@ -52,6 +52,7 @@ const BOQItemsPage = () => {
         data={analysisData} 
         wbsData={wbsData} 
         onApplyRate={handleApplyRate}
+        fileName={(analysisData as any)?.file_name}
       />
     </PageLayout>
   );
