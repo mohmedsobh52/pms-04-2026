@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown, Paperclip, Users, Copy, Settings2 } from "lucide-react";
+import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown, Paperclip, Users, Copy, Settings2, FileSpreadsheet } from "lucide-react";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -90,6 +90,7 @@ const Index = () => {
   const [isOCRProcessing, setIsOCRProcessing] = useState(false);
   const [ocrProgress, setOcrProgress] = useState<{ current: number; total: number } | null>(null);
   const [pdfProgress, setPdfProgress] = useState<{ current: number; total: number } | null>(null);
+  const [excelProgress, setExcelProgress] = useState<{ stage: string; progress: number; message: string } | null>(null);
   const [showBOQComparison, setShowBOQComparison] = useState(false);
   const [showP6Export, setShowP6Export] = useState(false);
   const [showComprehensiveReport, setShowComprehensiveReport] = useState(false);
@@ -173,7 +174,10 @@ const Index = () => {
       });
       
       try {
-        const result = await extractDataFromExcel(file);
+        const result = await extractDataFromExcel(file, (stage, progress, message) => {
+          setExcelProgress({ stage, progress, message: message || '' });
+        });
+        setExcelProgress(null);
         const formattedText = formatExcelDataForAnalysis(result);
         
         if (formattedText.length > 50) {
@@ -1010,6 +1014,38 @@ const Index = () => {
                             </Button>
                           </div>
                         </div>
+                      </div>
+                    </div>
+                    )}
+
+                  {/* Excel Processing Progress */}
+                  {isExtracting && excelProgress && (
+                    <div className="glass-card p-6 animate-slide-up">
+                      <div className="flex items-center gap-4">
+                        <FileSpreadsheet className="w-8 h-8 text-green-500 animate-pulse" />
+                        <div className="flex-1">
+                          <h3 className="font-display font-semibold">
+                            {isArabic ? 'جاري معالجة ملف Excel' : 'Processing Excel File'}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {excelProgress.message}
+                          </p>
+                        </div>
+                        <span className="text-sm font-medium text-primary">
+                          {excelProgress.progress}%
+                        </span>
+                      </div>
+                      <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-300" 
+                          style={{ width: `${excelProgress.progress}%` }}
+                        />
+                      </div>
+                      <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+                        <span>{isArabic ? 'قراءة' : 'Reading'}</span>
+                        <span>{isArabic ? 'تحليل' : 'Parsing'}</span>
+                        <span>{isArabic ? 'استخراج' : 'Extracting'}</span>
+                        <span>{isArabic ? 'تنسيق' : 'Formatting'}</span>
                       </div>
                     </div>
                   )}

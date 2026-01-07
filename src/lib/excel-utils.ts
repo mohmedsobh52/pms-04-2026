@@ -132,12 +132,31 @@ function sheetToText(sheet: XLSX.WorkSheet): string {
     .join('\n');
 }
 
-export async function extractDataFromExcel(file: File): Promise<ExcelExtractionResult> {
+export interface ExcelProgressCallback {
+  (stage: 'reading' | 'parsing' | 'extracting' | 'formatting', progress: number, message?: string): void;
+}
+
+export async function extractDataFromExcel(
+  file: File, 
+  onProgress?: ExcelProgressCallback
+): Promise<ExcelExtractionResult> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     
+    // Report initial progress
+    onProgress?.('reading', 0, 'جاري قراءة الملف...');
+    
+    reader.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        onProgress?.('reading', percent, `جاري قراءة الملف... ${percent}%`);
+      }
+    };
+    
     reader.onload = (e) => {
       try {
+        onProgress?.('parsing', 0, 'جاري تحليل البيانات...');
+        
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         // Read with codepage support for Arabic (Windows-1256)
         const workbook = XLSX.read(data, { 
@@ -149,12 +168,19 @@ export async function extractDataFromExcel(file: File): Promise<ExcelExtractionR
           raw: false,
         });
         
+        onProgress?.('parsing', 50, 'تم تحليل الملف بنجاح');
+        
         const sheetNames = workbook.SheetNames;
         let allText = '';
         let allItems: ExcelBOQItem[] = [];
         let totalRows = 0;
         
+        const totalSheets = sheetNames.length;
+        
         sheetNames.forEach((sheetName, index) => {
+          const sheetProgress = Math.round(((index + 1) / totalSheets) * 100);
+          onProgress?.('extracting', sheetProgress, `جاري استخراج الورقة ${index + 1} من ${totalSheets}: ${sheetName}`);
+          
           const sheet = workbook.Sheets[sheetName];
           const text = sheetToText(sheet);
           const items = extractBOQItems(sheet);
@@ -170,6 +196,8 @@ export async function extractDataFromExcel(file: File): Promise<ExcelExtractionR
           totalRows += range.e.r - range.s.r + 1;
         });
         
+        onProgress?.('formatting', 50, 'جاري تنسيق البيانات...');
+        
         // Clean up any mojibake in extracted items
         allItems = allItems.map(item => ({
           ...item,
@@ -177,6 +205,8 @@ export async function extractDataFromExcel(file: File): Promise<ExcelExtractionR
           description: cleanMojibake(item.description),
           unit: cleanMojibake(item.unit),
         }));
+        
+        onProgress?.('formatting', 100, `تم استخراج ${allItems.length} عنصر`);
         
         resolve({
           text: cleanMojibake(allText) || allText,
