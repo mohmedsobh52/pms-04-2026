@@ -172,6 +172,16 @@ export const translations = {
     // Tab Labels
     items: "Items",
     timeSchedule: "Time Schedule",
+    
+    // Estimated Time
+    estimatedTime: "Estimated Time",
+    estimatedTimeDesc: "Based on file size",
+    seconds: "seconds",
+    minutes: "minutes",
+    processingLargeFile: "Processing large file",
+    autoChunkingEnabled: "Auto-chunking enabled",
+    splittingIntoBatches: "Splitting into smaller batches",
+    batchProgress: "Batch progress",
   },
   ar: {
     // Header
@@ -346,6 +356,16 @@ export const translations = {
     // Tab Labels
     items: "Items",
     timeSchedule: "Time Schedule",
+    
+    // Estimated Time
+    estimatedTime: "الوقت المتوقع",
+    estimatedTimeDesc: "بناءً على حجم الملف",
+    seconds: "ثانية",
+    minutes: "دقيقة",
+    processingLargeFile: "جاري معالجة ملف كبير",
+    autoChunkingEnabled: "التقسيم التلقائي مفعل",
+    splittingIntoBatches: "جاري التقسيم إلى دفعات صغيرة",
+    batchProgress: "تقدم الدفعة",
   },
 } as const;
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings2, Zap, FileText, Gauge, Layers, Archive } from 'lucide-react';
+import { Settings2, Zap, FileText, Gauge, Layers, Archive, Clock, SplitSquareVertical } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,10 @@ export interface AnalysisSettings {
   chunkSize: number; // in thousands (20, 30, 40, 50)
   enableCompression: boolean;
   useJobQueue: boolean;
+  // Auto-chunk for large files
+  autoChunkLargeFiles: boolean;
+  autoChunkThreshold: number; // in KB (size threshold for auto-chunking)
+  showEstimatedTime: boolean;
 }
 
 const DEFAULT_SETTINGS: AnalysisSettings = {
@@ -38,6 +42,9 @@ const DEFAULT_SETTINGS: AnalysisSettings = {
   chunkSize: 30,
   enableCompression: true,
   useJobQueue: false,
+  autoChunkLargeFiles: true,
+  autoChunkThreshold: 500, // 500KB
+  showEstimatedTime: true,
 };
 
 const STORAGE_KEY = 'analysis_settings';
@@ -281,22 +288,66 @@ export function AnalysisSettingsDialog({ trigger, onSettingsChange }: AnalysisSe
             />
           </div>
 
-          {/* Job Queue (requires login) */}
+          {/* Auto-chunk large files */}
+          <div className="pt-4 border-t">
+            <div className="flex items-center justify-between mb-4">
+              <div className="space-y-0.5">
+                <Label className="flex items-center gap-2">
+                  <SplitSquareVertical className="h-4 w-4" />
+                  {isArabic ? 'تقسيم تلقائي للملفات الكبيرة' : 'Auto-chunk Large Files'}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {isArabic 
+                    ? 'تقسيم الملفات الكبيرة تلقائياً إلى دفعات صغيرة' 
+                    : 'Automatically split large files into smaller batches'}
+                </p>
+              </div>
+              <Switch
+                checked={settings.autoChunkLargeFiles}
+                onCheckedChange={(checked) => setSettings(s => ({ ...s, autoChunkLargeFiles: checked }))}
+              />
+            </div>
+
+            {settings.autoChunkLargeFiles && (
+              <div className="space-y-4 pl-6 border-l-2 border-muted">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <Label>{isArabic ? 'حد التقسيم (KB)' : 'Chunk Threshold (KB)'}</Label>
+                    <span className="text-sm font-medium">{settings.autoChunkThreshold} KB</span>
+                  </div>
+                  <Slider
+                    value={[settings.autoChunkThreshold]}
+                    onValueChange={([value]) => setSettings(s => ({ ...s, autoChunkThreshold: value }))}
+                    min={100}
+                    max={1000}
+                    step={100}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {isArabic 
+                      ? `الملفات أكبر من ${settings.autoChunkThreshold} KB ستُقسم تلقائياً`
+                      : `Files larger than ${settings.autoChunkThreshold} KB will be auto-chunked`}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Show Estimated Time */}
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label className="flex items-center gap-2">
-                <Gauge className="h-4 w-4" />
-                {isArabic ? 'المعالجة الخلفية' : 'Background Processing'}
+                <Clock className="h-4 w-4" />
+                {isArabic ? 'عرض الوقت المتوقع' : 'Show Estimated Time'}
               </Label>
               <p className="text-xs text-muted-foreground">
                 {isArabic 
-                  ? 'للملفات الضخمة (يتطلب تسجيل الدخول)' 
-                  : 'For huge files (requires login)'}
+                  ? 'عرض تقدير للوقت المتوقع لإكمال التحليل' 
+                  : 'Display estimated time for analysis completion'}
               </p>
             </div>
             <Switch
-              checked={settings.useJobQueue}
-              onCheckedChange={(checked) => setSettings(s => ({ ...s, useJobQueue: checked }))}
+              checked={settings.showEstimatedTime}
+              onCheckedChange={(checked) => setSettings(s => ({ ...s, showEstimatedTime: checked }))}
             />
           </div>
         </div>

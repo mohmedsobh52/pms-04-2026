@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown, Paperclip, Users, Copy, Settings2, FileSpreadsheet } from "lucide-react";
+import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown, Paperclip, Users, Copy, Settings2, FileSpreadsheet, Clock } from "lucide-react";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -36,6 +36,7 @@ import { AnalysisSettingsDialog, getAnalysisSettings, type AnalysisSettings } fr
 import { ConnectionErrorDialog, detectErrorType, type ConnectionError } from "@/components/ConnectionErrorDialog";
 import { ChunkedAnalysisProgress } from "@/components/ChunkedAnalysisProgress";
 import { useChunkedAnalysis, compressText } from "@/hooks/useChunkedAnalysis";
+import { EstimatedAnalysisTime } from "@/components/EstimatedAnalysisTime";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -362,7 +363,11 @@ const Index = () => {
 
     // Check if we should use chunked analysis for large files
     const chunkThreshold = analysisSettings.chunkSize * 1000;
-    const shouldUseChunks = analysisSettings.enableChunkedAnalysis && rawText.length > chunkThreshold;
+    const autoChunkThresholdBytes = (analysisSettings.autoChunkThreshold || 500) * 1024;
+    
+    // Auto-chunk large files if enabled
+    const shouldAutoChunk = analysisSettings.autoChunkLargeFiles && rawText.length > autoChunkThresholdBytes;
+    const shouldUseChunks = (analysisSettings.enableChunkedAnalysis && rawText.length > chunkThreshold) || shouldAutoChunk;
 
     // Apply text truncation based on settings (only if not using chunks)
     const maxChars = analysisSettings.maxTextLength * 1000;
@@ -375,6 +380,18 @@ const Index = () => {
         description: isArabic 
           ? `تم تقليص النص من ${Math.round(rawText.length/1000)}K إلى ${analysisSettings.maxTextLength}K حرف`
           : `Text reduced from ${Math.round(rawText.length/1000)}K to ${analysisSettings.maxTextLength}K chars`,
+      });
+    }
+    
+    // Show auto-chunking notification
+    if (shouldAutoChunk) {
+      const estimatedBatches = Math.ceil(rawText.length / chunkThreshold);
+      toast({
+        title: t('autoChunkingEnabled'),
+        description: isArabic 
+          ? `سيتم تقسيم الملف إلى ${estimatedBatches} دفعة للتحليل الأفضل`
+          : `File will be split into ${estimatedBatches} batches for better analysis`,
+        duration: 5000,
       });
     }
 
@@ -1215,6 +1232,19 @@ const Index = () => {
                       </Button>
                     </div>
                   </div>
+                  
+                  {/* Estimated Time Display */}
+                  {analysisSettings.showEstimatedTime && (
+                    <div className="mb-4">
+                      <EstimatedAnalysisTime
+                        textLength={extractedText.length}
+                        isAutoChunking={analysisSettings.autoChunkLargeFiles && extractedText.length > (analysisSettings.autoChunkThreshold || 500) * 1024}
+                        chunkSize={analysisSettings.chunkSize}
+                        isProcessing={isProcessing}
+                      />
+                    </div>
+                  )}
+                  
                   <div className="bg-muted rounded-xl p-4 max-h-48 overflow-y-auto">
                     <pre className="text-sm text-muted-foreground whitespace-pre-wrap font-mono" dir="auto">
                       {extractedText.slice(0, 1000)}
