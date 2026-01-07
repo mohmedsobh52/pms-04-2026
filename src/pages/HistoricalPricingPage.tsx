@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Database, Upload, FileSpreadsheet, Trash2, Eye, Calendar, MapPin, CheckCircle, XCircle, Plus, Search, Filter, ArrowLeft } from "lucide-react";
+import { Database, Upload, FileSpreadsheet, Trash2, Eye, Calendar, MapPin, CheckCircle, XCircle, Plus, Search, Filter, ArrowLeft, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,7 +19,9 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { extractDataFromExcel } from "@/lib/excel-utils";
 import { Link } from "react-router-dom";
 import { PageLayout } from "@/components/PageLayout";
-
+import { HistoricalPricingStats } from "@/components/HistoricalPricingStats";
+import { HistoricalPricingPDFReport } from "@/components/HistoricalPricingPDFReport";
+import { ImportFromSavedProjects } from "@/components/ImportFromSavedProjects";
 interface HistoricalFile {
   id: string;
   file_name: string;
@@ -63,6 +66,7 @@ export default function HistoricalPricingPage() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<HistoricalFile | null>(null);
+  const [activeTab, setActiveTab] = useState("files");
   
   // Upload form state
   const [projectName, setProjectName] = useState("");
@@ -297,12 +301,19 @@ export default function HistoricalPricingPage() {
           </div>
 
           <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="w-4 h-4" />
-                رفع ملف جديد
-              </Button>
-            </DialogTrigger>
+            <div className="flex items-center gap-2">
+              <ImportFromSavedProjects 
+                onImportComplete={loadFiles}
+                existingProjectNames={files.map(f => f.project_name)}
+              />
+              <HistoricalPricingPDFReport historicalFiles={files} />
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  رفع ملف جديد
+                </Button>
+              </DialogTrigger>
+            </div>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
@@ -458,35 +469,49 @@ export default function HistoricalPricingPage() {
           </Dialog>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <p className="text-3xl font-bold text-primary">{files.length}</p>
-              <p className="text-sm text-muted-foreground">ملف تاريخي</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <p className="text-3xl font-bold text-blue-600">{totalItems.toLocaleString()}</p>
-              <p className="text-sm text-muted-foreground">بند إجمالي</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <p className="text-3xl font-bold text-green-600">{verifiedCount}</p>
-              <p className="text-sm text-muted-foreground">ملف موثق</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <p className="text-3xl font-bold text-orange-600">
-                {new Set(files.map(f => f.project_location).filter(Boolean)).size}
-              </p>
-              <p className="text-sm text-muted-foreground">موقع مختلف</p>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Tabs for Files and Statistics */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="files" className="gap-2">
+              <Database className="w-4 h-4" />
+              الملفات ({files.length})
+            </TabsTrigger>
+            <TabsTrigger value="stats" className="gap-2">
+              <BarChart3 className="w-4 h-4" />
+              الإحصائيات
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="files" className="space-y-4 mt-4">
+            {/* Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <p className="text-3xl font-bold text-primary">{files.length}</p>
+                  <p className="text-sm text-muted-foreground">ملف تاريخي</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <p className="text-3xl font-bold text-blue-600">{totalItems.toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">بند إجمالي</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <p className="text-3xl font-bold text-green-600">{verifiedCount}</p>
+                  <p className="text-sm text-muted-foreground">ملف موثق</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <p className="text-3xl font-bold text-orange-600">
+                    {new Set(files.map(f => f.project_location).filter(Boolean)).size}
+                  </p>
+                  <p className="text-sm text-muted-foreground">موقع مختلف</p>
+                </CardContent>
+              </Card>
+            </div>
 
         {/* Filters */}
         <div className="flex flex-col md:flex-row gap-4">
@@ -602,6 +627,12 @@ export default function HistoricalPricingPage() {
             ))}
           </div>
         )}
+          </TabsContent>
+
+          <TabsContent value="stats" className="mt-4">
+            <HistoricalPricingStats files={files} />
+          </TabsContent>
+        </Tabs>
 
         {/* View Dialog */}
         <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
