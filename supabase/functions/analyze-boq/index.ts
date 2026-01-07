@@ -630,15 +630,42 @@ Use the submit_boq_analysis function to return your structured analysis.`;
     };
 
     console.log("Request body prepared, sending to AI Gateway...");
+    console.log(`Text being analyzed: ${textToAnalyze.length} characters`);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    });
+    // Helper function with timeout and retry
+    const fetchWithRetry = async (retryCount = 0): Promise<Response> => {
+      const maxRetries = 2;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+      
+      try {
+        const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        return resp;
+      } catch (fetchError: unknown) {
+        clearTimeout(timeoutId);
+        const error = fetchError as Error;
+        if (error.name === 'AbortError') {
+          console.error(`Request timeout (attempt ${retryCount + 1})`);
+          if (retryCount < maxRetries) {
+            console.log(`Retrying... (${retryCount + 2}/${maxRetries + 1})`);
+            return fetchWithRetry(retryCount + 1);
+          }
+          throw new Error("Request timed out after multiple attempts. Please try with a smaller file.");
+        }
+        throw error;
+      }
+    };
+
+    const response = await fetchWithRetry();
     
     console.log(`AI Gateway response status: ${response.status}`);
 
@@ -659,7 +686,7 @@ Use the submit_boq_analysis function to return your structured analysis.`;
       }
       const errorText = await response.text();
       console.error("AI Gateway error:", response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
+      throw new Error(`AI Gateway error: ${response.status} - ${errorText.slice(0, 200)}`);
     }
 
     // Read response text first to handle empty/malformed responses
@@ -668,7 +695,8 @@ Use the submit_boq_analysis function to return your structured analysis.`;
     
     if (!responseText || responseText.trim() === "") {
       console.error("Empty response from AI Gateway");
-      throw new Error("Empty response from AI. Please try again.");
+      console.error("This may indicate the request was too large or timed out");
+      throw new Error("Empty response from AI. The file may be too large. Please try with a smaller file or fewer items.")
     }
     
     let data;
