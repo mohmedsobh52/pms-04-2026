@@ -161,9 +161,15 @@ const Index = () => {
     
     // Check if it's an Excel file
     if (isExcelFile(file)) {
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      const isLargeFile = file.size > 1024 * 1024; // > 1MB
+      
       toast({
-        title: t('readingExcel'),
-        description: t('pleaseWait'),
+        title: isLargeFile ? t('readingLargeExcel') : t('readingExcel'),
+        description: isLargeFile 
+          ? `${t('excelFileSizeMB')}: ${fileSizeMB} MB - ${t('excelParsingData')}`
+          : t('pleaseWait'),
+        duration: isLargeFile ? 10000 : 5000,
       });
       
       try {

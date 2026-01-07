@@ -97,6 +97,10 @@ export const translations = {
     
     // Toast messages
     readingExcel: "Reading Excel file...",
+    readingLargeExcel: "Processing large Excel file...",
+    excelParsingData: "Parsing data from sheets",
+    excelProcessingRows: "Processing rows",
+    excelFileSizeMB: "File size",
     pleaseWait: "Please wait while we extract data",
     dataExtracted: "Data extracted successfully",
     itemsExtracted: "items extracted from",
@@ -267,6 +271,10 @@ export const translations = {
     
     // Toast messages
     readingExcel: "جاري قراءة ملف Excel...",
+    readingLargeExcel: "جاري معالجة ملف Excel كبير...",
+    excelParsingData: "يتم تحليل البيانات من الأوراق",
+    excelProcessingRows: "يتم معالجة الصفوف",
+    excelFileSizeMB: "حجم الملف",
     pleaseWait: "يرجى الانتظار بينما نستخرج البيانات",
     dataExtracted: "تم استخراج البيانات بنجاح",
     itemsExtracted: "عنصر من",
