@@ -61,16 +61,45 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-// Clean text from corrupted characters
+// Clean text from corrupted characters (Mojibake detection and cleanup)
 function cleanText(text: string): string {
   if (!text) return '';
-  // Remove corrupted/mojibake characters
+  
+  // Check if text contains mojibake patterns (corrupted encoding)
+  const mojibakePattern = /p[*ˆ˜°´¸¹²³µ¶·ºª¡¿€£¥¢¤®©™±×÷«»‹›""''‚„†‡…‰ËŽxÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ]+/gi;
+  const hasMojibake = mojibakePattern.test(text);
+  
+  if (hasMojibake) {
+    // Try to detect if the original text was Arabic encoded incorrectly
+    // Remove the corrupted sequences entirely as they're unrecoverable
+    return text
+      .replace(/[\uFFFD\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+      // Remove Latin-1 supplement characters that indicate encoding issues
+      .replace(/[\u0080-\u00FF]+/g, '')
+      // Remove common mojibake patterns for Arabic
+      .replace(/p[\*ˆ˜°´¸¹²³µ¶·ºª¡¿€£¥¢¤®©™±×÷«»‹›""''‚„†‡…‰ËŽxÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿA-Za-z]+/gi, '')
+      // Remove standalone corrupted characters
+      .replace(/[þÿýüûúùøö÷ôõóòñðïîíìëêéèçæåäãâáàßÞÝÜÛÚÙØ×ÖÕÔÓÒÑÐÏÎÍÌËÊÉÈÇÆÅÄÃÂÁÀ]+/g, '')
+      // Clean up remaining mess
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+  }
+  
+  // If no mojibake detected, just do basic cleanup
   return text
     .replace(/[\uFFFD\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
-    .replace(/[þÿýüûúùøö÷ôõóòñðïîíìëêéèçæåäãâáàßÞÝÜÛÚÙØ×ÖÕÔÓÒÑÐÏÎÍÌËÊÉÈÇÆÅÄÃÂÁÀ]+/g, '')
-    .replace(/p[*ˆ˜°´¸¹²³µ¶·ºª¡¿€£¥¢¤®©™±×÷«»‹›""''‚„†‡…‰]+/gi, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
+}
+
+// Check if text appears to be valid Arabic
+function isValidArabicText(text: string): boolean {
+  if (!text) return false;
+  // Arabic Unicode range: 0600-06FF
+  const arabicChars = text.match(/[\u0600-\u06FF]/g);
+  const totalChars = text.replace(/\s/g, '').length;
+  // If more than 30% of characters are Arabic, consider it valid
+  return arabicChars ? (arabicChars.length / totalChars) > 0.3 : false;
 }
 
 interface BOQItem {

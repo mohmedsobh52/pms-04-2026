@@ -139,7 +139,15 @@ export async function extractDataFromExcel(file: File): Promise<ExcelExtractionR
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
+        // Read with codepage support for Arabic (Windows-1256)
+        const workbook = XLSX.read(data, { 
+          type: 'array',
+          codepage: 65001, // UTF-8
+          cellDates: true,
+          cellNF: true,
+          cellStyles: true,
+          raw: false,
+        });
         
         const sheetNames = workbook.SheetNames;
         let allText = '';
@@ -162,8 +170,16 @@ export async function extractDataFromExcel(file: File): Promise<ExcelExtractionR
           totalRows += range.e.r - range.s.r + 1;
         });
         
+        // Clean up any mojibake in extracted items
+        allItems = allItems.map(item => ({
+          ...item,
+          itemNo: cleanMojibake(item.itemNo),
+          description: cleanMojibake(item.description),
+          unit: cleanMojibake(item.unit),
+        }));
+        
         resolve({
-          text: allText,
+          text: cleanMojibake(allText) || allText,
           items: allItems,
           sheetNames,
           totalRows,
@@ -179,6 +195,25 @@ export async function extractDataFromExcel(file: File): Promise<ExcelExtractionR
     
     reader.readAsArrayBuffer(file);
   });
+}
+
+// Clean mojibake (encoding corruption) from text
+function cleanMojibake(text: string | undefined): string | undefined {
+  if (!text) return text;
+  
+  // Pattern for common mojibake sequences (corrupted Arabic)
+  const mojibakePattern = /p[\*ˆ˜°´¸¹²³µ¶·ºª¡¿€£¥¢¤®©™±×÷«»‹›""''‚„†‡…‰ËŽxÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿA-Za-z]+/gi;
+  
+  if (mojibakePattern.test(text)) {
+    // Text is corrupted, try to clean it
+    return text
+      .replace(/[\u0080-\u00FF]+/g, '') // Remove Latin-1 supplement
+      .replace(mojibakePattern, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim() || text; // Return original if cleaning results in empty string
+  }
+  
+  return text;
 }
 
 export function formatExcelDataForAnalysis(result: ExcelExtractionResult): string {
