@@ -396,7 +396,7 @@ export function extractRawExcelData(sheet: XLSX.WorkSheet, maxRows: number = 100
   return rows;
 }
 
-// NEW: Extract data for historical pricing - preserves all data as-is
+// OPTIMIZED: Fast extraction for historical pricing - preserves all data as-is
 export async function extractRawDataFromExcel(
   file: File,
   onProgress?: ExcelProgressCallback
@@ -409,77 +409,95 @@ export async function extractRawDataFromExcel(
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     
-    onProgress?.('reading', 0, 'جاري قراءة الملف...');
-    
-    reader.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const percent = Math.round((event.loaded / event.total) * 100);
-        onProgress?.('reading', percent, `جاري قراءة الملف... ${percent}%`);
-      }
-    };
-    
     reader.onload = (e) => {
       try {
-        onProgress?.('parsing', 0, 'جاري تحليل البيانات...');
-        
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         
+        // MAXIMUM SPEED: Disable all unnecessary features
         const workbook = XLSX.read(data, { 
           type: 'array',
-          codepage: 65001,
           cellFormula: false,
           cellHTML: false,
           cellStyles: false,
           cellNF: false,
+          cellDates: false,
+          sheetRows: 500, // Limit rows for speed
           raw: true,
         });
         
         const sheetNames = workbook.SheetNames;
-        let allRows: Array<Record<string, any>> = [];
-        let allHeaders: string[] = [];
-        let totalRows = 0;
         
-        if (sheetNames.length > 0) {
-          const sheet = workbook.Sheets[sheetNames[0]];
+        if (sheetNames.length === 0) {
+          resolve({ rows: [], headers: [], sheetNames: [], totalRows: 0 });
+          return;
+        }
+        
+        const sheet = workbook.Sheets[sheetNames[0]];
+        
+        // Fast extraction using sheet_to_json directly
+        const rawData = XLSX.utils.sheet_to_json<any[]>(sheet, { 
+          header: 1, 
+          defval: '',
+          blankrows: false 
+        });
+        
+        if (rawData.length < 2) {
+          resolve({ rows: [], headers: [], sheetNames, totalRows: 0 });
+          return;
+        }
+        
+        // Quick header detection (first row with 3+ cells)
+        let headerRowIndex = 0;
+        const maxHeaderSearch = Math.min(5, rawData.length);
+        for (let i = 0; i < maxHeaderSearch; i++) {
+          const row = rawData[i];
+          if (row && row.filter((c: any) => c != null && String(c).trim()).length >= 3) {
+            headerRowIndex = i;
+            break;
+          }
+        }
+        
+        const headerRow = rawData[headerRowIndex] || [];
+        const headers = headerRow.map((h: any, idx: number) => 
+          (h != null && String(h).trim()) || `Column_${idx + 1}`
+        );
+        
+        // Fast row extraction
+        const rows: Array<Record<string, any>> = [];
+        const dataEndIndex = Math.min(rawData.length, 500);
+        
+        for (let i = headerRowIndex + 1; i < dataEndIndex; i++) {
+          const row = rawData[i];
+          if (!row) continue;
           
-          const rawData = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: '' });
+          const rowData: Record<string, any> = {};
+          let hasData = false;
           
-          let headerRowIndex = 0;
-          for (let i = 0; i < Math.min(10, rawData.length); i++) {
-            const row = rawData[i];
-            const nonEmptyCells = row?.filter((cell: any) => cell !== undefined && cell !== null && String(cell).trim() !== '').length || 0;
-            if (nonEmptyCells >= 3) {
-              headerRowIndex = i;
-              break;
+          for (let j = 0; j < headers.length; j++) {
+            const val = row[j];
+            if (val != null && val !== '') {
+              rowData[headers[j]] = val;
+              hasData = true;
             }
           }
           
-          allHeaders = (rawData[headerRowIndex] || []).map((h: any, idx: number) => {
-            const header = h !== undefined && h !== null ? String(h).trim() : '';
-            return header || `Column_${idx + 1}`;
-          });
-          
-          allRows = extractRawExcelData(sheet, 1000);
-          
-          const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
-          totalRows = range.e.r - range.s.r + 1;
+          if (hasData) rows.push(rowData);
         }
         
-        onProgress?.('formatting', 100, `تم استخراج ${allRows.length} صف`);
+        onProgress?.('formatting', 100, `تم استخراج ${rows.length} صف`);
         
         resolve({
-          rows: allRows,
-          headers: allHeaders,
+          rows,
+          headers,
           sheetNames,
-          totalRows,
+          totalRows: rows.length,
         });
       } catch (error) {
-        reject(new Error('فشل قراءة ملف Excel: ' + (error instanceof Error ? error.message : 'خطأ غير معروف')));
+        reject(new Error('فشل قراءة ملف Excel'));
       }
     };
     
     reader.onerror = () => reject(new Error('فشل تحميل ملف Excel'));
-    
     reader.readAsArrayBuffer(file);
   });
 }
