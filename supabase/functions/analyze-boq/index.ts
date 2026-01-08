@@ -413,16 +413,22 @@ serve(async (req) => {
   try {
     const body = await req.json();
     let { text, analysis_type, language = 'en', file_type = 'pdf', generate_schedule = true } = body;
-    
+
+    // Support both analysis_type and analysisType (client variations)
+    analysis_type = analysis_type ?? body.analysisType ?? body.analysis_type;
+
     // Handle compressed text from client - support BOTH field names
+    // Some callers may forget to send isCompressed, so we auto-detect.
     const compressedText = body.textCompressed || body.boqTextCompressed;
-    if (body.isCompressed && compressedText) {
+    const shouldDecompress = !!compressedText && (body.isCompressed || !text || typeof text !== "string");
+
+    if (shouldDecompress) {
       console.log("Decompressing text from client (Base64 format)...");
       try {
         // Client uses LZString.compressToBase64, so use decompressFromBase64 FIRST
         text = LZString.decompressFromBase64(compressedText);
         console.log(`Decompressed from Base64: ${text?.length || 0} characters`);
-        
+
         // Fallback methods if Base64 didn't work
         if (!text || text.length < 5) {
           console.log("Base64 failed, trying UTF16...");
@@ -432,15 +438,15 @@ serve(async (req) => {
           console.log("UTF16 failed, trying raw decompress...");
           text = LZString.decompress(compressedText);
         }
-        
+
         console.log(`Final decompressed text length: ${text?.length || 0} characters`);
-        
+
         if (!text || text.length < 10) {
           console.error("All decompression methods failed");
           return new Response(
-            JSON.stringify({ 
+            JSON.stringify({
               error: "Failed to decompress text - all methods returned empty result",
-              suggestion: "Please disable compression in settings and try again"
+              suggestion: "Please disable compression in settings and try again",
             }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
@@ -448,15 +454,15 @@ serve(async (req) => {
       } catch (decompressError) {
         console.error("Decompression error:", decompressError);
         return new Response(
-          JSON.stringify({ 
+          JSON.stringify({
             error: "Failed to decompress text",
-            suggestion: "Please try again without compression enabled in settings"
+            suggestion: "Please try again without compression enabled in settings",
           }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
     }
-    
+
     // Also check for boqText field (uncompressed)
     if (!text && body.boqText) {
       text = body.boqText;
