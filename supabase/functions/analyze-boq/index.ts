@@ -412,10 +412,11 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    let { text, analysis_type, language = 'en', file_type = 'pdf', generate_schedule = true } = body;
+    let { text, analysis_type, language = 'en', file_type = 'pdf', generate_schedule = true, preferred_provider = 'auto' } = body;
 
     // Support both analysis_type and analysisType (client variations)
     analysis_type = analysis_type ?? body.analysisType ?? body.analysis_type;
+    preferred_provider = preferred_provider ?? body.preferredProvider ?? 'auto';
 
     // Handle compressed text from client - support BOTH field names
     // Some callers may forget to send isCompressed, so we auto-detect.
@@ -646,9 +647,19 @@ Use the submit_boq_analysis function to return your structured analysis.`;
 
     // Track which provider was used for transparency
     let usedProvider = 'lovable' as string;
+    
+    // Determine initial provider based on preference
+    const initialUseOpenAI = preferred_provider === 'openai';
+    if (preferred_provider === 'openai') {
+      console.log("User preference: OpenAI only");
+    } else if (preferred_provider === 'lovable') {
+      console.log("User preference: Lovable AI only (no fallback)");
+    } else {
+      console.log("User preference: Auto (Lovable AI with OpenAI fallback)");
+    }
 
     // Helper function with timeout and retry
-    const fetchWithRetry = async (retryCount = 0, useOpenAI = false): Promise<Response> => {
+    const fetchWithRetry = async (retryCount = 0, useOpenAI = initialUseOpenAI): Promise<Response> => {
       const maxRetries = 2;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
@@ -684,14 +695,26 @@ Use the submit_boq_analysis function to return your structured analysis.`;
         });
         clearTimeout(timeoutId);
         
-        // If Lovable AI returns 402 (Payment Required), fallback to OpenAI
-        if (resp.status === 402 && !useOpenAI) {
+        // If Lovable AI returns 402 (Payment Required), fallback to OpenAI (only in auto mode)
+        if (resp.status === 402 && !useOpenAI && preferred_provider === 'auto') {
           const openAIKey = Deno.env.get("OPENAI_API_KEY");
           if (openAIKey) {
             console.log("Lovable AI credits exhausted, falling back to OpenAI...");
             usedProvider = 'openai';
             return fetchWithRetry(0, true);
           }
+        }
+        
+        // If OpenAI mode and no API key
+        if (useOpenAI && !Deno.env.get("OPENAI_API_KEY")) {
+          console.error("OpenAI requested but no API key configured");
+          return new Response(
+            JSON.stringify({ 
+              error: "OpenAI API key not configured",
+              suggestion: "Please configure OPENAI_API_KEY in secrets or switch to Lovable AI"
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
         
         if (useOpenAI) {
