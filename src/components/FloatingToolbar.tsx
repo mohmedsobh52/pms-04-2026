@@ -31,7 +31,8 @@ import {
   Clock,
   Link2,
   GripVertical,
-  Home
+  Home,
+  Database
 } from "lucide-react";
 import { 
   DndContext, 
@@ -253,6 +254,7 @@ export function FloatingToolbar({
     "market-rates": "/analysis-tools",
     "procurement": "/procurement",
     "procurement-schedule": "/procurement",
+    "material-prices": "/material-prices",
     "resources": "/procurement",
     "upload": "/quotations",
     "reports": "/reports",
@@ -367,6 +369,14 @@ export function FloatingToolbar({
           icon: <ClipboardList className="w-4 h-4" />,
           label: "Schedule",
           labelAr: "الجدولة",
+        },
+        {
+          id: "material-prices",
+          icon: <Database className="w-4 h-4" />,
+          label: "Price Database",
+          labelAr: "قاعدة الأسعار",
+          badge: "New",
+          badgeVariant: "destructive",
         },
         {
           id: "resources",

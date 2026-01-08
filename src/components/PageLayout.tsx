@@ -39,6 +39,7 @@ export function PageLayout({ children }: PageLayoutProps) {
     if (path === "/templates") return "templates";
     if (path === "/p6-export") return "p6-export";
     if (path === "/compare-versions") return "version-compare";
+    if (path === "/material-prices") return "material-prices";
     return "dashboard";
   };
 
@@ -60,6 +61,7 @@ export function PageLayout({ children }: PageLayoutProps) {
       "market-rates": "/analysis-tools",
       "procurement": "/procurement",
       "procurement-schedule": "/procurement",
+      "material-prices": "/material-prices",
       "resources": "/resources",
       "upload": "/quotations",
       "reports": "/reports",
