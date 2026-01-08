@@ -31,47 +31,41 @@ serve(async (req) => {
 
     console.log(`Processing PDF BOQ extraction for file: ${fileName}`);
 
-    const systemPrompt = `أنت خبير في استخراج بيانات جداول الكميات والأسعار (BOQ) من المستندات.
-مهمتك هي:
-1. تحليل المستند واستخراج جميع بنود BOQ
-2. لكل بند، استخرج:
-   - رقم البند (item_number)
-   - الوصف (description)
-   - الوحدة (unit)
-   - الكمية (quantity)
-   - سعر الوحدة (unit_price)
-   - السعر الإجمالي (total_price)
+    const systemPrompt = `أنت خبير في استخراج بيانات الجداول من مستندات PDF بدقة تامة.
 
-قواعد مهمة:
-- استخرج الأرقام بدقة كما هي في المستند
-- إذا كان السعر الإجمالي غير موجود، احسبه من الكمية × سعر الوحدة
-- احرص على التعامل مع الأرقام العربية والإنجليزية
-- أرجع النتائج بتنسيق JSON فقط
-- إذا لم تجد جدول BOQ واضح، حاول استخراج أي بيانات أسعار متاحة
+مهمتك الأساسية:
+1. استخرج جميع البيانات من الجدول كما هي بالضبط - بدون أي تعديل أو تفسير
+2. حافظ على جميع أعمدة الجدول الأصلية كما هي في المستند
+3. استخدم أسماء الأعمدة العربية الأصلية من المستند
 
-أعد الاستجابة بهذا التنسيق بالضبط:
+قواعد صارمة جداً:
+- استخرج البيانات بالضبط كما تظهر في المستند - لا تغير أي قيمة
+- استخدم أسماء الأعمدة الأصلية من الجدول (مثل: م، البيان، الوحدة، الكمية، السعر، الإجمالي)
+- لا تحسب أي قيم - استخرج فقط ما هو مكتوب
+- لا تضف أو تحذف أي أعمدة
+- حافظ على ترتيب الأعمدة كما في المستند الأصلي
+
+أعد الاستجابة بهذا التنسيق:
 {
+  "headers": ["اسم العمود الأول", "اسم العمود الثاني", ...],
   "items": [
-    {
-      "item_number": "1",
-      "description": "وصف البند",
-      "unit": "م3",
-      "quantity": 100,
-      "unit_price": 50.00,
-      "total_price": 5000.00
-    }
+    {"اسم العمود الأول": "القيمة1", "اسم العمود الثاني": "القيمة2", ...}
   ],
-  "total_items": 10,
-  "currency": "SAR"
+  "total_items": 10
 }`;
 
-    const userPrompt = `هذا ملف PDF بصيغة base64. قم بتحليله واستخراج جميع بنود BOQ.
+    const userPrompt = `هذا ملف PDF. استخرج جميع بيانات الجدول كما هي بالضبط.
 اسم الملف: ${fileName}
+
+مهم جداً:
+- استخدم أسماء الأعمدة الأصلية من الجدول
+- انسخ القيم بالضبط كما تظهر بدون تعديل
+- أرجع headers بأسماء الأعمدة الأصلية
 
 البيانات:
 ${pdfBase64.substring(0, 50000)}
 
-أعد النتائج بتنسيق JSON فقط بدون أي نص إضافي.`;
+أعد النتائج بتنسيق JSON فقط.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -131,12 +125,14 @@ ${pdfBase64.substring(0, 50000)}
     }
 
     const items = result.items || [];
-    console.log(`Extracted ${items.length} BOQ items`);
+    const headers = result.headers || [];
+    console.log(`Extracted ${items.length} items with ${headers.length} columns`);
 
     return new Response(
       JSON.stringify({
         success: true,
         items: items,
+        headers: headers,
         total_items: items.length,
         currency: result.currency || 'SAR',
       }),

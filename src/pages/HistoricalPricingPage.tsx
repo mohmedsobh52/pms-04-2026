@@ -186,24 +186,23 @@ export default function HistoricalPricingPage() {
       if (error) throw error;
 
       if (data?.items && Array.isArray(data.items) && data.items.length > 0) {
-        const items: RawDataItem[] = data.items.map((item: any) => ({
-          item_number: item.item_number || "",
-          description: item.description || "",
-          unit: item.unit || "",
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
-        }));
+        // Use the original items as-is from the PDF extraction
+        const items: RawDataItem[] = data.items;
+        // Use original headers from PDF if available, otherwise extract from first item
+        const headers = data.headers && Array.isArray(data.headers) && data.headers.length > 0
+          ? data.headers
+          : Object.keys(items[0] || {});
+        
         setUploadedItems(items);
-        setUploadedHeaders(['item_number', 'description', 'unit', 'quantity', 'unit_price', 'total_price']);
+        setUploadedHeaders(headers);
         toast({
-          title: "✅ تم استخراج البنود",
-          description: `تم استخراج ${items.length} بند من ملف PDF`,
+          title: "✅ تم استخراج البيانات",
+          description: `تم استخراج ${items.length} صف من ملف PDF بالبيانات الأصلية`,
         });
       } else {
         toast({
-          title: "لم يتم العثور على بنود",
-          description: "حاول رفع ملف PDF يحتوي على جدول BOQ واضح",
+          title: "لم يتم العثور على بيانات",
+          description: "حاول رفع ملف PDF يحتوي على جدول واضح",
           variant: "destructive",
         });
       }
