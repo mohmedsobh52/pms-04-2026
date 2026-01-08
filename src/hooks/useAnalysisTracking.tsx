@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useCallback, ReactNode, useEffect 
 // Analysis status types
 export type AnalysisStatus = 'pending' | 'success' | 'fallback' | 'error';
 export type AIModel = 'google/gemini-2.5-flash' | 'google/gemini-2.5-pro' | 'openai/gpt-5' | 'openai/gpt-5-mini';
+export type AIProvider = 'auto' | 'lovable' | 'openai';
 
 export interface AnalysisRecord {
   id: string;
@@ -25,6 +26,8 @@ interface AnalysisTrackingContextType {
   records: AnalysisRecord[];
   selectedModel: AIModel;
   setSelectedModel: (model: AIModel) => void;
+  selectedProvider: AIProvider;
+  setSelectedProvider: (provider: AIProvider) => void;
   addRecord: (record: Omit<AnalysisRecord, 'id'>) => string;
   updateRecord: (id: string, updates: Partial<AnalysisRecord>) => void;
   clearRecords: () => void;
@@ -61,6 +64,7 @@ const MODEL_NAMES: Record<AIModel, { en: string; ar: string }> = {
 
 const STORAGE_KEY = 'analysis_tracking_records';
 const MODEL_STORAGE_KEY = 'selected_ai_model';
+const PROVIDER_STORAGE_KEY = 'selected_ai_provider';
 
 const AnalysisTrackingContext = createContext<AnalysisTrackingContextType | undefined>(undefined);
 
@@ -91,6 +95,18 @@ export function AnalysisTrackingProvider({ children }: { children: ReactNode }) 
     return 'google/gemini-2.5-flash';
   });
 
+  const [selectedProvider, setSelectedProviderState] = useState<AIProvider>(() => {
+    try {
+      const stored = localStorage.getItem(PROVIDER_STORAGE_KEY);
+      if (stored && ['auto', 'lovable', 'openai'].includes(stored)) {
+        return stored as AIProvider;
+      }
+    } catch (e) {
+      console.warn('Failed to load selected provider:', e);
+    }
+    return 'auto';
+  });
+
   // Save records to localStorage
   useEffect(() => {
     try {
@@ -106,6 +122,15 @@ export function AnalysisTrackingProvider({ children }: { children: ReactNode }) 
       localStorage.setItem(MODEL_STORAGE_KEY, model);
     } catch (e) {
       console.warn('Failed to save selected model:', e);
+    }
+  }, []);
+
+  const setSelectedProvider = useCallback((provider: AIProvider) => {
+    setSelectedProviderState(provider);
+    try {
+      localStorage.setItem(PROVIDER_STORAGE_KEY, provider);
+    } catch (e) {
+      console.warn('Failed to save selected provider:', e);
     }
   }, []);
 
@@ -192,6 +217,8 @@ export function AnalysisTrackingProvider({ children }: { children: ReactNode }) 
         records,
         selectedModel,
         setSelectedModel,
+        selectedProvider,
+        setSelectedProvider,
         addRecord,
         updateRecord,
         clearRecords,

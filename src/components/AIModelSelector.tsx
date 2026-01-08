@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { Brain, Zap, Cpu, Sparkles, Info } from "lucide-react";
+import { Brain, Zap, Cpu, Sparkles, Info, Cloud, Server, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Separator } from "@/components/ui/separator";
 import { useLanguage } from "@/hooks/useLanguage";
-import { useAnalysisTracking, AIModel } from "@/hooks/useAnalysisTracking";
+import { useAnalysisTracking, AIModel, AIProvider } from "@/hooks/useAnalysisTracking";
 
 const MODEL_INFO: Record<AIModel, {
   icon: typeof Brain;
@@ -91,9 +92,44 @@ const ACCURACY_LABELS = {
   excellent: { en: 'Excellent', ar: 'ممتازة', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' }
 };
 
+const PROVIDER_INFO: Record<AIProvider, {
+  icon: typeof Cloud;
+  color: string;
+  title: { en: string; ar: string };
+  description: { en: string; ar: string };
+}> = {
+  'auto': {
+    icon: RefreshCw,
+    color: 'text-blue-500',
+    title: { en: 'Auto (Recommended)', ar: 'تلقائي (موصى به)' },
+    description: {
+      en: 'Uses Lovable AI by default, automatically falls back to OpenAI if credits are exhausted',
+      ar: 'يستخدم Lovable AI افتراضياً، يتحول تلقائياً إلى OpenAI عند نفاد الرصيد'
+    }
+  },
+  'lovable': {
+    icon: Cloud,
+    color: 'text-purple-500',
+    title: { en: 'Lovable AI Only', ar: 'Lovable AI فقط' },
+    description: {
+      en: 'Always use Lovable AI. Will show error if credits are exhausted.',
+      ar: 'استخدم Lovable AI دائماً. سيظهر خطأ عند نفاد الرصيد.'
+    }
+  },
+  'openai': {
+    icon: Server,
+    color: 'text-green-500',
+    title: { en: 'OpenAI Only', ar: 'OpenAI فقط' },
+    description: {
+      en: 'Always use OpenAI. Requires OPENAI_API_KEY to be configured.',
+      ar: 'استخدم OpenAI دائماً. يتطلب إعداد مفتاح OPENAI_API_KEY.'
+    }
+  }
+};
+
 export function AIModelSelector() {
   const { isArabic } = useLanguage();
-  const { selectedModel, setSelectedModel, getModelDisplayName, getModelDisplayNameAr } = useAnalysisTracking();
+  const { selectedModel, setSelectedModel, selectedProvider, setSelectedProvider, getModelDisplayName, getModelDisplayNameAr } = useAnalysisTracking();
 
   return (
     <Card>
@@ -166,12 +202,67 @@ export function AIModelSelector() {
           })}
         </RadioGroup>
         
+        <Separator className="my-6" />
+        
+        {/* AI Provider Selection */}
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Cloud className="h-5 w-5" />
+              {isArabic ? "مزود الذكاء الاصطناعي" : "AI Provider"}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {isArabic 
+                ? "اختر مزود AI المفضل للتحليلات"
+                : "Choose your preferred AI provider"
+              }
+            </p>
+          </div>
+          
+          <RadioGroup
+            value={selectedProvider}
+            onValueChange={(value) => setSelectedProvider(value as AIProvider)}
+            className="grid gap-3"
+          >
+            {(Object.keys(PROVIDER_INFO) as AIProvider[]).map((provider) => {
+              const info = PROVIDER_INFO[provider];
+              const Icon = info.icon;
+              
+              return (
+                <div key={provider} className="relative">
+                  <RadioGroupItem
+                    value={provider}
+                    id={`provider-${provider}`}
+                    className="peer sr-only"
+                  />
+                  <Label
+                    htmlFor={`provider-${provider}`}
+                    className="flex items-center gap-3 rounded-lg border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer transition-all"
+                  >
+                    <div className={`${info.color}`}>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1">
+                      <span className="font-medium">
+                        {isArabic ? info.title.ar : info.title.en}
+                      </span>
+                      <p className="text-xs text-muted-foreground">
+                        {isArabic ? info.description.ar : info.description.en}
+                      </p>
+                    </div>
+                  </Label>
+                </div>
+              );
+            })}
+          </RadioGroup>
+        </div>
+        
         <div className="mt-4 p-3 bg-muted/50 rounded-lg flex items-start gap-2">
           <Info className="h-4 w-4 mt-0.5 text-muted-foreground" />
           <p className="text-xs text-muted-foreground">
             {isArabic 
-              ? "سيتم استخدام النموذج المختار في جميع التحليلات المستقبلية. النماذج الأقوى تعطي نتائج أدق لكنها أبطأ."
-              : "The selected model will be used for all future analyses. More powerful models give more accurate results but are slower."
+              ? "سيتم استخدام النموذج والمزود المختار في جميع التحليلات المستقبلية. النماذج الأقوى تعطي نتائج أدق لكنها أبطأ."
+              : "The selected model and provider will be used for all future analyses. More powerful models give more accurate results but are slower."
             }
           </p>
         </div>

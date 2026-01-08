@@ -51,6 +51,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
+import { useAnalysisTracking } from "@/hooks/useAnalysisTracking";
 import { supabase } from "@/integrations/supabase/client";
 import { extractTextFromPDF, validateExtractedText, extractWithOCROnly } from "@/lib/pdf-utils";
 import { extractDataFromExcel, formatExcelDataForAnalysis } from "@/lib/excel-utils";
@@ -107,6 +108,7 @@ const Index = () => {
     return defaultWorkflowSteps;
   });
   const { toast } = useToast();
+  const { selectedProvider } = useAnalysisTracking();
   
   // Analysis settings and error handling
   const [analysisSettings, setAnalysisSettings] = useState<AnalysisSettings>(getAnalysisSettings);
@@ -600,7 +602,7 @@ const Index = () => {
       // NOTE: disable schedule generation here to keep response smaller and more reliable
       const { data: itemsResult, error: itemsError } = await invokeWithRetry(
         "analyze-boq",
-        { text: textToAnalyze, analysis_type: "extract_items", language, generate_schedule: false }
+        { text: textToAnalyze, analysis_type: "extract_items", language, generate_schedule: false, preferred_provider: selectedProvider }
       );
 
       if (itemsError) throw itemsError;
@@ -664,7 +666,7 @@ const Index = () => {
       
       const { data: wbsResult, error: wbsError } = await invokeWithRetry(
         "analyze-boq",
-        { text: textToAnalyze, analysis_type: "create_wbs", language, generate_schedule: false }
+        { text: textToAnalyze, analysis_type: "create_wbs", language, generate_schedule: false, preferred_provider: selectedProvider }
       );
 
       if (wbsError) throw wbsError;
