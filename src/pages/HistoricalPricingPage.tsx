@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
-import { extractDataFromExcel } from "@/lib/excel-utils";
+import { extractRawDataFromExcel } from "@/lib/excel-utils";
 import { Link } from "react-router-dom";
 import { PageLayout } from "@/components/PageLayout";
 import { HistoricalPricingStats } from "@/components/HistoricalPricingStats";
@@ -37,13 +37,8 @@ interface HistoricalFile {
   created_at: string;
 }
 
-interface BOQItem {
-  item_number: string;
-  description: string;
-  unit: string;
-  quantity: number;
-  unit_price: number;
-  total_price: number;
+interface RawDataItem {
+  [key: string]: any;
 }
 
 const LOCATIONS = [
@@ -75,7 +70,8 @@ export default function HistoricalPricingPage() {
   const [currency, setCurrency] = useState("SAR");
   const [notes, setNotes] = useState("");
   const [isVerified, setIsVerified] = useState(false);
-  const [uploadedItems, setUploadedItems] = useState<BOQItem[]>([]);
+  const [uploadedItems, setUploadedItems] = useState<RawDataItem[]>([]);
+  const [uploadedHeaders, setUploadedHeaders] = useState<string[]>([]);
   const [uploadedFileName, setUploadedFileName] = useState("");
 
   const { toast } = useToast();
@@ -130,40 +126,20 @@ export default function HistoricalPricingPage() {
         // Handle PDF with OCR
         await handlePDFUpload(file);
       } else {
-        // Handle Excel files
-        const result = await extractDataFromExcel(file);
+        // Handle Excel files - extract raw data as-is
+        const result = await extractRawDataFromExcel(file);
         
-        if (result.items && result.items.length > 0) {
-          // Map from excel-utils format (itemNo, unitPrice, totalPrice) to BOQItem format
-          const items: BOQItem[] = result.items.map((item: any) => ({
-            item_number: item.itemNo || item.item_number || "",
-            description: item.description || "",
-            unit: item.unit || "",
-            quantity: parseFloat(item.quantity) || 0,
-            unit_price: parseFloat(item.unitPrice || item.unit_price) || 0,
-            total_price: parseFloat(item.totalPrice || item.total_price) || 0,
-          }));
-          
-          // Filter out items with no description
-          const validItems = items.filter(item => item.description && item.description.trim() !== "");
-          
-          if (validItems.length > 0) {
-            setUploadedItems(validItems);
-            toast({
-              title: "✅ تم قراءة الملف",
-              description: `تم استخراج ${validItems.length} بند من الملف`,
-            });
-          } else {
-            toast({
-              title: "لا توجد بنود صالحة",
-              description: "تأكد من أن الملف يحتوي على جدول BOQ بأعمدة واضحة",
-              variant: "destructive",
-            });
-          }
+        if (result.rows && result.rows.length > 0) {
+          setUploadedItems(result.rows);
+          setUploadedHeaders(result.headers);
+          toast({
+            title: "✅ تم قراءة الملف",
+            description: `تم استخراج ${result.rows.length} صف من الملف بالبيانات الأصلية`,
+          });
         } else {
           toast({
-            title: "لا توجد بنود",
-            description: "لم يتم العثور على بنود في الملف. تأكد من وجود أعمدة: الوصف، الكمية، الوحدة، السعر",
+            title: "لا توجد بيانات",
+            description: "لم يتم العثور على بيانات في الملف",
             variant: "destructive",
           });
         }
@@ -210,15 +186,16 @@ export default function HistoricalPricingPage() {
       if (error) throw error;
 
       if (data?.items && Array.isArray(data.items) && data.items.length > 0) {
-        const items: BOQItem[] = data.items.map((item: any) => ({
+        const items: RawDataItem[] = data.items.map((item: any) => ({
           item_number: item.item_number || "",
           description: item.description || "",
           unit: item.unit || "",
-          quantity: parseFloat(item.quantity) || 0,
-          unit_price: parseFloat(item.unit_price) || 0,
-          total_price: parseFloat(item.total_price) || 0,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
         }));
         setUploadedItems(items);
+        setUploadedHeaders(['item_number', 'description', 'unit', 'quantity', 'unit_price', 'total_price']);
         toast({
           title: "✅ تم استخراج البنود",
           description: `تم استخراج ${items.length} بند من ملف PDF`,
@@ -265,7 +242,11 @@ export default function HistoricalPricingPage() {
     }
 
     try {
-      const totalValue = uploadedItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+      // Calculate total from items - look for common price column names
+      const totalValue = uploadedItems.reduce((sum, item) => {
+        const price = item.total_price || item.totalPrice || item['الإجمالي'] || item['المبلغ'] || item['القيمة'] || item['total'] || item['amount'] || 0;
+        return sum + (typeof price === 'number' ? price : parseFloat(String(price)) || 0);
+      }, 0);
 
       const { error } = await supabase
         .from("historical_pricing_files")
@@ -298,6 +279,7 @@ export default function HistoricalPricingPage() {
       setNotes("");
       setIsVerified(false);
       setUploadedItems([]);
+      setUploadedHeaders([]);
       setUploadedFileName("");
       setUploadDialogOpen(false);
       
@@ -508,34 +490,45 @@ export default function HistoricalPricingPage() {
                   </Label>
                 </div>
 
-                {/* Preview Items */}
+                {/* Preview Items - Dynamic columns */}
                 {uploadedItems.length > 0 && (
                   <div className="space-y-2">
-                    <Label>معاينة البنود ({uploadedItems.length})</Label>
-                    <ScrollArea className="h-[200px] border rounded-lg">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>رقم البند</TableHead>
-                            <TableHead>الوصف</TableHead>
-                            <TableHead>الوحدة</TableHead>
-                            <TableHead>سعر الوحدة</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {uploadedItems.slice(0, 20).map((item, idx) => (
-                            <TableRow key={idx}>
-                              <TableCell className="font-mono text-xs">{item.item_number}</TableCell>
-                              <TableCell className="max-w-[200px] truncate text-xs">{item.description}</TableCell>
-                              <TableCell className="text-xs">{item.unit}</TableCell>
-                              <TableCell className="text-xs">{item.unit_price.toFixed(2)}</TableCell>
+                    <Label>معاينة البيانات المستخرجة ({uploadedItems.length} صف)</Label>
+                    <ScrollArea className="h-[250px] border rounded-lg">
+                      <div className="min-w-max">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              {uploadedHeaders.slice(0, 8).map((header, idx) => (
+                                <TableHead key={idx} className="text-xs whitespace-nowrap px-2">
+                                  {header}
+                                </TableHead>
+                              ))}
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                      {uploadedItems.length > 20 && (
+                          </TableHeader>
+                          <TableBody>
+                            {uploadedItems.slice(0, 30).map((item, idx) => (
+                              <TableRow key={idx}>
+                                {uploadedHeaders.slice(0, 8).map((header, hIdx) => (
+                                  <TableCell key={hIdx} className="text-xs px-2 max-w-[200px] truncate">
+                                    {item[header] !== undefined && item[header] !== null 
+                                      ? String(item[header]) 
+                                      : '-'}
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      {uploadedItems.length > 30 && (
                         <p className="text-center text-xs text-muted-foreground py-2">
-                          ... و {uploadedItems.length - 20} بند آخر
+                          ... و {uploadedItems.length - 30} صف آخر
+                        </p>
+                      )}
+                      {uploadedHeaders.length > 8 && (
+                        <p className="text-center text-xs text-muted-foreground py-1">
+                          يعرض {Math.min(8, uploadedHeaders.length)} أعمدة من {uploadedHeaders.length}
                         </p>
                       )}
                     </ScrollArea>
@@ -759,30 +752,41 @@ export default function HistoricalPricingPage() {
                 )}
 
                 <ScrollArea className="h-[400px] border rounded-lg">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>رقم البند</TableHead>
-                        <TableHead>الوصف</TableHead>
-                        <TableHead>الوحدة</TableHead>
-                        <TableHead>الكمية</TableHead>
-                        <TableHead>سعر الوحدة</TableHead>
-                        <TableHead>الإجمالي</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedFile.items.map((item: any, idx: number) => (
-                        <TableRow key={idx}>
-                          <TableCell className="font-mono text-xs">{item.item_number}</TableCell>
-                          <TableCell className="max-w-[250px] truncate text-xs">{item.description}</TableCell>
-                          <TableCell className="text-xs">{item.unit}</TableCell>
-                          <TableCell className="text-xs">{item.quantity}</TableCell>
-                          <TableCell className="text-xs">{(item.unit_price || 0).toFixed(2)}</TableCell>
-                          <TableCell className="text-xs font-medium">{(item.total_price || 0).toFixed(2)}</TableCell>
+                  <div className="min-w-max">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          {selectedFile.items.length > 0 && 
+                            Object.keys(selectedFile.items[0]).slice(0, 10).map((key, idx) => (
+                              <TableHead key={idx} className="text-xs whitespace-nowrap px-2">
+                                {key}
+                              </TableHead>
+                            ))
+                          }
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedFile.items.map((item: any, idx: number) => (
+                          <TableRow key={idx}>
+                            {Object.keys(selectedFile.items[0]).slice(0, 10).map((key, kIdx) => (
+                              <TableCell key={kIdx} className="text-xs px-2 max-w-[200px] truncate">
+                                {item[key] !== undefined && item[key] !== null 
+                                  ? (typeof item[key] === 'number' 
+                                      ? item[key].toLocaleString() 
+                                      : String(item[key]))
+                                  : '-'}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {selectedFile.items.length > 0 && Object.keys(selectedFile.items[0]).length > 10 && (
+                    <p className="text-center text-xs text-muted-foreground py-2">
+                      يعرض 10 أعمدة من {Object.keys(selectedFile.items[0]).length}
+                    </p>
+                  )}
                 </ScrollArea>
               </div>
             )}

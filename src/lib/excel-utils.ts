@@ -344,6 +344,146 @@ function cleanMojibake(text: string | undefined): string | undefined {
   return text;
 }
 
+// NEW: Extract all rows exactly as they are from Excel
+export function extractRawExcelData(sheet: XLSX.WorkSheet, maxRows: number = 1000): Array<Record<string, any>> {
+  const data = XLSX.utils.sheet_to_json<any[]>(sheet, { 
+    header: 1, 
+    defval: '',
+    range: maxRows,
+    raw: true
+  });
+  
+  if (data.length < 2) return [];
+  
+  // Find header row (first row with at least 3 non-empty cells)
+  let headerRowIndex = 0;
+  for (let i = 0; i < Math.min(10, data.length); i++) {
+    const row = data[i];
+    const nonEmptyCells = row?.filter((cell: any) => cell !== undefined && cell !== null && String(cell).trim() !== '').length || 0;
+    if (nonEmptyCells >= 3) {
+      headerRowIndex = i;
+      break;
+    }
+  }
+  
+  const headers = (data[headerRowIndex] || []).map((h: any, idx: number) => {
+    const header = h !== undefined && h !== null ? String(h).trim() : '';
+    return header || `Column_${idx + 1}`;
+  });
+  
+  const rows: Array<Record<string, any>> = [];
+  
+  for (let i = headerRowIndex + 1; i < Math.min(data.length, maxRows); i++) {
+    const row = data[i];
+    if (!row || row.every((cell: any) => cell === undefined || cell === null || String(cell).trim() === '')) continue;
+    
+    const rowData: Record<string, any> = {};
+    let hasData = false;
+    
+    headers.forEach((header: string, idx: number) => {
+      const cellValue = row[idx];
+      if (cellValue !== undefined && cellValue !== null) {
+        rowData[header] = cellValue;
+        hasData = true;
+      }
+    });
+    
+    if (hasData) {
+      rows.push(rowData);
+    }
+  }
+  
+  return rows;
+}
+
+// NEW: Extract data for historical pricing - preserves all data as-is
+export async function extractRawDataFromExcel(
+  file: File,
+  onProgress?: ExcelProgressCallback
+): Promise<{ 
+  rows: Array<Record<string, any>>;
+  headers: string[];
+  sheetNames: string[];
+  totalRows: number;
+}> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    onProgress?.('reading', 0, 'جاري قراءة الملف...');
+    
+    reader.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        onProgress?.('reading', percent, `جاري قراءة الملف... ${percent}%`);
+      }
+    };
+    
+    reader.onload = (e) => {
+      try {
+        onProgress?.('parsing', 0, 'جاري تحليل البيانات...');
+        
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        
+        const workbook = XLSX.read(data, { 
+          type: 'array',
+          codepage: 65001,
+          cellFormula: false,
+          cellHTML: false,
+          cellStyles: false,
+          cellNF: false,
+          raw: true,
+        });
+        
+        const sheetNames = workbook.SheetNames;
+        let allRows: Array<Record<string, any>> = [];
+        let allHeaders: string[] = [];
+        let totalRows = 0;
+        
+        if (sheetNames.length > 0) {
+          const sheet = workbook.Sheets[sheetNames[0]];
+          
+          const rawData = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: '' });
+          
+          let headerRowIndex = 0;
+          for (let i = 0; i < Math.min(10, rawData.length); i++) {
+            const row = rawData[i];
+            const nonEmptyCells = row?.filter((cell: any) => cell !== undefined && cell !== null && String(cell).trim() !== '').length || 0;
+            if (nonEmptyCells >= 3) {
+              headerRowIndex = i;
+              break;
+            }
+          }
+          
+          allHeaders = (rawData[headerRowIndex] || []).map((h: any, idx: number) => {
+            const header = h !== undefined && h !== null ? String(h).trim() : '';
+            return header || `Column_${idx + 1}`;
+          });
+          
+          allRows = extractRawExcelData(sheet, 1000);
+          
+          const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
+          totalRows = range.e.r - range.s.r + 1;
+        }
+        
+        onProgress?.('formatting', 100, `تم استخراج ${allRows.length} صف`);
+        
+        resolve({
+          rows: allRows,
+          headers: allHeaders,
+          sheetNames,
+          totalRows,
+        });
+      } catch (error) {
+        reject(new Error('فشل قراءة ملف Excel: ' + (error instanceof Error ? error.message : 'خطأ غير معروف')));
+      }
+    };
+    
+    reader.onerror = () => reject(new Error('فشل تحميل ملف Excel'));
+    
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 export function formatExcelDataForAnalysis(result: ExcelExtractionResult): string {
   // If we have structured items, format them nicely
   if (result.items.length > 0) {
