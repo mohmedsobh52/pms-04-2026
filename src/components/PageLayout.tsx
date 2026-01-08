@@ -60,7 +60,7 @@ export function PageLayout({ children }: PageLayoutProps) {
       "market-rates": "/analysis-tools",
       "procurement": "/procurement",
       "procurement-schedule": "/procurement",
-      "resources": "/procurement",
+      "resources": "/resources",
       "upload": "/quotations",
       "reports": "/reports",
       "report": "/reports",

@@ -33,6 +33,7 @@ import TemplatesPage from "./pages/TemplatesPage";
 import P6ExportPage from "./pages/P6ExportPage";
 import CompareVersionsPage from "./pages/CompareVersionsPage";
 import HistoricalPricingPage from "./pages/HistoricalPricingPage";
+import ResourcesPage from "./pages/ResourcesPage";
 
 const queryClient = new QueryClient();
 
@@ -73,7 +74,9 @@ const App = () => (
                 <Route path="/p6-export" element={<P6ExportPage />} />
                 <Route path="/compare-versions" element={<CompareVersionsPage />} />
                 <Route path="/historical-pricing" element={<HistoricalPricingPage />} />
+                <Route path="/resources" element={<ResourcesPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
                 <Route path="*" element={<NotFound />} />
                 </Routes>
               </BrowserRouter>
