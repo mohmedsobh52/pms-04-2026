@@ -134,24 +134,36 @@ export default function HistoricalPricingPage() {
         const result = await extractDataFromExcel(file);
         
         if (result.items && result.items.length > 0) {
+          // Map from excel-utils format (itemNo, unitPrice, totalPrice) to BOQItem format
           const items: BOQItem[] = result.items.map((item: any) => ({
-            item_number: item.item_number || "",
+            item_number: item.itemNo || item.item_number || "",
             description: item.description || "",
             unit: item.unit || "",
             quantity: parseFloat(item.quantity) || 0,
-            unit_price: parseFloat(item.unit_price) || 0,
-            total_price: parseFloat(item.total_price) || 0,
+            unit_price: parseFloat(item.unitPrice || item.unit_price) || 0,
+            total_price: parseFloat(item.totalPrice || item.total_price) || 0,
           }));
-          setUploadedItems(items);
           
-          toast({
-            title: "✅ تم قراءة الملف",
-            description: `تم استخراج ${items.length} بند من الملف`,
-          });
+          // Filter out items with no description
+          const validItems = items.filter(item => item.description && item.description.trim() !== "");
+          
+          if (validItems.length > 0) {
+            setUploadedItems(validItems);
+            toast({
+              title: "✅ تم قراءة الملف",
+              description: `تم استخراج ${validItems.length} بند من الملف`,
+            });
+          } else {
+            toast({
+              title: "لا توجد بنود صالحة",
+              description: "تأكد من أن الملف يحتوي على جدول BOQ بأعمدة واضحة",
+              variant: "destructive",
+            });
+          }
         } else {
           toast({
             title: "لا توجد بنود",
-            description: "لم يتم العثور على بنود في الملف",
+            description: "لم يتم العثور على بنود في الملف. تأكد من وجود أعمدة: الوصف، الكمية، الوحدة، السعر",
             variant: "destructive",
           });
         }
