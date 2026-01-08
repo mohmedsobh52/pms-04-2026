@@ -14,61 +14,119 @@ export interface ExcelBOQItem {
   quantity?: number;
   unitPrice?: number;
   totalPrice?: number;
+  notes?: string;
   [key: string]: string | number | undefined;
+}
+
+// Arabic-to-Western digit conversion map
+const ARABIC_DIGITS: Record<string, string> = {
+  '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4',
+  '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9'
+};
+
+// Convert Arabic numbers to Western digits
+function convertArabicNumbers(text: string): string {
+  if (!text) return text;
+  return text.replace(/[٠-٩]/g, (digit) => ARABIC_DIGITS[digit] || digit);
+}
+
+// Normalize Arabic decimal and thousands separators
+function normalizeArabicNumbers(text: string): string {
+  if (!text) return text;
+  return text
+    .replace(/٫/g, '.')  // Arabic decimal separator to dot
+    .replace(/٬/g, '');  // Arabic thousands separator removed
+}
+
+// Parse number with Arabic number handling
+function parseArabicNumber(value: string | number | undefined): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  
+  const strValue = String(value);
+  const converted = normalizeArabicNumbers(convertArabicNumbers(strValue));
+  const cleaned = converted.replace(/[^\d.-]/g, '');
+  const parsed = parseFloat(cleaned);
+  
+  return isNaN(parsed) ? undefined : parsed;
 }
 
 // Common BOQ column name patterns (Arabic and English) - Extended for better recognition
 const COLUMN_PATTERNS = {
   itemNo: [
-    'item', 'no', 'رقم', 'البند', 'م', '#', 'seq', 'بند', 
-    'رقم البند', 'مسلسل', 'ر.م', 'رم', 'التسلسل', 'ت', 
-    'item no', 'item number', 'serial', 'ref', 'المرجع',
-    'رقم المسلسل', 'الرقم', 'عدد البند', 'code', 'الكود'
+    // English patterns
+    'item', 'no', 'item no', 'item number', 'serial', 'ref', 'code', '#', 'seq',
+    // Arabic patterns - from document + extended
+    'رقم', 'البند', 'م', 'بند', 'رقم البند', 'مسلسل', 'تسلسل', 'بند/رقم',
+    'ر.م', 'رم', 'التسلسل', 'ت', 'المرجع', 'رقم المسلسل', 'الرقم', 'الكود'
   ],
   description: [
-    'description', 'وصف', 'البيان', 'الوصف', 'بيان', 'العمل', 
-    'item description', 'spec', 'المواصفات', 'التفاصيل', 'بيان الأعمال',
-    'وصف البند', 'وصف العمل', 'تفصيل', 'نوع العمل', 'اسم البند',
-    'specification', 'details', 'scope', 'نطاق العمل', 'العنصر',
-    'الصنف', 'المادة', 'البيانات', 'اسم', 'name'
+    // English patterns
+    'description', 'spec', 'specification', 'details', 'scope', 'name',
+    // Arabic patterns - from document + extended
+    'وصف', 'البيان', 'الوصف', 'شرح', 'تفاصيل', 'اسم البند', 'وصف البند',
+    'بيان الأعمال', 'بيان', 'العمل', 'المواصفات', 'التفاصيل', 'العنصر',
+    'الصنف', 'المادة', 'البيانات', 'اسم'
   ],
   unit: [
-    'unit', 'وحدة', 'الوحدة', 'uom', 'unit of measure', 
-    'وحدة القياس', 'و.ق', 'وق', 'الوحدات', 'نوع الوحدة',
-    'م2', 'م3', 'م.ط', 'عدد', 'طن', 'كجم', 'لتر'
+    // English patterns
+    'unit', 'uom', 'unit of measure',
+    // Arabic patterns - from document + extended
+    'وحدة', 'الوحدة', 'وحده', 'الوحـدة', 'وحدة القياس', 'و.ق', 'وق', 'الوحدات',
+    'م2', 'م3', 'م.ط', 'طن', 'كجم', 'لتر'
   ],
   quantity: [
-    'qty', 'quantity', 'كمية', 'الكمية', 'عدد', 
-    'الكميات', 'كميه', 'العدد', 'المقدار', 'حجم',
-    'الحجم', 'المساحة', 'الطول', 'العرض', 'الارتفاع',
-    'amount', 'count', 'no.', 'nos'
+    // English patterns
+    'qty', 'quantity', 'amount', 'count', 'no.', 'nos',
+    // Arabic patterns - from document + extended
+    'كمية', 'الكمية', 'العدد', 'الكميه', 'الكم', 'الكميات', 'المقدار',
+    'حجم', 'الحجم', 'المساحة'
   ],
   unitPrice: [
-    'unit price', 'price', 'سعر', 'سعر الوحدة', 'rate', 'السعر',
-    'سعر المفرد', 'سعر الفرد', 'ثمن الوحدة', 'المعدل', 'سعر الوحده',
-    'unit rate', 'u.price', 'u/price', 'السعر المفرد', 'الفئة',
-    'فئة', 'التكلفة', 'cost', 'تكلفة الوحدة', 'ر.و', 'ريال'
+    // English patterns
+    'unit price', 'price', 'rate', 'unit rate', 'u.price', 'u/price', 'cost',
+    // Arabic patterns - from document + extended
+    'سعر', 'سعر الوحدة', 'السعر', 'المعدل', 'سعر الوحده', 'وحدة سعر',
+    'سعر وحده', 'وحدة/سعر', 'سعر المفرد', 'ثمن الوحدة', 'الفئة', 'فئة',
+    'التكلفة', 'تكلفة الوحدة', 'ر.و'
   ],
   totalPrice: [
-    'total', 'amount', 'إجمالي', 'المبلغ', 'الإجمالي', 'total price', 'المجموع',
-    'الجملة', 'إجمالى', 'جملة', 'المجموع الكلي', 'القيمة', 'القيمة الإجمالية',
-    'total amount', 'sum', 'المقابل', 'الثمن', 'إجمالي المبلغ', 'صافي',
-    'الصافي', 'net', 'value', 'جمله', 'اجمالي', 'اجمالى'
+    // English patterns
+    'total', 'amount', 'total price', 'total amount', 'sum', 'net', 'value',
+    // Arabic patterns - from document + extended
+    'إجمالي', 'المبلغ', 'الإجمالي', 'اجمالي', 'المجموع', 'الجملة', 'القيمة',
+    'جملة', 'جمله', 'القيمه', 'القيمة الإجمالية', 'إجمالى', 'اجمالى',
+    'المجموع الكلي', 'الثمن', 'الصافي', 'صافي'
+  ],
+  notes: [
+    // English patterns
+    'notes', 'remarks', 'comment', 'comments',
+    // Arabic patterns - from document
+    'ملاحظات', 'ملاحظة', 'ملاحظـات', 'مرفقات'
   ],
 };
 
+// Remove Arabic diacritics for better matching
+function removeDiacritics(text: string): string {
+  return text.replace(/[\u064B-\u065F\u0670]/g, '');
+}
+
 function normalizeColumnName(name: string): string {
-  return name.toString().toLowerCase().trim().replace(/\s+/g, ' ');
+  const cleaned = removeDiacritics(name.toString().toLowerCase().trim());
+  return cleaned.replace(/\s+/g, ' ');
 }
 
 function matchesPattern(columnName: string, patterns: string[]): boolean {
   const normalized = normalizeColumnName(columnName);
-  return patterns.some(pattern => normalized.includes(pattern.toLowerCase()));
+  return patterns.some(pattern => {
+    const normalizedPattern = normalizeColumnName(pattern);
+    return normalized.includes(normalizedPattern) || normalizedPattern.includes(normalized);
+  });
 }
 
 function detectColumnMapping(headers: string[]): Record<string, number> {
   const mapping: Record<string, number> = {};
   
+  // IMPORTANT: Do NOT reverse column order for RTL sheets - use physical order
   headers.forEach((header, index) => {
     if (!header) return;
     
@@ -117,9 +175,10 @@ function extractBOQItems(sheet: XLSX.WorkSheet, maxRows: number = 500): ExcelBOQ
     
     const item: ExcelBOQItem = {};
     
-    // Map known columns only (skip raw data for speed)
+    // Map known columns - apply Arabic number conversion
     if (columnMapping.itemNo !== undefined) {
-      item.itemNo = row[columnMapping.itemNo]?.toString();
+      const rawValue = row[columnMapping.itemNo]?.toString();
+      item.itemNo = convertArabicNumbers(rawValue || '');
     }
     if (columnMapping.description !== undefined) {
       item.description = row[columnMapping.description]?.toString();
@@ -128,16 +187,16 @@ function extractBOQItems(sheet: XLSX.WorkSheet, maxRows: number = 500): ExcelBOQ
       item.unit = row[columnMapping.unit]?.toString();
     }
     if (columnMapping.quantity !== undefined) {
-      const qty = parseFloat(row[columnMapping.quantity]?.toString() || '0');
-      item.quantity = isNaN(qty) ? undefined : qty;
+      item.quantity = parseArabicNumber(row[columnMapping.quantity]);
     }
     if (columnMapping.unitPrice !== undefined) {
-      const price = parseFloat(row[columnMapping.unitPrice]?.toString() || '0');
-      item.unitPrice = isNaN(price) ? undefined : price;
+      item.unitPrice = parseArabicNumber(row[columnMapping.unitPrice]);
     }
     if (columnMapping.totalPrice !== undefined) {
-      const total = parseFloat(row[columnMapping.totalPrice]?.toString() || '0');
-      item.totalPrice = isNaN(total) ? undefined : total;
+      item.totalPrice = parseArabicNumber(row[columnMapping.totalPrice]);
+    }
+    if (columnMapping.notes !== undefined) {
+      item.notes = row[columnMapping.notes]?.toString();
     }
     
     if (item.description || item.itemNo) {
