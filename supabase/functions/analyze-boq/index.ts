@@ -639,22 +639,51 @@ Use the submit_boq_analysis function to return your structured analysis.`;
     console.log(`Text being analyzed: ${textToAnalyze.length} characters`);
 
     // Helper function with timeout and retry
-    const fetchWithRetry = async (retryCount = 0): Promise<Response> => {
+    const fetchWithRetry = async (retryCount = 0, useOpenAI = false): Promise<Response> => {
       const maxRetries = 2;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
       
+      // Choose between Lovable AI and OpenAI
+      const apiUrl = useOpenAI 
+        ? "https://api.openai.com/v1/chat/completions"
+        : "https://ai.gateway.lovable.dev/v1/chat/completions";
+      
+      const apiKey = useOpenAI 
+        ? Deno.env.get("OPENAI_API_KEY")
+        : LOVABLE_API_KEY;
+      
+      const modelToUse = useOpenAI ? "gpt-4o-mini" : "google/gemini-2.5-flash";
+      
+      // OpenAI uses max_tokens, not max_completion_tokens for gpt-4o-mini
+      const currentRequestBody = {
+        ...requestBody,
+        model: modelToUse,
+      };
+      
+      console.log(`Using ${useOpenAI ? 'OpenAI' : 'Lovable AI'} with model: ${modelToUse}`);
+      
       try {
-        const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const resp = await fetch(apiUrl, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(requestBody),
+          body: JSON.stringify(currentRequestBody),
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
+        
+        // If Lovable AI returns 402 (Payment Required), fallback to OpenAI
+        if (resp.status === 402 && !useOpenAI) {
+          const openAIKey = Deno.env.get("OPENAI_API_KEY");
+          if (openAIKey) {
+            console.log("Lovable AI credits exhausted, falling back to OpenAI...");
+            return fetchWithRetry(0, true);
+          }
+        }
+        
         return resp;
       } catch (fetchError: unknown) {
         clearTimeout(timeoutId);
@@ -663,7 +692,7 @@ Use the submit_boq_analysis function to return your structured analysis.`;
           console.error(`Request timeout (attempt ${retryCount + 1})`);
           if (retryCount < maxRetries) {
             console.log(`Retrying... (${retryCount + 2}/${maxRetries + 1})`);
-            return fetchWithRetry(retryCount + 1);
+            return fetchWithRetry(retryCount + 1, useOpenAI);
           }
           throw new Error("Request timed out after multiple attempts. Please try with a smaller file.");
         }
@@ -684,9 +713,9 @@ Use the submit_boq_analysis function to return your structured analysis.`;
         );
       }
       if (response.status === 402) {
-        console.error("Payment required");
+        console.error("Payment required - both Lovable AI and OpenAI failed");
         return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add credits." }),
+          JSON.stringify({ error: "AI credits exhausted. Please add credits or configure OpenAI API key." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
