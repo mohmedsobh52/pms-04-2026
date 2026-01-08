@@ -17,14 +17,44 @@ export interface ExcelBOQItem {
   [key: string]: string | number | undefined;
 }
 
-// Common BOQ column name patterns (Arabic and English)
+// Common BOQ column name patterns (Arabic and English) - Extended for better recognition
 const COLUMN_PATTERNS = {
-  itemNo: ['item', 'no', 'رقم', 'البند', 'م', '#', 'seq', 'بند'],
-  description: ['description', 'وصف', 'البيان', 'الوصف', 'بيان', 'العمل', 'item description', 'spec'],
-  unit: ['unit', 'وحدة', 'الوحدة', 'uom'],
-  quantity: ['qty', 'quantity', 'كمية', 'الكمية', 'عدد'],
-  unitPrice: ['unit price', 'price', 'سعر', 'سعر الوحدة', 'rate', 'السعر'],
-  totalPrice: ['total', 'amount', 'إجمالي', 'المبلغ', 'الإجمالي', 'total price', 'المجموع'],
+  itemNo: [
+    'item', 'no', 'رقم', 'البند', 'م', '#', 'seq', 'بند', 
+    'رقم البند', 'مسلسل', 'ر.م', 'رم', 'التسلسل', 'ت', 
+    'item no', 'item number', 'serial', 'ref', 'المرجع',
+    'رقم المسلسل', 'الرقم', 'عدد البند', 'code', 'الكود'
+  ],
+  description: [
+    'description', 'وصف', 'البيان', 'الوصف', 'بيان', 'العمل', 
+    'item description', 'spec', 'المواصفات', 'التفاصيل', 'بيان الأعمال',
+    'وصف البند', 'وصف العمل', 'تفصيل', 'نوع العمل', 'اسم البند',
+    'specification', 'details', 'scope', 'نطاق العمل', 'العنصر',
+    'الصنف', 'المادة', 'البيانات', 'اسم', 'name'
+  ],
+  unit: [
+    'unit', 'وحدة', 'الوحدة', 'uom', 'unit of measure', 
+    'وحدة القياس', 'و.ق', 'وق', 'الوحدات', 'نوع الوحدة',
+    'م2', 'م3', 'م.ط', 'عدد', 'طن', 'كجم', 'لتر'
+  ],
+  quantity: [
+    'qty', 'quantity', 'كمية', 'الكمية', 'عدد', 
+    'الكميات', 'كميه', 'العدد', 'المقدار', 'حجم',
+    'الحجم', 'المساحة', 'الطول', 'العرض', 'الارتفاع',
+    'amount', 'count', 'no.', 'nos'
+  ],
+  unitPrice: [
+    'unit price', 'price', 'سعر', 'سعر الوحدة', 'rate', 'السعر',
+    'سعر المفرد', 'سعر الفرد', 'ثمن الوحدة', 'المعدل', 'سعر الوحده',
+    'unit rate', 'u.price', 'u/price', 'السعر المفرد', 'الفئة',
+    'فئة', 'التكلفة', 'cost', 'تكلفة الوحدة', 'ر.و', 'ريال'
+  ],
+  totalPrice: [
+    'total', 'amount', 'إجمالي', 'المبلغ', 'الإجمالي', 'total price', 'المجموع',
+    'الجملة', 'إجمالى', 'جملة', 'المجموع الكلي', 'القيمة', 'القيمة الإجمالية',
+    'total amount', 'sum', 'المقابل', 'الثمن', 'إجمالي المبلغ', 'صافي',
+    'الصافي', 'net', 'value', 'جمله', 'اجمالي', 'اجمالى'
+  ],
 };
 
 function normalizeColumnName(name: string): string {
