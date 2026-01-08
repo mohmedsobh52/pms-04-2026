@@ -741,6 +741,81 @@ export type Database = {
           },
         ]
       }
+      material_prices: {
+        Row: {
+          category: string
+          city: string | null
+          created_at: string
+          currency: string | null
+          description: string | null
+          id: string
+          is_verified: boolean | null
+          location: string | null
+          name: string
+          name_ar: string | null
+          notes: string | null
+          price_date: string | null
+          source: string | null
+          source_url: string | null
+          subcategory: string | null
+          supplier_contact: string | null
+          supplier_name: string | null
+          unit: string
+          unit_price: number
+          updated_at: string
+          user_id: string
+          valid_until: string | null
+        }
+        Insert: {
+          category: string
+          city?: string | null
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          id?: string
+          is_verified?: boolean | null
+          location?: string | null
+          name: string
+          name_ar?: string | null
+          notes?: string | null
+          price_date?: string | null
+          source?: string | null
+          source_url?: string | null
+          subcategory?: string | null
+          supplier_contact?: string | null
+          supplier_name?: string | null
+          unit: string
+          unit_price: number
+          updated_at?: string
+          user_id: string
+          valid_until?: string | null
+        }
+        Update: {
+          category?: string
+          city?: string | null
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          id?: string
+          is_verified?: boolean | null
+          location?: string | null
+          name?: string
+          name_ar?: string | null
+          notes?: string | null
+          price_date?: string | null
+          source?: string | null
+          source_url?: string | null
+          subcategory?: string | null
+          supplier_contact?: string | null
+          supplier_name?: string | null
+          unit?: string
+          unit_price?: number
+          updated_at?: string
+          user_id?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
       ocr_extracted_texts: {
         Row: {
           created_at: string
@@ -1519,6 +1594,60 @@ export type Database = {
           status?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          category: string | null
+          city: string | null
+          created_at: string
+          email: string | null
+          id: string
+          is_verified: boolean | null
+          name: string
+          name_ar: string | null
+          notes: string | null
+          phone: string | null
+          rating: number | null
+          updated_at: string
+          user_id: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          category?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_verified?: boolean | null
+          name: string
+          name_ar?: string | null
+          notes?: string | null
+          phone?: string | null
+          rating?: number | null
+          updated_at?: string
+          user_id: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          category?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_verified?: boolean | null
+          name?: string
+          name_ar?: string | null
+          notes?: string | null
+          phone?: string | null
+          rating?: number | null
+          updated_at?: string
+          user_id?: string
+          website?: string | null
         }
         Relationships: []
       }
