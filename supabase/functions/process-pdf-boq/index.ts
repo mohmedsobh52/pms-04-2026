@@ -6,7 +6,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -32,7 +31,6 @@ serve(async (req) => {
 
     console.log(`Processing PDF BOQ extraction for file: ${fileName}`);
 
-    // Use Gemini to directly analyze the PDF as it supports PDF input
     const systemPrompt = `أنت خبير في استخراج بيانات جداول الكميات والأسعار (BOQ) من المستندات.
 مهمتك هي:
 1. تحليل المستند واستخراج جميع بنود BOQ
@@ -49,12 +47,13 @@ serve(async (req) => {
 - إذا كان السعر الإجمالي غير موجود، احسبه من الكمية × سعر الوحدة
 - احرص على التعامل مع الأرقام العربية والإنجليزية
 - أرجع النتائج بتنسيق JSON فقط
+- إذا لم تجد جدول BOQ واضح، حاول استخراج أي بيانات أسعار متاحة
 
 أعد الاستجابة بهذا التنسيق بالضبط:
 {
   "items": [
     {
-      "item_number": "1.1",
+      "item_number": "1",
       "description": "وصف البند",
       "unit": "م3",
       "quantity": 100,
@@ -66,11 +65,14 @@ serve(async (req) => {
   "currency": "SAR"
 }`;
 
-    const userPrompt = `استخرج جميع بنود BOQ من هذا المستند: ${fileName}
+    const userPrompt = `هذا ملف PDF بصيغة base64. قم بتحليله واستخراج جميع بنود BOQ.
+اسم الملف: ${fileName}
+
+البيانات:
+${pdfBase64.substring(0, 50000)}
 
 أعد النتائج بتنسيق JSON فقط بدون أي نص إضافي.`;
 
-    // First, try to extract text and BOQ items using vision model
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -81,18 +83,7 @@ serve(async (req) => {
         model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
-          { 
-            role: 'user', 
-            content: [
-              { type: 'text', text: userPrompt },
-              { 
-                type: 'image_url', 
-                image_url: { 
-                  url: pdfBase64.startsWith('data:') ? pdfBase64 : `data:application/pdf;base64,${pdfBase64}` 
-                } 
-              }
-            ]
-          }
+          { role: 'user', content: userPrompt }
         ],
         max_tokens: 8192,
         temperature: 0.1,
@@ -102,39 +93,51 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('API error:', response.status, errorText);
+      
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded, please try again later', success: false, items: [] }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: 'API credits exhausted', success: false, items: [] }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       throw new Error(`API request failed: ${response.status}`);
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
     
-    console.log('AI Response received, parsing JSON...');
+    console.log('AI Response received, length:', content.length);
+    console.log('AI Response preview:', content.substring(0, 500));
 
-    // Try to parse JSON from response
     let result;
     try {
-      // Find JSON in the response
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         result = JSON.parse(jsonMatch[0]);
       } else {
-        throw new Error('No JSON found in response');
+        console.log('No JSON found, trying to extract from response');
+        result = { items: [], total_items: 0 };
       }
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
-      console.log('Raw content:', content.substring(0, 500));
-      
-      // Return empty items if parsing fails
+      console.log('Raw content:', content);
       result = { items: [], total_items: 0 };
     }
 
-    console.log(`Extracted ${result.items?.length || 0} BOQ items`);
+    const items = result.items || [];
+    console.log(`Extracted ${items.length} BOQ items`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        items: result.items || [],
-        total_items: result.items?.length || 0,
+        items: items,
+        total_items: items.length,
         currency: result.currency || 'SAR',
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
