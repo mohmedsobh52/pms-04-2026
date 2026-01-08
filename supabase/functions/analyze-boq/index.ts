@@ -414,22 +414,23 @@ serve(async (req) => {
     const body = await req.json();
     let { text, analysis_type, language = 'en', file_type = 'pdf', generate_schedule = true } = body;
     
-    // Handle compressed text from client - client uses compressToBase64
-    if (body.isCompressed && body.textCompressed) {
+    // Handle compressed text from client - support BOTH field names
+    const compressedText = body.textCompressed || body.boqTextCompressed;
+    if (body.isCompressed && compressedText) {
       console.log("Decompressing text from client (Base64 format)...");
       try {
         // Client uses LZString.compressToBase64, so use decompressFromBase64 FIRST
-        text = LZString.decompressFromBase64(body.textCompressed);
+        text = LZString.decompressFromBase64(compressedText);
         console.log(`Decompressed from Base64: ${text?.length || 0} characters`);
         
         // Fallback methods if Base64 didn't work
         if (!text || text.length < 5) {
           console.log("Base64 failed, trying UTF16...");
-          text = LZString.decompressFromUTF16(body.textCompressed);
+          text = LZString.decompressFromUTF16(compressedText);
         }
         if (!text || text.length < 5) {
           console.log("UTF16 failed, trying raw decompress...");
-          text = LZString.decompress(body.textCompressed);
+          text = LZString.decompress(compressedText);
         }
         
         console.log(`Final decompressed text length: ${text?.length || 0} characters`);
@@ -454,6 +455,11 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+    }
+    
+    // Also check for boqText field (uncompressed)
+    if (!text && body.boqText) {
+      text = body.boqText;
     }
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
