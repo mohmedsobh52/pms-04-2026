@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { useChunkedAnalysis, ChunkProgress } from "@/hooks/useChunkedAnalysis";
+import { useChunkedAnalysis, ChunkProgress, splitIntoChunks } from "@/hooks/useChunkedAnalysis";
 import { useLanguage } from "@/hooks/useLanguage";
 
 interface ChunkedAnalysisPanelProps {
@@ -33,7 +33,6 @@ export function ChunkedAnalysisPanel({
     progress, 
     analyzeWithChunks, 
     cancelAnalysis,
-    splitIntoChunks 
   } = useChunkedAnalysis();
   
   const [chunkSize, setChunkSize] = useState(30000);
@@ -50,7 +49,7 @@ export function ChunkedAnalysisPanel({
       const chunks = splitIntoChunks(textContent, chunkSize, overlapSize);
       setEstimatedChunks(chunks.length);
     }
-  }, [textContent, chunkSize, overlapSize, splitIntoChunks]);
+  }, [textContent, chunkSize, overlapSize]);
 
   // Auto-start if enabled and content is large enough
   useEffect(() => {
