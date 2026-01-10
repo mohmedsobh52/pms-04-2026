@@ -35,6 +35,7 @@ import { BOQTemplates } from "@/components/BOQTemplates";
 import { AnalysisSettingsDialog, getAnalysisSettings, type AnalysisSettings } from "@/components/AnalysisSettingsDialog";
 import { ConnectionErrorDialog, detectErrorType, type ConnectionError } from "@/components/ConnectionErrorDialog";
 import { ChunkedAnalysisProgress } from "@/components/ChunkedAnalysisProgress";
+import { ChunkedAnalysisPanel } from "@/components/ChunkedAnalysisPanel";
 import { useChunkedAnalysis, compressText } from "@/hooks/useChunkedAnalysis";
 import { EstimatedAnalysisTime } from "@/components/EstimatedAnalysisTime";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1253,6 +1254,46 @@ const Index = () => {
                         isProcessing={isProcessing}
                       />
                     </div>
+                  )}
+                  
+                  {/* Chunked Analysis Panel for Large Files */}
+                  {extractedText.length >= 20000 && !isProcessing && (
+                    <ChunkedAnalysisPanel
+                      textContent={extractedText}
+                      onAnalysisComplete={(result) => {
+                        if (result?.items) {
+                          const normalizedItems = result.items.map((item: any) => ({
+                            ...item,
+                            item_number: item.itemNumber || item.item_number || '',
+                            unit_price: item.unitPrice || item.unit_price || 0,
+                            total_price: item.totalPrice || item.total_price || 0,
+                            description: item.description || '',
+                            unit: item.unit || 'م',
+                            category: item.category || 'غير مصنف',
+                          }));
+                          setAnalysisData({
+                            items: normalizedItems,
+                            summary: result.summary,
+                            chunksProcessed: result.chunksProcessed,
+                          });
+                          updateStepStatus("analyze", "complete", 100);
+                          updateStepStatus("wbs", "complete");
+                          updateStepStatus("export", "complete");
+                          toast({
+                            title: isArabic ? 'اكتمل التحليل المجزأ' : 'Chunked Analysis Complete',
+                            description: `${normalizedItems.length} ${isArabic ? 'بند تم تحليله' : 'items analyzed'}`,
+                          });
+                        }
+                      }}
+                      onCancel={() => {
+                        toast({
+                          title: isArabic ? 'تم إلغاء التحليل' : 'Analysis Cancelled',
+                        });
+                      }}
+                      functionName="analyze-boq"
+                      autoStart={false}
+                      minChunkSizeForAuto={50000}
+                    />
                   )}
                   
                   <div className="bg-muted rounded-xl p-4 max-h-48 overflow-y-auto">
