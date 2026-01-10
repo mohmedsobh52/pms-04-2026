@@ -86,53 +86,61 @@ const COLUMN_PATTERNS = {
   itemNo: [
     // English patterns
     'item', 'no', 'item no', 'item number', 'serial', 'ref', 'code', '#', 'seq',
+    'sn', 's/n', 's.n', 'line', 'line no', 'row', 'id', 'number', 'num',
     // Arabic patterns - from document + extended
     'رقم', 'البند', 'م', 'بند', 'رقم البند', 'مسلسل', 'تسلسل', 'بند/رقم',
-    'ر.م', 'رم', 'التسلسل', 'ت', 'المرجع', 'رقم المسلسل', 'الرقم', 'الكود'
+    'ر.م', 'رم', 'التسلسل', 'ت', 'المرجع', 'رقم المسلسل', 'الرقم', 'الكود',
+    'رقم بند', 'بند رقم', 'م.', 'ر', 'السطر', 'التسلسلي', 'رقم مسلسل'
   ],
   description: [
     // English patterns
-    'description', 'spec', 'specification', 'details', 'scope', 'name',
+    'description', 'spec', 'specification', 'specifications', 'details', 'scope', 'name',
+    'desc', 'item description', 'work description', 'work', 'activity', 'task',
     // Arabic patterns - from document + extended
     'وصف', 'البيان', 'الوصف', 'شرح', 'تفاصيل', 'اسم البند', 'وصف البند',
     'بيان الأعمال', 'بيان', 'العمل', 'المواصفات', 'التفاصيل', 'العنصر',
-    'الصنف', 'المادة', 'البيانات', 'اسم'
+    'الصنف', 'المادة', 'البيانات', 'اسم', 'مواصفات', 'وصف الأعمال',
+    'وصف العمل', 'الأعمال', 'النشاط', 'المهمة', 'بيان العمل', 'تفصيل'
   ],
   unit: [
     // English patterns
-    'unit', 'uom', 'unit of measure',
+    'unit', 'uom', 'unit of measure', 'u/m', 'measure', 'units',
     // Arabic patterns - from document + extended
     'وحدة', 'الوحدة', 'وحده', 'الوحـدة', 'وحدة القياس', 'و.ق', 'وق', 'الوحدات',
-    'م2', 'م3', 'م.ط', 'طن', 'كجم', 'لتر'
+    'م2', 'م3', 'م.ط', 'طن', 'كجم', 'لتر', 'القياس', 'وحدات'
   ],
   quantity: [
     // English patterns
-    'qty', 'quantity', 'amount', 'count', 'no.', 'nos',
+    'qty', 'quantity', 'amount', 'count', 'no.', 'nos', 'quantities', 'qnty',
     // Arabic patterns - from document + extended
     'كمية', 'الكمية', 'العدد', 'الكميه', 'الكم', 'الكميات', 'المقدار',
-    'حجم', 'الحجم', 'المساحة'
+    'حجم', 'الحجم', 'المساحة', 'كميات', 'عدد'
   ],
   unitPrice: [
     // English patterns
     'unit price', 'price', 'rate', 'unit rate', 'u.price', 'u/price', 'cost',
+    'unit cost', 'per unit', 'each', 'single price', 'item price',
     // Arabic patterns - from document + extended
     'سعر', 'سعر الوحدة', 'السعر', 'المعدل', 'سعر الوحده', 'وحدة سعر',
     'سعر وحده', 'وحدة/سعر', 'سعر المفرد', 'ثمن الوحدة', 'الفئة', 'فئة',
-    'التكلفة', 'تكلفة الوحدة', 'ر.و'
+    'التكلفة', 'تكلفة الوحدة', 'ر.و', 'سعر البند', 'السعر المفرد',
+    'سعر الفئة', 'ثمن', 'سعر/وحدة', 'تكلفة', 'المفرد'
   ],
   totalPrice: [
     // English patterns
     'total', 'amount', 'total price', 'total amount', 'sum', 'net', 'value',
+    'total cost', 'line total', 'extended', 'ext', 'subtotal', 'sub total',
     // Arabic patterns - from document + extended
     'إجمالي', 'المبلغ', 'الإجمالي', 'اجمالي', 'المجموع', 'الجملة', 'القيمة',
     'جملة', 'جمله', 'القيمه', 'القيمة الإجمالية', 'إجمالى', 'اجمالى',
-    'المجموع الكلي', 'الثمن', 'الصافي', 'صافي'
+    'المجموع الكلي', 'الثمن', 'الصافي', 'صافي', 'اجمالى البند', 'إجمالي البند',
+    'المبلغ الإجمالي', 'جملة المبلغ', 'مجموع', 'قيمة', 'إجمالى السعر'
   ],
   notes: [
     // English patterns
-    'notes', 'remarks', 'comment', 'comments',
-    // Arabic patterns - from document
-    'ملاحظات', 'ملاحظة', 'ملاحظـات', 'مرفقات'
+    'notes', 'remarks', 'comment', 'comments', 'remark', 'note', 'observation',
+    // Arabic patterns - from document + extended
+    'ملاحظات', 'ملاحظة', 'ملاحظـات', 'مرفقات', 'تعليق', 'تعليقات', 'إضافات'
   ],
 };
 
