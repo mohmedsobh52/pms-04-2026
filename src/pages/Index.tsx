@@ -431,11 +431,20 @@ const Index = () => {
         if (jobId) {
           toast({
             title: isArabic ? 'تم إنشاء مهمة التحليل' : 'Analysis Job Created',
-            description: isArabic 
+            description: isArabic
               ? 'سيتم معالجة الملف في الخلفية. يمكنك متابعة التقدم.'
               : 'File will be processed in background. You can track progress.',
           });
-          
+
+          // Kick off backend processing immediately (otherwise the job stays pending)
+          try {
+            await supabase.functions.invoke('process-analysis-job', {
+              body: { jobId },
+            });
+          } catch (startErr) {
+            console.warn('Failed to start background job (will keep polling):', startErr);
+          }
+
           // Start polling for job status
           startPolling(
             jobId,
@@ -445,7 +454,7 @@ const Index = () => {
               setIsProcessing(false);
               toast({
                 title: isArabic ? 'اكتمل التحليل' : 'Analysis Complete',
-                description: isArabic 
+                description: isArabic
                   ? `تم تحليل ${result?.items?.length || 0} بند`
                   : `Analyzed ${result?.items?.length || 0} items`,
               });
