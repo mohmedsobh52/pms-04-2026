@@ -178,16 +178,25 @@ export function ExcelChunkedAnalysis({
           percentage: 10 + Math.round((i / chunks.length) * 80),
         }));
 
-        // Process chunk with retry logic
+        // Process chunk with retry logic and timeout
         let lastError: Error | null = null;
         let result = null;
 
         for (let attempt = 1; attempt <= 3; attempt++) {
           // Check if cancelled before each attempt
-          if (cancelledRef.current) break;
+          if (cancelledRef.current) {
+            console.log('Cancelled before attempt', attempt);
+            break;
+          }
 
           try {
-            const { data, error: invokeError } = await supabase.functions.invoke('analyze-quotation', {
+            // Create a timeout promise
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('Request timeout')), 30000); // 30s timeout
+            });
+
+            // Create the analysis promise
+            const analysisPromise = supabase.functions.invoke('analyze-quotation', {
               body: {
                 quotationText: chunkText,
                 quotationName: `${fileName} - Chunk ${i + 1}/${chunks.length}`,
@@ -197,28 +206,55 @@ export function ExcelChunkedAnalysis({
               },
             });
 
+            // Race between analysis and timeout
+            const { data, error: invokeError } = await Promise.race([
+              analysisPromise,
+              timeoutPromise.then(() => { throw new Error('Request timeout'); }),
+            ]) as { data: any; error: any };
+
+            // Check cancelled again after async operation
+            if (cancelledRef.current) {
+              console.log('Cancelled after fetch');
+              break;
+            }
+
             if (invokeError) throw invokeError;
             if (data?.error) throw new Error(data.error);
 
             result = data?.analysis || data;
+            console.log(`Chunk ${i + 1} completed successfully`);
             break;
           } catch (err: any) {
             lastError = err;
+            console.warn(`Chunk ${i + 1}, attempt ${attempt} failed:`, err.message);
+            
+            // Check if cancelled before waiting
+            if (cancelledRef.current) break;
+            
             // Check for rate limit or credits exhausted
             if (err.message?.includes('429') || err.message?.includes('rate limit')) {
               console.warn(`Rate limit hit on chunk ${i + 1}, attempt ${attempt}`);
               // Wait longer for rate limits
-              await new Promise(resolve => setTimeout(resolve, 3000 * attempt));
+              await new Promise(resolve => setTimeout(resolve, 5000 * attempt));
+            } else if (err.message?.includes('timeout')) {
+              // For timeouts, wait less and retry
+              await new Promise(resolve => setTimeout(resolve, 2000));
             } else if (attempt < 3) {
-              await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+              await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
             }
           }
+        }
+
+        // Final check for cancellation
+        if (cancelledRef.current) {
+          console.log('Breaking out of loop due to cancellation');
+          break;
         }
 
         if (result) {
           results.push(result);
         } else if (lastError) {
-          console.warn(`Chunk ${i + 1} failed:`, lastError.message);
+          console.warn(`Chunk ${i + 1} failed after all retries:`, lastError.message);
           // Don't fail entire process, continue with next chunk
         }
 
@@ -226,10 +262,28 @@ export function ExcelChunkedAnalysis({
           ...prev,
           processedChunks: i + 1,
         }));
+        
+        // Small delay between chunks to avoid rate limiting
+        if (i < chunks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
 
       // Final cancel check
-      if (cancelledRef.current) return;
+      if (cancelledRef.current) {
+        // Return partial results if any
+        if (results.length > 0) {
+          const partialResult = mergeChunkResults(results);
+          onAnalysisComplete(partialResult);
+          toast({
+            title: isArabic ? 'تم إلغاء التحليل' : 'Analysis Cancelled',
+            description: isArabic 
+              ? `تم تحليل ${results.length} أجزاء قبل الإلغاء`
+              : `Processed ${results.length} chunks before cancellation`,
+          });
+        }
+        return;
+      }
 
       // Merge results
       setProgress(prev => ({ ...prev, status: 'merging', percentage: 95 }));
