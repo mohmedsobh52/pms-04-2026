@@ -37,6 +37,7 @@ import { AnalysisSettingsDialog, getAnalysisSettings, type AnalysisSettings } fr
 import { ConnectionErrorDialog, detectErrorType, type ConnectionError } from "@/components/ConnectionErrorDialog";
 import { ChunkedAnalysisProgress } from "@/components/ChunkedAnalysisProgress";
 import { ChunkedAnalysisPanel } from "@/components/ChunkedAnalysisPanel";
+import { AnalysisStatusPanel, useAnalysisStatus } from "@/components/AnalysisStatusPanel";
 import { useChunkedAnalysis, compressText } from "@/hooks/useChunkedAnalysis";
 import { EstimatedAnalysisTime } from "@/components/EstimatedAnalysisTime";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -128,6 +129,9 @@ const Index = () => {
     startPolling,
     cancelAnalysis,
   } = useChunkedAnalysis();
+
+  // Analysis status hook
+  const analysisStatusHook = useAnalysisStatus();
 
   // Handle floating toolbar navigation
   const handleToolbarNavigate = (tab: string) => {
@@ -408,9 +412,21 @@ const Index = () => {
     setIsProcessing(true);
     updateStepStatus("analyze", "processing", 10);
 
-    // Use Job Queue for very large files (if enabled and user is logged in)
-    if (analysisSettings.useJobQueue && rawText.length > 200000 && user) {
+    // Auto-determine if we should use Job Queue based on file size
+    // Use Job Queue for files > autoJobQueueThreshold KB (default 200KB)
+    const autoJobQueueThresholdBytes = (analysisSettings.autoJobQueueThreshold || 200) * 1024;
+    const shouldUseJobQueue = analysisSettings.useJobQueue && user && rawText.length > autoJobQueueThresholdBytes;
+
+    // Use Job Queue for large files (auto-enabled for files over threshold)
+    if (shouldUseJobQueue) {
       try {
+        toast({
+          title: isArabic ? 'تحليل في الخلفية' : 'Background Analysis',
+          description: isArabic 
+            ? `الملف كبير (${Math.round(rawText.length/1024)} KB). سيتم معالجته في الخلفية.`
+            : `Large file (${Math.round(rawText.length/1024)} KB). Processing in background.`,
+        });
+
         const jobId = await createAnalysisJob(rawText, 'extract_items', selectedFile?.name);
         if (jobId) {
           toast({
