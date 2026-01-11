@@ -570,31 +570,49 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
     const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
     // Helper function with timeout, retry, and rate limit handling
-    const fetchWithRetry = async (retryCount = 0, useOpenAI = initialUseOpenAI, rateLimitRetry = 0): Promise<Response> => {
+    // IMPORTANT: prevent infinite provider ping-pong when both providers are rate limited.
+    const fetchWithRetry = async (
+      retryCount = 0,
+      useOpenAI = initialUseOpenAI,
+      rateLimitRetry = 0,
+      providerSwitches = 0
+    ): Promise<Response> => {
       const maxRetries = 2; // Retries for timeouts
-      const maxRateLimitRetries = 3; // Retries for rate limits
+      const maxRateLimitRetries = 3; // Retries for rate limits (per provider)
+      const maxProviderSwitches = 1; // Max provider switches (auto mode)
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
-      
+
       // Choose between Lovable AI and OpenAI
-      const apiUrl = useOpenAI 
+      const apiUrl = useOpenAI
         ? "https://api.openai.com/v1/chat/completions"
         : "https://ai.gateway.lovable.dev/v1/chat/completions";
-      
-      const apiKey = useOpenAI 
-        ? Deno.env.get("OPENAI_API_KEY")
-        : LOVABLE_API_KEY;
-      
+
+      const apiKey = useOpenAI ? Deno.env.get("OPENAI_API_KEY") : LOVABLE_API_KEY;
+
+      // If OpenAI mode and no API key, fail fast.
+      if (useOpenAI && !apiKey) {
+        clearTimeout(timeoutId);
+        console.error("OpenAI requested but no API key configured");
+        return new Response(
+          JSON.stringify({
+            error: "OpenAI API key not configured",
+            suggestion: "Please configure OPENAI_API_KEY in secrets or switch to Lovable AI",
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       // Use faster model based on file size
       const modelToUse = useOpenAI ? "gpt-4o-mini" : modelToUseDefault;
-      
       const currentRequestBody = {
         ...requestBody,
         model: modelToUse,
       };
-      
+
       console.log(`Using ${useOpenAI ? 'OpenAI' : 'Lovable AI'} with model: ${modelToUse}`);
-      
+
       try {
         const resp = await fetch(apiUrl, {
           method: "POST",
@@ -606,63 +624,58 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
-        
+
         // Handle rate limiting (429) with exponential backoff
         if (resp.status === 429) {
-          console.log(`Rate limit hit for ${useOpenAI ? 'OpenAI' : 'Lovable AI'} (attempt ${rateLimitRetry + 1}/${maxRateLimitRetries})`);
-          
-          // If we haven't exhausted rate limit retries, wait and retry
           if (rateLimitRetry < maxRateLimitRetries) {
+            console.log(
+              `Rate limit hit for ${useOpenAI ? 'OpenAI' : 'Lovable AI'} (retry ${rateLimitRetry + 1}/${maxRateLimitRetries})`
+            );
+
             const delayMs = Math.min(2000 * Math.pow(2, rateLimitRetry), 16000); // 2s, 4s, 8s, 16s max
             console.log(`Waiting ${delayMs}ms before retry...`);
             await sleep(delayMs);
-            return fetchWithRetry(retryCount, useOpenAI, rateLimitRetry + 1);
+            return fetchWithRetry(retryCount, useOpenAI, rateLimitRetry + 1, providerSwitches);
           }
-          
-          // If Lovable AI rate limited and we can fallback to OpenAI
-          if (!useOpenAI && preferred_provider === 'auto') {
-            const openAIKey = Deno.env.get("OPENAI_API_KEY");
-            if (openAIKey) {
-              console.log("Lovable AI rate limited, falling back to OpenAI...");
-              usedProvider = 'openai';
-              return fetchWithRetry(0, true, 0);
+
+          console.log(
+            `Rate limit persisted after ${maxRateLimitRetries} retries for ${useOpenAI ? 'OpenAI' : 'Lovable AI'}.`
+          );
+
+          // Provider fallback (auto mode) — but only switch a limited number of times.
+          if (preferred_provider === 'auto' && providerSwitches < maxProviderSwitches) {
+            if (!useOpenAI) {
+              const openAIKey = Deno.env.get("OPENAI_API_KEY");
+              if (openAIKey) {
+                console.log("Lovable AI rate limited, falling back to OpenAI...");
+                usedProvider = 'openai';
+                return fetchWithRetry(0, true, 0, providerSwitches + 1);
+              }
+            } else {
+              console.log("OpenAI rate limited, trying Lovable AI...");
+              usedProvider = 'lovable';
+              return fetchWithRetry(0, false, 0, providerSwitches + 1);
             }
           }
-          
-          // If OpenAI rate limited and we haven't tried Lovable AI
-          if (useOpenAI && preferred_provider === 'auto') {
-            console.log("OpenAI rate limited, trying Lovable AI...");
-            usedProvider = 'lovable';
-            return fetchWithRetry(0, false, 0);
-          }
+
+          // No more switching: return 429 response to be handled by caller.
+          return resp;
         }
-        
+
         // If Lovable AI returns 402 (Payment Required), fallback to OpenAI (only in auto mode)
         if (resp.status === 402 && !useOpenAI && preferred_provider === 'auto') {
           const openAIKey = Deno.env.get("OPENAI_API_KEY");
-          if (openAIKey) {
+          if (openAIKey && providerSwitches < maxProviderSwitches) {
             console.log("Lovable AI credits exhausted, falling back to OpenAI...");
             usedProvider = 'openai';
-            return fetchWithRetry(0, true, 0);
+            return fetchWithRetry(0, true, 0, providerSwitches + 1);
           }
         }
-        
-        // If OpenAI mode and no API key
-        if (useOpenAI && !Deno.env.get("OPENAI_API_KEY")) {
-          console.error("OpenAI requested but no API key configured");
-          return new Response(
-            JSON.stringify({ 
-              error: "OpenAI API key not configured",
-              suggestion: "Please configure OPENAI_API_KEY in secrets or switch to Lovable AI"
-            }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        
+
         if (useOpenAI) {
           usedProvider = 'openai';
         }
-        
+
         return resp;
       } catch (fetchError: unknown) {
         clearTimeout(timeoutId);
@@ -671,7 +684,7 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
           console.error(`Request timeout (attempt ${retryCount + 1})`);
           if (retryCount < maxRetries) {
             console.log(`Retrying... (${retryCount + 2}/${maxRetries + 1})`);
-            return fetchWithRetry(retryCount + 1, useOpenAI, rateLimitRetry);
+            return fetchWithRetry(retryCount + 1, useOpenAI, rateLimitRetry, providerSwitches);
           }
           throw new Error("Request timed out after multiple attempts. Please try with a smaller file.");
         }
