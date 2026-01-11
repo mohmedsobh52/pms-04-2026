@@ -433,9 +433,21 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
       });
     } catch (error) {
       console.error("Analysis error:", error);
+      
+      let errorMessage = "حدث خطأ أثناء التحليل";
+      if (error instanceof Error) {
+        if (error.message.includes("402") || error.message.includes("credits") || error.message.includes("رصيد")) {
+          errorMessage = "نفد رصيد خدمة الذكاء الاصطناعي. يرجى المحاولة لاحقاً.";
+        } else if (error.message.includes("429") || error.message.includes("rate")) {
+          errorMessage = "تم تجاوز حد الطلبات. يرجى الانتظار دقيقة ثم إعادة المحاولة.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: "خطأ في التحليل",
-        description: error instanceof Error ? error.message : "حدث خطأ أثناء التحليل",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -522,9 +534,20 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Edge function error:", error);
+        throw new Error("فشل في الاتصال بخدمة التحليل");
+      }
 
       if (data.error) {
+        // Handle specific error types
+        if (data.canRetry === false) {
+          // Credits exhausted - don't retry
+          throw new Error(data.error + " - " + (data.suggestion || ""));
+        } else if (data.retryAfter) {
+          // Rate limited - suggest waiting
+          throw new Error(`${data.error} (انتظر ${data.retryAfter} ثانية)`);
+        }
         throw new Error(data.error);
       }
 
@@ -560,9 +583,23 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
       });
     } catch (error) {
       console.error("Analysis error:", error);
+      
+      let errorMessage = "حدث خطأ أثناء التحليل";
+      if (error instanceof Error) {
+        if (error.message.includes("402") || error.message.includes("credits") || error.message.includes("رصيد")) {
+          errorMessage = "نفد رصيد خدمة الذكاء الاصطناعي. يرجى المحاولة لاحقاً أو التواصل مع الدعم.";
+        } else if (error.message.includes("429") || error.message.includes("rate") || error.message.includes("حد")) {
+          errorMessage = "تم تجاوز حد الطلبات. يرجى الانتظار دقيقة ثم إعادة المحاولة.";
+        } else if (error.message.includes("الاتصال")) {
+          errorMessage = "فشل الاتصال بخدمة التحليل. تأكد من اتصال الإنترنت وأعد المحاولة.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: "خطأ في التحليل",
-        description: error instanceof Error ? error.message : "حدث خطأ أثناء التحليل",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

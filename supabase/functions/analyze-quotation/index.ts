@@ -6,6 +6,109 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper function to call AI with retry and fallback
+async function callAIWithFallback(systemPrompt: string, userPrompt: string): Promise<string> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+
+  let lastError: Error | null = null;
+
+  // Try Lovable AI first
+  if (LOVABLE_API_KEY) {
+    try {
+      console.log("Trying Lovable AI (gemini-2.5-flash)...");
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt }
+          ],
+          temperature: 0.1,
+          max_tokens: 8000
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (content) {
+          console.log("Lovable AI response received successfully");
+          return content;
+        }
+      } else {
+        const errorText = await response.text();
+        console.log("Lovable AI error:", response.status, errorText);
+        
+        if (response.status === 402) {
+          console.log("Lovable AI credits exhausted, trying OpenAI fallback...");
+        } else if (response.status === 429) {
+          console.log("Lovable AI rate limited, trying OpenAI fallback...");
+        }
+        lastError = new Error(`Lovable AI: ${response.status}`);
+      }
+    } catch (err) {
+      console.log("Lovable AI request failed:", err);
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+
+  // Fallback to OpenAI
+  if (OPENAI_API_KEY) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        console.log(`Trying OpenAI (gpt-4o-mini) attempt ${attempt}...`);
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt }
+            ],
+            temperature: 0.1,
+            max_tokens: 8000
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const content = data.choices?.[0]?.message?.content;
+          if (content) {
+            console.log("OpenAI response received successfully");
+            return content;
+          }
+        } else if (response.status === 429) {
+          const waitTime = attempt * 2000;
+          console.log(`OpenAI rate limited, waiting ${waitTime}ms...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        } else {
+          const errorText = await response.text();
+          console.log("OpenAI error:", response.status, errorText);
+          lastError = new Error(`OpenAI: ${response.status}`);
+          break;
+        }
+      } catch (err) {
+        console.log("OpenAI request failed:", err);
+        lastError = err instanceof Error ? err : new Error(String(err));
+      }
+    }
+  }
+
+  // Both failed
+  throw lastError || new Error("All AI providers unavailable");
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -19,6 +122,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           error: "النص قصير جداً للتحليل",
+          errorEn: "Text too short for analysis",
           suggestion: "يرجى تقديم محتوى عرض السعر للتحليل"
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -27,15 +131,6 @@ serve(async (req) => {
 
     console.log("Analyzing quotation:", quotationName, "from:", supplierName);
     console.log("Text length:", quotationText.length);
-    console.log("First 500 chars of text:", quotationText.substring(0, 500));
-    console.log("Has Arabic:", /[\u0600-\u06FF]/.test(quotationText));
-    console.log("Has numbers:", /\d/.test(quotationText));
-
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
 
     const systemPrompt = `You are an expert quotation and procurement analyst. You will analyze price quotations that may contain Arabic text.
 
@@ -97,19 +192,7 @@ Respond with JSON ONLY in the following structure:
   "summary": "Brief summary of the quotation"
 }`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { 
-            role: "user", 
-            content: `Analyze the following price quotation:
+    const userPrompt = `Analyze the following price quotation:
 
 Quotation Name: ${quotationName || 'Not specified'}
 Supplier: ${supplierName || 'Not specified'}
@@ -118,44 +201,49 @@ Supplier: ${supplierName || 'Not specified'}
 EXTRACTED TEXT FROM QUOTATION:
 ========================
 
-${quotationText}
+${quotationText.substring(0, 15000)}
 
 ========================
 
 Please analyze the above text carefully and extract ALL items, quantities, and prices found in it.
 DO NOT invent any data - use ONLY what is present in the text.
-Translate all Arabic text to English in your response.` 
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 8000
-      }),
-    });
+Translate all Arabic text to English in your response.`;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+    let content: string;
+    try {
+      content = await callAIWithFallback(systemPrompt, userPrompt);
+    } catch (aiError) {
+      console.error("All AI providers failed:", aiError);
       
-      if (response.status === 429) {
+      const errorMessage = aiError instanceof Error ? aiError.message : String(aiError);
+      
+      // Check for specific error types
+      if (errorMessage.includes("402") || errorMessage.includes("credit")) {
         return new Response(
-          JSON.stringify({ error: "تم تجاوز حد الطلبات، يرجى المحاولة لاحقاً" }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "يرجى إضافة رصيد للاستمرار في استخدام التحليل" }),
+          JSON.stringify({ 
+            error: "نفد رصيد خدمة الذكاء الاصطناعي",
+            errorEn: "AI service credits exhausted",
+            suggestion: "يرجى المحاولة لاحقاً أو التواصل مع الدعم الفني",
+            canRetry: false
+          }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      throw new Error(`AI gateway error: ${response.status}`);
-    }
-
-    const aiResponse = await response.json();
-    const content = aiResponse.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error("No content in AI response");
+      
+      if (errorMessage.includes("429") || errorMessage.includes("rate")) {
+        return new Response(
+          JSON.stringify({ 
+            error: "تم تجاوز حد الطلبات، يرجى الانتظار دقيقة ثم المحاولة مرة أخرى",
+            errorEn: "Rate limit exceeded, please wait a minute and try again",
+            suggestion: "انتظر قليلاً ثم أعد المحاولة",
+            canRetry: true,
+            retryAfter: 60
+          }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      throw aiError;
     }
 
     console.log("AI response received, parsing...");
@@ -199,7 +287,9 @@ Translate all Arabic text to English in your response.`
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : "حدث خطأ أثناء التحليل",
-        suggestion: "يرجى المحاولة مرة أخرى"
+        errorEn: "An error occurred during analysis",
+        suggestion: "يرجى المحاولة مرة أخرى",
+        canRetry: true
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
