@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings2, Zap, FileText, Gauge, Layers, Archive, Clock, SplitSquareVertical } from 'lucide-react';
+import { Settings2, Zap, FileText, Gauge, Layers, Archive, Clock, SplitSquareVertical, Bot, AlertTriangle, CheckCircle2, Server } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,9 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useAnalysisTracking, type AIProvider } from '@/hooks/useAnalysisTracking';
 
 export interface AnalysisSettings {
   maxTextLength: number; // in thousands (50, 75, 100, 150)
@@ -30,6 +32,8 @@ export interface AnalysisSettings {
   autoChunkLargeFiles: boolean;
   autoChunkThreshold: number; // in KB (size threshold for auto-chunking)
   showEstimatedTime: boolean;
+  // Auto job queue for large files
+  autoJobQueueThreshold: number; // in KB (size threshold for auto job queue)
 }
 
 const DEFAULT_SETTINGS: AnalysisSettings = {
@@ -41,10 +45,11 @@ const DEFAULT_SETTINGS: AnalysisSettings = {
   enableChunkedAnalysis: true,
   chunkSize: 30,
   enableCompression: true,
-  useJobQueue: false,
+  useJobQueue: true,
   autoChunkLargeFiles: true,
   autoChunkThreshold: 500, // 500KB
   showEstimatedTime: true,
+  autoJobQueueThreshold: 200, // 200KB - auto use job queue for files > 200KB
 };
 
 const STORAGE_KEY = 'analysis_settings';
@@ -76,12 +81,54 @@ interface AnalysisSettingsDialogProps {
 
 export function AnalysisSettingsDialog({ trigger, onSettingsChange }: AnalysisSettingsDialogProps) {
   const { isArabic } = useLanguage();
+  const { selectedProvider, setSelectedProvider, getStatistics } = useAnalysisTracking();
   const [open, setOpen] = useState(false);
   const [settings, setSettings] = useState<AnalysisSettings>(getAnalysisSettings);
 
   useEffect(() => {
     setSettings(getAnalysisSettings());
   }, [open]);
+
+  // Get statistics for provider recommendation
+  const stats = getStatistics();
+  
+  // Calculate provider recommendation based on error rates
+  const getProviderRecommendation = (): { provider: AIProvider; reason: string; reasonAr: string } => {
+    if (stats.totalAnalyses < 5) {
+      return { 
+        provider: 'auto', 
+        reason: 'Auto mode recommended for new users',
+        reasonAr: 'الوضع التلقائي موصى به للمستخدمين الجدد'
+      };
+    }
+    
+    const errorRate = stats.errorCount / stats.totalAnalyses;
+    const fallbackRate = stats.fallbackCount / stats.totalAnalyses;
+    
+    if (errorRate > 0.3) {
+      return { 
+        provider: 'lovable', 
+        reason: 'High error rate detected, Lovable AI recommended for stability',
+        reasonAr: 'معدل أخطاء مرتفع، Lovable AI موصى به للاستقرار'
+      };
+    }
+    
+    if (fallbackRate > 0.5) {
+      return { 
+        provider: 'openai', 
+        reason: 'Frequent fallbacks detected, OpenAI recommended for reliability',
+        reasonAr: 'تبديل متكرر للمزوّد، OpenAI موصى به للموثوقية'
+      };
+    }
+    
+    return { 
+      provider: 'auto', 
+      reason: 'Auto mode working well based on your usage',
+      reasonAr: 'الوضع التلقائي يعمل جيداً بناءً على استخدامك'
+    };
+  };
+
+  const recommendation = getProviderRecommendation();
 
   const handleSave = () => {
     saveAnalysisSettings(settings);
@@ -126,7 +173,86 @@ export function AnalysisSettingsDialog({ trigger, onSettingsChange }: AnalysisSe
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 py-4 max-h-[60vh] overflow-y-auto">
+          {/* AI Provider Selection */}
+          <div className="space-y-4 p-4 rounded-lg bg-muted/50 border">
+            <div className="flex items-center gap-2">
+              <Bot className="h-4 w-4 text-primary" />
+              <Label className="font-semibold">
+                {isArabic ? 'مزوّد الذكاء الاصطناعي' : 'AI Provider'}
+              </Label>
+            </div>
+            
+            <RadioGroup
+              value={selectedProvider}
+              onValueChange={(value) => setSelectedProvider(value as AIProvider)}
+              className="grid grid-cols-3 gap-2"
+            >
+              <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                <RadioGroupItem value="auto" id="auto" />
+                <Label htmlFor="auto" className="text-sm cursor-pointer">
+                  {isArabic ? 'تلقائي' : 'Auto'}
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                <RadioGroupItem value="lovable" id="lovable" />
+                <Label htmlFor="lovable" className="text-sm cursor-pointer">
+                  Lovable AI
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                <RadioGroupItem value="openai" id="openai" />
+                <Label htmlFor="openai" className="text-sm cursor-pointer">
+                  OpenAI
+                </Label>
+              </div>
+            </RadioGroup>
+
+            {/* Provider Recommendation */}
+            <div className={`flex items-start gap-2 p-2 rounded-md text-xs ${
+              recommendation.provider === selectedProvider 
+                ? 'bg-green-500/10 text-green-700 dark:text-green-400' 
+                : 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400'
+            }`}>
+              {recommendation.provider === selectedProvider ? (
+                <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              ) : (
+                <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              )}
+              <div>
+                <span className="font-medium">
+                  {isArabic ? 'التوصية: ' : 'Recommendation: '}
+                  {recommendation.provider === 'auto' 
+                    ? (isArabic ? 'تلقائي' : 'Auto')
+                    : recommendation.provider === 'lovable' 
+                      ? 'Lovable AI' 
+                      : 'OpenAI'}
+                </span>
+                <p className="mt-0.5 opacity-80">
+                  {isArabic ? recommendation.reasonAr : recommendation.reason}
+                </p>
+              </div>
+            </div>
+
+            {/* Usage Stats Summary */}
+            {stats.totalAnalyses > 0 && (
+              <div className="grid grid-cols-3 gap-2 text-xs text-center">
+                <div className="p-2 rounded bg-background">
+                  <div className="font-semibold text-green-600">{stats.successCount}</div>
+                  <div className="text-muted-foreground">{isArabic ? 'ناجح' : 'Success'}</div>
+                </div>
+                <div className="p-2 rounded bg-background">
+                  <div className="font-semibold text-yellow-600">{stats.fallbackCount}</div>
+                  <div className="text-muted-foreground">{isArabic ? 'تبديل' : 'Fallback'}</div>
+                </div>
+                <div className="p-2 rounded bg-background">
+                  <div className="font-semibold text-red-600">{stats.errorCount}</div>
+                  <div className="text-muted-foreground">{isArabic ? 'خطأ' : 'Error'}</div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Max Text Length */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -326,6 +452,50 @@ export function AnalysisSettingsDialog({ trigger, onSettingsChange }: AnalysisSe
                     {isArabic 
                       ? `الملفات أكبر من ${settings.autoChunkThreshold} KB ستُقسم تلقائياً`
                       : `Files larger than ${settings.autoChunkThreshold} KB will be auto-chunked`}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Background Job Queue */}
+          <div className="pt-4 border-t">
+            <div className="flex items-center justify-between mb-4">
+              <div className="space-y-0.5">
+                <Label className="flex items-center gap-2">
+                  <Server className="h-4 w-4" />
+                  {isArabic ? 'المعالجة في الخلفية' : 'Background Processing'}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {isArabic 
+                    ? 'معالجة الملفات الكبيرة تلقائياً في الخلفية' 
+                    : 'Automatically process large files in background'}
+                </p>
+              </div>
+              <Switch
+                checked={settings.useJobQueue}
+                onCheckedChange={(checked) => setSettings(s => ({ ...s, useJobQueue: checked }))}
+              />
+            </div>
+
+            {settings.useJobQueue && (
+              <div className="space-y-4 pl-6 border-l-2 border-muted">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <Label>{isArabic ? 'حد المعالجة الخلفية (KB)' : 'Background Threshold (KB)'}</Label>
+                    <span className="text-sm font-medium">{settings.autoJobQueueThreshold} KB</span>
+                  </div>
+                  <Slider
+                    value={[settings.autoJobQueueThreshold]}
+                    onValueChange={([value]) => setSettings(s => ({ ...s, autoJobQueueThreshold: value }))}
+                    min={100}
+                    max={500}
+                    step={50}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {isArabic 
+                      ? `الملفات أكبر من ${settings.autoJobQueueThreshold} KB ستُعالج في الخلفية`
+                      : `Files larger than ${settings.autoJobQueueThreshold} KB will be processed in background`}
                   </p>
                 </div>
               </div>
