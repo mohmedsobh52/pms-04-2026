@@ -41,6 +41,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { PMSLogo } from "@/components/PMSLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { RealtimeNotifications } from "@/components/RealtimeNotifications";
 import {
   PieChart,
   Pie,
@@ -114,6 +115,7 @@ const quickActions = [
 const mainModules = [
   { icon: FolderOpen, label: { ar: "المشاريع المحفوظة", en: "Saved Projects" }, href: "/projects", count: "totalProjects" },
   { icon: LayoutDashboard, label: { ar: "لوحة المعلومات", en: "Dashboard" }, href: "/dashboard", count: null },
+  { icon: Calendar, label: { ar: "التقويم", en: "Calendar" }, href: "/calendar", count: null },
   { icon: ClipboardList, label: { ar: "بنود BOQ", en: "BOQ Items" }, href: "/items", count: "totalItems" },
   { icon: Package, label: { ar: "المشتريات", en: "Procurement" }, href: "/procurement", count: "pendingProcurement" },
   { icon: Users, label: { ar: "مقاولي الباطن", en: "Subcontractors" }, href: "/subcontractors", count: "totalSubcontractors" },
@@ -372,6 +374,7 @@ export default function HomePage() {
             
             {/* Right Actions */}
             <div className="flex items-center gap-2">
+              {user && <RealtimeNotifications />}
               <LanguageToggle />
               <ThemeToggle />
               {user ? (

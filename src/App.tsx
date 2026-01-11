@@ -36,6 +36,7 @@ import CompareVersionsPage from "./pages/CompareVersionsPage";
 import HistoricalPricingPage from "./pages/HistoricalPricingPage";
 import ResourcesPage from "./pages/ResourcesPage";
 import MaterialPricesPage from "./pages/MaterialPricesPage";
+import CalendarPage from "./pages/CalendarPage";
 
 const queryClient = new QueryClient();
 
@@ -79,6 +80,7 @@ const App = () => (
                 <Route path="/historical-pricing" element={<HistoricalPricingPage />} />
                 <Route path="/resources" element={<ResourcesPage />} />
                 <Route path="/material-prices" element={<MaterialPricesPage />} />
+                <Route path="/calendar" element={<CalendarPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
                 <Route path="*" element={<NotFound />} />
