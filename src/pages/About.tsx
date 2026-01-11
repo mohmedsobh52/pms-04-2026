@@ -58,9 +58,9 @@ const About = () => {
                 <GitMerge className="w-5 h-5 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="font-display text-xl font-bold gradient-text">BOQ Analyzer</h1>
+                <h1 className="font-display text-xl font-bold gradient-text">PMS</h1>
                 <p className="text-xs text-muted-foreground">
-                  {isArabic ? "تحليل جداول الكميات بالذكاء الاصطناعي" : "AI-powered BOQ Analysis"}
+                  {isArabic ? "نظام إدارة المشاريع" : "Project Management System"}
                 </p>
               </div>
             </Link>
@@ -85,8 +85,8 @@ const About = () => {
           </h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed animate-fade-in" style={{ animationDelay: "100ms" }}>
             {isArabic 
-              ? "BOQ Analyzer هو حل متكامل لتحليل جداول الكميات باستخدام الذكاء الاصطناعي، نهدف إلى تبسيط عملية تحليل المشاريع الإنشائية وتوفير الوقت والجهد للمهندسين والمقاولين"
-              : "BOQ Analyzer is a comprehensive solution for analyzing Bills of Quantities using AI. We aim to simplify construction project analysis and save time and effort for engineers and contractors"}
+              ? "PMS هو نظام متكامل لإدارة المشاريع الإنشائية باستخدام الذكاء الاصطناعي، نهدف إلى تبسيط عملية إدارة وتحليل المشاريع وتوفير الوقت والجهد للمهندسين والمقاولين"
+              : "PMS is a comprehensive Project Management System using AI. We aim to simplify construction project management and analysis, saving time and effort for engineers and contractors"}
           </p>
         </div>
       </section>
@@ -220,7 +220,7 @@ const About = () => {
       {/* Footer */}
       <footer className="border-t border-border py-8">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>© 2024 BOQ Analyzer. {isArabic ? "جميع الحقوق محفوظة" : "All rights reserved."}</p>
+          <p>© 2024 PMS. {isArabic ? "جميع الحقوق محفوظة" : "All rights reserved."}</p>
         </div>
       </footer>
     </div>

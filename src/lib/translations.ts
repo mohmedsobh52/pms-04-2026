@@ -1,8 +1,8 @@
 export const translations = {
   en: {
     // Header
-    appName: "BOQ Analyzer",
-    appDescription: "AI-powered Bill of Quantities Analysis",
+    appName: "PMS",
+    appDescription: "Project Management System",
     signIn: "Sign In",
     signOut: "Sign Out",
     
@@ -93,7 +93,7 @@ export const translations = {
     compareQuotations: "Compare Quotations",
     
     // Footer
-    poweredByAI: "Powered by AI • BOQ Analyzer",
+    poweredByAI: "Powered by AI • PMS",
     
     // Toast messages
     readingExcel: "Reading Excel file...",
@@ -191,8 +191,8 @@ export const translations = {
   },
   ar: {
     // Header
-    appName: "BOQ Analyzer",
-    appDescription: "تحليل جداول الكميات بالذكاء الاصطناعي",
+    appName: "PMS",
+    appDescription: "نظام إدارة المشاريع",
     signIn: "تسجيل الدخول",
     signOut: "خروج",
     
@@ -283,7 +283,7 @@ export const translations = {
     compareQuotations: "مقارنة العروض",
     
     // Footer
-    poweredByAI: "مدعوم بالذكاء الاصطناعي • BOQ Analyzer",
+    poweredByAI: "مدعوم بالذكاء الاصطناعي • PMS",
     
     // Toast messages
     readingExcel: "جاري قراءة ملف Excel...",

@@ -819,7 +819,7 @@ const Index = () => {
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
                 <GitMerge className="w-4 h-4 text-primary-foreground" />
               </div>
-              <h1 className="font-display text-lg font-bold gradient-text hidden sm:block">BOQ Analyzer</h1>
+              <h1 className="font-display text-lg font-bold gradient-text hidden sm:block">PMS</h1>
             </div>
             
             {/* Navigation Tabs - Clean horizontal layout */}
