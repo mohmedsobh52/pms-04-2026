@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign, ScanText, FileSearch, CheckCircle } from "lucide-react";
+import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign, ScanText, FileSearch, CheckCircle, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { LocalAnalysisPanel, LocalAnalysisResult } from "./LocalAnalysisPanel";
+import { ExcelChunkedAnalysis } from "./ExcelChunkedAnalysis";
+import { ExcelBOQItem, extractDataFromExcel, formatExcelDataForAnalysis } from "@/lib/excel-utils";
 
 interface QuotationItem {
   item_number: string;
@@ -100,6 +103,11 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
   const [ocrStatus, setOcrStatus] = useState<'idle' | 'extracting' | 'processing' | 'done' | 'error'>('idle');
   const [extractedOcrText, setExtractedOcrText] = useState('');
   const [needsOcrQuotation, setNeedsOcrQuotation] = useState<Quotation | null>(null);
+  
+  // Local analysis state
+  const [showLocalAnalysis, setShowLocalAnalysis] = useState<string | null>(null);
+  const [excelItemsCache, setExcelItemsCache] = useState<Record<string, ExcelBOQItem[]>>({});
+  const [showChunkedAnalysis, setShowChunkedAnalysis] = useState<string | null>(null);
 
   const loadQuotations = useCallback(async () => {
     if (!user) return;
@@ -607,6 +615,205 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
     }
   };
 
+  // Prepare local analysis for Excel file
+  const handlePrepareLocalAnalysis = async (quotation: Quotation) => {
+    try {
+      // Check if we already have cached items
+      if (excelItemsCache[quotation.id]) {
+        setShowLocalAnalysis(quotation.id);
+        setExpandedId(quotation.id);
+        return;
+      }
+
+      toast({
+        title: "جاري تحميل الملف...",
+        description: "يتم استخراج البيانات من ملف Excel",
+      });
+
+      // Download and extract Excel data
+      const response = await fetch(quotation.file_url);
+      const blob = await response.blob();
+      const file = new File([blob], quotation.file_name, { type: blob.type });
+      
+      const excelResult = await extractDataFromExcel(file);
+      
+      // Cache the items
+      setExcelItemsCache(prev => ({
+        ...prev,
+        [quotation.id]: excelResult.items,
+      }));
+      
+      setShowLocalAnalysis(quotation.id);
+      setExpandedId(quotation.id);
+    } catch (error) {
+      console.error("Error preparing local analysis:", error);
+      toast({
+        title: "خطأ",
+        description: "فشل تحميل ملف Excel",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Prepare chunked analysis for large Excel files
+  const handlePrepareChunkedAnalysis = async (quotation: Quotation) => {
+    try {
+      // Check if we already have cached items
+      if (excelItemsCache[quotation.id]) {
+        setShowChunkedAnalysis(quotation.id);
+        setExpandedId(quotation.id);
+        return;
+      }
+
+      toast({
+        title: "جاري تحميل الملف...",
+        description: "يتم استخراج البيانات من ملف Excel للتحليل المجزأ",
+      });
+
+      // Download and extract Excel data
+      const response = await fetch(quotation.file_url);
+      const blob = await response.blob();
+      const file = new File([blob], quotation.file_name, { type: blob.type });
+      
+      const excelResult = await extractDataFromExcel(file);
+      
+      // Cache the items
+      setExcelItemsCache(prev => ({
+        ...prev,
+        [quotation.id]: excelResult.items,
+      }));
+      
+      setShowChunkedAnalysis(quotation.id);
+      setExpandedId(quotation.id);
+    } catch (error) {
+      console.error("Error preparing chunked analysis:", error);
+      toast({
+        title: "خطأ",
+        description: "فشل تحميل ملف Excel",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle local analysis completion
+  const handleLocalAnalysisComplete = async (quotation: Quotation, result: LocalAnalysisResult) => {
+    try {
+      // Convert local result to quotation analysis format
+      const analysisData = {
+        items: result.items.map(item => ({
+          item_number: item.itemNumber,
+          description: item.description,
+          unit: item.unit,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          total: item.totalPrice,
+        })),
+        totals: {
+          subtotal: result.totals.subtotal,
+          grand_total: result.totals.subtotal,
+        },
+        summary: `تحليل محلي: ${result.totals.itemsCount} بند، الإجمالي ${result.totals.subtotal.toLocaleString()}`,
+      };
+
+      // Update in database
+      const { error: updateError } = await supabase
+        .from('price_quotations')
+        .update({
+          ai_analysis: analysisData,
+          status: 'analyzed',
+          total_amount: result.totals.subtotal,
+        })
+        .eq('id', quotation.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      setQuotations(prev => prev.map(q => 
+        q.id === quotation.id 
+          ? { 
+              ...q, 
+              ai_analysis: analysisData as QuotationAnalysis,
+              status: 'analyzed',
+              total_amount: result.totals.subtotal,
+            } 
+          : q
+      ));
+
+      setShowLocalAnalysis(null);
+
+      toast({
+        title: "اكتمل التحليل المحلي",
+        description: `تم استخراج ${result.totals.itemsCount} بند`,
+      });
+    } catch (error) {
+      console.error("Error saving local analysis:", error);
+      toast({
+        title: "خطأ",
+        description: "فشل حفظ نتائج التحليل",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle chunked analysis completion
+  const handleChunkedAnalysisComplete = async (quotation: Quotation, result: any) => {
+    try {
+      const analysisData = {
+        items: result.items?.map((item: any) => ({
+          item_number: item.item_number || item.itemNumber || '',
+          description: item.description || '',
+          unit: item.unit || '',
+          quantity: item.quantity || 0,
+          unit_price: item.unit_price || item.unitPrice || 0,
+          total: item.total || item.totalPrice || 0,
+        })) || [],
+        totals: {
+          subtotal: result.summary?.totalValue || 0,
+          grand_total: result.summary?.totalValue || 0,
+        },
+        summary: `تحليل مجزأ: ${result.items?.length || 0} بند من ${result.chunksProcessed || 1} أجزاء`,
+      };
+
+      // Update in database
+      const { error: updateError } = await supabase
+        .from('price_quotations')
+        .update({
+          ai_analysis: analysisData,
+          status: 'analyzed',
+          total_amount: result.summary?.totalValue || 0,
+        })
+        .eq('id', quotation.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      setQuotations(prev => prev.map(q => 
+        q.id === quotation.id 
+          ? { 
+              ...q, 
+              ai_analysis: analysisData as QuotationAnalysis,
+              status: 'analyzed',
+              total_amount: result.summary?.totalValue || 0,
+            } 
+          : q
+      ));
+
+      setShowChunkedAnalysis(null);
+
+      toast({
+        title: "اكتمل التحليل المجزأ",
+        description: `تم استخراج ${result.items?.length || 0} بند`,
+      });
+    } catch (error) {
+      console.error("Error saving chunked analysis:", error);
+      toast({
+        title: "خطأ",
+        description: "فشل حفظ نتائج التحليل",
+        variant: "destructive",
+      });
+    }
+  };
+
   const deleteQuotation = async (quotation: Quotation) => {
     if (!user) return;
 
@@ -801,6 +1008,36 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                           </Button>
                         )}
                         
+                        {/* Local Analysis Button - for Excel files */}
+                        {quotation.file_type !== 'pdf' && quotation.status !== 'analyzed' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePrepareLocalAnalysis(quotation)}
+                            disabled={analyzingId === quotation.id}
+                            className="gap-1.5 border-green-500/50 text-green-600 hover:bg-green-500/10"
+                            title="تحليل محلي سريع بدون AI"
+                          >
+                            <Calculator className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">محلي</span>
+                          </Button>
+                        )}
+
+                        {/* Chunked Analysis Button - for large Excel files */}
+                        {quotation.file_type !== 'pdf' && quotation.status !== 'analyzed' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePrepareChunkedAnalysis(quotation)}
+                            disabled={analyzingId === quotation.id}
+                            className="gap-1.5 border-amber-500/50 text-amber-600 hover:bg-amber-500/10"
+                            title="تحليل مجزأ للملفات الكبيرة"
+                          >
+                            <Zap className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">مجزأ</span>
+                          </Button>
+                        )}
+                        
                         {/* Analysis Button */}
                         <Button
                           variant={quotation.status === 'analyzed' ? 'secondary' : 'default'}
@@ -839,7 +1076,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                         </Button>
                         
                         {/* Expand/Collapse */}
-                        {quotation.ai_analysis && (
+                        {(quotation.ai_analysis || showLocalAnalysis === quotation.id || showChunkedAnalysis === quotation.id) && (
                           <CollapsibleTrigger asChild>
                             <Button variant="outline" size="icon" className="border-primary/30">
                               {expandedId === quotation.id ? (
@@ -855,8 +1092,27 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
 
                     {/* Analysis Results */}
                     <CollapsibleContent>
-                      {quotation.ai_analysis && (
-                        <div className="border-t border-border p-4 bg-muted/30 space-y-4">
+                      <div className="border-t border-border p-4 bg-muted/30 space-y-4">
+                        {/* Local Analysis Panel */}
+                        {showLocalAnalysis === quotation.id && excelItemsCache[quotation.id] && (
+                          <LocalAnalysisPanel
+                            excelItems={excelItemsCache[quotation.id]}
+                            onAnalysisComplete={(result) => handleLocalAnalysisComplete(quotation, result)}
+                          />
+                        )}
+
+                        {/* Chunked Analysis Panel */}
+                        {showChunkedAnalysis === quotation.id && excelItemsCache[quotation.id] && (
+                          <ExcelChunkedAnalysis
+                            excelItems={excelItemsCache[quotation.id]}
+                            fileName={quotation.file_name}
+                            onAnalysisComplete={(result) => handleChunkedAnalysisComplete(quotation, result)}
+                            onCancel={() => setShowChunkedAnalysis(null)}
+                          />
+                        )}
+
+                        {quotation.ai_analysis && (
+                          <>
                           {/* Summary */}
                           {quotation.ai_analysis.summary && (
                             <div className="p-3 bg-primary/5 rounded-lg">
@@ -992,8 +1248,9 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                               </ul>
                             </div>
                           )}
-                        </div>
-                      )}
+                          </>
+                        )}
+                      </div>
                     </CollapsibleContent>
                   </div>
                 </Collapsible>
