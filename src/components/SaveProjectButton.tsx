@@ -79,7 +79,7 @@ export function SaveProjectButton({
         return sum + (effectivePrice * item.quantity);
       }, 0);
 
-      // 1. Create the project (using type assertion for new table)
+      // 1. Create the project in project_data table
       const { data: projectData, error: projectError } = await supabase
         .from('project_data' as any)
         .insert({
@@ -96,6 +96,22 @@ export function SaveProjectButton({
         .single();
 
       if (projectError) throw projectError;
+
+      // 1.5. Also save to saved_projects table for display in saved projects page
+      const { error: savedProjectError } = await supabase
+        .from('saved_projects')
+        .insert([{
+          user_id: user.id,
+          name: projectName.trim(),
+          file_name: fileName || null,
+          analysis_data: { items, summary } as any,
+          wbs_data: wbsData as any,
+        }]);
+
+      if (savedProjectError) {
+        console.error('Error saving to saved_projects:', savedProjectError);
+        // Don't throw, continue since main project was saved
+      }
 
       const projectId = (projectData as any).id as string;
 
