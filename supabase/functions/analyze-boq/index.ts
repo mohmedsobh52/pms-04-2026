@@ -509,131 +509,39 @@ serve(async (req) => {
     console.log(`File Type: ${file_type} | Language: ${detectedLanguage} | Encoding: ${encodingQuality}`);
     console.log(`Text length: ${text.length} characters`);
 
-    const systemPrompt = `You are a professional Quantity Surveyor and BOQ Analyst with expertise in construction cost estimation.
+    // Optimized system prompt - more concise for faster processing
+    const systemPrompt = `You are a Quantity Surveyor analyzing BOQ documents. Respond in ${outputLanguage}.
 
-## YOUR ROLE
-Analyze BOQ (Bill of Quantities) documents with precision and accuracy, extracting all relevant information while identifying data quality issues.
+EXTRACT ALL ITEMS with:
+- item_no, description, unit (normalized: m, m², m³, kg, pcs, ton, L.S), quantity, rate, amount
+- section_trade: categorize into Site Preparation, Foundations, Concrete, Steel, Masonry, Roofing, MEP-Plumbing, MEP-Electrical, MEP-HVAC, Doors & Windows, Finishes, External Works, or Preliminaries
 
-## DOCUMENT INFORMATION
-- Detected Language: ${detectedLanguage}
-- File Type: ${file_type}
-- Encoding Quality: ${encodingQuality}
+VALIDATION: Check Amount ≈ Qty × Rate. Flag issues.
 
-## EXTRACTION REQUIREMENTS
+Use submit_boq_analysis function to return structured analysis.`;
 
-### 1. BOQ Line Items - CRITICAL PRICE EXTRACTION
-Extract ALL line items with the following fields:
-- item_no: Item number/code (e.g., "1.1", "A-001", "01.02.03")
-- description: Full item description (clean, readable text)
-- unit: Normalized unit (m, m², m³, kg, pcs, ton, L.S, L.M, ea, lot, day, month, trip, set)
-- quantity: Numeric quantity (MUST be extracted from the document, NOT estimated)
-- rate: Unit rate/price per unit (CRITICAL: Extract the ACTUAL unit price from the document. Look for columns labeled "Rate", "Unit Price", "Price/Unit", "سعر الوحدة", or similar. This is the price for ONE unit.)
-- amount: Total amount (CRITICAL: Extract the ACTUAL total from the document. Look for columns labeled "Amount", "Total", "Total Price", "المبلغ", "الإجمالي", or similar. Should equal quantity × rate)
-- section_trade: MUST categorize EVERY item into one of these standard construction sections:
-
-⚠️ CRITICAL PRICE EXTRACTION RULES:
-1. ALWAYS extract ACTUAL values from the document - never use 0 or placeholder values
-2. If a column shows "Rate" or "Unit Price", that value goes in the "rate" field
-3. If a column shows "Amount" or "Total", that value goes in the "amount" field
-4. Common BOQ column order: Item No | Description | Unit | Qty | Rate | Amount
-5. Arabic BOQs may use: رقم البند | الوصف | الوحدة | الكمية | سعر الوحدة | المبلغ
-6. If rate is missing but amount exists: rate = amount / quantity
-7. If amount is missing but rate exists: amount = rate × quantity
-8. NEVER return rate=0 or amount=0 if there are visible numbers in those columns
-  * "Site Preparation & Earthworks" - for excavation, grading, site clearing
-  * "Foundations & Substructure" - for foundation work, piles, retaining walls
-  * "Concrete Works" - for concrete slabs, columns, beams
-  * "Steel & Metal Works" - for structural steel, reinforcement
-  * "Masonry & Blockwork" - for bricks, blocks, masonry
-  * "Roofing & Waterproofing" - for roof work, waterproofing
-  * "MEP - Plumbing" - for plumbing, sanitary, water supply
-  * "MEP - Electrical" - for electrical, lighting, power
-  * "MEP - HVAC" - for HVAC, air conditioning, ventilation
-  * "Doors & Windows" - for doors, windows, frames
-  * "Finishes (Flooring, Wall, Ceiling)" - for tiles, paint, plaster, ceiling
-  * "External Works" - for landscaping, paving, external utilities
-  * "Preliminaries & General" - for general items, preliminaries, site setup
-  IMPORTANT: NEVER use "Uncategorized" - every item MUST have a proper section_trade
-- remarks: Any notes or specifications
-
-### 2. Unit Normalization
-Standardize units:
-- Length: m, L.M (linear meter)
-- Area: m²
-- Volume: m³
-- Weight: kg, ton
-- Count: pcs, ea
-- Lump sum: L.S, lot
-- Time: day, month
-
-### 3. Validation Checks
-For each item, verify:
-- Amount ≈ Quantity × Rate (within 1% tolerance)
-- All required fields are present
-- Unit is valid and normalized
-- Description is clear and not duplicated
-
-### 4. Section/Trade Categories (MANDATORY CATEGORIZATION)
-⚠️ CRITICAL: Every item MUST be assigned to ONE of these sections. NEVER use "Uncategorized" or leave blank.
-Match items to the closest appropriate section based on description keywords:
-
-Standard sections (use these exact names):
-- Site Preparation & Earthworks (keywords: excavation, grading, earthwork, site clearing, demolition)
-- Foundations & Substructure (keywords: foundation, footing, pile, basement, substructure)
-- Concrete Works (keywords: concrete, slab, column, beam, casting, formwork)
-- Steel & Metal Works (keywords: steel, reinforcement, rebar, structural steel, metalwork)
-- Masonry & Blockwork (keywords: brick, block, masonry, wall construction)
-- Roofing & Waterproofing (keywords: roof, roofing, waterproofing, insulation)
-- Doors & Windows (keywords: door, window, frame, glazing, curtain wall)
-- Finishes (Flooring, Wall, Ceiling) (keywords: tiles, paint, plaster, flooring, ceiling, finishing)
-- MEP - Electrical (keywords: electrical, lighting, power, wiring, cable, panel, switch)
-- MEP - Plumbing (keywords: plumbing, sanitary, water supply, drainage, piping)
-- MEP - HVAC (keywords: HVAC, air conditioning, ventilation, cooling, heating)
-- External Works (keywords: landscaping, paving, external utilities, site works)
-- Preliminaries & General (keywords: preliminaries, mobilization, general items, insurance, temporary works)
-
-If you're unsure which category fits best, use the category that matches the primary construction phase or trade.
-
-## CRITICAL RULES
-1. Do NOT output corrupted or unreadable text - clean it up or mark as [UNREADABLE]
-2. Respond in ${outputLanguage}
-3. Prioritize accuracy over completeness
-4. Flag any suspicious or inconsistent data
-5. Calculate percentages and totals accurately
-6. If rate/amount is missing, estimate based on typical construction costs and mark as "estimated"
-7. Use the submit_boq_analysis function to return your analysis`;
-
-    // Calculate optimal text limit based on document size
-    // Gemini 2.5 Flash supports up to 1M tokens, we'll use a safe limit of 100K chars
-    const MAX_TEXT_LENGTH = 100000;
+    // Dynamic text limit based on file size - use smaller limit for faster response
+    const isSmallFile = text.length < 20000;
+    const MAX_TEXT_LENGTH = isSmallFile ? 50000 : 80000;
     const textToAnalyze = text.length > MAX_TEXT_LENGTH ? text.slice(0, MAX_TEXT_LENGTH) : text;
     const wasTextTruncated = text.length > MAX_TEXT_LENGTH;
     
     console.log(`Text length: ${text.length} chars, using: ${textToAnalyze.length} chars${wasTextTruncated ? ' (truncated)' : ''}`);
 
-    const userPrompt = `Analyze this BOQ document as a professional Quantity Surveyor. Extract ALL items, validate data, and provide comprehensive analysis.
+    // Concise user prompt for faster processing
+    const userPrompt = `Analyze this BOQ${wasTextTruncated ? ` (${textToAnalyze.length}/${text.length} chars shown)` : ''}:
 
-IMPORTANT: This document contains ${text.length} characters${wasTextTruncated ? ` (showing first ${MAX_TEXT_LENGTH} characters)` : ''}. Extract EVERY item you can find.
-
-DOCUMENT CONTENT:
 ${textToAnalyze}
 
-${wasTextTruncated ? `\n⚠️ [Document partially shown - ${text.length - MAX_TEXT_LENGTH} additional characters exist. Focus on extracting all visible items accurately.]` : ''}
-
-Please provide:
-1. Complete extraction of ALL BOQ items with normalized units (extract every single item visible)
-2. Validation of arithmetic (Amount = Qty × Rate)
-3. Summary by section/trade
-4. Top 10 high-value cost drivers
-5. Data quality issues and risks
-6. Executive summary with total items count
-
-Use the submit_boq_analysis function to return your structured analysis.`;
+Extract ALL items, validate amounts, summarize by section. Use submit_boq_analysis function.`;
 
     console.log("Calling AI Gateway...");
     
+    // Use faster model for small files
+    const modelToUseDefault = isSmallFile ? "google/gemini-2.5-flash-lite" : "google/gemini-2.5-flash";
+    
     const requestBody = {
-      model: "google/gemini-2.5-flash",
+      model: modelToUseDefault,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -660,9 +568,9 @@ Use the submit_boq_analysis function to return your structured analysis.`;
 
     // Helper function with timeout and retry
     const fetchWithRetry = async (retryCount = 0, useOpenAI = initialUseOpenAI): Promise<Response> => {
-      const maxRetries = 2;
+      const maxRetries = 1; // Reduced retries for faster failure
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout (faster)
       
       // Choose between Lovable AI and OpenAI
       const apiUrl = useOpenAI 
@@ -673,9 +581,9 @@ Use the submit_boq_analysis function to return your structured analysis.`;
         ? Deno.env.get("OPENAI_API_KEY")
         : LOVABLE_API_KEY;
       
-      const modelToUse = useOpenAI ? "gpt-4o-mini" : "google/gemini-2.5-flash";
+      // Use faster model based on file size
+      const modelToUse = useOpenAI ? "gpt-4o-mini" : modelToUseDefault;
       
-      // OpenAI uses max_tokens, not max_completion_tokens for gpt-4o-mini
       const currentRequestBody = {
         ...requestBody,
         model: modelToUse,
