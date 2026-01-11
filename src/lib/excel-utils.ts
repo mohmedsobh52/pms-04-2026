@@ -182,38 +182,74 @@ function detectColumnMapping(headers: string[]): Record<string, number> {
 
 function extractBOQItems(sheet: XLSX.WorkSheet, maxRows: number = 500): ExcelBOQItem[] {
   const items: ExcelBOQItem[] = [];
-  
-  // Use faster JSON conversion with row limit
-  const data = XLSX.utils.sheet_to_json<string[]>(sheet, { 
-    header: 1, 
-    defval: '',
-    range: maxRows // Limit rows for speed
-  });
-  
+
+  // NOTE: xlsx "range" with a number is a *start row*, not a row limit.
+  // We slice to maxRows to avoid skipping the first rows (which caused empty results).
+  const data = XLSX.utils
+    .sheet_to_json<string[]>(sheet, {
+      header: 1,
+      defval: '',
+    })
+    .slice(0, maxRows);
+
   if (data.length < 2) return items;
-  
-  // Find header row quickly
+
+  // Find the best header row (prefer rows that match known BOQ column patterns)
   let headerRowIndex = 0;
-  for (let i = 0; i < Math.min(5, data.length); i++) {
-    const row = data[i];
+  let bestScore = -1;
+  const headerScanLimit = Math.min(20, data.length);
+
+  for (let i = 0; i < headerScanLimit; i++) {
+    const row = data[i] || [];
     const nonEmptyCells = row.filter(cell => cell && cell.toString().trim()).length;
-    if (nonEmptyCells >= 3) {
+    if (nonEmptyCells < 3) continue;
+
+    const candidateHeaders = row.map(h => h?.toString() || '');
+    const candidateMapping = detectColumnMapping(candidateHeaders);
+    const score = Object.keys(candidateMapping).length;
+
+    if (score > bestScore) {
+      bestScore = score;
       headerRowIndex = i;
-      break;
     }
   }
-  
-  const headers = data[headerRowIndex].map(h => h?.toString() || '');
-  const columnMapping = detectColumnMapping(headers);
-  
+
+  // Fallback: first reasonably non-empty row
+  if (bestScore <= 0) {
+    for (let i = 0; i < headerScanLimit; i++) {
+      const row = data[i] || [];
+      const nonEmptyCells = row.filter(cell => cell && cell.toString().trim()).length;
+      if (nonEmptyCells >= 3) {
+        headerRowIndex = i;
+        break;
+      }
+    }
+  }
+
+  const headers = (data[headerRowIndex] || []).map(h => h?.toString() || '');
+  let columnMapping = detectColumnMapping(headers);
+
+  // If no headers matched at all, use a safe positional fallback (common BOQ order)
+  if (Object.keys(columnMapping).length === 0) {
+    columnMapping = {
+      itemNo: 0,
+      description: 1,
+      unit: 3,
+      quantity: 4,
+      unitPrice: 5,
+      totalPrice: 6,
+      notes: 7,
+    };
+  }
+
   // Extract items - limit to maxRows
   const endRow = Math.min(data.length, maxRows);
   for (let i = headerRowIndex + 1; i < endRow; i++) {
     const row = data[i];
     if (!row || row.every(cell => !cell || cell.toString().trim() === '')) continue;
-    
+
     const item: ExcelBOQItem = {};
-    
+
     // Map known columns - apply Arabic number conversion
     if (columnMapping.itemNo !== undefined) {
       const rawValue = row[columnMapping.itemNo]?.toString();
@@ -237,31 +273,35 @@ function extractBOQItems(sheet: XLSX.WorkSheet, maxRows: number = 500): ExcelBOQ
     if (columnMapping.notes !== undefined) {
       item.notes = row[columnMapping.notes]?.toString();
     }
-    
+
     if (item.description || item.itemNo) {
       items.push(item);
     }
   }
-  
+
   return items;
 }
 
 function sheetToText(sheet: XLSX.WorkSheet, maxRows: number = 300): string {
-  const data = XLSX.utils.sheet_to_json<string[]>(sheet, { 
-    header: 1, 
-    defval: '',
-    range: maxRows 
-  });
-  
+  const data = XLSX.utils
+    .sheet_to_json<string[]>(sheet, {
+      header: 1,
+      defval: '',
+    })
+    .slice(0, maxRows);
+
   const rows: string[] = [];
   const limit = Math.min(data.length, maxRows);
-  
+
   for (let i = 0; i < limit; i++) {
     const row = data[i];
-    const text = row.map(cell => cell?.toString().trim() || '').filter(Boolean).join(' | ');
+    const text = row
+      .map(cell => cell?.toString().trim() || '')
+      .filter(Boolean)
+      .join(' | ');
     if (text) rows.push(text);
   }
-  
+
   return rows.join('\n');
 }
 
@@ -391,40 +431,61 @@ function cleanMojibake(text: string | undefined): string | undefined {
 
 // NEW: Extract all rows exactly as they are from Excel
 export function extractRawExcelData(sheet: XLSX.WorkSheet, maxRows: number = 1000): Array<Record<string, any>> {
-  const data = XLSX.utils.sheet_to_json<any[]>(sheet, { 
-    header: 1, 
-    defval: '',
-    range: maxRows,
-    raw: true
-  });
-  
+  const data = XLSX.utils
+    .sheet_to_json<any[]>(sheet, {
+      header: 1,
+      defval: '',
+      raw: true,
+    })
+    .slice(0, maxRows);
+
   if (data.length < 2) return [];
-  
-  // Find header row (first row with at least 3 non-empty cells)
+
+  // Find header row (best effort)
   let headerRowIndex = 0;
-  for (let i = 0; i < Math.min(10, data.length); i++) {
-    const row = data[i];
+  let bestScore = -1;
+  const headerScanLimit = Math.min(20, data.length);
+
+  for (let i = 0; i < headerScanLimit; i++) {
+    const row = data[i] || [];
     const nonEmptyCells = row?.filter((cell: any) => cell !== undefined && cell !== null && String(cell).trim() !== '').length || 0;
-    if (nonEmptyCells >= 3) {
+    if (nonEmptyCells < 3) continue;
+
+    const candidateHeaders = row.map((h: any) => (h !== undefined && h !== null ? String(h).trim() : ''));
+    const candidateMapping = detectColumnMapping(candidateHeaders);
+    const score = Object.keys(candidateMapping).length;
+
+    if (score > bestScore) {
+      bestScore = score;
       headerRowIndex = i;
-      break;
     }
   }
-  
+
+  if (bestScore <= 0) {
+    for (let i = 0; i < headerScanLimit; i++) {
+      const row = data[i] || [];
+      const nonEmptyCells = row?.filter((cell: any) => cell !== undefined && cell !== null && String(cell).trim() !== '').length || 0;
+      if (nonEmptyCells >= 3) {
+        headerRowIndex = i;
+        break;
+      }
+    }
+  }
+
   const headers = (data[headerRowIndex] || []).map((h: any, idx: number) => {
     const header = h !== undefined && h !== null ? String(h).trim() : '';
     return header || `Column_${idx + 1}`;
   });
-  
+
   const rows: Array<Record<string, any>> = [];
-  
+
   for (let i = headerRowIndex + 1; i < Math.min(data.length, maxRows); i++) {
     const row = data[i];
     if (!row || row.every((cell: any) => cell === undefined || cell === null || String(cell).trim() === '')) continue;
-    
+
     const rowData: Record<string, any> = {};
     let hasData = false;
-    
+
     headers.forEach((header: string, idx: number) => {
       const cellValue = row[idx];
       if (cellValue !== undefined && cellValue !== null) {
@@ -432,12 +493,12 @@ export function extractRawExcelData(sheet: XLSX.WorkSheet, maxRows: number = 100
         hasData = true;
       }
     });
-    
+
     if (hasData) {
       rows.push(rowData);
     }
   }
-  
+
   return rows;
 }
 
@@ -568,7 +629,7 @@ export function formatExcelDataForAnalysis(result: ExcelExtractionResult): strin
   // If we have structured items, format them nicely
   if (result.items.length > 0) {
     let formatted = 'جدول كميات BOQ:\n\n';
-    
+
     result.items.forEach((item, index) => {
       formatted += `${index + 1}. `;
       if (item.itemNo) formatted += `[${item.itemNo}] `;
@@ -582,10 +643,14 @@ export function formatExcelDataForAnalysis(result: ExcelExtractionResult): strin
       if (item.totalPrice) formatted += ` | الإجمالي: ${item.totalPrice}`;
       formatted += '\n';
     });
-    
+
     return formatted;
   }
-  
-  // Otherwise return raw text
-  return result.text;
+
+  // Fallback: always return something useful (raw text)
+  const raw = (result.text || '').trim();
+  if (!raw) return '';
+
+  const sheetInfo = result.sheetNames?.length ? `الأوراق: ${result.sheetNames.join(', ')}\n\n` : '';
+  return `${sheetInfo}بيانات Excel (غير منظمة):\n\n${raw}`;
 }

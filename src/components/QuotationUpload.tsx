@@ -486,8 +486,14 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
           const { extractDataFromExcel, formatExcelDataForAnalysis } = await import('@/lib/excel-utils');
           const excelResult = await extractDataFromExcel(file);
           extractedText = formatExcelDataForAnalysis(excelResult);
-          
-          if (extractedText.length < 50) {
+
+          const hasAnyExcelData =
+            excelResult.items.length > 0 ||
+            (excelResult.text && excelResult.text.trim().length > 20) ||
+            excelResult.totalRows > 3 ||
+            extractedText.trim().length > 20;
+
+          if (!hasAnyExcelData) {
             throw new Error('لم يتم العثور على بيانات كافية في ملف Excel');
           }
         }

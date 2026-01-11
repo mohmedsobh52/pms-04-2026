@@ -183,8 +183,14 @@ const Index = () => {
         });
         setExcelProgress(null);
         const formattedText = formatExcelDataForAnalysis(result);
-        
-        if (formattedText.length > 50) {
+
+        const hasAnyData =
+          result.items.length > 0 ||
+          (result.text && result.text.trim().length > 20) ||
+          result.totalRows > 3 ||
+          formattedText.trim().length > 20;
+
+        if (hasAnyData) {
           setExtractedText(formattedText);
           setExtractionStatus("success");
           updateStepStatus("extract", "complete");
