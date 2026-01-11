@@ -1,36 +1,23 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import LZString from "https://esm.sh/lz-string@1.5.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// LZ-String decompression (simplified base64 variant)
 function decompressFromBase64(input: string): string {
   if (!input) return '';
-  
   try {
-    // Decode base64
-    const binaryString = atob(input);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    
-    // Simple decompression - LZ-String uses a specific algorithm
-    // For now, we'll try to decode as UTF-8 first
-    const decoder = new TextDecoder('utf-8');
-    return decoder.decode(bytes);
+    return LZString.decompressFromBase64(input) || '';
   } catch (e) {
-    console.error('Decompression failed, trying raw decode:', e);
-    try {
-      return atob(input);
-    } catch {
-      return input;
-    }
+    console.error('Decompression failed:', e);
+    return '';
   }
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -142,10 +129,26 @@ serve(async (req) => {
     const results: any[] = [];
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
 
+    if (!apiKey) {
+      await supabase
+        .from('analysis_jobs')
+        .update({
+          status: 'failed',
+          error_message: 'LOVABLE_API_KEY is not configured',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', jobId);
+
+      return new Response(
+        JSON.stringify({ error: 'LOVABLE_API_KEY is not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
-      const progressPercent = 10 + Math.round((i / chunks.length) * 80);
 
+      const progressPercent = 10 + Math.round((i / chunks.length) * 80);
       await supabase
         .from('analysis_jobs')
         .update({
@@ -155,9 +158,7 @@ serve(async (req) => {
         })
         .eq('id', jobId);
 
-      // Call AI for analysis
-      try {
-        const systemPrompt = `You are an expert quantity surveyor and construction cost analyst. Analyze the Bill of Quantities (BOQ) text and extract structured data.
+      const systemPrompt = `You are an expert quantity surveyor and construction cost analyst. Analyze the Bill of Quantities (BOQ) text and extract structured data.
 
 Return a JSON object with this structure:
 {
@@ -187,48 +188,92 @@ Important:
 - Handle both Arabic and English text
 - This is chunk ${i + 1} of ${chunks.length}`;
 
-        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: `Analyze this BOQ section:\n\n${chunk}` },
-            ],
-            temperature: 0.3,
-            max_tokens: 8000,
-          }),
-        });
+      // Call AI for analysis with backoff on 429/timeouts
+      let parsedResult: any = null;
+      let lastErrText = '';
 
-        if (!response.ok) {
-          console.error(`AI request failed for chunk ${i}:`, await response.text());
-          continue;
-        }
+      for (let attempt = 1; attempt <= 4; attempt++) {
+        await supabase
+          .from('analysis_jobs')
+          .update({
+            current_step: `AI request (chunk ${i + 1}/${chunks.length}) - attempt ${attempt}/4`,
+          })
+          .eq('id', jobId);
 
-        const aiResult = await response.json();
-        const content = aiResult.choices?.[0]?.message?.content || '';
-
-        // Parse JSON from response
-        let parsedResult = null;
         try {
-          const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || 
-                           content.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            parsedResult = JSON.parse(jsonMatch[1] || jsonMatch[0]);
-          }
-        } catch (parseErr) {
-          console.error(`Failed to parse chunk ${i} result:`, parseErr);
-        }
+          const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'google/gemini-2.5-flash',
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: `Analyze this BOQ section:\n\n${chunk}` },
+              ],
+              temperature: 0.3,
+              max_tokens: 8000,
+            }),
+          });
 
-        if (parsedResult) {
-          results.push(parsedResult);
+          if (!response.ok) {
+            lastErrText = await response.text();
+
+            // 429: backoff and retry
+            if (response.status === 429 && attempt < 4) {
+              const delay = Math.min(2000 * Math.pow(2, attempt - 1), 16000);
+              await supabase
+                .from('analysis_jobs')
+                .update({
+                  current_step: `Rate limited (429). Waiting ${Math.round(delay / 1000)}s...`,
+                })
+                .eq('id', jobId);
+              await sleep(delay);
+              continue;
+            }
+
+            // transient 5xx/timeouts: short backoff
+            if (response.status >= 500 && attempt < 4) {
+              await sleep(1500 * attempt);
+              continue;
+            }
+
+            console.error(`AI request failed for chunk ${i}:`, response.status, lastErrText);
+            break;
+          }
+
+          const aiResult = await response.json();
+          const content = aiResult.choices?.[0]?.message?.content || '';
+
+          try {
+            const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              parsedResult = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+              break;
+            }
+          } catch (parseErr) {
+            console.error(`Failed to parse chunk ${i} result:`, parseErr);
+            // retry parsing errors only once
+            if (attempt < 2) continue;
+          }
+
+          break;
+        } catch (chunkError) {
+          lastErrText = chunkError instanceof Error ? chunkError.message : String(chunkError);
+          if (attempt < 4) {
+            await sleep(1500 * attempt);
+            continue;
+          }
+          console.error(`Error processing chunk ${i}:`, chunkError);
         }
-      } catch (chunkError) {
-        console.error(`Error processing chunk ${i}:`, chunkError);
+      }
+
+      if (parsedResult) {
+        results.push(parsedResult);
+      } else {
+        console.warn(`Chunk ${i + 1} produced no result`);
       }
 
       // Update chunk results
@@ -239,6 +284,16 @@ Important:
           chunk_results: results,
         })
         .eq('id', jobId);
+
+      if (!parsedResult && lastErrText) {
+        // keep going, but surface the last issue in job state
+        await supabase
+          .from('analysis_jobs')
+          .update({
+            current_step: `Chunk ${i + 1} skipped بسبب خطأ: ${lastErrText.slice(0, 120)}`,
+          })
+          .eq('id', jobId);
+      }
     }
 
     // Merge results
