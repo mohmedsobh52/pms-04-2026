@@ -677,7 +677,7 @@ export function FloatingToolbar({
               </div>
               <div>
                 <h2 className="text-white font-bold text-sm">
-                  {isArabic ? "تحليل BOQ" : "BOQ Analyzer"}
+                  {isArabic ? "نظام إدارة المشاريع" : "PMS"}
                 </h2>
                 <p className="text-white/50 text-xs">
                   {isArabic ? "الإصدار 2.0" : "Version 2.0"}

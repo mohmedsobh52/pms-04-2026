@@ -117,7 +117,7 @@ export default function SharedView() {
           <Link to="/">
             <Button className="gap-2">
               <ArrowLeft className="w-4 h-4" />
-              Go to BOQ Analyzer
+              Go to PMS
             </Button>
           </Link>
         </div>
@@ -138,7 +138,7 @@ export default function SharedView() {
               <Link to="/">
                 <Button variant="ghost" size="sm" className="gap-2">
                   <ArrowLeft className="w-4 h-4" />
-                  BOQ Analyzer
+                  PMS
                 </Button>
               </Link>
               <div className="h-6 w-px bg-border" />

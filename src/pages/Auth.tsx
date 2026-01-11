@@ -91,7 +91,7 @@ export default function Auth() {
               <GitMerge className="w-6 h-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="font-display text-2xl font-bold gradient-text">BOQ Analyzer</h1>
+              <h1 className="font-display text-2xl font-bold gradient-text">PMS</h1>
             </div>
           </div>
 
