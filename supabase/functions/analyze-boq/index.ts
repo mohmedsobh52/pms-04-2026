@@ -566,11 +566,15 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
       console.log("User preference: Auto (Lovable AI with OpenAI fallback)");
     }
 
-    // Helper function with timeout and retry
-    const fetchWithRetry = async (retryCount = 0, useOpenAI = initialUseOpenAI): Promise<Response> => {
-      const maxRetries = 1; // Reduced retries for faster failure
+    // Helper function to sleep for exponential backoff
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Helper function with timeout, retry, and rate limit handling
+    const fetchWithRetry = async (retryCount = 0, useOpenAI = initialUseOpenAI, rateLimitRetry = 0): Promise<Response> => {
+      const maxRetries = 2; // Retries for timeouts
+      const maxRateLimitRetries = 3; // Retries for rate limits
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout (faster)
+      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
       
       // Choose between Lovable AI and OpenAI
       const apiUrl = useOpenAI 
@@ -603,13 +607,43 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
         });
         clearTimeout(timeoutId);
         
+        // Handle rate limiting (429) with exponential backoff
+        if (resp.status === 429) {
+          console.log(`Rate limit hit for ${useOpenAI ? 'OpenAI' : 'Lovable AI'} (attempt ${rateLimitRetry + 1}/${maxRateLimitRetries})`);
+          
+          // If we haven't exhausted rate limit retries, wait and retry
+          if (rateLimitRetry < maxRateLimitRetries) {
+            const delayMs = Math.min(2000 * Math.pow(2, rateLimitRetry), 16000); // 2s, 4s, 8s, 16s max
+            console.log(`Waiting ${delayMs}ms before retry...`);
+            await sleep(delayMs);
+            return fetchWithRetry(retryCount, useOpenAI, rateLimitRetry + 1);
+          }
+          
+          // If Lovable AI rate limited and we can fallback to OpenAI
+          if (!useOpenAI && preferred_provider === 'auto') {
+            const openAIKey = Deno.env.get("OPENAI_API_KEY");
+            if (openAIKey) {
+              console.log("Lovable AI rate limited, falling back to OpenAI...");
+              usedProvider = 'openai';
+              return fetchWithRetry(0, true, 0);
+            }
+          }
+          
+          // If OpenAI rate limited and we haven't tried Lovable AI
+          if (useOpenAI && preferred_provider === 'auto') {
+            console.log("OpenAI rate limited, trying Lovable AI...");
+            usedProvider = 'lovable';
+            return fetchWithRetry(0, false, 0);
+          }
+        }
+        
         // If Lovable AI returns 402 (Payment Required), fallback to OpenAI (only in auto mode)
         if (resp.status === 402 && !useOpenAI && preferred_provider === 'auto') {
           const openAIKey = Deno.env.get("OPENAI_API_KEY");
           if (openAIKey) {
             console.log("Lovable AI credits exhausted, falling back to OpenAI...");
             usedProvider = 'openai';
-            return fetchWithRetry(0, true);
+            return fetchWithRetry(0, true, 0);
           }
         }
         
@@ -637,7 +671,7 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
           console.error(`Request timeout (attempt ${retryCount + 1})`);
           if (retryCount < maxRetries) {
             console.log(`Retrying... (${retryCount + 2}/${maxRetries + 1})`);
-            return fetchWithRetry(retryCount + 1, useOpenAI);
+            return fetchWithRetry(retryCount + 1, useOpenAI, rateLimitRetry);
           }
           throw new Error("Request timed out after multiple attempts. Please try with a smaller file.");
         }
