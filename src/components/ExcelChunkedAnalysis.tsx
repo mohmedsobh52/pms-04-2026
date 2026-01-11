@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Layers, Play, Pause, CheckCircle, XCircle, Loader2, Settings, Zap, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -23,7 +23,7 @@ interface ChunkProgress {
   totalChunks: number;
   processedChunks: number;
   currentChunk: number;
-  status: 'idle' | 'chunking' | 'processing' | 'merging' | 'completed' | 'failed';
+  status: 'idle' | 'chunking' | 'processing' | 'merging' | 'completed' | 'failed' | 'cancelled';
   percentage: number;
 }
 
@@ -99,6 +99,8 @@ export function ExcelChunkedAnalysis({
   const [showSettings, setShowSettings] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const cancelledRef = useRef(false);
   const [progress, setProgress] = useState<ChunkProgress>({
     totalChunks: 0,
     processedChunks: 0,
@@ -112,6 +114,10 @@ export function ExcelChunkedAnalysis({
 
   const handleStartAnalysis = useCallback(async () => {
     if (isAnalyzing || excelItems.length === 0) return;
+
+    // Reset cancel state
+    cancelledRef.current = false;
+    abortControllerRef.current = new AbortController();
 
     setIsAnalyzing(true);
     setError(null);
@@ -145,6 +151,25 @@ export function ExcelChunkedAnalysis({
       const results: any[] = [];
 
       for (let i = 0; i < chunks.length; i++) {
+        // Check if cancelled
+        if (cancelledRef.current) {
+          console.log('Chunked analysis cancelled by user');
+          setProgress(prev => ({ ...prev, status: 'cancelled' }));
+          toast({
+            title: isArabic ? 'تم إلغاء التحليل' : 'Analysis Cancelled',
+            description: isArabic 
+              ? `تم تحليل ${results.length} أجزاء قبل الإلغاء`
+              : `Processed ${results.length} chunks before cancellation`,
+          });
+          
+          // Return partial results if any
+          if (results.length > 0) {
+            const partialResult = mergeChunkResults(results);
+            onAnalysisComplete(partialResult);
+          }
+          return;
+        }
+
         const chunkText = itemsToText(chunks[i]);
         
         setProgress(prev => ({
@@ -158,6 +183,9 @@ export function ExcelChunkedAnalysis({
         let result = null;
 
         for (let attempt = 1; attempt <= 3; attempt++) {
+          // Check if cancelled before each attempt
+          if (cancelledRef.current) break;
+
           try {
             const { data, error: invokeError } = await supabase.functions.invoke('analyze-quotation', {
               body: {
@@ -176,7 +204,12 @@ export function ExcelChunkedAnalysis({
             break;
           } catch (err: any) {
             lastError = err;
-            if (attempt < 3) {
+            // Check for rate limit or credits exhausted
+            if (err.message?.includes('429') || err.message?.includes('rate limit')) {
+              console.warn(`Rate limit hit on chunk ${i + 1}, attempt ${attempt}`);
+              // Wait longer for rate limits
+              await new Promise(resolve => setTimeout(resolve, 3000 * attempt));
+            } else if (attempt < 3) {
               await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
             }
           }
@@ -186,6 +219,7 @@ export function ExcelChunkedAnalysis({
           results.push(result);
         } else if (lastError) {
           console.warn(`Chunk ${i + 1} failed:`, lastError.message);
+          // Don't fail entire process, continue with next chunk
         }
 
         setProgress(prev => ({
@@ -193,6 +227,9 @@ export function ExcelChunkedAnalysis({
           processedChunks: i + 1,
         }));
       }
+
+      // Final cancel check
+      if (cancelledRef.current) return;
 
       // Merge results
       setProgress(prev => ({ ...prev, status: 'merging', percentage: 95 }));
@@ -209,6 +246,8 @@ export function ExcelChunkedAnalysis({
 
       onAnalysisComplete(mergedResult);
     } catch (err: any) {
+      if (cancelledRef.current) return;
+      
       console.error('Chunked analysis error:', err);
       setError(err.message || 'Analysis failed');
       setProgress(prev => ({ ...prev, status: 'failed' }));
@@ -220,12 +259,15 @@ export function ExcelChunkedAnalysis({
       });
     } finally {
       setIsAnalyzing(false);
+      abortControllerRef.current = null;
     }
   }, [excelItems, chunkSize, fileName, isArabic, toast, onAnalysisComplete]);
 
   const handleCancel = () => {
+    cancelledRef.current = true;
+    abortControllerRef.current?.abort();
     setIsAnalyzing(false);
-    setProgress(prev => ({ ...prev, status: 'idle' }));
+    setProgress(prev => ({ ...prev, status: 'cancelled' }));
     onCancel?.();
   };
 
@@ -235,6 +277,8 @@ export function ExcelChunkedAnalysis({
         return <CheckCircle className="w-5 h-5 text-green-500" />;
       case 'failed':
         return <XCircle className="w-5 h-5 text-red-500" />;
+      case 'cancelled':
+        return <XCircle className="w-5 h-5 text-amber-500" />;
       case 'processing':
       case 'chunking':
       case 'merging':
@@ -254,6 +298,7 @@ export function ExcelChunkedAnalysis({
       merging: isArabic ? 'جاري دمج النتائج...' : 'Merging results...',
       completed: isArabic ? 'اكتمل التحليل' : 'Analysis complete',
       failed: isArabic ? 'فشل التحليل' : 'Analysis failed',
+      cancelled: isArabic ? 'تم الإلغاء' : 'Cancelled',
     };
     return statusMap[progress.status];
   };
