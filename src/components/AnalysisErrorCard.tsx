@@ -46,6 +46,8 @@ interface AnalysisErrorCardProps {
   onDismiss: () => void;
   onOpenSettings?: () => void;
   isRetrying?: boolean;
+  lastJobId?: string;
+  onResumeJob?: (jobId: string) => void;
 }
 
 const ERROR_CONFIG: Record<AnalysisErrorType, {
@@ -120,6 +122,8 @@ export function AnalysisErrorCard({
   onDismiss,
   onOpenSettings,
   isRetrying = false,
+  lastJobId,
+  onResumeJob,
 }: AnalysisErrorCardProps) {
   const { isArabic } = useLanguage();
   const [countdown, setCountdown] = useState<number>(error.retryAfter || 0);
@@ -406,6 +410,17 @@ Details: ${error.details || 'N/A'}
             >
               <Settings className="h-4 w-4 mr-2" />
               {isArabic ? 'فتح الإعدادات' : 'Open Settings'}
+            </Button>
+          )}
+          {/* Resume from checkpoint button for job failures */}
+          {lastJobId && onResumeJob && (
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => onResumeJob(lastJobId)}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              {isArabic ? 'استئناف من آخر نقطة' : 'Resume from Checkpoint'}
             </Button>
           )}
           <Button
