@@ -182,7 +182,7 @@ function detectColumnMapping(headers: string[]): Record<string, number> {
   return mapping;
 }
 
-function extractBOQItems(sheet: XLSX.WorkSheet, maxRows: number = 500): ExcelBOQItem[] {
+function extractBOQItems(sheet: XLSX.WorkSheet, maxRows: number = 1000): ExcelBOQItem[] {
   const items: ExcelBOQItem[] = [];
 
   // NOTE: xlsx "range" with a number is a *start row*, not a row limit.
@@ -342,9 +342,10 @@ export async function extractDataFromExcel(
           cellHTML: false,     // Skip HTML
           cellStyles: false,   // Skip styles - major speedup!
           cellNF: false,       // Skip number formats
-          sheetRows: 1000,     // Increased for larger files
+          sheetRows: 2000,     // Increased for larger Arabic files
           dense: false,        // Use sparse format for efficiency
           WTF: false,          // Don't throw on unknown features
+          raw: false,          // Process values for better Arabic handling
         });
         
         onProgress?.('parsing', 50, 'تم تحليل الملف بنجاح');

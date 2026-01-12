@@ -509,8 +509,20 @@ serve(async (req) => {
     console.log(`File Type: ${file_type} | Language: ${detectedLanguage} | Encoding: ${encodingQuality}`);
     console.log(`Text length: ${text.length} characters`);
 
-    // Optimized system prompt - more concise for faster processing
-    const systemPrompt = `You are a Quantity Surveyor analyzing BOQ documents. Respond in ${outputLanguage}.
+    // Optimized system prompt - enhanced for Arabic content
+    const isArabicContent = detectedLanguage.includes('Arabic');
+    const systemPrompt = isArabicContent 
+      ? `أنت مهندس كميات محترف تقوم بتحليل مستندات جداول الكميات (BOQ). أجب باللغة ${outputLanguage === 'Arabic' ? 'العربية' : 'الإنجليزية'}.
+
+استخرج جميع البنود مع:
+- رقم البند (item_no)، الوصف (description)، الوحدة (unit - مُوحَّدة: م، م²، م³، كجم، عدد، طن، مقطوعية)
+- الكمية (quantity)، السعر (rate)، المبلغ (amount)
+- التصنيف (section_trade): أعمال الموقع، الأساسات، الخرسانة، الحديد، البناء، العزل، الكهرباء، السباكة، التكييف، الأبواب والنوافذ، التشطيبات، الأعمال الخارجية، أو أعمال عامة
+
+تحقق: المبلغ ≈ الكمية × السعر. أبلغ عن أي مشاكل.
+
+استخدم دالة submit_boq_analysis لإرجاع التحليل المنظم.`
+      : `You are a Quantity Surveyor analyzing BOQ documents. Respond in ${outputLanguage}.
 
 EXTRACT ALL ITEMS with:
 - item_no, description, unit (normalized: m, m², m³, kg, pcs, ton, L.S), quantity, rate, amount
@@ -520,9 +532,11 @@ VALIDATION: Check Amount ≈ Qty × Rate. Flag issues.
 
 Use submit_boq_analysis function to return structured analysis.`;
 
-    // Dynamic text limit based on file size - use smaller limit for faster response
+    // Dynamic text limit based on file size and language - larger limits for Arabic
     const isSmallFile = text.length < 20000;
-    const MAX_TEXT_LENGTH = isSmallFile ? 50000 : 80000;
+    const MAX_TEXT_LENGTH = isArabicContent 
+      ? (isSmallFile ? 60000 : 100000)
+      : (isSmallFile ? 50000 : 80000);
     const textToAnalyze = text.length > MAX_TEXT_LENGTH ? text.slice(0, MAX_TEXT_LENGTH) : text;
     const wasTextTruncated = text.length > MAX_TEXT_LENGTH;
     
