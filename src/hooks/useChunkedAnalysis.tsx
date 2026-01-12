@@ -8,8 +8,10 @@ export interface ChunkProgress {
   totalChunks: number;
   processedChunks: number;
   currentChunk: number;
-  status: 'idle' | 'chunking' | 'processing' | 'merging' | 'completed' | 'failed';
+  status: 'idle' | 'chunking' | 'processing' | 'merging' | 'completed' | 'failed' | 'rate_limited';
   percentage: number;
+  waitingSeconds?: number;
+  currentStep?: string;
 }
 
 export interface AnalysisJob {
@@ -35,6 +37,16 @@ interface ChunkedAnalysisOptions {
 const DEFAULT_CHUNK_SIZE = 30000;
 const DEFAULT_OVERLAP_SIZE = 500;
 
+// Strong exponential backoff: 30s, 60s, 120s, 120s, 120s
+const BACKOFF_SCHEDULE = [30000, 60000, 120000, 120000, 120000];
+
+const getBackoffDelay = (attempt: number, retryAfter?: number): number => {
+  if (retryAfter && retryAfter > 0) {
+    return retryAfter * 1000;
+  }
+  return BACKOFF_SCHEDULE[Math.min(attempt - 1, BACKOFF_SCHEDULE.length - 1)];
+};
+
 // Compress text using LZ-String
 export function compressText(text: string): string {
   return LZString.compressToBase64(text);
@@ -45,7 +57,14 @@ export function decompressText(compressed: string): string {
   return LZString.decompressFromBase64(compressed) || '';
 }
 
-// Split text into chunks with overlap
+// Detect if text is primarily Arabic
+const isArabicText = (text: string): boolean => {
+  const arabicPattern = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/g;
+  const arabicCount = (text.match(arabicPattern) || []).length;
+  return arabicCount > text.length * 0.3;
+};
+
+// Split text into chunks with overlap, respecting Arabic punctuation
 export function splitIntoChunks(
   text: string,
   chunkSize: number = DEFAULT_CHUNK_SIZE,
@@ -57,25 +76,34 @@ export function splitIntoChunks(
 
   const chunks: string[] = [];
   let start = 0;
+  const isArabic = isArabicText(text);
 
   while (start < text.length) {
     let end = start + chunkSize;
     
-    // Try to break at a natural boundary (newline or period)
+    // Try to break at a natural boundary
     if (end < text.length) {
-      const searchStart = end - 200;
-      const searchEnd = end + 200;
-      const searchRange = text.slice(searchStart, Math.min(searchEnd, text.length));
+      const searchStart = end - 300;
+      const searchEnd = Math.min(end + 300, text.length);
+      const searchRange = text.slice(searchStart, searchEnd);
       
       // Look for newline first
       const newlineIndex = searchRange.lastIndexOf('\n');
       if (newlineIndex !== -1) {
         end = searchStart + newlineIndex + 1;
       } else {
-        // Look for period
+        // Look for period or Arabic punctuation
         const periodIndex = searchRange.lastIndexOf('.');
-        if (periodIndex !== -1) {
-          end = searchStart + periodIndex + 1;
+        const arabicSemiIndex = searchRange.lastIndexOf('؛');
+        const arabicCommaIndex = searchRange.lastIndexOf('،');
+        
+        const bestBreak = Math.max(
+          periodIndex,
+          isArabic ? Math.max(arabicSemiIndex, arabicCommaIndex) : -1
+        );
+        
+        if (bestBreak !== -1) {
+          end = searchStart + bestBreak + 1;
         }
       }
     }
@@ -103,7 +131,7 @@ export function mergeChunkResults(results: any[]): any {
       for (const item of result.items) {
         // Create a unique key for deduplication
         const key = `${item.itemNumber || ''}-${item.description?.slice(0, 50) || ''}`;
-        if (!seenItems.has(key)) {
+        if (!seenItems.has(key) && (item.itemNumber || item.description)) {
           seenItems.add(key);
           allItems.push(item);
         }
@@ -161,7 +189,7 @@ export function useChunkedAnalysis() {
     setCurrentJob(null);
   }, []);
 
-  // Process a single chunk
+  // Process a single chunk with strong retry logic
   const processChunk = async (
     chunk: string,
     chunkIndex: number,
@@ -169,7 +197,7 @@ export function useChunkedAnalysis() {
     functionName: string,
     options: { useCompression?: boolean; maxRetries?: number } = {}
   ): Promise<any> => {
-    const { useCompression = true, maxRetries = 3 } = options;
+    const { useCompression = true, maxRetries = 5 } = options; // Default 5 retries
     
     const payload = useCompression
       ? { boqTextCompressed: compressText(chunk), isCompressed: true }
@@ -177,49 +205,73 @@ export function useChunkedAnalysis() {
 
     let lastError: Error | null = null;
     
-     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-       try {
-         const { data, error } = await supabase.functions.invoke(functionName, {
-           body: {
-             ...payload,
-             analysisType: 'extract_items',
-             chunkIndex,
-             totalChunks,
-             generate_schedule: false,
-           },
-         });
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const { data, error } = await supabase.functions.invoke(functionName, {
+          body: {
+            ...payload,
+            analysisType: 'extract_items',
+            chunkIndex,
+            totalChunks,
+            generate_schedule: false,
+          },
+        });
 
-         if (error) throw error;
+        if (error) throw error;
 
-         // Edge function may return ok:false with statusCode to avoid non-2xx crashes.
-         if (data?.ok === false) {
-           const retryAfter = data?.retryAfter;
-           const msg = data?.suggestion || data?.error || 'Analysis failed';
-           const enriched = retryAfter ? `${msg} (انتظر ${retryAfter} ثانية)` : msg;
-           const err2 = new Error(enriched);
-           (err2 as any).errorCode = data?.errorCode;
-           (err2 as any).retryAfter = retryAfter;
-           throw err2;
-         }
+        // Edge function may return ok:false with statusCode to avoid non-2xx crashes.
+        if (data?.ok === false) {
+          const retryAfter = data?.retryAfter;
+          const msg = data?.suggestion || data?.error || 'Analysis failed';
+          const err2 = new Error(msg) as any;
+          err2.errorCode = data?.errorCode;
+          err2.retryAfter = retryAfter;
+          err2.statusCode = data?.statusCode;
+          throw err2;
+        }
 
-         return data;
-       } catch (err: any) {
-         lastError = err;
-         const isRateLimit =
-           String(err?.message || '').includes('429') ||
-           err?.errorCode === 'RATE_LIMIT_429';
+        return data;
+      } catch (err: any) {
+        lastError = err;
+        
+        const isRateLimit =
+          String(err?.message || '').includes('429') ||
+          err?.errorCode === 'RATE_LIMIT_429' ||
+          err?.statusCode === 429;
 
-         if (attempt < maxRetries) {
-           const base = isRateLimit ? 4000 : 1000;
-           await new Promise(resolve => setTimeout(resolve, base * attempt));
-         }
-       }
-     }
+        const isServerError = err?.statusCode >= 500;
+        const isTimeout = err?.name === 'AbortError' || String(err?.message || '').includes('timeout');
+
+        if ((isRateLimit || isServerError || isTimeout) && attempt < maxRetries) {
+          const delay = getBackoffDelay(attempt, err?.retryAfter);
+          
+          // Update progress with waiting status
+          setProgress(prev => ({
+            ...prev,
+            status: 'rate_limited',
+            waitingSeconds: Math.ceil(delay / 1000),
+            currentStep: isArabic 
+              ? `انتظار ${Math.ceil(delay / 1000)} ثانية قبل إعادة المحاولة...`
+              : `Waiting ${Math.ceil(delay / 1000)}s before retry...`,
+          }));
+
+          await new Promise(resolve => setTimeout(resolve, delay));
+          
+          // Reset status back to processing
+          setProgress(prev => ({
+            ...prev,
+            status: 'processing',
+            waitingSeconds: undefined,
+            currentStep: undefined,
+          }));
+        }
+      }
+    }
 
     throw lastError;
   };
 
-  // Chunked analysis (client-side processing)
+  // Chunked analysis (client-side processing) with strong retry
   const analyzeWithChunks = useCallback(async (
     text: string,
     functionName: string = 'analyze-boq',
@@ -228,7 +280,7 @@ export function useChunkedAnalysis() {
     const {
       chunkSize = DEFAULT_CHUNK_SIZE,
       overlapSize = DEFAULT_OVERLAP_SIZE,
-      maxRetries = 3,
+      maxRetries = 5, // Strong retry: 5 attempts
       useCompression = true,
     } = options;
 
@@ -266,24 +318,43 @@ export function useChunkedAnalysis() {
           ...prev,
           currentChunk: i + 1,
           percentage: 10 + Math.round((i / chunks.length) * 80),
+          currentStep: isArabic
+            ? `معالجة القطعة ${i + 1} من ${chunks.length}...`
+            : `Processing chunk ${i + 1} of ${chunks.length}...`,
         }));
 
-        const result = await processChunk(
-          chunks[i],
-          i,
-          chunks.length,
-          functionName,
-          { useCompression, maxRetries }
-        );
+        try {
+          const result = await processChunk(
+            chunks[i],
+            i,
+            chunks.length,
+            functionName,
+            { useCompression, maxRetries }
+          );
 
-        if (result?.analysisResult || result?.items) {
-          results.push(result.analysisResult || result);
+          if (result?.analysisResult || result?.items) {
+            results.push(result.analysisResult || result);
+          }
+        } catch (chunkErr: any) {
+          console.warn(`Chunk ${i + 1} failed after all retries:`, chunkErr);
+          // Continue to next chunk instead of failing completely
         }
 
         setProgress(prev => ({
           ...prev,
           processedChunks: i + 1,
         }));
+
+        // Small cooldown between chunks to avoid rate limits
+        if (i < chunks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      if (results.length === 0) {
+        throw new Error(isArabic 
+          ? 'فشل تحليل جميع الأجزاء. يرجى المحاولة مرة أخرى.'
+          : 'All chunks failed to analyze. Please try again.');
       }
 
       // Merge results
@@ -295,8 +366,8 @@ export function useChunkedAnalysis() {
       toast({
         title: isArabic ? 'اكتمل التحليل المجزأ' : 'Chunked Analysis Complete',
         description: isArabic
-          ? `تم تحليل ${chunks.length} أجزاء ودمج النتائج`
-          : `Analyzed ${chunks.length} chunks and merged results`,
+          ? `تم تحليل ${results.length}/${chunks.length} أجزاء ودمج النتائج`
+          : `Analyzed ${results.length}/${chunks.length} chunks and merged results`,
       });
 
       return mergedResult;
@@ -420,6 +491,33 @@ export function useChunkedAnalysis() {
     pollingIntervalRef.current = setInterval(poll, intervalMs);
   }, [pollJobStatus]);
 
+  // Resume a failed job
+  const resumeJob = useCallback(async (
+    jobId: string,
+    onComplete: (result: any) => void,
+    onError: (error: string) => void
+  ) => {
+    try {
+      toast({
+        title: isArabic ? 'استئناف المهمة' : 'Resuming Job',
+        description: isArabic ? 'جاري استئناف المهمة من آخر نقطة...' : 'Resuming job from last checkpoint...',
+      });
+
+      // Kick off resume processing
+      const { error } = await supabase.functions.invoke('process-analysis-job', {
+        body: { jobId, resume: true },
+      });
+
+      if (error) throw error;
+
+      // Start polling for updates
+      startPolling(jobId, onComplete, onError);
+    } catch (err: any) {
+      console.error('Failed to resume job:', err);
+      onError(err.message || 'Failed to resume job');
+    }
+  }, [toast, isArabic, startPolling]);
+
   // Subscribe to realtime job updates
   const subscribeToJob = useCallback((
     jobId: string,
@@ -466,6 +564,7 @@ export function useChunkedAnalysis() {
     createAnalysisJob,
     pollJobStatus,
     startPolling,
+    resumeJob,
     subscribeToJob,
     cancelAnalysis,
     compressText,

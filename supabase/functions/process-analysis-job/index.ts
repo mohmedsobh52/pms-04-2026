@@ -19,6 +19,73 @@ function decompressFromBase64(input: string): string {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Generate jitter for backoff (±10%)
+const jitter = (baseMs: number) => {
+  const variance = baseMs * 0.1;
+  return baseMs + (Math.random() * variance * 2 - variance);
+};
+
+// Strong exponential backoff schedule: 30s, 60s, 120s, 120s, 120s
+const getBackoffDelay = (attempt: number): number => {
+  const delays = [30000, 60000, 120000, 120000, 120000];
+  const baseDelay = delays[Math.min(attempt - 1, delays.length - 1)];
+  return jitter(baseDelay);
+};
+
+// Detect if text is primarily Arabic
+const isArabicText = (text: string): boolean => {
+  const arabicPattern = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/g;
+  const arabicCount = (text.match(arabicPattern) || []).length;
+  return arabicCount > text.length * 0.3;
+};
+
+// Split text respecting Arabic punctuation
+const splitIntoChunks = (text: string, chunkSize: number = 30000, overlapSize: number = 500): string[] => {
+  if (text.length <= chunkSize) {
+    return [text];
+  }
+
+  const chunks: string[] = [];
+  let start = 0;
+  const isArabic = isArabicText(text);
+
+  while (start < text.length) {
+    let end = start + chunkSize;
+    
+    if (end < text.length) {
+      const searchStart = end - 300;
+      const searchEnd = Math.min(end + 300, text.length);
+      const searchRange = text.slice(searchStart, searchEnd);
+      
+      // Try to break at natural boundaries
+      // Priority: newline > period/semicolon > Arabic punctuation
+      const newlineIndex = searchRange.lastIndexOf('\n');
+      if (newlineIndex !== -1) {
+        end = searchStart + newlineIndex + 1;
+      } else {
+        const periodIndex = searchRange.lastIndexOf('.');
+        const arabicSemiIndex = searchRange.lastIndexOf('؛');
+        const arabicCommaIndex = searchRange.lastIndexOf('،');
+        
+        const bestBreak = Math.max(
+          periodIndex,
+          isArabic ? Math.max(arabicSemiIndex, arabicCommaIndex) : -1
+        );
+        
+        if (bestBreak !== -1) {
+          end = searchStart + bestBreak + 1;
+        }
+      }
+    }
+
+    chunks.push(text.slice(start, end));
+    start = end - overlapSize;
+    if (start >= text.length) break;
+  }
+
+  return chunks;
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -29,7 +96,9 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    const { jobId } = await req.json();
+    const { jobId, resume = false } = await req.json();
+    
+    console.log(`[Job ${jobId}] Starting processing (resume=${resume})`);
     
     if (!jobId) {
       return new Response(
@@ -46,27 +115,46 @@ serve(async (req) => {
       .single();
 
     if (jobError || !job) {
+      console.error(`[Job ${jobId}] Not found:`, jobError);
       return new Response(
         JSON.stringify({ error: 'Job not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (job.status !== 'pending') {
+    // Allow resuming failed or stale processing jobs
+    const isStaleProcessing = job.status === 'processing' && 
+      job.updated_at && 
+      (Date.now() - new Date(job.updated_at).getTime()) > 5 * 60 * 1000; // 5 min stale
+
+    const canProcess = job.status === 'pending' || 
+      (resume && (job.status === 'failed' || isStaleProcessing));
+
+    if (!canProcess) {
+      console.log(`[Job ${jobId}] Cannot process: status=${job.status}, stale=${isStaleProcessing}`);
       return new Response(
-        JSON.stringify({ error: 'Job is not pending', status: job.status }),
+        JSON.stringify({ error: 'Job is not pending or resumable', status: job.status }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Determine starting point for resume
+    const resumeFromChunk = resume && job.processed_chunks ? job.processed_chunks : 0;
+    const existingResults = resume && job.chunk_results ? (job.chunk_results as any[]) : [];
+
+    console.log(`[Job ${jobId}] Resuming from chunk ${resumeFromChunk}, existing results: ${existingResults.length}`);
 
     // Update job to processing
     await supabase
       .from('analysis_jobs')
       .update({
         status: 'processing',
-        started_at: new Date().toISOString(),
-        current_step: 'Decompressing input...',
+        started_at: job.started_at || new Date().toISOString(),
+        current_step: resumeFromChunk > 0 
+          ? `استئناف من القطعة ${resumeFromChunk}... / Resuming from chunk ${resumeFromChunk}...`
+          : 'جاري فك الضغط... / Decompressing input...',
         progress_percentage: 5,
+        error_message: null, // Clear previous error on retry
       })
       .eq('id', jobId);
 
@@ -77,11 +165,12 @@ serve(async (req) => {
     }
 
     if (!inputText || inputText.length < 50) {
+      console.error(`[Job ${jobId}] Invalid input text (length: ${inputText?.length || 0})`);
       await supabase
         .from('analysis_jobs')
         .update({
           status: 'failed',
-          error_message: 'Invalid or empty input text',
+          error_message: 'النص المدخل غير صالح أو فارغ / Invalid or empty input text',
           completed_at: new Date().toISOString(),
         })
         .eq('id', jobId);
@@ -92,49 +181,35 @@ serve(async (req) => {
       );
     }
 
-    // Split into chunks if needed
-    const CHUNK_SIZE = 30000;
-    const chunks: string[] = [];
-    
-    if (inputText.length <= CHUNK_SIZE) {
-      chunks.push(inputText);
-    } else {
-      let start = 0;
-      while (start < inputText.length) {
-        let end = start + CHUNK_SIZE;
-        if (end < inputText.length) {
-          // Try to break at newline
-          const searchRange = inputText.slice(end - 200, Math.min(end + 200, inputText.length));
-          const newlineIndex = searchRange.lastIndexOf('\n');
-          if (newlineIndex !== -1) {
-            end = end - 200 + newlineIndex + 1;
-          }
-        }
-        chunks.push(inputText.slice(start, end));
-        start = end - 500; // Overlap
-        if (start >= inputText.length) break;
-      }
-    }
+    const isArabic = isArabicText(inputText);
+    console.log(`[Job ${jobId}] Text length: ${inputText.length}, Arabic: ${isArabic}`);
+
+    // Split into chunks with improved Arabic-aware splitting
+    const CHUNK_SIZE = isArabic ? 25000 : 30000; // Smaller chunks for Arabic
+    const chunks = splitIntoChunks(inputText, CHUNK_SIZE, 500);
+
+    console.log(`[Job ${jobId}] Split into ${chunks.length} chunks`);
 
     await supabase
       .from('analysis_jobs')
       .update({
         total_chunks: chunks.length,
-        current_step: `Processing ${chunks.length} chunks...`,
+        current_step: `معالجة ${chunks.length} قطعة... / Processing ${chunks.length} chunks...`,
         progress_percentage: 10,
       })
       .eq('id', jobId);
 
     // Process each chunk
-    const results: any[] = [];
+    const results: any[] = [...existingResults];
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
 
     if (!apiKey) {
+      console.error(`[Job ${jobId}] LOVABLE_API_KEY not configured`);
       await supabase
         .from('analysis_jobs')
         .update({
           status: 'failed',
-          error_message: 'LOVABLE_API_KEY is not configured',
+          error_message: 'LOVABLE_API_KEY غير مكوّن / LOVABLE_API_KEY is not configured',
           completed_at: new Date().toISOString(),
         })
         .eq('id', jobId);
@@ -145,20 +220,54 @@ serve(async (req) => {
       );
     }
 
-    for (let i = 0; i < chunks.length; i++) {
+    const maxAttemptsPerChunk = 5; // Strong retry: 5 attempts per chunk
+
+    for (let i = resumeFromChunk; i < chunks.length; i++) {
       const chunk = chunks[i];
 
-      const progressPercent = 10 + Math.round((i / chunks.length) * 80);
+      const progressPercent = 10 + Math.round(((i + 1) / chunks.length) * 80);
+      
+      console.log(`[Job ${jobId}] Processing chunk ${i + 1}/${chunks.length}`);
+      
       await supabase
         .from('analysis_jobs')
         .update({
           processed_chunks: i,
-          current_step: `Processing chunk ${i + 1} of ${chunks.length}...`,
+          current_step: `معالجة القطعة ${i + 1} من ${chunks.length}... / Processing chunk ${i + 1} of ${chunks.length}...`,
           progress_percentage: progressPercent,
         })
         .eq('id', jobId);
 
-      const systemPrompt = `You are an expert quantity surveyor and construction cost analyst. Analyze the Bill of Quantities (BOQ) text and extract structured data.
+      const systemPrompt = isArabic
+        ? `أنت مهندس كميات محترف تقوم بتحليل مستندات جداول الكميات (BOQ).
+
+أرجع كائن JSON بهذا الهيكل:
+{
+  "items": [
+    {
+      "itemNumber": "رقم البند",
+      "description": "الوصف",
+      "unit": "الوحدة (م، م²، م³، كجم، عدد، طن، مقطوعية)",
+      "quantity": رقم,
+      "unitPrice": رقم,
+      "totalPrice": رقم,
+      "category": "التصنيف"
+    }
+  ],
+  "summary": {
+    "totalItems": رقم,
+    "totalValue": رقم,
+    "currency": "العملة",
+    "categories": ["التصنيفات"]
+  }
+}
+
+مهم:
+- استخرج جميع البنود بتفاصيلها
+- احسب المجاميع إذا لم تكن موجودة
+- حدد التصنيفات بناءً على أنواع الأعمال
+- هذه القطعة ${i + 1} من ${chunks.length}`
+        : `You are an expert quantity surveyor and construction cost analyst. Analyze the Bill of Quantities (BOQ) text and extract structured data.
 
 Return a JSON object with this structure:
 {
@@ -188,19 +297,28 @@ Important:
 - Handle both Arabic and English text
 - This is chunk ${i + 1} of ${chunks.length}`;
 
-      // Call AI for analysis with backoff on 429/timeouts
+      // Call AI for analysis with strong backoff on 429/timeouts
       let parsedResult: any = null;
       let lastErrText = '';
+      let lastErrStatus = 0;
 
-      for (let attempt = 1; attempt <= 4; attempt++) {
+      for (let attempt = 1; attempt <= maxAttemptsPerChunk; attempt++) {
+        const stepMsg = isArabic
+          ? `طلب AI (قطعة ${i + 1}/${chunks.length}) - محاولة ${attempt}/${maxAttemptsPerChunk}`
+          : `AI request (chunk ${i + 1}/${chunks.length}) - attempt ${attempt}/${maxAttemptsPerChunk}`;
+
         await supabase
           .from('analysis_jobs')
-          .update({
-            current_step: `AI request (chunk ${i + 1}/${chunks.length}) - attempt ${attempt}/4`,
-          })
+          .update({ current_step: stepMsg })
           .eq('id', jobId);
 
+        console.log(`[Job ${jobId}] Chunk ${i + 1}, attempt ${attempt}/${maxAttemptsPerChunk}`);
+
         try {
+          const controller = new AbortController();
+          const timeoutMs = isArabic ? 180000 : 120000; // 180s for Arabic, 120s otherwise
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
           const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -216,31 +334,44 @@ Important:
               temperature: 0.3,
               max_tokens: 8000,
             }),
+            signal: controller.signal,
           });
+
+          clearTimeout(timeoutId);
 
           if (!response.ok) {
             lastErrText = await response.text();
+            lastErrStatus = response.status;
 
-            // 429: backoff and retry
-            if (response.status === 429 && attempt < 4) {
-              const delay = Math.min(2000 * Math.pow(2, attempt - 1), 16000);
+            console.warn(`[Job ${jobId}] Chunk ${i + 1} attempt ${attempt} failed: ${response.status}`);
+
+            // 429: strong backoff and retry
+            if (response.status === 429 && attempt < maxAttemptsPerChunk) {
+              const delay = getBackoffDelay(attempt);
+              const waitMsg = isArabic
+                ? `تجاوز الحد (429). انتظار ${Math.round(delay / 1000)} ثانية...`
+                : `Rate limited (429). Waiting ${Math.round(delay / 1000)}s...`;
+              
+              console.log(`[Job ${jobId}] ${waitMsg}`);
+              
               await supabase
                 .from('analysis_jobs')
-                .update({
-                  current_step: `Rate limited (429). Waiting ${Math.round(delay / 1000)}s...`,
-                })
+                .update({ current_step: waitMsg })
                 .eq('id', jobId);
+              
               await sleep(delay);
               continue;
             }
 
-            // transient 5xx/timeouts: short backoff
-            if (response.status >= 500 && attempt < 4) {
-              await sleep(1500 * attempt);
+            // 5xx: shorter backoff
+            if (response.status >= 500 && attempt < maxAttemptsPerChunk) {
+              const delay = Math.min(5000 * attempt, 30000);
+              console.log(`[Job ${jobId}] Server error, waiting ${delay}ms...`);
+              await sleep(delay);
               continue;
             }
 
-            console.error(`AI request failed for chunk ${i}:`, response.status, lastErrText);
+            console.error(`[Job ${jobId}] Chunk ${i} failed:`, response.status, lastErrText.slice(0, 200));
             break;
           }
 
@@ -251,32 +382,44 @@ Important:
             const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
               parsedResult = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+              console.log(`[Job ${jobId}] Chunk ${i + 1} parsed successfully: ${parsedResult?.items?.length || 0} items`);
               break;
             }
           } catch (parseErr) {
-            console.error(`Failed to parse chunk ${i} result:`, parseErr);
-            // retry parsing errors only once
+            console.error(`[Job ${jobId}] Failed to parse chunk ${i} result:`, parseErr);
             if (attempt < 2) continue;
           }
 
           break;
-        } catch (chunkError) {
-          lastErrText = chunkError instanceof Error ? chunkError.message : String(chunkError);
-          if (attempt < 4) {
-            await sleep(1500 * attempt);
+        } catch (chunkError: any) {
+          lastErrText = chunkError?.message || String(chunkError);
+          
+          if (chunkError?.name === 'AbortError') {
+            console.warn(`[Job ${jobId}] Chunk ${i + 1} timeout (attempt ${attempt})`);
+            if (attempt < maxAttemptsPerChunk) {
+              const delay = getBackoffDelay(attempt);
+              await sleep(delay);
+              continue;
+            }
+          }
+          
+          if (attempt < maxAttemptsPerChunk) {
+            const delay = Math.min(5000 * attempt, 30000);
+            await sleep(delay);
             continue;
           }
-          console.error(`Error processing chunk ${i}:`, chunkError);
+          
+          console.error(`[Job ${jobId}] Error processing chunk ${i}:`, chunkError);
         }
       }
 
       if (parsedResult) {
         results.push(parsedResult);
       } else {
-        console.warn(`Chunk ${i + 1} produced no result`);
+        console.warn(`[Job ${jobId}] Chunk ${i + 1} produced no result (status: ${lastErrStatus})`);
       }
 
-      // Update chunk results
+      // Update chunk results - save progress for potential resume
       await supabase
         .from('analysis_jobs')
         .update({
@@ -286,34 +429,64 @@ Important:
         .eq('id', jobId);
 
       if (!parsedResult && lastErrText) {
-        // keep going, but surface the last issue in job state
+        const skipMsg = isArabic
+          ? `تم تخطي القطعة ${i + 1} بسبب خطأ: ${lastErrText.slice(0, 100)}`
+          : `Chunk ${i + 1} skipped due to error: ${lastErrText.slice(0, 100)}`;
+        
         await supabase
           .from('analysis_jobs')
-          .update({
-            current_step: `Chunk ${i + 1} skipped بسبب خطأ: ${lastErrText.slice(0, 120)}`,
-          })
+          .update({ current_step: skipMsg })
           .eq('id', jobId);
+      }
+
+      // Cooldown between chunks to avoid rate limits
+      if (i < chunks.length - 1) {
+        const cooldown = isArabic ? 2000 : 1000;
+        await sleep(cooldown);
       }
     }
 
+    // Check if we got any results
+    if (results.length === 0) {
+      console.error(`[Job ${jobId}] No results after processing all chunks`);
+      await supabase
+        .from('analysis_jobs')
+        .update({
+          status: 'failed',
+          error_message: isArabic 
+            ? 'فشل تحليل جميع القطع. يرجى المحاولة مرة أخرى.'
+            : 'All chunks failed to analyze. Please try again.',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', jobId);
+
+      return new Response(
+        JSON.stringify({ error: 'All chunks failed' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Merge results
+    const mergeMsg = isArabic ? 'جاري دمج النتائج...' : 'Merging results...';
     await supabase
       .from('analysis_jobs')
       .update({
-        current_step: 'Merging results...',
+        current_step: mergeMsg,
         progress_percentage: 95,
       })
       .eq('id', jobId);
 
-    // Merge all items
+    console.log(`[Job ${jobId}] Merging ${results.length} result sets`);
+
+    // Merge all items with deduplication
     const allItems: any[] = [];
     const seenItems = new Set<string>();
     
     for (const result of results) {
       if (result?.items && Array.isArray(result.items)) {
         for (const item of result.items) {
-          const key = `${item.itemNumber || ''}-${item.description?.slice(0, 50) || ''}`;
-          if (!seenItems.has(key)) {
+          const key = `${item.itemNumber || ''}-${(item.description || '').slice(0, 50)}`;
+          if (!seenItems.has(key) && (item.itemNumber || item.description)) {
             seenItems.add(key);
             allItems.push(item);
           }
@@ -331,19 +504,25 @@ Important:
       },
       analysisDate: new Date().toISOString(),
       chunksProcessed: chunks.length,
+      successfulChunks: results.length,
     };
 
+    console.log(`[Job ${jobId}] Merged: ${allItems.length} items, total value: ${mergedResult.summary.totalValue}`);
+
     // Update job as completed
+    const completeMsg = isArabic ? 'اكتمل التحليل' : 'Analysis Complete';
     await supabase
       .from('analysis_jobs')
       .update({
         status: 'completed',
         result_data: mergedResult,
         progress_percentage: 100,
-        current_step: 'Complete',
+        current_step: completeMsg,
         completed_at: new Date().toISOString(),
       })
       .eq('id', jobId);
+
+    console.log(`[Job ${jobId}] Completed successfully`);
 
     return new Response(
       JSON.stringify({ success: true, result: mergedResult }),

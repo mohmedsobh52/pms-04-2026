@@ -33,6 +33,8 @@ export function ChunkedAnalysisProgress({
         return <CheckCircle2 className="h-4 w-4 text-green-500" />;
       case 'failed':
         return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'rate_limited':
+        return <Loader2 className="h-4 w-4 animate-spin text-orange-500" />;
       default:
         return <FileText className="h-4 w-4 text-muted-foreground" />;
     }
@@ -43,15 +45,19 @@ export function ChunkedAnalysisProgress({
       case 'chunking':
         return isArabic ? 'تقسيم الملف...' : 'Splitting file...';
       case 'processing':
-        return isArabic 
+        return progress.currentStep || (isArabic 
           ? `معالجة الجزء ${progress.currentChunk} من ${progress.totalChunks}`
-          : `Processing chunk ${progress.currentChunk} of ${progress.totalChunks}`;
+          : `Processing chunk ${progress.currentChunk} of ${progress.totalChunks}`);
       case 'merging':
         return isArabic ? 'دمج النتائج...' : 'Merging results...';
       case 'completed':
         return isArabic ? 'اكتمل التحليل' : 'Analysis complete';
       case 'failed':
         return isArabic ? 'فشل التحليل' : 'Analysis failed';
+      case 'rate_limited':
+        return progress.waitingSeconds 
+          ? (isArabic ? `انتظار ${progress.waitingSeconds} ثانية قبل إعادة المحاولة...` : `Waiting ${progress.waitingSeconds}s before retry...`)
+          : (isArabic ? 'تجاوز حد الاستخدام...' : 'Rate limited...');
       default:
         return isArabic ? 'جاهز' : 'Ready';
     }
@@ -66,6 +72,7 @@ export function ChunkedAnalysisProgress({
       case 'processing':
       case 'chunking':
       case 'merging':
+      case 'rate_limited':
         return 'secondary';
       default:
         return 'outline';

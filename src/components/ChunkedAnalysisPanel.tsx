@@ -112,6 +112,9 @@ export function ChunkedAnalysisPanel({
       merging: isArabic ? 'جاري دمج النتائج...' : 'Merging results...',
       completed: isArabic ? 'اكتمل التحليل' : 'Analysis complete',
       failed: isArabic ? 'فشل التحليل' : 'Analysis failed',
+      rate_limited: progress.waitingSeconds 
+        ? (isArabic ? `انتظار ${progress.waitingSeconds} ثانية...` : `Waiting ${progress.waitingSeconds}s...`)
+        : (isArabic ? 'تجاوز حد الاستخدام...' : 'Rate limited...'),
     };
     return statusMap[progress.status];
   };
