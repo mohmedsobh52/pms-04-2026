@@ -38,6 +38,7 @@ import { ConnectionErrorDialog, detectErrorType, type ConnectionError } from "@/
 import { ChunkedAnalysisProgress } from "@/components/ChunkedAnalysisProgress";
 import { ChunkedAnalysisPanel } from "@/components/ChunkedAnalysisPanel";
 import { AnalysisStatusPanel, useAnalysisStatus } from "@/components/AnalysisStatusPanel";
+import { AnalysisErrorCard, detectAnalysisErrorType, type AnalysisErrorInfo } from "@/components/AnalysisErrorCard";
 import { AIMonitoringDashboard } from "@/components/AIMonitoringDashboard";
 import { useChunkedAnalysis, compressText } from "@/hooks/useChunkedAnalysis";
 import { EstimatedAnalysisTime } from "@/components/EstimatedAnalysisTime";
@@ -118,6 +119,10 @@ const Index = () => {
   const [analysisSettings, setAnalysisSettings] = useState<AnalysisSettings>(getAnalysisSettings);
   const [connectionError, setConnectionError] = useState<ConnectionError | null>(null);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
+  
+  // Persistent analysis error state
+  const [analysisError, setAnalysisError] = useState<AnalysisErrorInfo | null>(null);
+  const [analysisRetryAttempts, setAnalysisRetryAttempts] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   const retryCallbackRef = useRef<(() => void) | null>(null);
 
@@ -366,6 +371,9 @@ const Index = () => {
 
   const runAnalysis = async () => {
     const rawText = extractedText || manualText;
+    
+    // Clear any previous error when starting new analysis
+    setAnalysisError(null);
     
     if (!rawText || rawText.length < 50) {
       toast({
@@ -766,65 +774,66 @@ const Index = () => {
       console.error("Analysis error:", error);
       updateStepStatus("analyze", "error");
       
-      let errorTitle = t('analysisError');
-      let errorDescription = t('errorAnalyzing');
-      let showRetryOption = false;
-      let retryDelay = 0;
-      
-      // Check for 429 rate limit error with enhanced handling
+      // Detect error type for rich error display
+      const errorType = detectAnalysisErrorType(error);
       const errorMessage = error?.message || '';
-      const isRateLimit = errorMessage.includes("429") || 
-                          errorMessage.includes("Rate limit") || 
-                          errorMessage.includes("rate limit") ||
-                          error?.errorCode === "RATE_LIMIT_429";
       
-      if (error?.message?.includes("AI credits exhausted") || error?.message?.includes("Payment required")) {
-        errorTitle = t('aiCreditsExhausted');
-        errorDescription = t('addCredits');
-      } else if (isRateLimit) {
-        errorTitle = isArabic ? 'تجاوز حد الاستخدام (429)' : 'Rate Limit Exceeded (429)';
-        errorDescription = isArabic 
-          ? 'يرجى الانتظار 30 ثانية ثم إعادة المحاولة. أو جرب تفعيل نظام الطابور للملفات الكبيرة من الإعدادات.'
-          : 'Please wait 30 seconds and retry. Or enable job queue for large files in settings.';
-        showRetryOption = true;
-        retryDelay = 30;
-      } else if (error?.name === 'AbortError' || error?.message?.includes('aborted') || error?.message?.includes('timeout')) {
-        errorTitle = language === 'ar' ? 'انتهت مهلة التحليل' : 'Analysis Timeout';
-        errorDescription = language === 'ar' 
-          ? 'الملف كبير جداً. حاول تقسيمه إلى أجزاء أصغر أو حاول مرة أخرى.'
-          : 'The file is too large. Try splitting it or retry.';
-        showRetryOption = true;
-      } else if (error?.message?.includes('Failed to fetch') || error?.message?.includes('FunctionsFetchError')) {
-        errorTitle = language === 'ar' ? 'خطأ في الاتصال' : 'Connection Error';
-        errorDescription = language === 'ar' 
-          ? 'فشل الاتصال بالخادم. تحقق من اتصالك بالإنترنت وحاول مرة أخرى.'
-          : 'Failed to connect to server. Check your internet and retry.';
-        showRetryOption = true;
-      } else if (error instanceof Error) {
-        errorDescription = error.message;
+      // Extract retry delay if present
+      let retryAfter = error?.retryAfter;
+      if (!retryAfter && errorType === 'rate_limit') {
+        retryAfter = 30;
       }
+      
+      // Create persistent error info
+      const errorInfo: AnalysisErrorInfo = {
+        type: errorType,
+        message: errorMessage,
+        errorCode: error?.errorCode,
+        details: error?.stack || String(error),
+        retryAfter,
+        timestamp: new Date(),
+        provider: error?.provider || selectedProvider,
+        attempts: analysisRetryAttempts + 1,
+      };
+      
+      setAnalysisError(errorInfo);
+      setAnalysisRetryAttempts(prev => prev + 1);
+      
+      // Also show a brief toast for immediate feedback
+      const toastTitles: Record<string, { en: string; ar: string }> = {
+        rate_limit: { en: 'Rate Limit Exceeded', ar: 'تجاوز حد الاستخدام' },
+        timeout: { en: 'Request Timed Out', ar: 'انتهت مهلة الطلب' },
+        network: { en: 'Connection Error', ar: 'خطأ في الاتصال' },
+        credits_exhausted: { en: 'Credits Exhausted', ar: 'نفاد الرصيد' },
+        server_error: { en: 'Server Error', ar: 'خطأ في الخادم' },
+        unknown: { en: 'Analysis Failed', ar: 'فشل التحليل' },
+      };
+      
+      const title = isArabic ? toastTitles[errorType]?.ar : toastTitles[errorType]?.en;
       
       toast({
-        title: errorTitle,
-        description: errorDescription,
+        title: title || t('analysisError'),
+        description: isArabic 
+          ? 'راجع تفاصيل الخطأ أدناه للحصول على خطوات الحل'
+          : 'See error details below for resolution steps',
         variant: "destructive",
-        duration: showRetryOption ? 10000 : 5000,
+        duration: 5000,
       });
-
-      // Show additional toast with retry suggestion for rate limit
-      if (showRetryOption && retryDelay > 0) {
-        setTimeout(() => {
-          toast({
-            title: isArabic ? '💡 نصيحة' : '💡 Tip',
-            description: isArabic 
-              ? 'جرب تفعيل "نظام الطابور" من إعدادات التحليل للملفات الكبيرة'
-              : 'Try enabling "Job Queue" in analysis settings for large files',
-          });
-        }, 2000);
-      }
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // Handle retry from error card
+  const handleAnalysisRetry = () => {
+    setAnalysisError(null);
+    runAnalysis();
+  };
+
+  // Handle dismiss error card
+  const handleDismissError = () => {
+    setAnalysisError(null);
+    setAnalysisRetryAttempts(0);
   };
 
   // Handle applying suggested market rates
@@ -1179,6 +1188,21 @@ const Index = () => {
                     />
                   )}
 
+                  {/* Persistent Error Card - Show when analysis fails */}
+                  {analysisError && !isProcessing && (
+                    <AnalysisErrorCard
+                      error={analysisError}
+                      onRetry={handleAnalysisRetry}
+                      onDismiss={handleDismissError}
+                      onOpenSettings={() => {
+                        const settingsBtn = document.querySelector('[data-settings-trigger]');
+                        if (settingsBtn instanceof HTMLElement) {
+                          settingsBtn.click();
+                        }
+                      }}
+                    />
+                  )}
+
                   {!selectedFile && !isExtracting && (
                     <>
                       <div className="text-center">
@@ -1290,7 +1314,7 @@ const Index = () => {
                     <div className="flex gap-2">
                       <AnalysisSettingsDialog 
                         trigger={
-                          <Button variant="ghost" size="sm" className="gap-1.5">
+                          <Button variant="ghost" size="sm" className="gap-1.5" data-settings-trigger>
                             <Settings2 className="h-4 w-4" />
                           </Button>
                         }
