@@ -714,31 +714,41 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
       if (response.status === 429) {
         console.error("Rate limit exceeded after all retries");
         const isArabicLang = language === 'ar';
+
+        // IMPORTANT: Return 200 to avoid client-side "Edge function returned 429" runtime crashes.
+        // The client must rely on `errorCode` to detect this condition.
         return new Response(
-          JSON.stringify({ 
+          JSON.stringify({
+            ok: false,
+            statusCode: 429,
             error: "Rate limit exceeded. Please try again later.",
             errorCode: "RATE_LIMIT_429",
-            suggestion: isArabicLang 
+            suggestion: isArabicLang
               ? "تجاوز حد الاستخدام. يرجى الانتظار 30 ثانية ثم إعادة المحاولة أو تفعيل نظام الطابور."
               : "Rate limit exceeded. Please wait 30 seconds and retry, or enable job queue for large files.",
             retryAfter: 30,
             provider: usedProvider,
           }),
-          { 
-            status: 429, 
-            headers: { 
-              ...corsHeaders, 
+          {
+            status: 200,
+            headers: {
+              ...corsHeaders,
               "Content-Type": "application/json",
-              "Retry-After": "30"
-            } 
+              "Retry-After": "30",
+            },
           }
         );
       }
       if (response.status === 402) {
         console.error("Payment required - both Lovable AI and OpenAI failed");
         return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add credits or configure OpenAI API key." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({
+            ok: false,
+            statusCode: 402,
+            error: "AI credits exhausted. Please add credits or configure OpenAI API key.",
+            errorCode: "PAYMENT_REQUIRED_402",
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       const errorText = await response.text();

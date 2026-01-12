@@ -177,27 +177,44 @@ export function useChunkedAnalysis() {
 
     let lastError: Error | null = null;
     
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        const { data, error } = await supabase.functions.invoke(functionName, {
-          body: {
-            ...payload,
-            analysisType: 'extract_items',
-            chunkIndex,
-            totalChunks,
-            generate_schedule: false,
-          },
-        });
+     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+       try {
+         const { data, error } = await supabase.functions.invoke(functionName, {
+           body: {
+             ...payload,
+             analysisType: 'extract_items',
+             chunkIndex,
+             totalChunks,
+             generate_schedule: false,
+           },
+         });
 
-        if (error) throw error;
-        return data;
-      } catch (err: any) {
-        lastError = err;
-        if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-        }
-      }
-    }
+         if (error) throw error;
+
+         // Edge function may return ok:false with statusCode to avoid non-2xx crashes.
+         if (data?.ok === false) {
+           const retryAfter = data?.retryAfter;
+           const msg = data?.suggestion || data?.error || 'Analysis failed';
+           const enriched = retryAfter ? `${msg} (انتظر ${retryAfter} ثانية)` : msg;
+           const err2 = new Error(enriched);
+           (err2 as any).errorCode = data?.errorCode;
+           (err2 as any).retryAfter = retryAfter;
+           throw err2;
+         }
+
+         return data;
+       } catch (err: any) {
+         lastError = err;
+         const isRateLimit =
+           String(err?.message || '').includes('429') ||
+           err?.errorCode === 'RATE_LIMIT_429';
+
+         if (attempt < maxRetries) {
+           const base = isRateLimit ? 4000 : 1000;
+           await new Promise(resolve => setTimeout(resolve, base * attempt));
+         }
+       }
+     }
 
     throw lastError;
   };
