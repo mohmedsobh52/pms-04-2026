@@ -660,6 +660,65 @@ const Index = () => {
 
       if (itemsError) throw itemsError;
       
+      // Check for rate limit error with suggestion to use Job Queue
+      if (itemsResult.errorCode === 'RATE_LIMIT_429' || itemsResult.statusCode === 429) {
+        // Auto-escalate to Job Queue if user is logged in
+        if (user && analysisSettings.useJobQueue) {
+          toast({
+            title: isArabic ? 'التبديل للمعالجة الخلفية' : 'Switching to Background Processing',
+            description: isArabic 
+              ? 'تجاوز حد الطلبات. سيتم معالجة الملف في الخلفية.'
+              : 'Rate limit hit. Switching to background processing.',
+            duration: 8000,
+          });
+
+          // Wait for suggested retry time before using Job Queue
+          const waitTime = Math.min((itemsResult.retryAfter || 30) * 1000, 60000);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+
+          const jobId = await createAnalysisJob(rawText, 'extract_items', selectedFile?.name);
+          if (jobId) {
+            // Start backend processing
+            try {
+              await supabase.functions.invoke('process-analysis-job', { body: { jobId } });
+            } catch (startErr) {
+              console.warn('Failed to start background job:', startErr);
+            }
+
+            // Start polling for completion
+            startPolling(
+              jobId,
+              (result) => {
+                setAnalysisData(result);
+                updateStepStatus("analyze", "complete", 100);
+                setIsProcessing(false);
+                toast({
+                  title: isArabic ? 'اكتمل التحليل' : 'Analysis Complete',
+                  description: isArabic
+                    ? `تم تحليل ${result?.items?.length || 0} بند`
+                    : `Analyzed ${result?.items?.length || 0} items`,
+                });
+              },
+              (error) => {
+                updateStepStatus("analyze", "error");
+                setIsProcessing(false);
+                setLastFailedJobId(jobId);
+                setAnalysisError({
+                  type: 'rate_limit',
+                  message: error,
+                  errorCode: 'JOB_FAILED_AFTER_ESCALATION',
+                  timestamp: new Date(),
+                });
+              }
+            );
+            return;
+          }
+        }
+
+        // If no auto-escalation, throw error with helpful message
+        throw new Error(itemsResult.suggestion || itemsResult.error);
+      }
+
       if (itemsResult.error) {
         throw new Error(itemsResult.suggestion || itemsResult.error);
       }

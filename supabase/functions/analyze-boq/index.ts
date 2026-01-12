@@ -583,6 +583,15 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
     // Helper function to sleep for exponential backoff
     const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+    // Strong exponential backoff schedule: 30s, 60s, 120s, 120s, 120s
+    const getBackoffDelay = (attempt: number): number => {
+      const delays = [30000, 60000, 120000, 120000, 120000];
+      const baseDelay = delays[Math.min(attempt, delays.length - 1)];
+      // Add jitter (±10%) to avoid thundering herd
+      const jitter = baseDelay * 0.1 * (Math.random() * 2 - 1);
+      return Math.round(baseDelay + jitter);
+    };
+
     // Helper function with timeout, retry, and rate limit handling
     // IMPORTANT: prevent infinite provider ping-pong when both providers are rate limited.
     const fetchWithRetry = async (
@@ -592,11 +601,13 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
       providerSwitches = 0
     ): Promise<Response> => {
       const maxRetries = 2; // Retries for timeouts
-      const maxRateLimitRetries = 3; // Retries for rate limits (per provider)
+      const maxRateLimitRetries = 5; // Strong retry: 5 attempts per provider
       const maxProviderSwitches = 1; // Max provider switches (auto mode)
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
+      // Longer timeout for Arabic content: 180s, otherwise 120s
+      const timeoutMs = isArabicContent ? 180000 : 120000;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
       // Choose between Lovable AI and OpenAI
       const apiUrl = useOpenAI
@@ -639,15 +650,13 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
         });
         clearTimeout(timeoutId);
 
-        // Handle rate limiting (429) with exponential backoff
+        // Handle rate limiting (429) with STRONG exponential backoff
         if (resp.status === 429) {
           if (rateLimitRetry < maxRateLimitRetries) {
+            const delayMs = getBackoffDelay(rateLimitRetry);
             console.log(
-              `Rate limit hit for ${useOpenAI ? 'OpenAI' : 'Lovable AI'} (retry ${rateLimitRetry + 1}/${maxRateLimitRetries})`
+              `Rate limit hit for ${useOpenAI ? 'OpenAI' : 'Lovable AI'} (retry ${rateLimitRetry + 1}/${maxRateLimitRetries}). Waiting ${Math.round(delayMs/1000)}s...`
             );
-
-            const delayMs = Math.min(2000 * Math.pow(2, rateLimitRetry), 16000); // 2s, 4s, 8s, 16s max
-            console.log(`Waiting ${delayMs}ms before retry...`);
             await sleep(delayMs);
             return fetchWithRetry(retryCount, useOpenAI, rateLimitRetry + 1, providerSwitches);
           }
@@ -712,8 +721,8 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
 
     if (!response.ok) {
       if (response.status === 429) {
-        console.error("Rate limit exceeded after all retries");
-        const isArabicLang = language === 'ar';
+        console.error("Rate limit exceeded after all retries (5 attempts with 30s-120s backoff)");
+        const isArabicLang = language === 'ar' || isArabicContent;
 
         // IMPORTANT: Return 200 to avoid client-side "Edge function returned 429" runtime crashes.
         // The client must rely on `errorCode` to detect this condition.
@@ -724,17 +733,23 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
             error: "Rate limit exceeded. Please try again later.",
             errorCode: "RATE_LIMIT_429",
             suggestion: isArabicLang
-              ? "تجاوز حد الاستخدام. يرجى الانتظار 30 ثانية ثم إعادة المحاولة أو تفعيل نظام الطابور."
-              : "Rate limit exceeded. Please wait 30 seconds and retry, or enable job queue for large files.",
-            retryAfter: 30,
+              ? "تجاوز حد الاستخدام بعد 5 محاولات. يرجى تفعيل 'معالجة في الخلفية' من الإعدادات أو الانتظار دقيقتين."
+              : "Rate limit exceeded after 5 retries. Please enable 'Background Processing' in settings or wait 2 minutes.",
+            retryAfter: 120, // Suggest waiting 2 minutes
+            retriesAttempted: 5,
             provider: usedProvider,
+            _meta: {
+              isArabicContent,
+              textLength: text.length,
+              lastProvider: usedProvider,
+            }
           }),
           {
             status: 200,
             headers: {
               ...corsHeaders,
               "Content-Type": "application/json",
-              "Retry-After": "30",
+              "Retry-After": "120",
             },
           }
         );
