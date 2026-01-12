@@ -12,7 +12,8 @@ import {
   ChevronUp,
   X,
   Copy,
-  CheckCircle2
+  CheckCircle2,
+  LogIn
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,6 +49,8 @@ interface AnalysisErrorCardProps {
   isRetrying?: boolean;
   lastJobId?: string;
   onResumeJob?: (jobId: string) => void;
+  showLoginButton?: boolean;
+  onLoginClick?: () => void;
 }
 
 const ERROR_CONFIG: Record<AnalysisErrorType, {
@@ -124,6 +127,8 @@ export function AnalysisErrorCard({
   isRetrying = false,
   lastJobId,
   onResumeJob,
+  showLoginButton = false,
+  onLoginClick,
 }: AnalysisErrorCardProps) {
   const { isArabic } = useLanguage();
   const [countdown, setCountdown] = useState<number>(error.retryAfter || 0);
@@ -196,14 +201,14 @@ export function AnalysisErrorCard({
     const suggestions: Record<AnalysisErrorType, { en: string[]; ar: string[] }> = {
       rate_limit: {
         en: [
+          'Login to enable background processing (recommended)',
           'Wait 30 seconds before retrying',
           'Enable "Job Queue" in settings for large files',
-          'Try reducing the file size or splitting it into parts',
         ],
         ar: [
+          'سجّل الدخول لتفعيل المعالجة في الخلفية (موصى به)',
           'انتظر 30 ثانية قبل إعادة المحاولة',
           'فعّل "نظام الطابور" في الإعدادات للملفات الكبيرة',
-          'حاول تقليل حجم الملف أو تقسيمه إلى أجزاء',
         ],
       },
       timeout: {
@@ -401,50 +406,64 @@ Details: ${error.details || 'N/A'}
         </Collapsible>
 
         {/* Action buttons */}
-        <div className="flex flex-col sm:flex-row gap-2 pt-2">
-          {onOpenSettings && (
+        <div className="flex flex-col gap-2 pt-2">
+          {/* Login button for non-logged-in users on rate limit */}
+          {showLoginButton && onLoginClick && (
             <Button
-              variant="outline"
-              className="flex-1"
-              onClick={onOpenSettings}
+              variant="default"
+              className="w-full bg-primary hover:bg-primary/90"
+              onClick={onLoginClick}
             >
-              <Settings className="h-4 w-4 mr-2" />
-              {isArabic ? 'فتح الإعدادات' : 'Open Settings'}
+              <LogIn className="h-4 w-4 mr-2" />
+              {isArabic ? 'تسجيل الدخول للمعالجة الخلفية' : 'Login for Background Processing'}
             </Button>
           )}
-          {/* Resume from checkpoint button for job failures */}
-          {lastJobId && onResumeJob && (
-            <Button
-              variant="secondary"
-              className="flex-1"
-              onClick={() => onResumeJob(lastJobId)}
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              {isArabic ? 'استئناف من آخر نقطة' : 'Resume from Checkpoint'}
-            </Button>
-          )}
-          <Button
-            className="flex-1"
-            onClick={onRetry}
-            disabled={!canRetryNow || isRetrying}
-          >
-            {isRetrying ? (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                {isArabic ? 'جاري المحاولة...' : 'Retrying...'}
-              </>
-            ) : countdown > 0 ? (
-              <>
-                <Clock className="h-4 w-4 mr-2" />
-                {isArabic ? `انتظر ${countdown} ثانية` : `Wait ${countdown}s`}
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                {isArabic ? 'إعادة المحاولة' : 'Retry Now'}
-              </>
+          
+          <div className="flex flex-col sm:flex-row gap-2">
+            {onOpenSettings && (
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={onOpenSettings}
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                {isArabic ? 'فتح الإعدادات' : 'Open Settings'}
+              </Button>
             )}
-          </Button>
+            {/* Resume from checkpoint button for job failures */}
+            {lastJobId && onResumeJob && (
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => onResumeJob(lastJobId)}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                {isArabic ? 'استئناف من آخر نقطة' : 'Resume from Checkpoint'}
+              </Button>
+            )}
+            <Button
+              className="flex-1"
+              onClick={onRetry}
+              disabled={!canRetryNow || isRetrying}
+            >
+              {isRetrying ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  {isArabic ? 'جاري المحاولة...' : 'Retrying...'}
+                </>
+              ) : countdown > 0 ? (
+                <>
+                  <Clock className="h-4 w-4 mr-2" />
+                  {isArabic ? `انتظر ${countdown} ثانية` : `Wait ${countdown}s`}
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  {isArabic ? 'إعادة المحاولة' : 'Retry Now'}
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

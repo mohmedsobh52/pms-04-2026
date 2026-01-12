@@ -1,10 +1,20 @@
-import { Layers, Loader2, CheckCircle2, XCircle, Combine, FileText, RefreshCw } from 'lucide-react';
+import { Layers, Loader2, CheckCircle2, XCircle, Combine, FileText, RefreshCw, Clock } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/hooks/useLanguage';
 import type { ChunkProgress, AnalysisJob } from '@/hooks/useChunkedAnalysis';
+
+// Format countdown as MM:SS or Xs
+const formatCountdown = (seconds: number): string => {
+  if (seconds >= 60) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${seconds}s`;
+};
 
 interface ChunkedAnalysisProgressProps {
   progress: ChunkProgress;
@@ -98,6 +108,34 @@ export function ChunkedAnalysisProgress({
       </div>
 
       <Progress value={progress.percentage} className="h-2" />
+
+      {/* Visual Countdown for rate_limited status */}
+      {progress.status === 'rate_limited' && progress.waitingSeconds !== undefined && progress.waitingSeconds > 0 && (
+        <div className="mt-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+              <Clock className="h-4 w-4 animate-pulse" />
+              <span className="text-sm font-medium">
+                {isArabic ? 'انتظار قبل إعادة المحاولة' : 'Waiting before retry'}
+              </span>
+            </div>
+            <span className="text-lg font-mono font-bold text-amber-600 dark:text-amber-400">
+              {formatCountdown(progress.waitingSeconds)}
+            </span>
+          </div>
+          {progress.totalWaitSeconds && progress.totalWaitSeconds > 0 && (
+            <Progress 
+              value={((progress.totalWaitSeconds - progress.waitingSeconds) / progress.totalWaitSeconds) * 100} 
+              className="h-2"
+            />
+          )}
+          <p className="text-xs text-muted-foreground mt-2">
+            {isArabic 
+              ? 'سيتم استئناف المعالجة تلقائياً بعد انتهاء العداد'
+              : 'Processing will resume automatically after countdown'}
+          </p>
+        </div>
+      )}
 
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>

@@ -951,6 +951,11 @@ const Index = () => {
     setLastFailedJobId(null);
   };
 
+  // Handle login click from error card
+  const handleLoginClick = useCallback(() => {
+    navigate('/auth');
+  }, [navigate]);
+
   // Handle resume failed job from checkpoint
   const handleResumeJob = useCallback((jobId: string) => {
     setAnalysisError(null);
@@ -1356,6 +1361,8 @@ const Index = () => {
                       }}
                       lastJobId={lastFailedJobId || undefined}
                       onResumeJob={handleResumeJob}
+                      showLoginButton={!user && analysisError.type === 'rate_limit'}
+                      onLoginClick={handleLoginClick}
                     />
                   )}
 

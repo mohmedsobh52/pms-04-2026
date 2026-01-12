@@ -11,6 +11,7 @@ export interface ChunkProgress {
   status: 'idle' | 'chunking' | 'processing' | 'merging' | 'completed' | 'failed' | 'rate_limited';
   percentage: number;
   waitingSeconds?: number;
+  totalWaitSeconds?: number;
   currentStep?: string;
 }
 
@@ -244,24 +245,40 @@ export function useChunkedAnalysis() {
 
         if ((isRateLimit || isServerError || isTimeout) && attempt < maxRetries) {
           const delay = getBackoffDelay(attempt, err?.retryAfter);
+          const totalWaitSecs = Math.ceil(delay / 1000);
           
-          // Update progress with waiting status
+          // Update progress with waiting status and total wait time
           setProgress(prev => ({
             ...prev,
             status: 'rate_limited',
-            waitingSeconds: Math.ceil(delay / 1000),
+            waitingSeconds: totalWaitSecs,
+            totalWaitSeconds: totalWaitSecs,
             currentStep: isArabic 
-              ? `انتظار ${Math.ceil(delay / 1000)} ثانية قبل إعادة المحاولة...`
-              : `Waiting ${Math.ceil(delay / 1000)}s before retry...`,
+              ? `انتظار ${totalWaitSecs} ثانية قبل إعادة المحاولة...`
+              : `Waiting ${totalWaitSecs}s before retry...`,
           }));
 
+          // Countdown timer for visual feedback
+          const countdownInterval = setInterval(() => {
+            setProgress(prev => {
+              const newWaiting = (prev.waitingSeconds || 1) - 1;
+              if (newWaiting <= 0) {
+                clearInterval(countdownInterval);
+                return prev;
+              }
+              return { ...prev, waitingSeconds: newWaiting };
+            });
+          }, 1000);
+
           await new Promise(resolve => setTimeout(resolve, delay));
+          clearInterval(countdownInterval);
           
           // Reset status back to processing
           setProgress(prev => ({
             ...prev,
             status: 'processing',
             waitingSeconds: undefined,
+            totalWaitSeconds: undefined,
             currentStep: undefined,
           }));
         }
