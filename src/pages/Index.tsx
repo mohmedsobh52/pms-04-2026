@@ -134,7 +134,11 @@ const Index = () => {
     createAnalysisJob,
     startPolling,
     cancelAnalysis,
+    resumeJob,
   } = useChunkedAnalysis();
+
+  // Track last failed job ID for resume functionality
+  const [lastFailedJobId, setLastFailedJobId] = useState<string | null>(null);
 
   // Analysis status hook
   const analysisStatusHook = useAnalysisStatus();
@@ -471,6 +475,13 @@ const Index = () => {
             (error) => {
               updateStepStatus("analyze", "error");
               setIsProcessing(false);
+              setLastFailedJobId(jobId); // Track failed job for resume
+              setAnalysisError({
+                type: detectAnalysisErrorType({ message: error }),
+                message: error,
+                errorCode: 'JOB_FAILED',
+                timestamp: new Date(),
+              });
               toast({
                 title: isArabic ? 'فشل التحليل' : 'Analysis Failed',
                 description: error,
@@ -834,7 +845,46 @@ const Index = () => {
   const handleDismissError = () => {
     setAnalysisError(null);
     setAnalysisRetryAttempts(0);
+    setLastFailedJobId(null);
   };
+
+  // Handle resume failed job from checkpoint
+  const handleResumeJob = useCallback((jobId: string) => {
+    setAnalysisError(null);
+    setIsProcessing(true);
+    updateStepStatus("analyze", "processing", 10);
+
+    resumeJob(
+      jobId,
+      (result) => {
+        setAnalysisData(result);
+        updateStepStatus("analyze", "complete", 100);
+        setIsProcessing(false);
+        setLastFailedJobId(null);
+        toast({
+          title: isArabic ? 'اكتمل التحليل' : 'Analysis Complete',
+          description: isArabic
+            ? `تم تحليل ${result?.items?.length || 0} بند بنجاح`
+            : `Successfully analyzed ${result?.items?.length || 0} items`,
+        });
+      },
+      (error) => {
+        updateStepStatus("analyze", "error");
+        setIsProcessing(false);
+        setAnalysisError({
+          type: detectAnalysisErrorType({ message: error }),
+          message: error,
+          errorCode: 'JOB_RESUME_FAILED',
+          timestamp: new Date(),
+        });
+        toast({
+          title: isArabic ? 'فشل استئناف التحليل' : 'Resume Failed',
+          description: error,
+          variant: "destructive",
+        });
+      }
+    );
+  }, [resumeJob, setAnalysisData, updateStepStatus, isArabic, toast]);
 
   // Handle applying suggested market rates
   const handleApplyRate = useCallback((itemNumber: string, newRate: number) => {
@@ -1177,6 +1227,7 @@ const Index = () => {
                       progress={chunkProgress}
                       job={currentJob}
                       onCancel={cancelAnalysis}
+                      onResume={handleResumeJob}
                     />
                   )}
 
@@ -1200,6 +1251,8 @@ const Index = () => {
                           settingsBtn.click();
                         }
                       }}
+                      lastJobId={lastFailedJobId || undefined}
+                      onResumeJob={handleResumeJob}
                     />
                   )}
 

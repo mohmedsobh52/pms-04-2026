@@ -1,4 +1,4 @@
-import { Layers, Loader2, CheckCircle2, XCircle, Combine, FileText } from 'lucide-react';
+import { Layers, Loader2, CheckCircle2, XCircle, Combine, FileText, RefreshCw } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ interface ChunkedAnalysisProgressProps {
   progress: ChunkProgress;
   job?: AnalysisJob | null;
   onCancel?: () => void;
+  onResume?: (jobId: string) => void;
   showCard?: boolean;
 }
 
@@ -17,6 +18,7 @@ export function ChunkedAnalysisProgress({
   progress,
   job,
   onCancel,
+  onResume,
   showCard = true,
 }: ChunkedAnalysisProgressProps) {
   const { isArabic } = useLanguage();
@@ -103,11 +105,24 @@ export function ChunkedAnalysisProgress({
             ? `${progress.processedChunks} / ${progress.totalChunks} أجزاء`
             : `${progress.processedChunks} / ${progress.totalChunks} chunks`}
         </span>
-        {onCancel && progress.status === 'processing' && (
-          <Button variant="ghost" size="sm" onClick={onCancel}>
-            {isArabic ? 'إلغاء' : 'Cancel'}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {onCancel && progress.status === 'processing' && (
+            <Button variant="ghost" size="sm" onClick={onCancel}>
+              {isArabic ? 'إلغاء' : 'Cancel'}
+            </Button>
+          )}
+          {onResume && job && progress.status === 'failed' && (
+            <Button 
+              variant="default" 
+              size="sm" 
+              onClick={() => onResume(job.id)}
+              className="gap-1.5"
+            >
+              <RefreshCw className="h-3 w-3" />
+              {isArabic ? 'استئناف' : 'Resume'}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Job Queue Status */}
@@ -125,6 +140,18 @@ export function ChunkedAnalysisProgress({
             <div className="mt-1 text-xs text-muted-foreground">
               {job.currentStep}
             </div>
+          )}
+          {/* Resume button for failed jobs */}
+          {onResume && job.status === 'failed' && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => onResume(job.id)}
+              className="mt-2 w-full gap-2"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              {isArabic ? 'استئناف من آخر نقطة حفظ' : 'Resume from Last Checkpoint'}
+            </Button>
           )}
         </div>
       )}
