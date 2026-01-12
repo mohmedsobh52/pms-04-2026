@@ -38,6 +38,7 @@ import { ConnectionErrorDialog, detectErrorType, type ConnectionError } from "@/
 import { ChunkedAnalysisProgress } from "@/components/ChunkedAnalysisProgress";
 import { ChunkedAnalysisPanel } from "@/components/ChunkedAnalysisPanel";
 import { AnalysisStatusPanel, useAnalysisStatus } from "@/components/AnalysisStatusPanel";
+import { AIMonitoringDashboard } from "@/components/AIMonitoringDashboard";
 import { useChunkedAnalysis, compressText } from "@/hooks/useChunkedAnalysis";
 import { EstimatedAnalysisTime } from "@/components/EstimatedAnalysisTime";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -767,23 +768,38 @@ const Index = () => {
       
       let errorTitle = t('analysisError');
       let errorDescription = t('errorAnalyzing');
+      let showRetryOption = false;
+      let retryDelay = 0;
+      
+      // Check for 429 rate limit error with enhanced handling
+      const errorMessage = error?.message || '';
+      const isRateLimit = errorMessage.includes("429") || 
+                          errorMessage.includes("Rate limit") || 
+                          errorMessage.includes("rate limit") ||
+                          error?.errorCode === "RATE_LIMIT_429";
       
       if (error?.message?.includes("AI credits exhausted") || error?.message?.includes("Payment required")) {
         errorTitle = t('aiCreditsExhausted');
         errorDescription = t('addCredits');
-      } else if (error?.message?.includes("Rate limits exceeded")) {
-        errorTitle = t('rateLimitExceeded');
-        errorDescription = t('tryAgainLater');
+      } else if (isRateLimit) {
+        errorTitle = isArabic ? 'تجاوز حد الاستخدام (429)' : 'Rate Limit Exceeded (429)';
+        errorDescription = isArabic 
+          ? 'يرجى الانتظار 30 ثانية ثم إعادة المحاولة. أو جرب تفعيل نظام الطابور للملفات الكبيرة من الإعدادات.'
+          : 'Please wait 30 seconds and retry. Or enable job queue for large files in settings.';
+        showRetryOption = true;
+        retryDelay = 30;
       } else if (error?.name === 'AbortError' || error?.message?.includes('aborted') || error?.message?.includes('timeout')) {
         errorTitle = language === 'ar' ? 'انتهت مهلة التحليل' : 'Analysis Timeout';
         errorDescription = language === 'ar' 
           ? 'الملف كبير جداً. حاول تقسيمه إلى أجزاء أصغر أو حاول مرة أخرى.'
           : 'The file is too large. Try splitting it or retry.';
+        showRetryOption = true;
       } else if (error?.message?.includes('Failed to fetch') || error?.message?.includes('FunctionsFetchError')) {
         errorTitle = language === 'ar' ? 'خطأ في الاتصال' : 'Connection Error';
         errorDescription = language === 'ar' 
           ? 'فشل الاتصال بالخادم. تحقق من اتصالك بالإنترنت وحاول مرة أخرى.'
           : 'Failed to connect to server. Check your internet and retry.';
+        showRetryOption = true;
       } else if (error instanceof Error) {
         errorDescription = error.message;
       }
@@ -792,7 +808,20 @@ const Index = () => {
         title: errorTitle,
         description: errorDescription,
         variant: "destructive",
+        duration: showRetryOption ? 10000 : 5000,
       });
+
+      // Show additional toast with retry suggestion for rate limit
+      if (showRetryOption && retryDelay > 0) {
+        setTimeout(() => {
+          toast({
+            title: isArabic ? '💡 نصيحة' : '💡 Tip',
+            description: isArabic 
+              ? 'جرب تفعيل "نظام الطابور" من إعدادات التحليل للملفات الكبيرة'
+              : 'Try enabling "Job Queue" in analysis settings for large files',
+          });
+        }, 2000);
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -1139,6 +1168,14 @@ const Index = () => {
                       progress={chunkProgress}
                       job={currentJob}
                       onCancel={cancelAnalysis}
+                    />
+                  )}
+
+                  {/* AI Monitoring Dashboard - Show when processing or has previous errors */}
+                  {(isProcessing || analysisStatusHook.status.lastError) && (
+                    <AIMonitoringDashboard 
+                      isAnalyzing={isProcessing} 
+                      onRetry={runAnalysis}
                     />
                   )}
 

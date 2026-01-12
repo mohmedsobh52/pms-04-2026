@@ -698,10 +698,26 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
 
     if (!response.ok) {
       if (response.status === 429) {
-        console.error("Rate limit exceeded");
+        console.error("Rate limit exceeded after all retries");
+        const isArabicLang = language === 'ar';
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ 
+            error: "Rate limit exceeded. Please try again later.",
+            errorCode: "RATE_LIMIT_429",
+            suggestion: isArabicLang 
+              ? "تجاوز حد الاستخدام. يرجى الانتظار 30 ثانية ثم إعادة المحاولة أو تفعيل نظام الطابور."
+              : "Rate limit exceeded. Please wait 30 seconds and retry, or enable job queue for large files.",
+            retryAfter: 30,
+            provider: usedProvider,
+          }),
+          { 
+            status: 429, 
+            headers: { 
+              ...corsHeaders, 
+              "Content-Type": "application/json",
+              "Retry-After": "30"
+            } 
+          }
         );
       }
       if (response.status === 402) {
