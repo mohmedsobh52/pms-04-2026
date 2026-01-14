@@ -8,11 +8,13 @@ export interface ChunkProgress {
   totalChunks: number;
   processedChunks: number;
   currentChunk: number;
-  status: 'idle' | 'chunking' | 'processing' | 'merging' | 'completed' | 'failed' | 'rate_limited';
+  status: 'idle' | 'chunking' | 'processing' | 'merging' | 'completed' | 'failed' | 'rate_limited' | 'auto_resizing';
   percentage: number;
   waitingSeconds?: number;
   totalWaitSeconds?: number;
   currentStep?: string;
+  autoResizeCount?: number;
+  currentChunkSize?: number;
 }
 
 export interface AnalysisJob {
@@ -33,20 +35,42 @@ interface ChunkedAnalysisOptions {
   maxRetries?: number;
   useCompression?: boolean;
   useJobQueue?: boolean;
-  // Throttle options - NEW
+  // Throttle options
   enableThrottle?: boolean;
   maxRequestsPerMinute?: number;
   delayBetweenChunks?: number; // in seconds
-  // Arabic optimization - NEW
+  // Arabic optimization
   arabicOptimization?: boolean;
   arabicChunkSize?: number;
+  // Auto-resize options - NEW
+  enableAutoResize?: boolean;
+  minChunkSize?: number; // Minimum chunk size (default: 5000)
+  resizeReductionFactor?: number; // Reduction factor (default: 0.6 = 60%)
+  maxResizeAttempts?: number; // Max resize attempts per chunk (default: 3)
 }
 
 const DEFAULT_CHUNK_SIZE = 30000;
 const DEFAULT_OVERLAP_SIZE = 500;
+const DEFAULT_MIN_CHUNK_SIZE = 5000;
+const DEFAULT_RESIZE_FACTOR = 0.6;
+const DEFAULT_MAX_RESIZE_ATTEMPTS = 3;
 
 // Strong exponential backoff: 30s, 60s, 120s, 120s, 120s
 const BACKOFF_SCHEDULE = [30000, 60000, 120000, 120000, 120000];
+
+// Detect truncated AI response
+function detectTruncatedResponse(content: any): boolean {
+  if (!content) return false;
+  const str = typeof content === 'string' ? content : JSON.stringify(content);
+  
+  const openBraces = (str.match(/\{/g) || []).length;
+  const closeBraces = (str.match(/\}/g) || []).length;
+  const openBrackets = (str.match(/\[/g) || []).length;
+  const closeBrackets = (str.match(/\]/g) || []).length;
+  
+  // If significant imbalance, response is likely truncated
+  return (openBraces - closeBraces) > 2 || (openBrackets - closeBrackets) > 1;
+}
 
 const getBackoffDelay = (attempt: number, retryAfter?: number): number => {
   if (retryAfter && retryAfter > 0) {
@@ -299,7 +323,103 @@ export function useChunkedAnalysis() {
     throw lastError;
   };
 
-  // Chunked analysis (client-side processing) with strong retry and throttle
+  // Process chunk with auto-resize on truncation
+  const processChunkWithAutoResize = async (
+    chunk: string,
+    chunkIndex: number,
+    totalChunks: number,
+    functionName: string,
+    options: {
+      useCompression?: boolean;
+      maxRetries?: number;
+      currentChunkSize: number;
+      minChunkSize: number;
+      resizeFactor: number;
+      maxResizeAttempts: number;
+      resizeCount?: number;
+    }
+  ): Promise<any[]> => {
+    const { currentChunkSize, minChunkSize, resizeFactor, maxResizeAttempts, resizeCount = 0 } = options;
+    
+    try {
+      const result = await processChunk(chunk, chunkIndex, totalChunks, functionName, options);
+      
+      // Check if response is truncated
+      const isTruncated = result?.partial === true || detectTruncatedResponse(result);
+      
+      if (isTruncated && currentChunkSize > minChunkSize && resizeCount < maxResizeAttempts) {
+        console.log(`Chunk ${chunkIndex + 1} appears truncated, attempting auto-resize...`);
+        throw new Error('TRUNCATED_RESPONSE');
+      }
+      
+      return result ? [result.analysisResult || result] : [];
+    } catch (err: any) {
+      const isTruncationError = 
+        err.message === 'TRUNCATED_RESPONSE' ||
+        err.message?.includes('JSON') ||
+        err.message?.includes('parse') ||
+        err.message?.includes('Unexpected end');
+      
+      // Auto-resize if truncation detected and we can reduce size
+      if (isTruncationError && currentChunkSize > minChunkSize && resizeCount < maxResizeAttempts) {
+        const newChunkSize = Math.max(minChunkSize, Math.floor(currentChunkSize * resizeFactor));
+        
+        console.log(`Auto-resizing chunk from ${currentChunkSize} to ${newChunkSize} chars`);
+        
+        setProgress(prev => ({
+          ...prev,
+          status: 'auto_resizing',
+          autoResizeCount: (prev.autoResizeCount || 0) + 1,
+          currentChunkSize: newChunkSize,
+          currentStep: isArabic
+            ? `تقليل تلقائي: ${currentChunkSize} → ${newChunkSize} حرف`
+            : `Auto-resizing: ${currentChunkSize} → ${newChunkSize} chars`,
+        }));
+        
+        toast({
+          title: isArabic ? 'تقليل تلقائي للحجم' : 'Auto-resizing',
+          description: isArabic
+            ? `تم تقليل حجم القطعة من ${currentChunkSize} إلى ${newChunkSize} حرف`
+            : `Reduced chunk size from ${currentChunkSize} to ${newChunkSize} chars`,
+        });
+        
+        // Split this chunk into smaller sub-chunks
+        const subChunks = splitIntoChunks(chunk, newChunkSize, 200);
+        const subResults: any[] = [];
+        
+        for (let j = 0; j < subChunks.length; j++) {
+          setProgress(prev => ({
+            ...prev,
+            currentStep: isArabic
+              ? `معالجة القطعة الفرعية ${j + 1}/${subChunks.length}...`
+              : `Processing sub-chunk ${j + 1}/${subChunks.length}...`,
+          }));
+          
+          const subResult = await processChunkWithAutoResize(
+            subChunks[j],
+            chunkIndex,
+            totalChunks,
+            functionName,
+            { ...options, currentChunkSize: newChunkSize, resizeCount: resizeCount + 1 }
+          );
+          
+          subResults.push(...subResult);
+          
+          // Small delay between sub-chunks
+          if (j < subChunks.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+        
+        return subResults;
+      }
+      
+      // Re-throw if we can't handle it
+      throw err;
+    }
+  };
+
+  // Chunked analysis (client-side processing) with strong retry, throttle, and auto-resize
   const analyzeWithChunks = useCallback(async (
     text: string,
     functionName: string = 'analyze-boq',
@@ -308,15 +428,20 @@ export function useChunkedAnalysis() {
     const {
       chunkSize: baseChunkSize = DEFAULT_CHUNK_SIZE,
       overlapSize = DEFAULT_OVERLAP_SIZE,
-      maxRetries = 5, // Strong retry: 5 attempts
+      maxRetries = 5,
       useCompression = true,
-      // Throttle options - NEW
+      // Throttle options
       enableThrottle = true,
       maxRequestsPerMinute = 3,
       delayBetweenChunks = 5,
-      // Arabic optimization - NEW
+      // Arabic optimization
       arabicOptimization = true,
       arabicChunkSize = 15000,
+      // Auto-resize options - NEW
+      enableAutoResize = true,
+      minChunkSize = DEFAULT_MIN_CHUNK_SIZE,
+      resizeReductionFactor = DEFAULT_RESIZE_FACTOR,
+      maxResizeAttempts = DEFAULT_MAX_RESIZE_ATTEMPTS,
     } = options;
 
     // Detect if content is Arabic and adjust chunk size
@@ -333,7 +458,15 @@ export function useChunkedAnalysis() {
     
     try {
       // Split into chunks
-      setProgress({ totalChunks: 0, processedChunks: 0, currentChunk: 0, status: 'chunking', percentage: 5 });
+      setProgress({ 
+        totalChunks: 0, 
+        processedChunks: 0, 
+        currentChunk: 0, 
+        status: 'chunking', 
+        percentage: 5,
+        autoResizeCount: 0,
+        currentChunkSize: chunkSize,
+      });
       const chunks = splitIntoChunks(text, chunkSize, overlapSize);
       
       setProgress({
@@ -342,16 +475,18 @@ export function useChunkedAnalysis() {
         currentChunk: 0,
         status: 'processing',
         percentage: 10,
+        autoResizeCount: 0,
+        currentChunkSize: chunkSize,
       });
 
       toast({
         title: isArabic ? 'بدء التحليل المجزأ' : 'Starting Chunked Analysis',
         description: isArabic 
-          ? `تقسيم الملف إلى ${chunks.length} أجزاء للتحليل${contentIsArabic ? ' (تحسين عربي مفعّل)' : ''}`
-          : `Splitting file into ${chunks.length} chunks for analysis${contentIsArabic ? ' (Arabic optimization enabled)' : ''}`,
+          ? `تقسيم الملف إلى ${chunks.length} أجزاء للتحليل${contentIsArabic ? ' (تحسين عربي مفعّل)' : ''}${enableAutoResize ? ' مع تقليل تلقائي' : ''}`
+          : `Splitting file into ${chunks.length} chunks for analysis${contentIsArabic ? ' (Arabic optimization enabled)' : ''}${enableAutoResize ? ' with auto-resize' : ''}`,
       });
 
-      // Process each chunk with throttle support
+      // Process each chunk with throttle and auto-resize support
       const results: any[] = [];
       
       for (let i = 0; i < chunks.length; i++) {
@@ -359,18 +494,16 @@ export function useChunkedAnalysis() {
           throw new Error('Analysis cancelled');
         }
 
-        // Throttle check - NEW
+        // Throttle check
         if (enableThrottle) {
           const now = Date.now();
           const elapsedMs = now - minuteStartRef.current;
           
-          // Reset counter if minute has passed
           if (elapsedMs >= 60000) {
             requestCountRef.current = 0;
             minuteStartRef.current = now;
           }
           
-          // Wait if we've hit the limit
           if (requestCountRef.current >= maxRequestsPerMinute) {
             const waitTime = 60000 - elapsedMs;
             const waitSecs = Math.ceil(waitTime / 1000);
@@ -408,18 +541,38 @@ export function useChunkedAnalysis() {
         }));
 
         try {
-          requestCountRef.current++; // Track request for throttle
+          requestCountRef.current++;
           
-          const result = await processChunk(
-            chunks[i],
-            i,
-            chunks.length,
-            functionName,
-            { useCompression, maxRetries }
-          );
+          if (enableAutoResize) {
+            // Use auto-resize processing
+            const chunkResults = await processChunkWithAutoResize(
+              chunks[i],
+              i,
+              chunks.length,
+              functionName,
+              {
+                useCompression,
+                maxRetries,
+                currentChunkSize: chunkSize,
+                minChunkSize,
+                resizeFactor: resizeReductionFactor,
+                maxResizeAttempts,
+              }
+            );
+            results.push(...chunkResults);
+          } else {
+            // Standard processing
+            const result = await processChunk(
+              chunks[i],
+              i,
+              chunks.length,
+              functionName,
+              { useCompression, maxRetries }
+            );
 
-          if (result?.analysisResult || result?.items) {
-            results.push(result.analysisResult || result);
+            if (result?.analysisResult || result?.items) {
+              results.push(result.analysisResult || result);
+            }
           }
         } catch (chunkErr: any) {
           console.warn(`Chunk ${i + 1} failed after all retries:`, chunkErr);
@@ -429,9 +582,10 @@ export function useChunkedAnalysis() {
         setProgress(prev => ({
           ...prev,
           processedChunks: i + 1,
+          status: 'processing',
         }));
 
-        // Delay between chunks (throttle) - NEW
+        // Delay between chunks
         if (enableThrottle && i < chunks.length - 1) {
           const delayMs = delayBetweenChunks * 1000;
           setProgress(prev => ({
@@ -442,7 +596,6 @@ export function useChunkedAnalysis() {
           }));
           await new Promise(resolve => setTimeout(resolve, delayMs));
         } else if (i < chunks.length - 1) {
-          // Small cooldown even without throttle
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
@@ -459,11 +612,15 @@ export function useChunkedAnalysis() {
 
       setProgress(prev => ({ ...prev, status: 'completed', percentage: 100 }));
 
+      const autoResizeMsg = progress.autoResizeCount && progress.autoResizeCount > 0
+        ? (isArabic ? ` (تقليل تلقائي ${progress.autoResizeCount} مرات)` : ` (auto-resized ${progress.autoResizeCount} times)`)
+        : '';
+
       toast({
         title: isArabic ? 'اكتمل التحليل المجزأ' : 'Chunked Analysis Complete',
         description: isArabic
-          ? `تم تحليل ${results.length}/${chunks.length} أجزاء ودمج النتائج`
-          : `Analyzed ${results.length}/${chunks.length} chunks and merged results`,
+          ? `تم تحليل ${results.length}/${chunks.length} أجزاء ودمج النتائج${autoResizeMsg}`
+          : `Analyzed ${results.length}/${chunks.length} chunks and merged results${autoResizeMsg}`,
       });
 
       return mergedResult;
@@ -471,7 +628,7 @@ export function useChunkedAnalysis() {
       setProgress(prev => ({ ...prev, status: 'failed' }));
       throw error;
     }
-  }, [toast, isArabic]);
+  }, [toast, isArabic, progress.autoResizeCount]);
 
   // Create a job in the queue (for very large files)
   const createAnalysisJob = useCallback(async (

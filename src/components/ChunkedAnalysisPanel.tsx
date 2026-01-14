@@ -38,6 +38,7 @@ export function ChunkedAnalysisPanel({
   const [chunkSize, setChunkSize] = useState(30000);
   const [overlapSize, setOverlapSize] = useState(500);
   const [useCompression, setUseCompression] = useState(true);
+  const [enableAutoResize, setEnableAutoResize] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [estimatedChunks, setEstimatedChunks] = useState(1);
@@ -70,6 +71,7 @@ export function ChunkedAnalysisPanel({
         overlapSize,
         useCompression,
         maxRetries: 3,
+        enableAutoResize,
       });
       
       onAnalysisComplete(result);
@@ -97,6 +99,8 @@ export function ChunkedAnalysisPanel({
       case 'chunking':
       case 'merging':
         return <Loader2 className="w-5 h-5 text-primary animate-spin" />;
+      case 'auto_resizing':
+        return <Zap className="w-5 h-5 text-amber-500 animate-pulse" />;
       default:
         return <Layers className="w-5 h-5 text-muted-foreground" />;
     }
@@ -115,6 +119,9 @@ export function ChunkedAnalysisPanel({
       rate_limited: progress.waitingSeconds 
         ? (isArabic ? `انتظار ${progress.waitingSeconds} ثانية...` : `Waiting ${progress.waitingSeconds}s...`)
         : (isArabic ? 'تجاوز حد الاستخدام...' : 'Rate limited...'),
+      auto_resizing: isArabic 
+        ? `تقليل تلقائي للحجم (${progress.autoResizeCount || 0} مرات)`
+        : `Auto-resizing (${progress.autoResizeCount || 0} times)`,
     };
     return statusMap[progress.status];
   };
@@ -181,6 +188,14 @@ export function ChunkedAnalysisPanel({
                 }
               </p>
             )}
+            {progress.autoResizeCount && progress.autoResizeCount > 0 && (
+              <p className="text-xs text-amber-600 text-center">
+                {isArabic 
+                  ? `تم تقليل الحجم تلقائياً ${progress.autoResizeCount} مرات`
+                  : `Auto-resized ${progress.autoResizeCount} times`
+                }
+              </p>
+            )}
           </div>
         )}
 
@@ -240,6 +255,20 @@ export function ChunkedAnalysisPanel({
               <Switch
                 checked={useCompression}
                 onCheckedChange={setUseCompression}
+                disabled={isAnalyzing}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <Label className="text-xs">{isArabic ? 'تقليل تلقائي عند الفشل' : 'Auto-resize on failure'}</Label>
+                <span className="text-xs text-muted-foreground">
+                  {isArabic ? 'يقلل الحجم تلقائياً عند قطع الاستجابة' : 'Reduces size when response is truncated'}
+                </span>
+              </div>
+              <Switch
+                checked={enableAutoResize}
+                onCheckedChange={setEnableAutoResize}
                 disabled={isAnalyzing}
               />
             </div>

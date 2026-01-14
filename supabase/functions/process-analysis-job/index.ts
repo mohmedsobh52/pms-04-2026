@@ -110,6 +110,20 @@ function repairTruncatedJson(content: string): any | null {
   return null;
 }
 
+// Detect truncated AI response
+function detectTruncatedResponse(content: any): boolean {
+  if (!content) return false;
+  const str = typeof content === 'string' ? content : JSON.stringify(content);
+  
+  const openBraces = (str.match(/\{/g) || []).length;
+  const closeBraces = (str.match(/\}/g) || []).length;
+  const openBrackets = (str.match(/\[/g) || []).length;
+  const closeBrackets = (str.match(/\]/g) || []).length;
+  
+  // If significant imbalance, response is likely truncated
+  return (openBraces - closeBraces) > 2 || (openBrackets - closeBrackets) > 1;
+}
+
 // Generate jitter for backoff (±10%)
 const jitter = (baseMs: number) => {
   const variance = baseMs * 0.1;
@@ -263,8 +277,15 @@ async function processJobInBackground(jobId: string, resume: boolean) {
   console.log(`[Job ${jobId}] Text length: ${inputText.length}, Arabic: ${isArabic}`);
 
   // Split into chunks with improved Arabic-aware splitting
-  const CHUNK_SIZE = isArabic ? 25000 : 30000; // Smaller chunks for Arabic
-  const chunks = splitIntoChunks(inputText, CHUNK_SIZE, 500);
+  const INITIAL_CHUNK_SIZE = isArabic ? 25000 : 30000; // Smaller chunks for Arabic
+  const MIN_CHUNK_SIZE = 5000; // Minimum chunk size for auto-resize
+  const RESIZE_FACTOR = 0.6; // Reduce to 60% on truncation
+  const MAX_RESIZE_ATTEMPTS = 3; // Maximum resize attempts per chunk
+  
+  let currentChunkSize = INITIAL_CHUNK_SIZE;
+  let autoResizeCount = 0;
+  
+  const chunks = splitIntoChunks(inputText, currentChunkSize, 500);
 
   console.log(`[Job ${jobId}] Split into ${chunks.length} chunks`);
 
@@ -277,7 +298,7 @@ async function processJobInBackground(jobId: string, resume: boolean) {
     })
     .eq('id', jobId);
 
-  // Process each chunk
+  // Process each chunk with auto-resize support
   const results: any[] = [...existingResults];
   const lovableKey = Deno.env.get('LOVABLE_API_KEY');
   const openAIKey = Deno.env.get('OPENAI_API_KEY');
@@ -297,24 +318,38 @@ async function processJobInBackground(jobId: string, resume: boolean) {
 
   const maxAttemptsPerChunk = 6; // Strong retry: 6 attempts per chunk with longer backoff
 
-  for (let i = resumeFromChunk; i < chunks.length; i++) {
-    const chunk = chunks[i];
+  // Helper function to process a single chunk with auto-resize
+  async function processChunkWithAutoResize(
+    chunkText: string,
+    chunkIndex: number,
+    totalChunks: number,
+    chunkSize: number,
+    resizeAttempt: number = 0
+  ): Promise<any[]> {
+    const subResults: any[] = [];
+    
+    // Call AI for analysis
+    let parsedResult: any = null;
+    let lastErrText = '';
+    let lastErrStatus = 0;
+    let useOpenAI = false;
+    let truncationDetected = false;
 
-    const progressPercent = 10 + Math.round(((i + 1) / chunks.length) * 80);
+    for (let attempt = 1; attempt <= maxAttemptsPerChunk; attempt++) {
+      const providerName = useOpenAI ? 'OpenAI' : 'Lovable AI';
+      const stepMsg = isArabic
+        ? `طلب ${providerName} (قطعة ${chunkIndex + 1}/${totalChunks}) - محاولة ${attempt}/${maxAttemptsPerChunk}`
+        : `${providerName} request (chunk ${chunkIndex + 1}/${totalChunks}) - attempt ${attempt}/${maxAttemptsPerChunk}`;
 
-    console.log(`[Job ${jobId}] Processing chunk ${i + 1}/${chunks.length}`);
+      await supabase
+        .from('analysis_jobs')
+        .update({ current_step: stepMsg })
+        .eq('id', jobId);
 
-    await supabase
-      .from('analysis_jobs')
-      .update({
-        processed_chunks: i,
-        current_step: `معالجة القطعة ${i + 1} من ${chunks.length}... / Processing chunk ${i + 1} of ${chunks.length}...`,
-        progress_percentage: progressPercent,
-      })
-      .eq('id', jobId);
+      console.log(`[Job ${jobId}] Chunk ${chunkIndex + 1}, attempt ${attempt}/${maxAttemptsPerChunk} (${providerName})`);
 
-    const systemPrompt = isArabic
-      ? `أنت مهندس كميات خبير. استخرج بيانات BOQ كـ JSON:
+      const systemPrompt = isArabic
+        ? `أنت مهندس كميات خبير. استخرج بيانات BOQ كـ JSON:
 {
   "items": [{
     "itemNumber": "رقم البند",
@@ -333,42 +368,21 @@ async function processJobInBackground(jobId: string, resume: boolean) {
 }
 
 **التصنيفات:** أعمال الموقع، الأساسات، الخرسانة، الحديد، البناء، الكهرباء، السباكة، التكييف، التشطيبات، أو عامة.
-هذه القطعة ${i + 1} من ${chunks.length}.`
-      : `Expert QS: Extract BOQ as JSON:
+هذه القطعة ${chunkIndex + 1} من ${totalChunks}.`
+        : `Expert QS: Extract BOQ as JSON:
 {
   "items": [{"itemNumber","description","unit","quantity","unitPrice","totalPrice","category"}],
   "summary": {"totalItems","totalValue","currency"}
 }
 
 Categories: Site Work, Foundations, Concrete, Steel, Masonry, Electrical, Plumbing, HVAC, Finishes, or General.
-Chunk ${i + 1}/${chunks.length}.`;
-
-    // Call AI for analysis with strong backoff on 429/timeouts
-    // Fallback to OpenAI if Lovable AI credits exhausted (402)
-    let parsedResult: any = null;
-    let lastErrText = '';
-    let lastErrStatus = 0;
-    let useOpenAI = false;
-
-    for (let attempt = 1; attempt <= maxAttemptsPerChunk; attempt++) {
-      const providerName = useOpenAI ? 'OpenAI' : 'Lovable AI';
-      const stepMsg = isArabic
-        ? `طلب ${providerName} (قطعة ${i + 1}/${chunks.length}) - محاولة ${attempt}/${maxAttemptsPerChunk}`
-        : `${providerName} request (chunk ${i + 1}/${chunks.length}) - attempt ${attempt}/${maxAttemptsPerChunk}`;
-
-      await supabase
-        .from('analysis_jobs')
-        .update({ current_step: stepMsg })
-        .eq('id', jobId);
-
-      console.log(`[Job ${jobId}] Chunk ${i + 1}, attempt ${attempt}/${maxAttemptsPerChunk} (${providerName})`);
+Chunk ${chunkIndex + 1}/${totalChunks}.`;
 
       try {
         const controller = new AbortController();
-        const timeoutMs = isArabic ? 180000 : 120000; // 180s for Arabic, 120s otherwise
+        const timeoutMs = isArabic ? 180000 : 120000;
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-        // Choose endpoint and headers based on provider
         const endpoint = useOpenAI
           ? 'https://api.openai.com/v1/chat/completions'
           : 'https://ai.gateway.lovable.dev/v1/chat/completions';
@@ -395,7 +409,7 @@ Chunk ${i + 1}/${chunks.length}.`;
             model: model,
             messages: [
               { role: 'system', content: systemPrompt },
-              { role: 'user', content: `Analyze this BOQ section:\n\n${chunk}` },
+              { role: 'user', content: `Analyze this BOQ section:\n\n${chunkText}` },
             ],
             temperature: 0.3,
             max_tokens: 8000,
@@ -409,18 +423,17 @@ Chunk ${i + 1}/${chunks.length}.`;
           lastErrText = await response.text();
           lastErrStatus = response.status;
 
-          console.warn(`[Job ${jobId}] Chunk ${i + 1} attempt ${attempt} failed: ${response.status} (${providerName})`);
+          console.warn(`[Job ${jobId}] Chunk ${chunkIndex + 1} attempt ${attempt} failed: ${response.status} (${providerName})`);
 
-          // 402 Payment Required from Lovable AI: Switch to OpenAI immediately
+          // 402 Payment Required from Lovable AI: Switch to OpenAI
           if (response.status === 402 && !useOpenAI && !!openAIKey) {
             console.log(`[Job ${jobId}] Lovable AI credits exhausted, switching to OpenAI`);
             useOpenAI = true;
-            // Don't count this as an attempt, retry immediately with OpenAI
             attempt--;
             continue;
           }
 
-          // 429: strong backoff and retry
+          // 429: strong backoff
           if (response.status === 429 && attempt < maxAttemptsPerChunk) {
             const headerRetryAfter = response.headers.get('retry-after');
             const headerDelayMs = headerRetryAfter ? Number(headerRetryAfter) * 1000 : NaN;
@@ -431,8 +444,6 @@ Chunk ${i + 1}/${chunks.length}.`;
             const waitMsg = isArabic
               ? `تجاوز الحد (429). انتظار ${Math.round(delay / 1000)} ثانية...`
               : `Rate limited (429). Waiting ${Math.round(delay / 1000)}s...`;
-
-            console.log(`[Job ${jobId}] ${waitMsg}`);
 
             await supabase
               .from('analysis_jobs')
@@ -446,12 +457,10 @@ Chunk ${i + 1}/${chunks.length}.`;
           // 5xx: shorter backoff
           if (response.status >= 500 && attempt < maxAttemptsPerChunk) {
             const delay = Math.min(5000 * attempt, 30000);
-            console.log(`[Job ${jobId}] Server error, waiting ${delay}ms...`);
             await sleep(delay);
             continue;
           }
 
-          console.error(`[Job ${jobId}] Chunk ${i} failed:`, response.status, lastErrText.slice(0, 200));
           break;
         }
 
@@ -463,7 +472,13 @@ Chunk ${i + 1}/${chunks.length}.`;
           const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             parsedResult = JSON.parse(jsonMatch[1] || jsonMatch[0]);
-            console.log(`[Job ${jobId}] Chunk ${i + 1} parsed successfully (${providerName}): ${parsedResult?.items?.length || 0} items`);
+            console.log(`[Job ${jobId}] Chunk ${chunkIndex + 1} parsed successfully (${providerName}): ${parsedResult?.items?.length || 0} items`);
+            
+            // Check if response looks truncated
+            if (detectTruncatedResponse(content) || parsedResult?.partial === true) {
+              console.warn(`[Job ${jobId}] Chunk ${chunkIndex + 1} appears truncated`);
+              truncationDetected = true;
+            }
             break;
           }
         } catch (parseErr) {
@@ -473,11 +488,13 @@ Chunk ${i + 1}/${chunks.length}.`;
           const repairedResult = repairTruncatedJson(content);
           if (repairedResult && (repairedResult.items?.length > 0 || Object.keys(repairedResult).length > 0)) {
             parsedResult = repairedResult;
-            console.log(`[Job ${jobId}] Chunk ${i + 1} repaired successfully: ${parsedResult?.items?.length || 0} items (partial: ${repairedResult.partial || false})`);
+            truncationDetected = true;
+            console.log(`[Job ${jobId}] Chunk ${chunkIndex + 1} repaired: ${parsedResult?.items?.length || 0} items (partial: ${repairedResult.partial || false})`);
             break;
           }
           
-          console.error(`[Job ${jobId}] Failed to repair chunk ${i} result:`, parseErr);
+          truncationDetected = true;
+          console.error(`[Job ${jobId}] Failed to repair chunk ${chunkIndex} result`);
           if (attempt < 2) continue;
         }
 
@@ -486,7 +503,7 @@ Chunk ${i + 1}/${chunks.length}.`;
         lastErrText = chunkError?.message || String(chunkError);
 
         if (chunkError?.name === 'AbortError') {
-          console.warn(`[Job ${jobId}] Chunk ${i + 1} timeout (attempt ${attempt})`);
+          console.warn(`[Job ${jobId}] Chunk ${chunkIndex + 1} timeout (attempt ${attempt})`);
           if (attempt < maxAttemptsPerChunk) {
             const delay = getBackoffDelay(attempt);
             await sleep(delay);
@@ -499,18 +516,92 @@ Chunk ${i + 1}/${chunks.length}.`;
           await sleep(delay);
           continue;
         }
-
-        console.error(`[Job ${jobId}] Error processing chunk ${i}:`, chunkError);
       }
     }
 
-    if (parsedResult) {
-      results.push(parsedResult);
-    } else {
-      console.warn(`[Job ${jobId}] Chunk ${i + 1} produced no result (status: ${lastErrStatus})`);
+    // Auto-resize if truncation detected and we can still resize
+    if (truncationDetected && chunkSize > MIN_CHUNK_SIZE && resizeAttempt < MAX_RESIZE_ATTEMPTS) {
+      const newChunkSize = Math.max(MIN_CHUNK_SIZE, Math.floor(chunkSize * RESIZE_FACTOR));
+      autoResizeCount++;
+      
+      console.log(`[Job ${jobId}] Auto-resizing chunk ${chunkIndex + 1} from ${chunkSize} to ${newChunkSize} chars`);
+      
+      const resizeMsg = isArabic
+        ? `تقليل تلقائي: ${chunkSize} → ${newChunkSize} حرف (قطعة ${chunkIndex + 1})`
+        : `Auto-resizing: ${chunkSize} → ${newChunkSize} chars (chunk ${chunkIndex + 1})`;
+      
+      await supabase
+        .from('analysis_jobs')
+        .update({ current_step: resizeMsg })
+        .eq('id', jobId);
+      
+      // Re-split this chunk into smaller sub-chunks
+      const subChunks = splitIntoChunks(chunkText, newChunkSize, 200);
+      console.log(`[Job ${jobId}] Re-split into ${subChunks.length} sub-chunks`);
+      
+      for (let j = 0; j < subChunks.length; j++) {
+        const subSubResults = await processChunkWithAutoResize(
+          subChunks[j],
+          chunkIndex,
+          totalChunks,
+          newChunkSize,
+          resizeAttempt + 1
+        );
+        subResults.push(...subSubResults);
+        
+        // Small delay between sub-chunks
+        if (j < subChunks.length - 1) {
+          await sleep(500);
+        }
+      }
+      
+      return subResults;
+    }
 
-      // If we are still on Lovable AI and hit 402 and have no OpenAI key, fail fast with clear message
+    // Add result if we got one
+    if (parsedResult) {
+      subResults.push(parsedResult);
+    } else {
+      console.warn(`[Job ${jobId}] Chunk ${chunkIndex + 1} produced no result (status: ${lastErrStatus})`);
+
+      // If we hit 402 and have no OpenAI key, fail fast
       if (lastErrStatus === 402 && !openAIKey) {
+        throw new Error('AI_CREDITS_EXHAUSTED');
+      }
+    }
+
+    return subResults;
+  }
+
+  for (let i = resumeFromChunk; i < chunks.length; i++) {
+    const chunk = chunks[i];
+
+    const progressPercent = 10 + Math.round(((i + 1) / chunks.length) * 80);
+
+    console.log(`[Job ${jobId}] Processing chunk ${i + 1}/${chunks.length} with auto-resize support`);
+
+    await supabase
+      .from('analysis_jobs')
+      .update({
+        processed_chunks: i,
+        current_step: `معالجة القطعة ${i + 1} من ${chunks.length}... / Processing chunk ${i + 1} of ${chunks.length}...`,
+        progress_percentage: progressPercent,
+      })
+      .eq('id', jobId);
+
+    try {
+      // Use the new auto-resize function
+      const chunkResults = await processChunkWithAutoResize(
+        chunk,
+        i,
+        chunks.length,
+        currentChunkSize,
+        0
+      );
+      
+      results.push(...chunkResults);
+    } catch (err: any) {
+      if (err.message === 'AI_CREDITS_EXHAUSTED') {
         await supabase
           .from('analysis_jobs')
           .update({
@@ -521,8 +612,9 @@ Chunk ${i + 1}/${chunks.length}.`;
             completed_at: new Date().toISOString(),
           })
           .eq('id', jobId);
-        throw new Error('AI credits exhausted');
+        throw err;
       }
+      console.warn(`[Job ${jobId}] Chunk ${i + 1} failed:`, err.message);
     }
 
     // Update chunk results - save progress for potential resume
@@ -534,22 +626,16 @@ Chunk ${i + 1}/${chunks.length}.`;
       })
       .eq('id', jobId);
 
-    if (!parsedResult && lastErrText) {
-      const skipMsg = isArabic
-        ? `تم تخطي القطعة ${i + 1} بسبب خطأ: ${lastErrText.slice(0, 100)}`
-        : `Chunk ${i + 1} skipped due to error: ${lastErrText.slice(0, 100)}`;
-
-      await supabase
-        .from('analysis_jobs')
-        .update({ current_step: skipMsg })
-        .eq('id', jobId);
-    }
-
     // Cooldown between chunks to avoid rate limits
     if (i < chunks.length - 1) {
       const cooldown = isArabic ? 2500 : 1500;
       await sleep(cooldown);
     }
+  }
+
+  // Log auto-resize stats
+  if (autoResizeCount > 0) {
+    console.log(`[Job ${jobId}] Auto-resized ${autoResizeCount} times during processing`);
   }
 
   // Check if we got any results
