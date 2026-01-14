@@ -15,6 +15,101 @@ function decompressFromBase64(input: string): string {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Attempt to repair truncated JSON
+function repairTruncatedJson(content: string): any | null {
+  let jsonStr = content;
+  
+  // Extract JSON from markdown code blocks
+  const codeBlockMatch = jsonStr.match(/```json\s*([\s\S]*?)\s*```/);
+  if (codeBlockMatch) {
+    jsonStr = codeBlockMatch[1];
+  } else {
+    // Try to find JSON object/array
+    const objMatch = jsonStr.match(/\{[\s\S]*/);
+    const arrMatch = jsonStr.match(/\[[\s\S]*/);
+    if (objMatch) jsonStr = objMatch[0];
+    else if (arrMatch) jsonStr = arrMatch[0];
+  }
+  
+  jsonStr = jsonStr.trim();
+  if (!jsonStr) return null;
+  
+  // Try parsing as-is first
+  try {
+    return JSON.parse(jsonStr);
+  } catch {
+    // Continue with repair attempts
+  }
+  
+  // Count brackets to detect truncation
+  const openBraces = (jsonStr.match(/\{/g) || []).length;
+  const closeBraces = (jsonStr.match(/\}/g) || []).length;
+  const openBrackets = (jsonStr.match(/\[/g) || []).length;
+  const closeBrackets = (jsonStr.match(/\]/g) || []).length;
+  
+  // Add missing closing brackets/braces
+  let repaired = jsonStr;
+  
+  // Remove trailing incomplete data (after last complete item)
+  // Look for patterns like: }, { or }, ] or }]
+  const lastCompleteItem = Math.max(
+    repaired.lastIndexOf('},'),
+    repaired.lastIndexOf('}]'),
+    repaired.lastIndexOf('"}'),
+    repaired.lastIndexOf('" }')
+  );
+  
+  if (lastCompleteItem > repaired.length * 0.5) {
+    // Truncate at the last complete item
+    if (repaired.lastIndexOf('},') === lastCompleteItem) {
+      repaired = repaired.slice(0, lastCompleteItem + 1);
+    } else if (repaired.lastIndexOf('}]') === lastCompleteItem) {
+      repaired = repaired.slice(0, lastCompleteItem + 2);
+    } else if (repaired.lastIndexOf('"}') === lastCompleteItem) {
+      repaired = repaired.slice(0, lastCompleteItem + 2);
+    } else if (repaired.lastIndexOf('" }') === lastCompleteItem) {
+      repaired = repaired.slice(0, lastCompleteItem + 3);
+    }
+  }
+  
+  // Recount after truncation
+  const openB2 = (repaired.match(/\{/g) || []).length;
+  const closeB2 = (repaired.match(/\}/g) || []).length;
+  const openBr2 = (repaired.match(/\[/g) || []).length;
+  const closeBr2 = (repaired.match(/\]/g) || []).length;
+  
+  // Close brackets and braces
+  for (let i = 0; i < openBr2 - closeBr2; i++) repaired += ']';
+  for (let i = 0; i < openB2 - closeB2; i++) repaired += '}';
+  
+  // Try parsing repaired JSON
+  try {
+    const parsed = JSON.parse(repaired);
+    console.log(`[JSON Repair] Successfully repaired truncated JSON`);
+    return parsed;
+  } catch {
+    // Last attempt: try to extract items array only
+    const itemsMatch = repaired.match(/"items"\s*:\s*\[([\s\S]*)/);
+    if (itemsMatch) {
+      let itemsStr = '[' + itemsMatch[1];
+      // Find last complete item
+      const lastItem = itemsStr.lastIndexOf('},');
+      if (lastItem > 0) {
+        itemsStr = itemsStr.slice(0, lastItem + 1) + ']';
+        try {
+          const items = JSON.parse(itemsStr);
+          console.log(`[JSON Repair] Extracted ${items.length} items from truncated JSON`);
+          return { items, partial: true };
+        } catch {
+          // Give up
+        }
+      }
+    }
+  }
+  
+  return null;
+}
+
 // Generate jitter for backoff (±10%)
 const jitter = (baseMs: number) => {
   const variance = baseMs * 0.1;
@@ -363,6 +458,7 @@ Chunk ${i + 1}/${chunks.length}.`;
         const aiResult = await response.json();
         const content = aiResult.choices?.[0]?.message?.content || '';
 
+        // Try standard JSON parsing first
         try {
           const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
@@ -371,7 +467,17 @@ Chunk ${i + 1}/${chunks.length}.`;
             break;
           }
         } catch (parseErr) {
-          console.error(`[Job ${jobId}] Failed to parse chunk ${i} result:`, parseErr);
+          console.error(`[Job ${jobId}] Standard parse failed, attempting repair...`);
+          
+          // Attempt to repair truncated JSON
+          const repairedResult = repairTruncatedJson(content);
+          if (repairedResult && (repairedResult.items?.length > 0 || Object.keys(repairedResult).length > 0)) {
+            parsedResult = repairedResult;
+            console.log(`[Job ${jobId}] Chunk ${i + 1} repaired successfully: ${parsedResult?.items?.length || 0} items (partial: ${repairedResult.partial || false})`);
+            break;
+          }
+          
+          console.error(`[Job ${jobId}] Failed to repair chunk ${i} result:`, parseErr);
           if (attempt < 2) continue;
         }
 
