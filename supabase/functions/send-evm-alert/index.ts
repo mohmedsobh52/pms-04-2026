@@ -1,12 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { verifyAuth, corsHeaders } from "../_shared/auth.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
 
 interface EVMAlertRequest {
   email: string;
@@ -32,6 +27,13 @@ const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Verify authentication
+  const { userId, error: authError } = await verifyAuth(req);
+  if (authError) {
+    return authError;
+  }
+  console.log(`Authenticated user: ${userId}`);
 
   try {
     const { email, projectName, alerts, evmMetrics, currency = "SAR" }: EVMAlertRequest = await req.json();

@@ -1,11 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import LZString from "https://esm.sh/lz-string@1.5.0";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { verifyAuth, corsHeaders } from "../_shared/auth.ts";
 
 function decompressFromBase64(input: string): string {
   if (!input) return '';
@@ -532,6 +528,13 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Verify authentication
+  const { userId, error: authError } = await verifyAuth(req);
+  if (authError) {
+    return authError;
+  }
+  console.log(`Authenticated user: ${userId}`);
 
   try {
     const { jobId, resume = false } = await req.json();

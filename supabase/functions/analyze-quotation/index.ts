@@ -1,10 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { verifyAuth, corsHeaders } from "../_shared/auth.ts";
 
 // Helper function to call AI with retry and fallback
 async function callAIWithFallback(systemPrompt: string, userPrompt: string): Promise<string> {
@@ -114,6 +110,13 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Verify authentication
+  const { userId, error: authError } = await verifyAuth(req);
+  if (authError) {
+    return authError;
+  }
+  console.log(`Authenticated user: ${userId}`);
 
   try {
     const { quotationText, quotationName, supplierName } = await req.json();
