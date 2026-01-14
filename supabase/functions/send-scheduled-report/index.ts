@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { verifyAuth, corsHeaders } from "../_shared/auth.ts";
 
 interface ScheduledReportRequest {
   report_id?: string;
@@ -20,6 +16,13 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Verify authentication
+  const { userId, error: authError } = await verifyAuth(req);
+  if (authError) {
+    return authError;
+  }
+  console.log(`Authenticated user: ${userId}`);
 
   try {
     const { 
