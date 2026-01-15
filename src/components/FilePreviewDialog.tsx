@@ -29,6 +29,8 @@ import {
   ListTree
 } from "lucide-react";
 import * as XLSX from "xlsx";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
+import { SignedUrlExpiry } from "./SignedUrlExpiry";
 
 interface FilePreviewDialogProps {
   isOpen: boolean;
@@ -47,6 +49,7 @@ interface FilePreviewDialogProps {
 
 export function FilePreviewDialog({ isOpen, onClose, file, onAnalyze }: FilePreviewDialogProps) {
   const { isArabic } = useLanguage();
+  const { getSignedUrl, refreshUrl } = useSignedUrl();
   const [isLoading, setIsLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewContent, setPreviewContent] = useState<string | null>(null);
@@ -55,13 +58,16 @@ export function FilePreviewDialog({ isOpen, onClose, file, onAnalyze }: FilePrev
   const [rotation, setRotation] = useState(0);
   const [activeTab, setActiveTab] = useState("preview");
   const [error, setError] = useState<string | null>(null);
+  const [urlExpiresAt, setUrlExpiresAt] = useState<Date | null>(null);
+  const [isRefreshingUrl, setIsRefreshingUrl] = useState(false);
 
   useEffect(() => {
     if (isOpen && file) {
       loadPreview();
     }
     return () => {
-      if (previewUrl) {
+      // Only revoke if it's an object URL (not a signed URL)
+      if (previewUrl && previewUrl.startsWith('blob:')) {
         URL.revokeObjectURL(previewUrl);
       }
     };
@@ -74,47 +80,71 @@ export function FilePreviewDialog({ isOpen, onClose, file, onAnalyze }: FilePrev
     setError(null);
     setPreviewContent(null);
     setExcelData(null);
+    setUrlExpiresAt(null);
 
     try {
-      const { data, error: downloadError } = await supabase.storage
-        .from("project-files")
-        .download(file.file_path);
-
-      if (downloadError) throw downloadError;
-
       const fileType = file.file_type || "";
 
-      // Handle different file types
-      if (fileType.includes("image")) {
-        const url = URL.createObjectURL(data);
-        setPreviewUrl(url);
-      } else if (fileType.includes("pdf")) {
-        const url = URL.createObjectURL(data);
-        setPreviewUrl(url);
-      } else if (fileType.includes("sheet") || fileType.includes("excel") || 
-                 file.file_name.endsWith(".xlsx") || file.file_name.endsWith(".xls") ||
-                 file.file_name.endsWith(".csv")) {
-        // Parse Excel/CSV
-        const arrayBuffer = await data.arrayBuffer();
-        const workbook = XLSX.read(arrayBuffer, { type: "array" });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
-        setExcelData(jsonData.slice(0, 100)); // Limit to first 100 rows
-      } else if (fileType.includes("text") || fileType.includes("json") || 
-                 file.file_name.endsWith(".txt") || file.file_name.endsWith(".json") ||
-                 file.file_name.endsWith(".xml") || file.file_name.endsWith(".csv")) {
-        const text = await data.text();
-        setPreviewContent(text.slice(0, 10000)); // Limit text preview
+      // For images and PDFs, use signed URLs for direct display
+      if (fileType.includes("image") || fileType.includes("pdf")) {
+        const result = await getSignedUrl('project-files', file.file_path, { 
+          expiresIn: 1800 // 30 minutes
+        });
+        
+        if (result.error || !result.url) {
+          throw result.error || new Error('Failed to get signed URL');
+        }
+        
+        setPreviewUrl(result.url);
+        setUrlExpiresAt(result.expiresAt);
       } else {
-        setError(isArabic 
-          ? "هذا النوع من الملفات لا يدعم المعاينة" 
-          : "This file type doesn't support preview");
+        // For other files, download and process
+        const { data, error: downloadError } = await supabase.storage
+          .from("project-files")
+          .download(file.file_path);
+
+        if (downloadError) throw downloadError;
+
+        if (fileType.includes("sheet") || fileType.includes("excel") || 
+                   file.file_name.endsWith(".xlsx") || file.file_name.endsWith(".xls") ||
+                   file.file_name.endsWith(".csv")) {
+          // Parse Excel/CSV
+          const arrayBuffer = await data.arrayBuffer();
+          const workbook = XLSX.read(arrayBuffer, { type: "array" });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
+          setExcelData(jsonData.slice(0, 100)); // Limit to first 100 rows
+        } else if (fileType.includes("text") || fileType.includes("json") || 
+                   file.file_name.endsWith(".txt") || file.file_name.endsWith(".json") ||
+                   file.file_name.endsWith(".xml") || file.file_name.endsWith(".csv")) {
+          const text = await data.text();
+          setPreviewContent(text.slice(0, 10000)); // Limit text preview
+        } else {
+          setError(isArabic 
+            ? "هذا النوع من الملفات لا يدعم المعاينة" 
+            : "This file type doesn't support preview");
+        }
       }
     } catch (err) {
       console.error("Preview error:", err);
       setError(isArabic ? "خطأ في تحميل المعاينة" : "Error loading preview");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRefreshUrl = async () => {
+    if (!file) return;
+    
+    setIsRefreshingUrl(true);
+    try {
+      const result = await refreshUrl('project-files', file.file_path, { expiresIn: 1800 });
+      if (result.url) {
+        setPreviewUrl(result.url);
+        setUrlExpiresAt(result.expiresAt);
+      }
+    } finally {
+      setIsRefreshingUrl(false);
     }
   };
 
@@ -414,6 +444,14 @@ export function FilePreviewDialog({ isOpen, onClose, file, onAnalyze }: FilePrev
           )}
 
           <TabsContent value="preview" className="mt-0">
+            {/* Signed URL Expiry Warning */}
+            {urlExpiresAt && (
+              <SignedUrlExpiry 
+                expiresAt={urlExpiresAt} 
+                onRefresh={handleRefreshUrl}
+                loading={isRefreshingUrl}
+              />
+            )}
             {renderPreviewContent()}
           </TabsContent>
 

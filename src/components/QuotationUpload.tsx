@@ -27,6 +27,9 @@ import {
 import { LocalAnalysisPanel, LocalAnalysisResult } from "./LocalAnalysisPanel";
 import { ExcelChunkedAnalysis } from "./ExcelChunkedAnalysis";
 import { ExcelBOQItem, extractDataFromExcel, formatExcelDataForAnalysis } from "@/lib/excel-utils";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
+import { SignedUrlExpiry } from "./SignedUrlExpiry";
+import { extractFilePath } from "@/lib/utils";
 
 interface QuotationItem {
   item_number: string;
@@ -85,6 +88,7 @@ interface QuotationUploadProps {
 export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUploadProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { getSignedUrl, refreshUrl } = useSignedUrl();
   const [isUploading, setIsUploading] = useState(false);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
@@ -108,6 +112,26 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
   const [showLocalAnalysis, setShowLocalAnalysis] = useState<string | null>(null);
   const [excelItemsCache, setExcelItemsCache] = useState<Record<string, ExcelBOQItem[]>>({});
   const [showChunkedAnalysis, setShowChunkedAnalysis] = useState<string | null>(null);
+  
+  // Signed URL state for file viewing
+  const [activeFileUrl, setActiveFileUrl] = useState<{ url: string; expiresAt: Date } | null>(null);
+  const [isLoadingUrl, setIsLoadingUrl] = useState(false);
+
+  // Helper to get signed URL for a quotation file
+  const getQuotationSignedUrl = useCallback(async (quotation: Quotation): Promise<string> => {
+    const filePath = extractFilePath(quotation.file_url, 'quotations');
+    const result = await getSignedUrl('quotations', filePath, { 
+      expiresIn: 3600,
+      onExpiring: () => {
+        toast({
+          title: "تنبيه",
+          description: "رابط الملف سينتهي قريباً، سيتم تجديده تلقائياً",
+        });
+      }
+    });
+    if (!result.url) throw new Error('Failed to get signed URL');
+    return result.url;
+  }, [getSignedUrl, toast]);
 
   const loadQuotations = useCallback(async () => {
     if (!user) return;
@@ -189,12 +213,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('quotations')
-        .getPublicUrl(fileName);
-
-      // Save to database
+      // Save file path (not full URL) to database for signed URL access
       const { data: quotation, error: dbError } = await supabase
         .from('price_quotations')
         .insert({
@@ -202,7 +221,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
           project_id: projectId || null,
           name: formData.name || file.name.replace(/\.[^/.]+$/, ""),
           file_name: file.name,
-          file_url: publicUrl,
+          file_url: fileName, // Store path only, not full URL
           file_type: fileExt === 'pdf' ? 'pdf' : 'excel',
           supplier_name: formData.supplier_name || null,
           quotation_date: formData.quotation_date || null,
@@ -327,8 +346,11 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
     }
 
     try {
+      // Get signed URL for the PDF
+      const signedUrl = await getQuotationSignedUrl(quotation);
+      
       // Download the PDF
-      const response = await fetch(quotation.file_url);
+      const response = await fetch(signedUrl);
       const blob = await response.blob();
       const arrayBuffer = await blob.arrayBuffer();
       
@@ -479,9 +501,10 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
 
       let extractedText = "";
 
-      // Download the file and extract text
+      // Download the file using signed URL and extract text
       try {
-        const response = await fetch(quotation.file_url);
+        const signedUrl = await getQuotationSignedUrl(quotation);
+        const response = await fetch(signedUrl);
         const blob = await response.blob();
         const file = new File([blob], quotation.file_name, { type: blob.type });
         
@@ -630,8 +653,9 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
         description: "يتم استخراج البيانات من ملف Excel",
       });
 
-      // Download and extract Excel data
-      const response = await fetch(quotation.file_url);
+      // Download using signed URL and extract Excel data
+      const signedUrl = await getQuotationSignedUrl(quotation);
+      const response = await fetch(signedUrl);
       const blob = await response.blob();
       const file = new File([blob], quotation.file_name, { type: blob.type });
       
@@ -670,8 +694,9 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
         description: "يتم استخراج البيانات من ملف Excel للتحليل المجزأ",
       });
 
-      // Download and extract Excel data
-      const response = await fetch(quotation.file_url);
+      // Download using signed URL and extract Excel data
+      const signedUrl = await getQuotationSignedUrl(quotation);
+      const response = await fetch(signedUrl);
       const blob = await response.blob();
       const file = new File([blob], quotation.file_name, { type: blob.type });
       
@@ -818,8 +843,8 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
     if (!user) return;
 
     try {
-      // Delete from storage
-      const filePath = quotation.file_url.split('/quotations/')[1];
+      // Delete from storage using file path
+      const filePath = extractFilePath(quotation.file_url, 'quotations');
       if (filePath) {
         await supabase.storage.from('quotations').remove([filePath]);
       }
@@ -1058,10 +1083,33 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => window.open(quotation.file_url, '_blank')}
+                          onClick={async () => {
+                            try {
+                              setIsLoadingUrl(true);
+                              const signedUrl = await getQuotationSignedUrl(quotation);
+                              setActiveFileUrl({ 
+                                url: signedUrl, 
+                                expiresAt: new Date(Date.now() + 3600000) 
+                              });
+                              window.open(signedUrl, '_blank');
+                            } catch (error) {
+                              toast({
+                                title: "خطأ",
+                                description: "فشل فتح الملف",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setIsLoadingUrl(false);
+                            }
+                          }}
+                          disabled={isLoadingUrl}
                           title="عرض الملف"
                         >
-                          <Eye className="w-4 h-4" />
+                          {isLoadingUrl ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Eye className="w-4 h-4" />
+                          )}
                         </Button>
                         
                         {/* Delete */}
