@@ -66,6 +66,44 @@ function isExcelFile(file: File): boolean {
          file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
 }
 
+// Helper function to normalize analysis results from different sources (Job Queue, chunked, direct)
+function normalizeAnalysisResult(result: any) {
+  if (!result?.items) return result;
+  
+  const normalizedItems = result.items.map((item: any) => {
+    const unitPrice = item.unit_price ?? item.rate ?? item.price ?? item.unitPrice ?? 0;
+    const quantity = item.quantity ?? item.qty ?? 1;
+    const totalPrice = item.total_price ?? item.amount ?? item.total ?? item.totalPrice ?? (unitPrice * quantity);
+    
+    return {
+      ...item,
+      item_number: item.item_number || item.item_no || item.itemNo || item.itemNumber || '',
+      unit_price: unitPrice,
+      quantity: quantity,
+      total_price: totalPrice,
+      category: item.category || item.section_trade || item.section || 'غير مصنف',
+      unit: item.unit || item.uom || 'م',
+      description: item.description || item.desc || item.item_description || '',
+    };
+  }).filter((item: any) => item.item_number);
+
+  return {
+    ...result,
+    items: normalizedItems,
+    summary: {
+      ...result.summary,
+      total_items: normalizedItems.length,
+      total_value: result.summary?.total_value || 
+        result.summary?.totalValue ||
+        result.analysis?.total_value ||
+        normalizedItems.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0),
+      currency: result.summary?.currency || result.analysis?.currency || 'SAR',
+      categories: result.summary?.categories || 
+        [...new Set(normalizedItems.map((item: any) => item.category))],
+    }
+  };
+}
+
 const Index = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading, signOut } = useAuth();
@@ -487,7 +525,7 @@ const Index = () => {
           startPolling(
             jobId,
             (result) => {
-              setAnalysisData(result);
+              setAnalysisData(normalizeAnalysisResult(result));
               updateStepStatus("analyze", "complete", 100);
               setIsProcessing(false);
               toast({
@@ -713,7 +751,7 @@ const Index = () => {
             startPolling(
               jobId,
               (result) => {
-                setAnalysisData(result);
+                setAnalysisData(normalizeAnalysisResult(result));
                 updateStepStatus("analyze", "complete", 100);
                 setIsProcessing(false);
                 toast({
