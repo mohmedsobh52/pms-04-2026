@@ -7,12 +7,14 @@ export const corsHeaders = {
 
 /**
  * Verify the JWT token from the Authorization header and return the user ID.
+ * Uses getUser() which is more reliable than getClaims() for token validation.
  * Returns null if the token is invalid or missing.
  */
 export async function verifyAuth(req: Request): Promise<{ userId: string | null; error: Response | null }> {
   const authHeader = req.headers.get('Authorization');
   
   if (!authHeader?.startsWith('Bearer ')) {
+    console.error('Missing or invalid authorization header');
     return {
       userId: null,
       error: new Response(
@@ -43,22 +45,53 @@ export async function verifyAuth(req: Request): Promise<{ userId: string | null;
     global: { headers: { Authorization: authHeader } }
   });
 
-  const token = authHeader.replace('Bearer ', '');
-  const { data, error } = await supabase.auth.getClaims(token);
+  try {
+    // Use getUser() which validates the token server-side
+    // This is more reliable than getClaims() which only decodes the JWT
+    const { data: userData, error: userError } = await supabase.auth.getUser();
 
-  if (error || !data?.claims) {
-    console.error('Auth verification failed:', error?.message);
+    if (userError || !userData?.user) {
+      console.error('Auth verification failed:', userError?.message || 'No user data');
+      
+      // Provide a more helpful error message
+      let errorMessage = 'Unauthorized - Invalid token';
+      let errorMessageAr = 'غير مصرح - الرمز غير صالح';
+      
+      if (userError?.message?.includes('expired')) {
+        errorMessage = 'Session expired - Please login again';
+        errorMessageAr = 'انتهت الجلسة - يرجى تسجيل الدخول مرة أخرى';
+      } else if (userError?.message?.includes('refresh')) {
+        errorMessage = 'Session needs refresh - Please reload the page';
+        errorMessageAr = 'الجلسة تحتاج تحديث - يرجى إعادة تحميل الصفحة';
+      }
+      
+      return {
+        userId: null,
+        error: new Response(
+          JSON.stringify({ 
+            error: errorMessage,
+            errorAr: errorMessageAr,
+            code: 'AUTH_FAILED'
+          }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      };
+    }
+
+    console.log(`User authenticated: ${userData.user.id}`);
+    return { userId: userData.user.id, error: null };
+    
+  } catch (err) {
+    console.error('Auth exception:', err);
     return {
       userId: null,
       error: new Response(
         JSON.stringify({ 
-          error: 'Unauthorized - Invalid token',
-          errorAr: 'غير مصرح - الرمز غير صالح'
+          error: 'Authentication error',
+          errorAr: 'خطأ في المصادقة'
         }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     };
   }
-
-  return { userId: data.claims.sub as string, error: null };
 }
