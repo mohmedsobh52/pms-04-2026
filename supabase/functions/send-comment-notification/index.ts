@@ -10,6 +10,25 @@ interface CommentNotificationRequest {
   analysisTitle?: string;
 }
 
+// HTML escape function to prevent XSS/HTML injection
+function escapeHtml(text: string): string {
+  if (!text) return '';
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+// Input validation constants
+const MAX_COMMENTER_NAME_LENGTH = 100;
+const MAX_COMMENT_TEXT_LENGTH = 2000;
+const MAX_ITEM_ID_LENGTH = 100;
+const MAX_ANALYSIS_TITLE_LENGTH = 200;
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -54,6 +73,35 @@ serve(async (req) => {
       );
     }
 
+    // Input length validation
+    if (commenterName.length > MAX_COMMENTER_NAME_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Commenter name too long (max ${MAX_COMMENTER_NAME_LENGTH} characters)` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (commentText.length > MAX_COMMENT_TEXT_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Comment text too long (max ${MAX_COMMENT_TEXT_LENGTH} characters)` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (itemId && itemId.length > MAX_ITEM_ID_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Item ID too long (max ${MAX_ITEM_ID_LENGTH} characters)` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (analysisTitle && analysisTitle.length > MAX_ANALYSIS_TITLE_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Analysis title too long (max ${MAX_ANALYSIS_TITLE_LENGTH} characters)` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // If no creator email provided, we can't send notification
     if (!creatorEmail) {
       console.log("No creator email provided - cannot send notification");
@@ -67,9 +115,16 @@ serve(async (req) => {
       );
     }
 
+    // Escape all user inputs before embedding in HTML
+    const safeCommenterName = escapeHtml(commenterName);
+    const safeCommentText = escapeHtml(commentText);
+    const safeItemId = escapeHtml(itemId || '');
+    const safeAnalysisTitle = escapeHtml(analysisTitle || shareCode);
+    const safeShareCode = escapeHtml(shareCode);
+
     // Build the share link
-    const shareLink = `https://brbgdvesterjvwduvsrf.lovable.app/shared/${shareCode}`;
-    const itemInfo = itemId ? `<p><strong>البند المرتبط:</strong> ${itemId}</p>` : '';
+    const shareLink = `https://brbgdvesterjvwduvsrf.lovable.app/shared/${encodeURIComponent(shareCode)}`;
+    const itemInfo = safeItemId ? `<p><strong>البند المرتبط:</strong> ${safeItemId}</p>` : '';
 
     // Send email using Resend API directly via fetch
     const emailResponse = await fetch("https://api.resend.com/emails", {
@@ -81,7 +136,7 @@ serve(async (req) => {
       body: JSON.stringify({
         from: "BOQ Analyzer <notifications@resend.dev>",
         to: [creatorEmail],
-        subject: `💬 تعليق جديد على التحليل: ${analysisTitle || shareCode}`,
+        subject: `💬 تعليق جديد على التحليل: ${safeAnalysisTitle}`,
         html: `
           <!DOCTYPE html>
           <html dir="rtl" lang="ar">
@@ -161,8 +216,8 @@ serve(async (req) => {
               <p>تم إضافة تعليق جديد على التحليل المشترك الخاص بك.</p>
               
               <div class="comment-box">
-                <div class="comment-author">👤 ${commenterName}</div>
-                <div class="comment-text">${commentText}</div>
+                <div class="comment-author">👤 ${safeCommenterName}</div>
+                <div class="comment-text">${safeCommentText}</div>
                 ${itemInfo}
               </div>
               
@@ -172,7 +227,7 @@ serve(async (req) => {
               
               <div class="footer">
                 <p>تم إرسال هذا البريد تلقائياً من نظام BOQ Analyzer</p>
-                <p>رمز المشاركة: ${shareCode}</p>
+                <p>رمز المشاركة: ${safeShareCode}</p>
               </div>
             </div>
           </body>
