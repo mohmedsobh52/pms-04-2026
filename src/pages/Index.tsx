@@ -1032,41 +1032,46 @@ const Index = () => {
     );
   }, [resumeJob, setAnalysisData, updateStepStatus, isArabic, toast]);
 
-  // Handle applying suggested market rates
+  // Handle applying suggested market rates - uses functional update to handle batch updates
   const handleApplyRate = useCallback((itemNumber: string, newRate: number) => {
-    if (!analysisData?.items) return;
+    setAnalysisData((prevData: any) => {
+      if (!prevData?.items) return prevData;
 
-    const updatedItems = analysisData.items.map((item: any) => {
-      if (item.item_number === itemNumber) {
-        const newTotalPrice = item.quantity * newRate;
-        return {
-          ...item,
-          unit_price: newRate,
-          total_price: newTotalPrice,
-        };
-      }
-      return item;
-    });
+      const updatedItems = prevData.items.map((item: any) => {
+        if (item.item_number === itemNumber) {
+          const newTotalPrice = item.quantity * newRate;
+          return {
+            ...item,
+            unit_price: newRate,
+            total_price: newTotalPrice,
+          };
+        }
+        return item;
+      });
 
-    // Calculate new total value
-    const newTotalValue = updatedItems.reduce((sum: number, item: any) => 
-      sum + (item.total_price || 0), 0
-    );
+      // Calculate new total value
+      const newTotalValue = updatedItems.reduce((sum: number, item: any) => 
+        sum + (item.total_price || 0), 0
+      );
 
-    setAnalysisData({
-      ...analysisData,
-      items: updatedItems,
-      summary: {
-        ...analysisData.summary,
-        total_value: newTotalValue,
-      },
+      return {
+        ...prevData,
+        items: updatedItems,
+        summary: {
+          ...prevData.summary,
+          total_value: newTotalValue,
+        },
+      };
     });
 
     toast({
-      title: "Rate Applied",
-      description: `Updated item ${itemNumber}. New project total: ${newTotalValue.toLocaleString()} ${analysisData.summary?.currency || 'SAR'}`,
+      title: isArabic ? "تم تطبيق السعر" : "Rate Applied",
+      description: isArabic 
+        ? `تم تحديث البند ${itemNumber}` 
+        : `Updated item ${itemNumber}`,
+      duration: 1500,
     });
-  }, [analysisData, toast, t]);
+  }, [isArabic, toast]);
 
   return (
     <div className="min-h-screen bg-background overflow-x-auto" dir={isArabic ? 'rtl' : 'ltr'} ref={mainContentRef}>
