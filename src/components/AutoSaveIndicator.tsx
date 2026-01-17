@@ -7,12 +7,14 @@ interface AutoSaveIndicatorProps {
   lastSaved: Date | null;
   hasUnsavedChanges: boolean;
   isSaving?: boolean;
+  compact?: boolean;
 }
 
 export function AutoSaveIndicator({
   lastSaved,
   hasUnsavedChanges,
   isSaving = false,
+  compact = false,
 }: AutoSaveIndicatorProps) {
   const { isArabic } = useLanguage();
 
@@ -57,12 +59,14 @@ export function AutoSaveIndicator({
       <Tooltip>
         <TooltipTrigger asChild>
           <div className={cn(
-            "flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors",
+            "flex items-center gap-1.5 text-xs rounded-md transition-all duration-300",
+            compact ? "px-1.5 py-0.5" : "px-2 py-1",
             status.color,
+            isSaving && "animate-pulse",
             hasUnsavedChanges ? "bg-warning/10" : "bg-muted/30"
           )}>
             {status.icon}
-            <span className="hidden sm:inline">{status.text}</span>
+            {!compact && <span className="hidden sm:inline">{status.text}</span>}
           </div>
         </TooltipTrigger>
         <TooltipContent>
