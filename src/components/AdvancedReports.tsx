@@ -7,7 +7,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { useAnalysisData } from '@/hooks/useAnalysisData';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import { XLSX } from '@/lib/exceljs-utils';
 
 interface ReportType {
   id: string;

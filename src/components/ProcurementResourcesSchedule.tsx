@@ -63,7 +63,7 @@ import {
 } from "@/components/ui/alert";
 import { useLanguage } from "@/hooks/useLanguage";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
+import { XLSX } from '@/lib/exceljs-utils';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { GanttChart } from "./GanttChart";

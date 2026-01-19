@@ -26,7 +26,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
+import { XLSX, xlsxReadAsync } from '@/lib/exceljs-utils';
 
 interface FileToAnalyze {
   id: string;

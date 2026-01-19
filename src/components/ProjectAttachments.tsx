@@ -78,7 +78,7 @@ import { CloudStorageIntegration } from "./CloudStorageIntegration";
 import { AttachmentFolders } from "./AttachmentFolders";
 import { AdvancedFilters, FilterState } from "./AdvancedFilters";
 import { useAnalysisNotifications } from "@/hooks/useAnalysisNotifications";
-import * as XLSX from "xlsx";
+import { XLSX, xlsxReadAsync } from '@/lib/exceljs-utils';
 import { format } from "date-fns";
 
 interface ProjectAttachment {

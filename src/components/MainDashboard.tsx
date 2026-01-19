@@ -42,7 +42,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
+import { XLSX } from '@/lib/exceljs-utils';
 import { ProjectComparisonReport } from "./ProjectComparisonReport";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RiskManagement } from "./RiskManagement";

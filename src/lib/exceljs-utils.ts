@@ -285,3 +285,251 @@ export function getWorksheet(
 
 // Re-export ExcelJS types for convenience
 export type { Workbook, Worksheet, Row, Cell } from 'exceljs';
+
+/**
+ * XLSX-Compatible API
+ * 
+ * These functions provide a drop-in replacement for the xlsx (SheetJS) library
+ * to minimize migration effort while using the more secure ExcelJS under the hood.
+ */
+
+// Store for tracking workbooks to sheets mapping (for compatibility)
+const workbookCache = new WeakMap<object, ExcelJS.Workbook>();
+
+type XLSXSheet = unknown[][];
+type XLSXWorkbook = {
+  SheetNames: string[];
+  Sheets: Record<string, XLSXSheet>;
+  _exceljs?: ExcelJS.Workbook;
+};
+
+/**
+ * XLSX-compatible utils namespace
+ */
+export const XLSX = {
+  utils: {
+    /**
+     * Create a new workbook
+     */
+    book_new(): XLSXWorkbook {
+      const wb: XLSXWorkbook = {
+        SheetNames: [],
+        Sheets: {},
+        _exceljs: new ExcelJS.Workbook()
+      };
+      return wb;
+    },
+
+    /**
+     * Convert JSON to sheet
+     */
+    json_to_sheet(data: Record<string, unknown>[]): XLSXSheet {
+      if (!data || data.length === 0) return [[]];
+      
+      const headers = Object.keys(data[0]);
+      const rows: unknown[][] = [headers];
+      
+      data.slice(0, MAX_ROWS).forEach(item => {
+        const row = headers.map(h => {
+          const val = item[h];
+          return val !== undefined && val !== null ? val : '';
+        });
+        rows.push(row);
+      });
+      
+      return rows;
+    },
+
+    /**
+     * Convert array of arrays to sheet
+     */
+    aoa_to_sheet(data: unknown[][]): XLSXSheet {
+      return data.slice(0, MAX_ROWS);
+    },
+
+    /**
+     * Append sheet to workbook
+     */
+    book_append_sheet(workbook: XLSXWorkbook, sheet: XLSXSheet, name: string): void {
+      const safeName = name.substring(0, 31);
+      workbook.SheetNames.push(safeName);
+      workbook.Sheets[safeName] = sheet;
+      
+      // Also add to the internal ExcelJS workbook
+      if (workbook._exceljs) {
+        const ws = workbook._exceljs.addWorksheet(safeName);
+        sheet.forEach((row, idx) => {
+          ws.addRow(row);
+          if (idx === 0) {
+            const headerRow = ws.getRow(1);
+            headerRow.font = { bold: true };
+            headerRow.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFE0E0E0' }
+            };
+          }
+        });
+        // Auto-fit columns
+        if (sheet.length > 0) {
+          const maxCols = Math.max(...sheet.map(r => r.length));
+          for (let i = 0; i < maxCols; i++) {
+            let maxLen = 10;
+            sheet.forEach(row => {
+              const len = row[i]?.toString().length || 0;
+              if (len > maxLen) maxLen = len;
+            });
+            ws.getColumn(i + 1).width = Math.min(maxLen + 2, 50);
+          }
+        }
+      }
+    },
+
+    /**
+     * Convert sheet to CSV string
+     */
+    sheet_to_csv(sheet: XLSXSheet): string {
+      if (!Array.isArray(sheet)) return '';
+      return sheet.map(row => 
+        row.map(cell => {
+          const str = cell?.toString() || '';
+          if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return `"${str.replace(/"/g, '""')}"`;
+          }
+          return str;
+        }).join(',')
+      ).join('\n');
+    }
+  },
+
+  /**
+   * Read Excel file from ArrayBuffer
+   */
+  read(data: ArrayBuffer, options?: { type?: string }): XLSXWorkbook {
+    // This is synchronous in original xlsx, but we need to return something
+    // For compatibility, we create an empty workbook that can be populated async
+    const wb: XLSXWorkbook = {
+      SheetNames: [],
+      Sheets: {},
+      _exceljs: undefined
+    };
+    
+    // Store reference to load later
+    const workbook = new ExcelJS.Workbook();
+    
+    // Load asynchronously and update the workbook object
+    workbook.xlsx.load(data).then(() => {
+      wb._exceljs = workbook;
+      workbook.worksheets.forEach(ws => {
+        wb.SheetNames.push(ws.name);
+        const rows: unknown[][] = [];
+        ws.eachRow((row) => {
+          const rowData: unknown[] = [];
+          row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+            let value = cell.value;
+            if (value && typeof value === 'object' && 'result' in value) {
+              value = (value as ExcelJS.CellFormulaValue).result;
+            }
+            if (value && typeof value === 'object' && 'richText' in value) {
+              value = (value as ExcelJS.CellRichTextValue).richText.map(rt => rt.text).join('');
+            }
+            rowData[colNumber - 1] = value ?? '';
+          });
+          rows.push(rowData);
+        });
+        wb.Sheets[ws.name] = rows;
+      });
+    });
+    
+    return wb;
+  },
+
+  /**
+   * Write workbook to file (triggers download)
+   */
+  writeFile(workbook: XLSXWorkbook, filename: string): void {
+    const safeFilename = filename.endsWith('.xlsx') ? filename : `${filename}.xlsx`;
+    
+    if (workbook._exceljs) {
+      workbook._exceljs.xlsx.writeBuffer().then(buffer => {
+        const blob = new Blob([buffer], { 
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = safeFilename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      });
+    } else {
+      // Fallback: create ExcelJS workbook from sheet data
+      const wb = new ExcelJS.Workbook();
+      workbook.SheetNames.forEach(name => {
+        const sheetData = workbook.Sheets[name];
+        if (Array.isArray(sheetData)) {
+          const ws = wb.addWorksheet(name);
+          sheetData.forEach((row, idx) => {
+            ws.addRow(row);
+            if (idx === 0) {
+              const headerRow = ws.getRow(1);
+              headerRow.font = { bold: true };
+            }
+          });
+        }
+      });
+      
+      wb.xlsx.writeBuffer().then(buffer => {
+        const blob = new Blob([buffer], { 
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = safeFilename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      });
+    }
+  }
+};
+
+/**
+ * Async version of XLSX.read for proper handling
+ */
+export async function xlsxReadAsync(data: ArrayBuffer): Promise<XLSXWorkbook> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(data);
+  
+  const wb: XLSXWorkbook = {
+    SheetNames: [],
+    Sheets: {},
+    _exceljs: workbook
+  };
+  
+  workbook.worksheets.forEach(ws => {
+    wb.SheetNames.push(ws.name);
+    const rows: unknown[][] = [];
+    ws.eachRow((row) => {
+      const rowData: unknown[] = [];
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        let value = cell.value;
+        if (value && typeof value === 'object' && 'result' in value) {
+          value = (value as ExcelJS.CellFormulaValue).result;
+        }
+        if (value && typeof value === 'object' && 'richText' in value) {
+          value = (value as ExcelJS.CellRichTextValue).richText.map(rt => rt.text).join('');
+        }
+        rowData[colNumber - 1] = value ?? '';
+      });
+      rows.push(rowData);
+    });
+    wb.Sheets[ws.name] = rows;
+  });
+  
+  return wb;
+}

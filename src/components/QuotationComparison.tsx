@@ -23,7 +23,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { ItemComparison } from "./ItemComparison";
 import { QuotationCostChart } from "./QuotationCostChart";
-import * as XLSX from 'xlsx';
+import { XLSX } from '@/lib/exceljs-utils';
 import {
   Table,
   TableBody,

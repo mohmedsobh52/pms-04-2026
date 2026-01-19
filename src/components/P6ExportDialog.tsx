@@ -20,7 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
-import * as XLSX from 'xlsx';
+import { XLSX } from '@/lib/exceljs-utils';
 
 interface BOQItem {
   item_number: string;

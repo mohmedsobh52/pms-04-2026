@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Download, FileSpreadsheet, FileText, Loader2 } from "lucide-react";
-import * as XLSX from "xlsx";
+import { XLSX } from '@/lib/exceljs-utils';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "sonner";

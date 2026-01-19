@@ -16,7 +16,7 @@ import {
   Files, Plus, Trash2, Download, Upload, Copy, Eye, 
   Star, Globe, Lock, CheckCircle
 } from "lucide-react";
-import * as XLSX from 'xlsx';
+import { XLSX } from '@/lib/exceljs-utils';
 
 interface BOQTemplate {
   id: string;
