@@ -1,4 +1,4 @@
-import * as XLSX from './safe-xlsx';
+import ExcelJS from 'exceljs';
 
 export interface ExcelExtractionResult {
   text: string;
@@ -81,67 +81,52 @@ export function parseArabicNumber(value: string | number | undefined): number | 
   return isNaN(parsed) ? undefined : parsed;
 }
 
-// Common BOQ column name patterns (Arabic and English) - Extended for better recognition
+// Common BOQ column name patterns (Arabic and English)
 const COLUMN_PATTERNS = {
   itemNo: [
-    // English patterns
     'item', 'no', 'item no', 'item number', 'serial', 'ref', 'code', '#', 'seq',
     'sn', 's/n', 's.n', 'line', 'line no', 'row', 'id', 'number', 'num',
-    // Arabic patterns - from document + extended
     'رقم', 'البند', 'م', 'بند', 'رقم البند', 'مسلسل', 'تسلسل', 'بند/رقم',
     'ر.م', 'رم', 'التسلسل', 'ت', 'المرجع', 'رقم المسلسل', 'الرقم', 'الكود',
     'رقم بند', 'بند رقم', 'م.', 'ر', 'السطر', 'التسلسلي', 'رقم مسلسل'
   ],
   description: [
-    // Arabic patterns - PRIORITIZE المواصفات first
     'المواصفات', 'مواصفات', 'spec', 'specification', 'specifications',
-    // English patterns
     'description', 'details', 'scope', 'name', 'desc', 'item description', 
     'work description', 'work', 'activity', 'task',
-    // Other Arabic patterns
     'وصف', 'البيان', 'الوصف', 'شرح', 'تفاصيل', 'اسم البند', 'وصف البند',
     'بيان الأعمال', 'بيان', 'العمل', 'التفاصيل', 'العنصر',
     'الصنف', 'المادة', 'البيانات', 'اسم', 'وصف الأعمال',
     'وصف العمل', 'الأعمال', 'النشاط', 'المهمة', 'بيان العمل', 'تفصيل'
   ],
   unit: [
-    // English patterns
     'unit', 'uom', 'unit of measure', 'u/m', 'measure', 'units',
-    // Arabic patterns - from document + extended
     'وحدة', 'الوحدة', 'وحده', 'الوحـدة', 'وحدة القياس', 'و.ق', 'وق', 'الوحدات',
     'م2', 'م3', 'م.ط', 'طن', 'كجم', 'لتر', 'القياس', 'وحدات'
   ],
   quantity: [
-    // English patterns
     'qty', 'quantity', 'amount', 'count', 'no.', 'nos', 'quantities', 'qnty',
-    // Arabic patterns - from document + extended
     'كمية', 'الكمية', 'العدد', 'الكميه', 'الكم', 'الكميات', 'المقدار',
     'حجم', 'الحجم', 'المساحة', 'كميات', 'عدد'
   ],
   unitPrice: [
-    // English patterns
     'unit price', 'price', 'rate', 'unit rate', 'u.price', 'u/price', 'cost',
     'unit cost', 'per unit', 'each', 'single price', 'item price',
-    // Arabic patterns - from document + extended
     'سعر', 'سعر الوحدة', 'السعر', 'المعدل', 'سعر الوحده', 'وحدة سعر',
     'سعر وحده', 'وحدة/سعر', 'سعر المفرد', 'ثمن الوحدة', 'الفئة', 'فئة',
     'التكلفة', 'تكلفة الوحدة', 'ر.و', 'سعر البند', 'السعر المفرد',
     'سعر الفئة', 'ثمن', 'سعر/وحدة', 'تكلفة', 'المفرد'
   ],
   totalPrice: [
-    // English patterns
     'total', 'amount', 'total price', 'total amount', 'sum', 'net', 'value',
     'total cost', 'line total', 'extended', 'ext', 'subtotal', 'sub total',
-    // Arabic patterns - from document + extended
     'إجمالي', 'المبلغ', 'الإجمالي', 'اجمالي', 'المجموع', 'الجملة', 'القيمة',
     'جملة', 'جمله', 'القيمه', 'القيمة الإجمالية', 'إجمالى', 'اجمالى',
     'المجموع الكلي', 'الثمن', 'الصافي', 'صافي', 'اجمالى البند', 'إجمالي البند',
     'المبلغ الإجمالي', 'جملة المبلغ', 'مجموع', 'قيمة', 'إجمالى السعر'
   ],
   notes: [
-    // English patterns
     'notes', 'remarks', 'comment', 'comments', 'remark', 'note', 'observation',
-    // Arabic patterns - from document + extended
     'ملاحظات', 'ملاحظة', 'ملاحظـات', 'مرفقات', 'تعليق', 'تعليقات', 'إضافات'
   ],
 };
@@ -167,7 +152,6 @@ function matchesPattern(columnName: string, patterns: string[]): boolean {
 function detectColumnMapping(headers: string[]): Record<string, number> {
   const mapping: Record<string, number> = {};
   
-  // IMPORTANT: Do NOT reverse column order for RTL sheets - use physical order
   headers.forEach((header, index) => {
     if (!header) return;
     
@@ -182,28 +166,68 @@ function detectColumnMapping(headers: string[]): Record<string, number> {
   return mapping;
 }
 
-function extractBOQItems(sheet: XLSX.WorkSheet, maxRows: number = 1000): ExcelBOQItem[] {
-  const items: ExcelBOQItem[] = [];
+// Get cell value handling different types
+function getCellValue(cell: ExcelJS.Cell): string | number | undefined {
+  const value = cell.value;
+  
+  if (value === null || value === undefined) return undefined;
+  
+  // Handle formula results
+  if (typeof value === 'object' && 'result' in value) {
+    return (value as ExcelJS.CellFormulaValue).result as string | number;
+  }
+  
+  // Handle rich text
+  if (typeof value === 'object' && 'richText' in value) {
+    return (value as ExcelJS.CellRichTextValue).richText.map(rt => rt.text).join('');
+  }
+  
+  // Handle hyperlink
+  if (typeof value === 'object' && 'text' in value) {
+    return (value as ExcelJS.CellHyperlinkValue).text;
+  }
+  
+  // Handle date
+  if (value instanceof Date) {
+    return value.toISOString().split('T')[0];
+  }
+  
+  return value as string | number;
+}
 
-  // NOTE: xlsx "range" with a number is a *start row*, not a row limit.
-  // We slice to maxRows to avoid skipping the first rows (which caused empty results).
-  const data = XLSX.utils
-    .sheet_to_json<string[]>(sheet, {
-      header: 1,
-      defval: '',
-    })
-    .slice(0, maxRows);
+// Convert worksheet to array of arrays
+function worksheetToArray(worksheet: ExcelJS.Worksheet, maxRows: number = 1000): (string | number | undefined)[][] {
+  const result: (string | number | undefined)[][] = [];
+  let rowCount = 0;
+  
+  worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+    if (rowCount >= maxRows) return;
+    
+    const rowData: (string | number | undefined)[] = [];
+    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      rowData[colNumber - 1] = getCellValue(cell);
+    });
+    
+    result.push(rowData);
+    rowCount++;
+  });
+  
+  return result;
+}
+
+function extractBOQItems(data: (string | number | undefined)[][], maxRows: number = 1000): ExcelBOQItem[] {
+  const items: ExcelBOQItem[] = [];
 
   if (data.length < 2) return items;
 
-  // Find the best header row (prefer rows that match known BOQ column patterns)
+  // Find the best header row
   let headerRowIndex = 0;
   let bestScore = -1;
   const headerScanLimit = Math.min(20, data.length);
 
   for (let i = 0; i < headerScanLimit; i++) {
     const row = data[i] || [];
-    const nonEmptyCells = row.filter(cell => cell && cell.toString().trim()).length;
+    const nonEmptyCells = row.filter(cell => cell !== undefined && cell !== null && String(cell).trim() !== '').length;
     if (nonEmptyCells < 3) continue;
 
     const candidateHeaders = row.map(h => h?.toString() || '');
@@ -220,7 +244,7 @@ function extractBOQItems(sheet: XLSX.WorkSheet, maxRows: number = 1000): ExcelBO
   if (bestScore <= 0) {
     for (let i = 0; i < headerScanLimit; i++) {
       const row = data[i] || [];
-      const nonEmptyCells = row.filter(cell => cell && cell.toString().trim()).length;
+      const nonEmptyCells = row.filter(cell => cell !== undefined && cell !== null && String(cell).trim() !== '').length;
       if (nonEmptyCells >= 3) {
         headerRowIndex = i;
         break;
@@ -231,7 +255,7 @@ function extractBOQItems(sheet: XLSX.WorkSheet, maxRows: number = 1000): ExcelBO
   const headers = (data[headerRowIndex] || []).map(h => h?.toString() || '');
   let columnMapping = detectColumnMapping(headers);
 
-  // If no headers matched at all, use a safe positional fallback (common BOQ order)
+  // If no headers matched at all, use a safe positional fallback
   if (Object.keys(columnMapping).length === 0) {
     columnMapping = {
       itemNo: 0,
@@ -244,7 +268,7 @@ function extractBOQItems(sheet: XLSX.WorkSheet, maxRows: number = 1000): ExcelBO
     };
   }
 
-  // Extract items - limit to maxRows
+  // Extract items
   const endRow = Math.min(data.length, maxRows);
   for (let i = headerRowIndex + 1; i < endRow; i++) {
     const row = data[i];
@@ -252,7 +276,7 @@ function extractBOQItems(sheet: XLSX.WorkSheet, maxRows: number = 1000): ExcelBO
 
     const item: ExcelBOQItem = {};
 
-    // Map known columns - apply Arabic number conversion
+    // Map known columns with Arabic number conversion
     if (columnMapping.itemNo !== undefined) {
       const rawValue = row[columnMapping.itemNo]?.toString();
       item.itemNo = convertArabicNumbers(rawValue || '');
@@ -284,19 +308,13 @@ function extractBOQItems(sheet: XLSX.WorkSheet, maxRows: number = 1000): ExcelBO
   return items;
 }
 
-function sheetToText(sheet: XLSX.WorkSheet, maxRows: number = 300): string {
-  const data = XLSX.utils
-    .sheet_to_json<string[]>(sheet, {
-      header: 1,
-      defval: '',
-    })
-    .slice(0, maxRows);
-
+function dataToText(data: (string | number | undefined)[][], maxRows: number = 300): string {
   const rows: string[] = [];
   const limit = Math.min(data.length, maxRows);
 
   for (let i = 0; i < limit; i++) {
     const row = data[i];
+    if (!row) continue;
     const text = row
       .map(cell => cell?.toString().trim() || '')
       .filter(Boolean)
@@ -307,6 +325,23 @@ function sheetToText(sheet: XLSX.WorkSheet, maxRows: number = 300): string {
   return rows.join('\n');
 }
 
+// Clean mojibake (encoding corruption) from text
+function cleanMojibake(text: string | undefined): string | undefined {
+  if (!text) return text;
+  
+  const mojibakePattern = /p[\*ˆ˜°´¸¹²³µ¶·ºª¡¿€£¥¢¤®©™±×÷«»‹›""''‚„†‡…‰ËŽxÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿA-Za-z]+/gi;
+  
+  if (mojibakePattern.test(text)) {
+    return text
+      .replace(/[\u0080-\u00FF]+/g, '')
+      .replace(mojibakePattern, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim() || text;
+  }
+  
+  return text;
+}
+
 export interface ExcelProgressCallback {
   (stage: 'reading' | 'parsing' | 'extracting' | 'formatting', progress: number, message?: string): void;
 }
@@ -315,146 +350,86 @@ export async function extractDataFromExcel(
   file: File, 
   onProgress?: ExcelProgressCallback
 ): Promise<ExcelExtractionResult> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    
-    // Report initial progress
-    onProgress?.('reading', 0, 'جاري قراءة الملف...');
-    
-    reader.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const percent = Math.round((event.loaded / event.total) * 100);
-        onProgress?.('reading', percent, `جاري قراءة الملف... ${percent}%`);
-      }
-    };
-    
-    reader.onload = (e) => {
-      try {
-        onProgress?.('parsing', 0, 'جاري تحليل البيانات...');
-        
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        
-        // OPTIMIZED: Use minimal parsing options for speed with better Arabic support
-        const workbook = XLSX.read(data, { 
-          type: 'array',
-          codepage: 65001,     // UTF-8 for Arabic support
-          cellFormula: false,  // Skip formulas
-          cellHTML: false,     // Skip HTML
-          cellStyles: false,   // Skip styles - major speedup!
-          cellNF: false,       // Skip number formats
-          sheetRows: 2000,     // Increased for larger Arabic files
-          dense: false,        // Use sparse format for efficiency
-          WTF: false,          // Don't throw on unknown features
-          raw: false,          // Process values for better Arabic handling
-        });
-        
-        onProgress?.('parsing', 50, 'تم تحليل الملف بنجاح');
-        
-        const sheetNames = workbook.SheetNames;
-        let allText = '';
-        let allItems: ExcelBOQItem[] = [];
-        let totalRows = 0;
-        
-        // OPTIMIZED: Process max 3 sheets
-        const sheetsToProcess = Math.min(sheetNames.length, 3);
-        
-        for (let i = 0; i < sheetsToProcess; i++) {
-          const sheetName = sheetNames[i];
-          const sheetProgress = Math.round(((i + 1) / sheetsToProcess) * 100);
-          onProgress?.('extracting', sheetProgress, `جاري استخراج الورقة ${i + 1} من ${sheetsToProcess}: ${sheetName}`);
-          
-          const sheet = workbook.Sheets[sheetName];
-          const text = sheetToText(sheet, 300);
-          const items = extractBOQItems(sheet, 500);
-          
-          if (text) {
-            if (i > 0) allText += '\n\n--- ' + sheetName + ' ---\n\n';
-            allText += text;
-          }
-          
-          allItems = allItems.concat(items);
-          
-          const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
-          totalRows += Math.min(range.e.r - range.s.r + 1, 500);
-        }
-        
-        onProgress?.('formatting', 50, 'جاري تنسيق البيانات...');
-        
-        // Clean up any mojibake and normalize Arabic text in extracted items
-        allItems = allItems.map(item => ({
-          ...item,
-          itemNo: cleanMojibake(convertArabicNumbers(item.itemNo || '')),
-          description: cleanMojibake(item.description),
-          unit: cleanMojibake(item.unit),
-          // Re-parse numbers with Arabic support
-          quantity: parseArabicNumber(item.quantity),
-          unitPrice: parseArabicNumber(item.unitPrice),
-          totalPrice: parseArabicNumber(item.totalPrice),
-        }));
-        
-        onProgress?.('formatting', 100, `تم استخراج ${allItems.length} عنصر`);
-        
-        resolve({
-          text: cleanMojibake(allText) || allText,
-          items: allItems,
-          sheetNames,
-          totalRows,
-        });
-      } catch (error) {
-        reject(new Error('فشل قراءة ملف Excel: ' + (error instanceof Error ? error.message : 'خطأ غير معروف')));
-      }
-    };
-    
-    reader.onerror = () => {
-      reject(new Error('فشل تحميل ملف Excel'));
-    };
-    
-    reader.readAsArrayBuffer(file);
-  });
-}
-
-// Clean mojibake (encoding corruption) from text
-function cleanMojibake(text: string | undefined): string | undefined {
-  if (!text) return text;
+  onProgress?.('reading', 0, 'جاري قراءة الملف...');
   
-  // Pattern for common mojibake sequences (corrupted Arabic)
-  const mojibakePattern = /p[\*ˆ˜°´¸¹²³µ¶·ºª¡¿€£¥¢¤®©™±×÷«»‹›""''‚„†‡…‰ËŽxÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿA-Za-z]+/gi;
+  const buffer = await file.arrayBuffer();
   
-  if (mojibakePattern.test(text)) {
-    // Text is corrupted, try to clean it
-    return text
-      .replace(/[\u0080-\u00FF]+/g, '') // Remove Latin-1 supplement
-      .replace(mojibakePattern, '')
-      .replace(/\s{2,}/g, ' ')
-      .trim() || text; // Return original if cleaning results in empty string
+  onProgress?.('parsing', 0, 'جاري تحليل البيانات...');
+  
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  
+  onProgress?.('parsing', 50, 'تم تحليل الملف بنجاح');
+  
+  const sheetNames = workbook.worksheets.map(ws => ws.name);
+  let allText = '';
+  let allItems: ExcelBOQItem[] = [];
+  let totalRows = 0;
+  
+  // Process max 3 sheets
+  const sheetsToProcess = Math.min(sheetNames.length, 3);
+  
+  for (let i = 0; i < sheetsToProcess; i++) {
+    const sheetName = sheetNames[i];
+    const sheetProgress = Math.round(((i + 1) / sheetsToProcess) * 100);
+    onProgress?.('extracting', sheetProgress, `جاري استخراج الورقة ${i + 1} من ${sheetsToProcess}: ${sheetName}`);
+    
+    const worksheet = workbook.getWorksheet(sheetName);
+    if (!worksheet) continue;
+    
+    const data = worksheetToArray(worksheet, 500);
+    const text = dataToText(data, 300);
+    const items = extractBOQItems(data, 500);
+    
+    if (text) {
+      if (i > 0) allText += '\n\n--- ' + sheetName + ' ---\n\n';
+      allText += text;
+    }
+    
+    allItems = allItems.concat(items);
+    totalRows += Math.min(worksheet.rowCount, 500);
   }
   
-  return text;
+  onProgress?.('formatting', 50, 'جاري تنسيق البيانات...');
+  
+  // Clean up any mojibake and normalize Arabic text
+  allItems = allItems.map(item => ({
+    ...item,
+    itemNo: cleanMojibake(convertArabicNumbers(item.itemNo || '')),
+    description: cleanMojibake(item.description),
+    unit: cleanMojibake(item.unit),
+    quantity: parseArabicNumber(item.quantity),
+    unitPrice: parseArabicNumber(item.unitPrice),
+    totalPrice: parseArabicNumber(item.totalPrice),
+  }));
+  
+  onProgress?.('formatting', 100, `تم استخراج ${allItems.length} عنصر`);
+  
+  return {
+    text: cleanMojibake(allText) || allText,
+    items: allItems,
+    sheetNames,
+    totalRows,
+  };
 }
 
-// NEW: Extract all rows exactly as they are from Excel
-export function extractRawExcelData(sheet: XLSX.WorkSheet, maxRows: number = 1000): Array<Record<string, any>> {
-  const data = XLSX.utils
-    .sheet_to_json<any[]>(sheet, {
-      header: 1,
-      defval: '',
-      raw: true,
-    })
-    .slice(0, maxRows);
+// Extract raw Excel data with original values
+export function extractRawExcelData(worksheet: ExcelJS.Worksheet, maxRows: number = 1000): Array<Record<string, unknown>> {
+  const data = worksheetToArray(worksheet, maxRows);
 
   if (data.length < 2) return [];
 
-  // Find header row (best effort)
+  // Find header row
   let headerRowIndex = 0;
   let bestScore = -1;
   const headerScanLimit = Math.min(20, data.length);
 
   for (let i = 0; i < headerScanLimit; i++) {
     const row = data[i] || [];
-    const nonEmptyCells = row?.filter((cell: any) => cell !== undefined && cell !== null && String(cell).trim() !== '').length || 0;
+    const nonEmptyCells = row.filter(cell => cell !== undefined && cell !== null && String(cell).trim() !== '').length;
     if (nonEmptyCells < 3) continue;
 
-    const candidateHeaders = row.map((h: any) => (h !== undefined && h !== null ? String(h).trim() : ''));
+    const candidateHeaders = row.map(h => h !== undefined && h !== null ? String(h).trim() : '');
     const candidateMapping = detectColumnMapping(candidateHeaders);
     const score = Object.keys(candidateMapping).length;
 
@@ -467,7 +442,7 @@ export function extractRawExcelData(sheet: XLSX.WorkSheet, maxRows: number = 100
   if (bestScore <= 0) {
     for (let i = 0; i < headerScanLimit; i++) {
       const row = data[i] || [];
-      const nonEmptyCells = row?.filter((cell: any) => cell !== undefined && cell !== null && String(cell).trim() !== '').length || 0;
+      const nonEmptyCells = row.filter(cell => cell !== undefined && cell !== null && String(cell).trim() !== '').length;
       if (nonEmptyCells >= 3) {
         headerRowIndex = i;
         break;
@@ -475,21 +450,21 @@ export function extractRawExcelData(sheet: XLSX.WorkSheet, maxRows: number = 100
     }
   }
 
-  const headers = (data[headerRowIndex] || []).map((h: any, idx: number) => {
+  const headers = (data[headerRowIndex] || []).map((h, idx) => {
     const header = h !== undefined && h !== null ? String(h).trim() : '';
     return header || `Column_${idx + 1}`;
   });
 
-  const rows: Array<Record<string, any>> = [];
+  const rows: Array<Record<string, unknown>> = [];
 
   for (let i = headerRowIndex + 1; i < Math.min(data.length, maxRows); i++) {
     const row = data[i];
-    if (!row || row.every((cell: any) => cell === undefined || cell === null || String(cell).trim() === '')) continue;
+    if (!row || row.every(cell => cell === undefined || cell === null || String(cell).trim() === '')) continue;
 
-    const rowData: Record<string, any> = {};
+    const rowData: Record<string, unknown> = {};
     let hasData = false;
 
-    headers.forEach((header: string, idx: number) => {
+    headers.forEach((header, idx) => {
       const cellValue = row[idx];
       if (cellValue !== undefined && cellValue !== null) {
         rowData[header] = cellValue;
@@ -505,127 +480,95 @@ export function extractRawExcelData(sheet: XLSX.WorkSheet, maxRows: number = 100
   return rows;
 }
 
-// OPTIMIZED: Fast extraction for historical pricing - preserves all data as-is
+// OPTIMIZED: Fast extraction for historical pricing
 export async function extractRawDataFromExcel(
   file: File,
   onProgress?: ExcelProgressCallback
 ): Promise<{ 
-  rows: Array<Record<string, any>>;
+  rows: Array<Record<string, unknown>>;
   headers: string[];
   sheetNames: string[];
   totalRows: number;
 }> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
+  const buffer = await file.arrayBuffer();
+  
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  
+  const sheetNames = workbook.worksheets.map(ws => ws.name);
+  
+  if (sheetNames.length === 0) {
+    return { rows: [], headers: [], sheetNames: [], totalRows: 0 };
+  }
+  
+  const worksheet = workbook.worksheets[0];
+  const data = worksheetToArray(worksheet, 1000);
+  
+  if (data.length < 2) {
+    return { rows: [], headers: [], sheetNames, totalRows: 0 };
+  }
+  
+  // Quick header detection (first row with 3+ cells)
+  let headerRowIndex = 0;
+  const maxHeaderSearch = Math.min(5, data.length);
+  for (let i = 0; i < maxHeaderSearch; i++) {
+    const row = data[i];
+    if (row && row.filter(c => c != null && String(c).trim()).length >= 3) {
+      headerRowIndex = i;
+      break;
+    }
+  }
+  
+  const headerRow = data[headerRowIndex] || [];
+  const headers = headerRow.map((h, idx) => 
+    (h != null && String(h).trim()) || `Column_${idx + 1}`
+  );
+  
+  // Fast row extraction with Arabic number conversion
+  const rows: Array<Record<string, unknown>> = [];
+  const dataEndIndex = Math.min(data.length, 1000);
+  
+  for (let i = headerRowIndex + 1; i < dataEndIndex; i++) {
+    const row = data[i];
+    if (!row) continue;
     
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        
-        // MAXIMUM SPEED with Arabic support: Disable unnecessary features
-        const workbook = XLSX.read(data, { 
-          type: 'array',
-          codepage: 65001,     // UTF-8 for Arabic support
-          cellFormula: false,
-          cellHTML: false,
-          cellStyles: false,
-          cellNF: false,
-          cellDates: false,
-          sheetRows: 1000,     // Increased for larger files
-          raw: true,
-          dense: false,
-        });
-        
-        const sheetNames = workbook.SheetNames;
-        
-        if (sheetNames.length === 0) {
-          resolve({ rows: [], headers: [], sheetNames: [], totalRows: 0 });
-          return;
-        }
-        
-        const sheet = workbook.Sheets[sheetNames[0]];
-        
-        // Fast extraction using sheet_to_json directly
-        const rawData = XLSX.utils.sheet_to_json<any[]>(sheet, { 
-          header: 1, 
-          defval: '',
-          blankrows: false 
-        });
-        
-        if (rawData.length < 2) {
-          resolve({ rows: [], headers: [], sheetNames, totalRows: 0 });
-          return;
-        }
-        
-        // Quick header detection (first row with 3+ cells)
-        let headerRowIndex = 0;
-        const maxHeaderSearch = Math.min(5, rawData.length);
-        for (let i = 0; i < maxHeaderSearch; i++) {
-          const row = rawData[i];
-          if (row && row.filter((c: any) => c != null && String(c).trim()).length >= 3) {
-            headerRowIndex = i;
-            break;
-          }
-        }
-        
-        const headerRow = rawData[headerRowIndex] || [];
-        const headers = headerRow.map((h: any, idx: number) => 
-          (h != null && String(h).trim()) || `Column_${idx + 1}`
-        );
-        
-        // Fast row extraction with Arabic number conversion
-        const rows: Array<Record<string, any>> = [];
-        const dataEndIndex = Math.min(rawData.length, 1000);
-        
-        for (let i = headerRowIndex + 1; i < dataEndIndex; i++) {
-          const row = rawData[i];
-          if (!row) continue;
-          
-          const rowData: Record<string, any> = {};
-          let hasData = false;
-          
-          for (let j = 0; j < headers.length; j++) {
-            let val = row[j];
-            if (val != null && val !== '') {
-              // Convert Arabic numbers if it's a string that looks like a number
-              if (typeof val === 'string') {
-                const converted = convertArabicNumbers(normalizeArabicNumbers(val));
-                // Try to parse as number if it looks numeric
-                if (/^[\d.,\-+]+$/.test(converted.trim())) {
-                  const parsed = parseFloat(converted.replace(/,/g, ''));
-                  if (!isNaN(parsed)) {
-                    val = parsed;
-                  } else {
-                    val = converted;
-                  }
-                } else {
-                  val = converted;
-                }
-              }
-              rowData[headers[j]] = val;
-              hasData = true;
+    const rowData: Record<string, unknown> = {};
+    let hasData = false;
+    
+    for (let j = 0; j < headers.length; j++) {
+      let val = row[j];
+      if (val != null && val !== '') {
+        // Convert Arabic numbers if it's a string that looks like a number
+        if (typeof val === 'string') {
+          const converted = convertArabicNumbers(normalizeArabicNumbers(val));
+          // Try to parse as number if it looks numeric
+          if (/^[\d.,\-+]+$/.test(converted.trim())) {
+            const parsed = parseFloat(converted.replace(/,/g, ''));
+            if (!isNaN(parsed)) {
+              val = parsed;
+            } else {
+              val = converted;
             }
+          } else {
+            val = converted;
           }
-          
-          if (hasData) rows.push(rowData);
         }
-        
-        onProgress?.('formatting', 100, `تم استخراج ${rows.length} صف`);
-        
-        resolve({
-          rows,
-          headers,
-          sheetNames,
-          totalRows: rows.length,
-        });
-      } catch (error) {
-        reject(new Error('فشل قراءة ملف Excel'));
+        rowData[headers[j]] = val;
+        hasData = true;
       }
-    };
+    }
     
-    reader.onerror = () => reject(new Error('فشل تحميل ملف Excel'));
-    reader.readAsArrayBuffer(file);
-  });
+    if (hasData) rows.push(rowData);
+  }
+  
+  onProgress?.('formatting', 100, `تم استخراج ${rows.length} صف`);
+  
+  return {
+    rows,
+    headers,
+    sheetNames,
+    totalRows: rows.length,
+  };
 }
 
 export function formatExcelDataForAnalysis(result: ExcelExtractionResult): string {

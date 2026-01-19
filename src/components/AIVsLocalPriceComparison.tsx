@@ -23,7 +23,7 @@ import {
 import { useLanguage } from "@/hooks/useLanguage";
 import { useMaterialPrices, MaterialPrice, MATERIAL_CATEGORIES } from "@/hooks/useMaterialPrices";
 import { cn } from "@/lib/utils";
-import * as XLSX from 'xlsx';
+import { createWorkbook, addJsonSheet, downloadWorkbook } from "@/lib/exceljs-utils";
 import { toast } from 'sonner';
 
 interface BOQItem {
@@ -142,10 +142,9 @@ export const AIVsLocalPriceComparison = ({
         (isArabic ? 'لا يوجد تطابق' : 'No Match'),
     }));
 
-    const ws = XLSX.utils.json_to_sheet(reportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, isArabic ? 'مقارنة الأسعار' : 'Price Comparison');
-    XLSX.writeFile(wb, `price-comparison-${new Date().toISOString().split('T')[0]}.xlsx`);
+    const wb = createWorkbook();
+    addJsonSheet(wb, reportData, isArabic ? 'مقارنة الأسعار' : 'Price Comparison');
+    downloadWorkbook(wb, `price-comparison-${new Date().toISOString().split('T')[0]}.xlsx`);
     toast.success(isArabic ? 'تم تصدير التقرير' : 'Report exported');
   };
 

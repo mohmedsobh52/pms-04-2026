@@ -2,15 +2,20 @@ import { Download, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useToast } from "@/hooks/use-toast";
-import * as XLSX from 'xlsx';
+import { 
+  createWorkbook, 
+  addArraySheet, 
+  setColumnWidths, 
+  downloadWorkbook 
+} from "@/lib/exceljs-utils";
 
 export function BOQTemplateDownload() {
   const { isArabic, t } = useLanguage();
   const { toast } = useToast();
 
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
     // Create workbook
-    const wb = XLSX.utils.book_new();
+    const wb = createWorkbook();
 
     // Define headers in both Arabic and English
     const headers = [
@@ -34,19 +39,8 @@ export function BOQTemplateDownload() {
       ['5', 'أعمال البلوك', 'بلوك خرساني 20 سم', 'م²', '800', '85', '68000', ''],
     ];
 
-    const wsArabic = XLSX.utils.aoa_to_sheet(arabicData);
-    
-    // Set column widths for Arabic sheet
-    wsArabic['!cols'] = [
-      { wch: 12 },  // Item No
-      { wch: 35 },  // Description
-      { wch: 40 },  // Specifications
-      { wch: 10 },  // Unit
-      { wch: 12 },  // Quantity
-      { wch: 15 },  // Unit Price
-      { wch: 15 },  // Total
-      { wch: 20 },  // Notes
-    ];
+    const wsArabic = addArraySheet(wb, arabicData, 'BOQ عربي');
+    setColumnWidths(wsArabic, [12, 35, 40, 10, 12, 15, 15, 20]);
 
     // Create English sheet
     const englishData = [
@@ -58,27 +52,12 @@ export function BOQTemplateDownload() {
       ['5', 'Block Work', 'Concrete blocks 20cm', 'm²', '800', '85', '68000', ''],
     ];
 
-    const wsEnglish = XLSX.utils.aoa_to_sheet(englishData);
-    
-    // Set column widths for English sheet
-    wsEnglish['!cols'] = [
-      { wch: 12 },  // Item No
-      { wch: 35 },  // Description
-      { wch: 40 },  // Specifications
-      { wch: 10 },  // Unit
-      { wch: 12 },  // Quantity
-      { wch: 15 },  // Unit Price
-      { wch: 15 },  // Total
-      { wch: 20 },  // Notes
-    ];
-
-    // Add sheets to workbook
-    XLSX.utils.book_append_sheet(wb, wsArabic, 'BOQ عربي');
-    XLSX.utils.book_append_sheet(wb, wsEnglish, 'BOQ English');
+    const wsEnglish = addArraySheet(wb, englishData, 'BOQ English');
+    setColumnWidths(wsEnglish, [12, 35, 40, 10, 12, 15, 15, 20]);
 
     // Generate and download file
     const fileName = isArabic ? 'قالب_جدول_الكميات.xlsx' : 'BOQ_Template.xlsx';
-    XLSX.writeFile(wb, fileName);
+    await downloadWorkbook(wb, fileName);
 
     toast({
       title: t('templateDownloaded'),

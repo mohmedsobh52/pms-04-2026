@@ -42,9 +42,9 @@ import {
   Layers,
   FileSpreadsheet
 } from "lucide-react";
-import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import { createWorkbook, addJsonSheet, downloadWorkbook } from "@/lib/exceljs-utils";
 
 interface ProjectAttachment {
   id: string;
@@ -228,14 +228,14 @@ export function DrawingQuantityExtractor({
     return quantities;
   };
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     const quantities = getAllQuantities();
     if (quantities.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
     }
 
-    const ws = XLSX.utils.json_to_sheet(quantities.map((q, index) => ({
+    const data = quantities.map((q, index) => ({
       "Item No.": q.item_number || index + 1,
       "Category": q.category,
       "Description": q.description,
@@ -243,11 +243,11 @@ export function DrawingQuantityExtractor({
       "Unit": q.unit,
       "Measurement Basis": q.measurement_basis,
       "Notes": q.notes
-    })));
+    }));
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Quantities");
-    XLSX.writeFile(wb, `Quantity_Takeoff_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const wb = createWorkbook();
+    addJsonSheet(wb, data, "Quantities");
+    await downloadWorkbook(wb, `Quantity_Takeoff_${new Date().toISOString().split('T')[0]}.xlsx`);
     toast.success(isArabic ? "تم التصدير بنجاح" : "Exported successfully");
   };
 
@@ -492,23 +492,21 @@ export function DrawingQuantityExtractor({
                           <TableHead>#</TableHead>
                           <TableHead>{isArabic ? "الفئة" : "Category"}</TableHead>
                           <TableHead>{isArabic ? "الوصف" : "Description"}</TableHead>
-                          <TableHead className="text-right">{isArabic ? "الكمية" : "Qty"}</TableHead>
+                          <TableHead>{isArabic ? "الكمية" : "Qty"}</TableHead>
                           <TableHead>{isArabic ? "الوحدة" : "Unit"}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {getAllQuantities().slice(0, 20).map((q, index) => (
+                        {getAllQuantities().map((q, index) => (
                           <TableRow key={index}>
                             <TableCell>{q.item_number || index + 1}</TableCell>
                             <TableCell>
                               <Badge variant="outline">{q.category}</Badge>
                             </TableCell>
-                            <TableCell className="max-w-xs truncate">
+                            <TableCell className="max-w-[200px] truncate">
                               {q.description}
                             </TableCell>
-                            <TableCell className="text-right font-medium">
-                              {q.quantity}
-                            </TableCell>
+                            <TableCell>{q.quantity}</TableCell>
                             <TableCell>{q.unit}</TableCell>
                           </TableRow>
                         ))}
@@ -520,16 +518,41 @@ export function DrawingQuantityExtractor({
             )}
 
             {/* Export Actions */}
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={exportToExcel} className="gap-2">
-                <FileSpreadsheet className="w-4 h-4" />
-                {isArabic ? "تصدير Excel" : "Export Excel"}
-              </Button>
-              <Button variant="outline" onClick={exportToPDF} className="gap-2">
-                <Download className="w-4 h-4" />
-                {isArabic ? "تصدير PDF" : "Export PDF"}
-              </Button>
-            </div>
+            {getAllQuantities().length > 0 && (
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={exportToExcel} className="gap-2">
+                  <FileSpreadsheet className="w-4 h-4" />
+                  {isArabic ? "تصدير Excel" : "Export Excel"}
+                </Button>
+                <Button variant="outline" onClick={exportToPDF} className="gap-2">
+                  <Download className="w-4 h-4" />
+                  {isArabic ? "تصدير PDF" : "Export PDF"}
+                </Button>
+              </div>
+            )}
+
+            {/* Failed Files */}
+            {results.filter(r => !r.success).length > 0 && (
+              <Card className="border-destructive">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2 text-destructive">
+                    <AlertCircle className="w-5 h-5" />
+                    {isArabic ? "ملفات فشل تحليلها" : "Failed Files"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {results.filter(r => !r.success).map((result, index) => (
+                      <div key={index} className="flex items-center gap-2 text-sm">
+                        <AlertCircle className="w-4 h-4 text-destructive" />
+                        <span className="font-medium">{result.fileName}:</span>
+                        <span className="text-muted-foreground">{result.error}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </DialogContent>

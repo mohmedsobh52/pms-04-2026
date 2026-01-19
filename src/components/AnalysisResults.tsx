@@ -60,7 +60,7 @@ import { EditableItemCode } from "./EditableItemCode";
 import { EditableAIRate } from "./EditableAIRate";
 import { EditableUnitPrice } from "./EditableUnitPrice";
 import { ItemCodeSettings } from "./ItemCodeSettings";
-import * as XLSX from "xlsx";
+import { createWorkbook, addJsonSheet, downloadWorkbook } from "@/lib/exceljs-utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -761,23 +761,19 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
       "العناصر": item.items.join(", ") || "-"
     })) || [];
 
-    // Create workbook
-    const wb = XLSX.utils.book_new();
+    // Create workbook using exceljs
+    const wb = createWorkbook();
     
     // Add sheets
-    const ws1 = XLSX.utils.json_to_sheet(itemsData);
-    XLSX.utils.book_append_sheet(wb, ws1, "جدول الكميات");
-    
-    const ws2 = XLSX.utils.json_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, ws2, "الملخص");
+    addJsonSheet(wb, itemsData, "جدول الكميات");
+    addJsonSheet(wb, summaryData, "الملخص");
     
     if (wbsSheetData.length > 0) {
-      const ws3 = XLSX.utils.json_to_sheet(wbsSheetData);
-      XLSX.utils.book_append_sheet(wb, ws3, "هيكل تجزئة العمل");
+      addJsonSheet(wb, wbsSheetData, "هيكل تجزئة العمل");
     }
 
     // Download
-    XLSX.writeFile(wb, "boq_analysis.xlsx");
+    downloadWorkbook(wb, "boq_analysis.xlsx");
   };
 
   const exportToWord = () => {

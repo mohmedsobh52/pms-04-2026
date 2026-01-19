@@ -17,7 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { extractRawDataFromExcel } from "@/lib/excel-utils";
-import * as XLSX from 'xlsx';
+import { createWorkbook, addJsonSheet, downloadWorkbook } from "@/lib/exceljs-utils";
 import * as pdfjsLib from 'pdfjs-dist';
 import { Link } from "react-router-dom";
 import { PageLayout } from "@/components/PageLayout";
@@ -252,15 +252,14 @@ export default function HistoricalPricingPage() {
   const handleExportToExcel = () => {
     if (uploadedItems.length === 0) return;
 
-    const ws = XLSX.utils.json_to_sheet(uploadedItems, { header: uploadedHeaders });
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Extracted Data');
+    const wb = createWorkbook();
+    addJsonSheet(wb, uploadedItems, 'Extracted Data', { header: uploadedHeaders });
     
     const fileName = uploadedFileName ? 
       `extracted_${uploadedFileName.replace(/\.[^/.]+$/, '')}.xlsx` : 
       'extracted_data.xlsx';
     
-    XLSX.writeFile(wb, fileName);
+    downloadWorkbook(wb, fileName);
     
     toast({
       title: "✅ تم التصدير",
@@ -273,12 +272,11 @@ export default function HistoricalPricingPage() {
     if (!file.items || file.items.length === 0) return;
 
     const headers = Object.keys(file.items[0] || {});
-    const ws = XLSX.utils.json_to_sheet(file.items, { header: headers });
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Data');
+    const wb = createWorkbook();
+    addJsonSheet(wb, file.items, 'Data', { header: headers });
     
     const fileName = `${file.project_name.replace(/[^a-zA-Z0-9أ-ي]/g, '_')}.xlsx`;
-    XLSX.writeFile(wb, fileName);
+    downloadWorkbook(wb, fileName);
     
     toast({
       title: "✅ تم التصدير",
