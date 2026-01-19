@@ -13,7 +13,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { useMaterialPrices, MaterialPrice, MATERIAL_CATEGORIES } from "@/hooks/useMaterialPrices";
 import { firecrawlApi } from "@/lib/api/firecrawl";
 import { toast } from 'sonner';
-import * as XLSX from 'xlsx';
+import { XLSX } from '@/lib/exceljs-utils';
 
 export const MaterialPriceDatabase = () => {
   const { isArabic } = useLanguage();

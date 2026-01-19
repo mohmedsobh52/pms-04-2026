@@ -35,7 +35,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
-import * as XLSX from "xlsx";
+import { XLSX } from "@/lib/exceljs-utils";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 

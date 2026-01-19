@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
-import * as XLSX from 'xlsx';
+import { XLSX } from '@/lib/exceljs-utils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ThemeToggle } from "@/components/ThemeToggle";

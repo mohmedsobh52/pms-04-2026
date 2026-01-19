@@ -28,7 +28,7 @@ import {
   Table,
   ListTree
 } from "lucide-react";
-import * as XLSX from "xlsx";
+import { XLSX } from "@/lib/exceljs-utils";
 import { useSignedUrl } from "@/hooks/useSignedUrl";
 import { SignedUrlExpiry } from "./SignedUrlExpiry";
 

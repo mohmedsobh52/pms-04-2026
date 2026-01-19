@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import * as XLSX from 'xlsx';
+import { XLSX } from '@/lib/exceljs-utils';
 
 const ITEM_CODES_STORAGE_KEY = 'boq_item_codes';
 const CODE_FORMAT_STORAGE_KEY = 'boq_code_format';

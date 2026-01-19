@@ -24,7 +24,7 @@ import {
   ClipboardList
 } from "lucide-react";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
+import { XLSX } from "@/lib/exceljs-utils";
 
 interface AnalyzedFile {
   id: string;

@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import * as XLSX from "xlsx";
+import { XLSX } from "@/lib/exceljs-utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 

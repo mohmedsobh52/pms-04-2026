@@ -399,6 +399,30 @@ export const XLSX = {
           return str;
         }).join(',')
       ).join('\n');
+    },
+
+    /**
+     * Convert sheet to JSON array
+     */
+    sheet_to_json<T = Record<string, unknown>>(sheet: XLSXSheet, options?: { header?: number | 1 }): T[] {
+      if (!Array.isArray(sheet) || sheet.length === 0) return [];
+      
+      const result: T[] = [];
+      const headers = sheet[0] as string[];
+      
+      for (let i = 1; i < sheet.length; i++) {
+        const row = sheet[i];
+        if (!row || row.every(cell => cell === null || cell === undefined || cell === '')) continue;
+        
+        const obj: Record<string, unknown> = {};
+        headers.forEach((header, idx) => {
+          const key = header?.toString() || `col_${idx}`;
+          obj[key] = row[idx] !== undefined ? row[idx] : '';
+        });
+        result.push(obj as T);
+      }
+      
+      return result;
     }
   },
 
