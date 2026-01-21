@@ -12,6 +12,7 @@ export interface WorkflowStep {
   status: StepStatus;
   icon: React.ReactNode;
   progress?: number; // 0-100
+  statusMessage?: string; // Dynamic status message (e.g., "Waiting 59s...")
 }
 
 interface WorkflowStatusProps {
@@ -96,6 +97,14 @@ export function WorkflowStatus({ steps }: WorkflowStatusProps) {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">{t(step.descriptionKey as any)}</p>
+                
+                {/* Dynamic status message (e.g., rate limit wait) */}
+                {step.status === 'processing' && step.statusMessage && (
+                  <p className="text-xs text-warning font-medium mt-1 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse" />
+                    {step.statusMessage}
+                  </p>
+                )}
                 
                 {/* Individual step progress bar */}
                 {step.status === 'processing' && step.progress !== undefined && (

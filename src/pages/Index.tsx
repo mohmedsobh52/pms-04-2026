@@ -203,6 +203,32 @@ const Index = () => {
     }
   }, [extractedText]);
 
+  // Sync Job Queue status with WorkflowStatus - CRITICAL for showing rate limit waits
+  useEffect(() => {
+    if (currentJob && isProcessing) {
+      // Update the "analyze" step with current job progress and status message
+      setWorkflowSteps(prev =>
+        prev.map(step => {
+          if (step.id === 'analyze') {
+            // Determine step status based on job status
+            let stepStatus: StepStatus = 'processing';
+            if (currentJob.status === 'completed') stepStatus = 'complete';
+            if (currentJob.status === 'failed' || currentJob.status === 'cancelled') stepStatus = 'error';
+            
+            return {
+              ...step,
+              status: stepStatus,
+              progress: currentJob.progressPercentage || step.progress,
+              // Pass the dynamic status message (e.g., "تجاوز الحد (429). انتظار 59 ثانية...")
+              statusMessage: currentJob.currentStep || undefined,
+            };
+          }
+          return step;
+        })
+      );
+    }
+  }, [currentJob, isProcessing]);
+
   const updateStepStatus = (stepId: string, status: StepStatus, progress?: number) => {
     setWorkflowSteps(prev =>
       prev.map(step =>
