@@ -130,10 +130,10 @@ const jitter = (baseMs: number) => {
   return baseMs + (Math.random() * variance * 2 - variance);
 };
 
-// STRONG exponential backoff for Job Queue: 15s, 30s, 60s, 90s, 120s
-// Longer waits in background since user isn't actively waiting
+// STRONGER exponential backoff for Job Queue: 20s, 40s, 60s, 90s, 120s, 180s
+// Longer waits in background since user isn't actively waiting - maximize success rate
 const getBackoffDelay = (attempt: number): number => {
-  const delays = [15000, 30000, 60000, 90000, 120000];
+  const delays = [20000, 40000, 60000, 90000, 120000, 180000];
   const baseDelay = delays[Math.min(attempt - 1, delays.length - 1)];
   return jitter(baseDelay);
 };
@@ -316,7 +316,7 @@ async function processJobInBackground(jobId: string, resume: boolean) {
     throw new Error('No AI key configured');
   }
 
-  const maxAttemptsPerChunk = 6; // Strong retry: 6 attempts per chunk with longer backoff
+  const maxAttemptsPerChunk = 8; // Very strong retry: 8 attempts per chunk with longer backoff
 
   // Helper function to process a single chunk with auto-resize
   async function processChunkWithAutoResize(
@@ -437,13 +437,17 @@ Chunk ${chunkIndex + 1}/${totalChunks}.`;
           if (response.status === 429 && attempt < maxAttemptsPerChunk) {
             const headerRetryAfter = response.headers.get('retry-after');
             const headerDelayMs = headerRetryAfter ? Number(headerRetryAfter) * 1000 : NaN;
+            // Use Retry-After header if valid, otherwise use exponential backoff
+            // Cap at 3 minutes max to prevent excessively long waits
             const delay = Number.isFinite(headerDelayMs) && headerDelayMs > 0
-              ? headerDelayMs
+              ? Math.min(headerDelayMs, 180000)
               : getBackoffDelay(attempt);
 
             const waitMsg = isArabic
-              ? `تجاوز الحد (429). انتظار ${Math.round(delay / 1000)} ثانية...`
-              : `Rate limited (429). Waiting ${Math.round(delay / 1000)}s...`;
+              ? `تجاوز الحد (429). انتظار ${Math.round(delay / 1000)} ثانية... (محاولة ${attempt}/${maxAttemptsPerChunk})`
+              : `Rate limited (429). Waiting ${Math.round(delay / 1000)}s... (attempt ${attempt}/${maxAttemptsPerChunk})`;
+
+            console.log(`[Job ${jobId}] ${waitMsg}`);
 
             await supabase
               .from('analysis_jobs')

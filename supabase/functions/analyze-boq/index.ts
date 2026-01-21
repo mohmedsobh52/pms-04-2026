@@ -609,9 +609,9 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
     // Helper function to sleep for exponential backoff
     const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-    // FASTER backoff: 5s, 10s only - return 429 quickly for Job Queue fallback
+    // STRONGER backoff: 10s, 20s, 40s, 60s - give AI providers time to recover
     const getBackoffDelay = (attempt: number): number => {
-      const delays = [5000, 10000]; // Only 2 quick retries
+      const delays = [10000, 20000, 40000, 60000]; // 4 retries with increasing waits
       const baseDelay = delays[Math.min(attempt, delays.length - 1)];
       // Add jitter (±10%) to avoid thundering herd
       const jitter = baseDelay * 0.1 * (Math.random() * 2 - 1);
@@ -626,9 +626,9 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
       rateLimitRetry = 0,
       providerSwitches = 0
     ): Promise<Response> => {
-      const maxRetries = 2; // Retries for timeouts
-      const maxRateLimitRetries = 2; // Quick retries - return 429 fast for Job Queue
-      const maxProviderSwitches = 1; // Max provider switches (auto mode)
+      const maxRetries = 3; // Retries for timeouts
+      const maxRateLimitRetries = 4; // Strong retries - give provider time to recover
+      const maxProviderSwitches = 2; // Allow 2 provider switches (auto mode)
 
       const controller = new AbortController();
       // Longer timeout for Arabic content: 180s, otherwise 120s
@@ -685,8 +685,16 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
 
         // Handle rate limiting (429) with STRONG exponential backoff
         if (resp.status === 429) {
+          // Check for Retry-After header from provider
+          const retryAfterHeader = resp.headers.get('retry-after');
+          const headerDelayMs = retryAfterHeader ? Number(retryAfterHeader) * 1000 : NaN;
+          
           if (rateLimitRetry < maxRateLimitRetries) {
-            const delayMs = getBackoffDelay(rateLimitRetry);
+            // Use Retry-After if valid, otherwise use exponential backoff
+            const delayMs = Number.isFinite(headerDelayMs) && headerDelayMs > 0
+              ? Math.min(headerDelayMs, 120000) // Cap at 2 minutes
+              : getBackoffDelay(rateLimitRetry);
+            
             console.log(
               `Rate limit hit for ${useOpenAI ? 'OpenAI' : 'Lovable AI'} (retry ${rateLimitRetry + 1}/${maxRateLimitRetries}). Waiting ${Math.round(delayMs/1000)}s...`
             );
@@ -754,29 +762,30 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
 
     if (!response.ok) {
       if (response.status === 429) {
-        console.error("Rate limit exceeded after 2 quick retries - returning for Job Queue fallback");
+        console.error("Rate limit exceeded after 4 strong retries - returning for Job Queue fallback");
         const isArabicLang = language === 'ar' || isArabicContent;
 
         // IMPORTANT: Return 200 to avoid client-side "Edge function returned 429" runtime crashes.
         // The client must rely on `errorCode` to detect this condition.
-        // Quick return for Job Queue fallback
+        // Return with Job Queue fallback signal
         return new Response(
           JSON.stringify({
             ok: false,
             statusCode: 429,
-            error: "Rate limit exceeded. Switching to background processing.",
+            error: "Rate limit exceeded after multiple retries. Switching to background processing.",
             errorCode: "RATE_LIMIT_429",
             suggestion: isArabicLang
-              ? "تجاوز حد الاستخدام. يتم التحويل للمعالجة الخلفية تلقائياً..."
-              : "Rate limit hit. Switching to background processing automatically...",
-            retryAfter: 30, // Shorter wait for Job Queue
-            retriesAttempted: 2,
+              ? "تجاوز حد الاستخدام بعد عدة محاولات. يتم التحويل للمعالجة الخلفية..."
+              : "Rate limit persisted. Switching to background processing...",
+            retryAfter: 60, // Longer wait for Job Queue
+            retriesAttempted: 4,
             provider: usedProvider,
             shouldUseJobQueue: true, // Signal to frontend to use Job Queue
             _meta: {
               isArabicContent,
               textLength: text.length,
               lastProvider: usedProvider,
+              totalRetryTimeSeconds: 130, // 10+20+40+60 = 130s of retries attempted
             }
           }),
           {
@@ -784,7 +793,7 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
             headers: {
               ...corsHeaders,
               "Content-Type": "application/json",
-              "Retry-After": "30",
+              "Retry-After": "60",
             },
           }
         );
