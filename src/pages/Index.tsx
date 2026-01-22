@@ -600,6 +600,13 @@ const Index = () => {
           chunkSize: analysisSettings.chunkSize * 1000,
           useCompression: analysisSettings.enableCompression,
           maxRetries: analysisSettings.maxRetries,
+          // Throttle settings from user preferences
+          enableThrottle: analysisSettings.enableThrottle,
+          maxRequestsPerMinute: analysisSettings.maxRequestsPerMinute,
+          delayBetweenChunks: analysisSettings.delayBetweenChunks,
+          // Arabic optimization
+          arabicOptimization: analysisSettings.arabicOptimization,
+          arabicChunkSize: analysisSettings.arabicChunkSize * 1000,
         });
 
         if (result?.items) {
