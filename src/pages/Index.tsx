@@ -40,6 +40,7 @@ import { ChunkedAnalysisPanel } from "@/components/ChunkedAnalysisPanel";
 import { AnalysisStatusPanel, useAnalysisStatus } from "@/components/AnalysisStatusPanel";
 import { AnalysisErrorCard, detectAnalysisErrorType, type AnalysisErrorInfo } from "@/components/AnalysisErrorCard";
 import { AIMonitoringDashboard } from "@/components/AIMonitoringDashboard";
+import { AICreditsCounter } from "@/components/AICreditsCounter";
 import { useChunkedAnalysis, compressText } from "@/hooks/useChunkedAnalysis";
 import { EstimatedAnalysisTime } from "@/components/EstimatedAnalysisTime";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1797,6 +1798,11 @@ const Index = () => {
 
             {/* Right Column - Workflow Status */}
             <div className="space-y-6">
+              {/* AI Credits Counter - Show during analysis or when throttle is enabled */}
+              {(isProcessing || getAnalysisSettings().enableThrottle) && (
+                <AICreditsCounter />
+              )}
+              
               <WorkflowStatus steps={workflowSteps} />
 
               {/* Saved Projects - only for logged in users */}
