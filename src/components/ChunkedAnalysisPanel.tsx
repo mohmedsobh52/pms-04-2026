@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useChunkedAnalysis, ChunkProgress, splitIntoChunks } from "@/hooks/useChunkedAnalysis";
 import { useLanguage } from "@/hooks/useLanguage";
+import { getAnalysisSettings } from "@/components/AnalysisSettingsDialog";
 
 interface ChunkedAnalysisPanelProps {
   textContent: string;
@@ -66,12 +67,21 @@ export function ChunkedAnalysisPanel({
     setError(null);
     
     try {
+      // Get user throttle settings
+      const userSettings = getAnalysisSettings();
+      
       const result = await analyzeWithChunks(textContent, functionName, {
         chunkSize,
         overlapSize,
         useCompression,
         maxRetries: 3,
         enableAutoResize,
+        // Apply user throttle settings
+        enableThrottle: userSettings.enableThrottle,
+        maxRequestsPerMinute: userSettings.maxRequestsPerMinute,
+        delayBetweenChunks: userSettings.delayBetweenChunks,
+        arabicOptimization: userSettings.arabicOptimization,
+        arabicChunkSize: userSettings.arabicChunkSize * 1000,
       });
       
       onAnalysisComplete(result);
