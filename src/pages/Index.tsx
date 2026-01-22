@@ -60,7 +60,8 @@ import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useAnalysisTracking } from "@/hooks/useAnalysisTracking";
 import { supabase } from "@/integrations/supabase/client";
 import { extractTextFromPDF, validateExtractedText, extractWithOCROnly } from "@/lib/pdf-utils";
-import { extractDataFromExcel, formatExcelDataForAnalysis } from "@/lib/excel-utils";
+import { extractDataFromExcel, formatExcelDataForAnalysis, type ExcelBOQItem } from "@/lib/excel-utils";
+import { performLocalExcelAnalysis, shouldOfferAIEnrichment, type LocalAnalysisResult } from "@/lib/local-excel-analysis";
 
 function isExcelFile(file: File): boolean {
   return file.type.includes('spreadsheet') || file.type.includes('excel') || 
@@ -137,6 +138,9 @@ const Index = () => {
   const [ocrProgress, setOcrProgress] = useState<{ current: number; total: number } | null>(null);
   const [pdfProgress, setPdfProgress] = useState<{ current: number; total: number } | null>(null);
   const [excelProgress, setExcelProgress] = useState<{ stage: string; progress: number; message: string } | null>(null);
+  // PHASE 2: Store Excel items for local analysis
+  const [excelItems, setExcelItems] = useState<ExcelBOQItem[]>([]);
+  const [showAIEnrichmentOption, setShowAIEnrichmentOption] = useState(false);
   const [showBOQComparison, setShowBOQComparison] = useState(false);
   const [showP6Export, setShowP6Export] = useState(false);
   const [showComprehensiveReport, setShowComprehensiveReport] = useState(false);
@@ -272,12 +276,25 @@ const Index = () => {
 
         if (hasAnyData) {
           setExtractedText(formattedText);
+          // PHASE 2: Store Excel items for local analysis
+          setExcelItems(result.items);
           setExtractionStatus("success");
           updateStepStatus("extract", "complete");
           toast({
             title: t('dataExtracted'),
             description: `${result.items.length} ${t('itemsExtracted')} ${result.sheetNames.length} ${t('sheets')}`,
           });
+          
+          // PHASE 2: If Excel has structured items, run local analysis immediately
+          if (result.items.length > 0) {
+            toast({
+              title: isArabic ? '🚀 تحليل سريع متاح' : '🚀 Quick Analysis Available',
+              description: isArabic 
+                ? 'يمكنك التحليل الفوري بدون AI أو استخدام AI للتحسين'
+                : 'Instant analysis available without AI, or use AI for enrichment',
+              duration: 5000,
+            });
+          }
         } else {
           setExtractionStatus("failed");
           setShowManualInput(true);
@@ -372,6 +389,9 @@ const Index = () => {
     setAnalysisData(null);
     setWbsData(null);
     setWorkflowSteps(defaultWorkflowSteps);
+    // PHASE 2: Clear Excel items
+    setExcelItems([]);
+    setShowAIEnrichmentOption(false);
   };
 
   const handleOCRExtraction = async () => {
@@ -453,6 +473,99 @@ const Index = () => {
       return;
     }
 
+    // ==================== PHASE 2: LOCAL EXCEL ANALYSIS FIRST ====================
+    // If we have Excel items, use local analysis (instant, no AI, no rate limits)
+    const isExcel = selectedFile && isExcelFile(selectedFile);
+    
+    if (isExcel && excelItems.length > 0) {
+      setIsProcessing(true);
+      updateStepStatus("analyze", "processing", 20);
+      
+      toast({
+        title: isArabic ? '⚡ تحليل فوري' : '⚡ Instant Analysis',
+        description: isArabic 
+          ? 'جاري تحليل البيانات محلياً بدون AI...'
+          : 'Analyzing data locally without AI...',
+      });
+      
+      try {
+        // Perform local analysis (deterministic, instant)
+        const localResult = performLocalExcelAnalysis(excelItems, selectedFile?.name);
+        
+        // Convert local analysis result to the standard format
+        const normalizedItems = localResult.items.map(item => ({
+          ...item,
+          item_number: item.item_number,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          quantity: item.quantity,
+          description: item.description,
+          unit: item.unit,
+          category: item.category,
+          notes: item.notes,
+          // Add validation info as remarks
+          remarks: item.validation?.issues.length ? item.validation.issues.join('; ') : undefined,
+        }));
+        
+        const analysisResult = {
+          items: normalizedItems,
+          summary: {
+            total_items: localResult.summary.total_items,
+            total_value: localResult.summary.total_value,
+            currency: localResult.summary.currency,
+            categories: localResult.summary.categories,
+            quality_score: localResult.summary.quality_score,
+            quality_issues: localResult.summary.quality_issues,
+          },
+          analysis_type: 'local_excel',
+          analysis_date: localResult.analysis_date,
+          processing_time_ms: localResult.processing_time_ms,
+        };
+        
+        setAnalysisData(analysisResult);
+        updateStepStatus("analyze", "complete", 100);
+        updateStepStatus("wbs", "complete");
+        updateStepStatus("export", "complete");
+        
+        const qualityMsg = localResult.summary.quality_score >= 80 
+          ? (isArabic ? 'جودة عالية ✓' : 'High quality ✓')
+          : (isArabic ? `جودة ${localResult.summary.quality_score}%` : `Quality ${localResult.summary.quality_score}%`);
+        
+        toast({
+          title: isArabic ? '✅ اكتمل التحليل الفوري' : '✅ Instant Analysis Complete',
+          description: isArabic 
+            ? `${localResult.summary.total_items} بند - ${qualityMsg} - ${localResult.processing_time_ms}ms`
+            : `${localResult.summary.total_items} items - ${qualityMsg} - ${localResult.processing_time_ms}ms`,
+          duration: 5000,
+        });
+        
+        // Check if AI enrichment is recommended
+        if (shouldOfferAIEnrichment(localResult)) {
+          setShowAIEnrichmentOption(true);
+          toast({
+            title: isArabic ? '💡 تحسين بالذكاء الاصطناعي متاح' : '💡 AI Enrichment Available',
+            description: isArabic 
+              ? 'يمكنك تحسين التصنيفات والتحقق من البيانات باستخدام AI'
+              : 'You can improve categories and validate data using AI',
+            duration: 8000,
+          });
+        }
+        
+        setIsProcessing(false);
+        return;
+      } catch (localError) {
+        console.error('Local Excel analysis error:', localError);
+        // Fall back to AI analysis
+        toast({
+          title: isArabic ? 'التبديل للتحليل بالـ AI' : 'Switching to AI Analysis',
+          description: isArabic 
+            ? 'فشل التحليل المحلي، جاري استخدام AI...'
+            : 'Local analysis failed, using AI...',
+        });
+      }
+    }
+    // ==================== END PHASE 2 ====================
+
     // Check if we should use chunked analysis for large files
     const chunkThreshold = analysisSettings.chunkSize * 1000;
     const autoChunkThresholdBytes = (analysisSettings.autoChunkThreshold || 500) * 1024;
@@ -492,30 +605,27 @@ const Index = () => {
 
     // Auto-determine if we should use Job Queue based on file size, language, or file type
     // Use Job Queue for files > autoJobQueueThreshold KB (default 200KB)
-    // ALSO force Job Queue for Arabic content or Excel files (they benefit from background processing)
+    // ALSO force Job Queue for Arabic content (Excel is handled locally now)
     const autoJobQueueThresholdBytes = (analysisSettings.autoJobQueueThreshold || 200) * 1024;
     
     // Detect Arabic content by checking for Arabic characters
     const isArabicContent = /[\u0600-\u06FF]/.test(rawText) && 
       (rawText.match(/[\u0600-\u06FF]/g) || []).length > 100;
     
-    // Check if file is Excel
-    const isExcel = selectedFile && isExcelFile(selectedFile);
-    
-    // Force Job Queue for Arabic content or Excel files (regardless of size)
+    // Force Job Queue for Arabic content or large files (Excel is handled locally now)
     const shouldUseJobQueue = analysisSettings.useJobQueue && user && (
       rawText.length > autoJobQueueThresholdBytes ||
-      isArabicContent ||  // Always use Job Queue for Arabic files
-      isExcel             // Always use Job Queue for Excel files
+      isArabicContent  // Always use Job Queue for Arabic files
     );
     
-    // Show login prompt for Arabic/Excel files if user is not logged in
-    if ((isArabicContent || isExcel) && !user) {
+    // Show login prompt for Arabic files if user is not logged in
+    // (Excel files are handled locally now, no login needed)
+    if (isArabicContent && !user) {
       toast({
         title: isArabic ? '💡 يُنصح بتسجيل الدخول' : '💡 Login Recommended',
         description: isArabic 
           ? 'الملفات العربية تحتاج معالجة في الخلفية لنتائج أفضل. يرجى تسجيل الدخول.'
-          : 'Arabic/Excel files need background processing for best results. Please login.',
+          : 'Arabic files need background processing for best results. Please login.',
         duration: 10000,
       });
     }

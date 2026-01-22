@@ -1,9 +1,9 @@
-import { CheckCircle2, Circle, Loader2, XCircle, FileText, Brain, GitMerge, Download } from "lucide-react";
+import { CheckCircle2, Circle, Loader2, XCircle, FileText, Brain, GitMerge, Download, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Progress } from "@/components/ui/progress";
 
-export type StepStatus = "pending" | "processing" | "complete" | "error";
+export type StepStatus = "pending" | "processing" | "complete" | "error" | "queued";
 
 export interface WorkflowStep {
   id: string;
@@ -20,11 +20,11 @@ interface WorkflowStatusProps {
 }
 
 export function WorkflowStatus({ steps }: WorkflowStatusProps) {
-  const { t } = useLanguage();
+  const { t, isArabic } = useLanguage();
   
   // Calculate overall progress
   const completedSteps = steps.filter(s => s.status === 'complete').length;
-  const processingStep = steps.find(s => s.status === 'processing');
+  const processingStep = steps.find(s => s.status === 'processing' || s.status === 'queued');
   const processingProgress = processingStep?.progress || 0;
   
   // Overall progress: completed steps + partial progress of current step
@@ -38,6 +38,8 @@ export function WorkflowStatus({ steps }: WorkflowStatusProps) {
         return <CheckCircle2 className="w-5 h-5 text-success" />;
       case "processing":
         return <Loader2 className="w-5 h-5 text-primary animate-spin" />;
+      case "queued":
+        return <Clock className="w-5 h-5 text-warning animate-pulse" />;
       case "error":
         return <XCircle className="w-5 h-5 text-destructive" />;
       default:
@@ -72,6 +74,7 @@ export function WorkflowStatus({ steps }: WorkflowStatusProps) {
               className={cn(
                 "flex items-start gap-4 p-3 rounded-xl transition-all duration-300",
                 step.status === "processing" && "bg-primary/5 border border-primary/20",
+                step.status === "queued" && "bg-warning/5 border border-warning/20",
                 step.status === "complete" && "opacity-70"
               )}
             >
@@ -80,6 +83,7 @@ export function WorkflowStatus({ steps }: WorkflowStatusProps) {
                   "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300",
                   step.status === "pending" && "bg-muted",
                   step.status === "processing" && "bg-primary/10",
+                  step.status === "queued" && "bg-warning/10",
                   step.status === "complete" && "bg-success/10",
                   step.status === "error" && "bg-destructive/10"
                 )}
@@ -99,10 +103,18 @@ export function WorkflowStatus({ steps }: WorkflowStatusProps) {
                 <p className="text-sm text-muted-foreground mt-1">{t(step.descriptionKey as any)}</p>
                 
                 {/* Dynamic status message (e.g., rate limit wait) */}
-                {step.status === 'processing' && step.statusMessage && (
+                {(step.status === 'processing' || step.status === 'queued') && step.statusMessage && (
                   <p className="text-xs text-warning font-medium mt-1 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse" />
                     {step.statusMessage}
+                  </p>
+                )}
+                
+                {/* Show "Queued" default message if no statusMessage */}
+                {step.status === 'queued' && !step.statusMessage && (
+                  <p className="text-xs text-warning font-medium mt-1 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse" />
+                    {isArabic ? 'في قائمة الانتظار...' : 'Queued...'}
                   </p>
                 )}
                 

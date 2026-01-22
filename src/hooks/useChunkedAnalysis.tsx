@@ -631,6 +631,7 @@ export function useChunkedAnalysis() {
   }, [toast, isArabic, progress.autoResizeCount]);
 
   // Create a job in the queue (for very large files)
+  // PHASE 1 FIX: Set initial progress to 1% and status message to avoid "stuck at 10%"
   const createAnalysisJob = useCallback(async (
     text: string,
     jobType: 'extract_items' | 'create_wbs' | 'full_analysis',
@@ -658,6 +659,9 @@ export function useChunkedAnalysis() {
           input_text_length: text.length,
           file_name: fileName,
           status: 'pending',
+          // PHASE 1 FIX: Set initial progress and step to prevent "10% stuck" visual
+          progress_percentage: 1,
+          current_step: isArabic ? 'في قائمة الانتظار...' : 'Queued...',
         })
         .select('id')
         .single();
@@ -713,6 +717,7 @@ export function useChunkedAnalysis() {
   }, []);
 
   // Start polling for job updates
+  // PHASE 1 FIX: Added auto-retry kickoff if job stays pending too long
   const startPolling = useCallback((
     jobId: string,
     onComplete: (result: any) => void,
@@ -723,6 +728,11 @@ export function useChunkedAnalysis() {
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
     }
+
+    let pendingCheckCount = 0;
+    const MAX_PENDING_CHECKS = 5; // After 5 polls (~10 seconds), retry kickoff
+    let kickoffRetryCount = 0;
+    const MAX_KICKOFF_RETRIES = 3;
 
     const poll = async () => {
       const job = await pollJobStatus(jobId);
@@ -736,13 +746,41 @@ export function useChunkedAnalysis() {
         clearInterval(pollingIntervalRef.current!);
         pollingIntervalRef.current = null;
         onError(job.errorMessage || 'Unknown error');
+      } else if (job.status === 'pending') {
+        pendingCheckCount++;
+        
+        // PHASE 1 FIX: If job is still pending after MAX_PENDING_CHECKS polls, retry kickoff
+        if (pendingCheckCount >= MAX_PENDING_CHECKS && kickoffRetryCount < MAX_KICKOFF_RETRIES) {
+          kickoffRetryCount++;
+          pendingCheckCount = 0;
+          
+          console.log(`Job ${jobId} still pending after ${MAX_PENDING_CHECKS * intervalMs / 1000}s, retrying kickoff (attempt ${kickoffRetryCount}/${MAX_KICKOFF_RETRIES})`);
+          
+          toast({
+            title: isArabic ? 'إعادة تشغيل المهمة...' : 'Restarting job...',
+            description: isArabic 
+              ? `محاولة ${kickoffRetryCount}/${MAX_KICKOFF_RETRIES}` 
+              : `Attempt ${kickoffRetryCount}/${MAX_KICKOFF_RETRIES}`,
+          });
+          
+          try {
+            await supabase.functions.invoke('process-analysis-job', {
+              body: { jobId },
+            });
+          } catch (err) {
+            console.warn('Kickoff retry failed:', err);
+          }
+        }
+      } else if (job.status === 'processing') {
+        // Reset pending check count when job starts processing
+        pendingCheckCount = 0;
       }
     };
 
     // Poll immediately, then at interval
     poll();
     pollingIntervalRef.current = setInterval(poll, intervalMs);
-  }, [pollJobStatus]);
+  }, [pollJobStatus, toast, isArabic]);
 
   // Resume a failed job
   const resumeJob = useCallback(async (
