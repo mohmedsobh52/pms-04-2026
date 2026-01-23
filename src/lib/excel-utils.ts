@@ -5,6 +5,10 @@ export interface ExcelExtractionResult {
   items: ExcelBOQItem[];
   sheetNames: string[];
   totalRows: number;
+  // New fields for column remapping support
+  rawData?: (string | number | undefined)[][];
+  detectedHeaderRow?: number;
+  columnMapping?: Record<string, number>;
 }
 
 export interface ExcelBOQItem {
@@ -215,12 +219,101 @@ function worksheetToArray(worksheet: ExcelJS.Worksheet, maxRows: number = 1000):
   return result;
 }
 
-function extractBOQItems(data: (string | number | undefined)[][], maxRows: number = 1000): ExcelBOQItem[] {
+// Check if a row is likely a header row (not data)
+function isLikelyHeaderRow(row: (string | number | undefined)[]): boolean {
+  const values = row.filter(v => v !== undefined && v !== null && String(v).trim() !== '');
+  if (values.length < 2) return false;
+  
+  // Count large numbers (>100) - headers rarely have big numbers
+  const largeNumericCount = values.filter(v => {
+    const num = parseFloat(String(v).replace(/[,،]/g, ''));
+    return !isNaN(num) && num > 100;
+  }).length;
+  
+  // If more than 1 large number, it's likely a data row
+  if (largeNumericCount > 1) return false;
+  
+  // Check for header keywords
+  const headerKeywords = [
+    'رقم', 'وصف', 'كمية', 'سعر', 'وحدة', 'بند', 'البند', 'البيان', 'المواصفات', 'الإجمالي',
+    'item', 'desc', 'qty', 'price', 'unit', 'no', 'total', 'amount', 'specification',
+    '#', 'ref', 'code', 'description', 'quantity'
+  ];
+  
+  const hasKeywords = values.some(v => {
+    const strVal = String(v).toLowerCase().trim();
+    return headerKeywords.some(kw => strVal.includes(kw));
+  });
+  
+  return hasKeywords;
+}
+
+// Smart description column finder - analyzes data patterns to find the real description column
+function findDescriptionColumnFromData(
+  data: (string | number | undefined)[][],
+  headerRowIndex: number,
+  excludeIndices: Set<number>
+): number | undefined {
+  // Sample first 10 data rows
+  const sampleRows = data.slice(headerRowIndex + 1, headerRowIndex + 11).filter(r => r && r.length > 0);
+  if (sampleRows.length === 0) return undefined;
+  
+  const columnCount = Math.max(...sampleRows.map(r => r?.length || 0));
+  const columnScores: { index: number; score: number }[] = [];
+  
+  for (let colIdx = 0; colIdx < columnCount; colIdx++) {
+    if (excludeIndices.has(colIdx)) continue;
+    
+    let score = 0;
+    
+    for (const row of sampleRows) {
+      const value = row?.[colIdx]?.toString()?.trim() || '';
+      if (!value) continue;
+      
+      // Long text (>20 chars) = +5 points
+      if (value.length > 20) score += 5;
+      
+      // Contains Arabic characters = +3 points
+      if (/[\u0600-\u06FF]/.test(value)) score += 3;
+      
+      // Not a pure number = +2 points
+      if (isNaN(parseFloat(value.replace(/[,،]/g, '')))) score += 2;
+      
+      // Contains spaces (multiple words/sentence) = +2 points
+      if (value.includes(' ') && value.split(' ').length > 2) score += 2;
+      
+      // Contains descriptive words = +3 points
+      const descWords = ['توريد', 'تركيب', 'أعمال', 'supply', 'install', 'work', 'provide'];
+      if (descWords.some(w => value.toLowerCase().includes(w))) score += 3;
+    }
+    
+    columnScores.push({ index: colIdx, score });
+  }
+  
+  // Sort by score descending
+  columnScores.sort((a, b) => b.score - a.score);
+  
+  // Return the highest scoring column if score is significant
+  if (columnScores.length > 0 && columnScores[0].score > 15) {
+    console.log('Excel extraction - Smart description detection:', columnScores[0]);
+    return columnScores[0].index;
+  }
+  
+  return undefined;
+}
+
+interface ExtractionResult {
+  items: ExcelBOQItem[];
+  headerRowIndex: number;
+  columnMapping: Record<string, number>;
+}
+
+function extractBOQItems(data: (string | number | undefined)[][], maxRows: number = 1000): ExtractionResult {
   const items: ExcelBOQItem[] = [];
 
-  if (data.length < 2) return items;
+  if (data.length < 2) return { items, headerRowIndex: 0, columnMapping: {} };
 
-  // Find the best header row
+  // Find the best header row with improved validation
   let headerRowIndex = 0;
   let bestScore = -1;
   const headerScanLimit = Math.min(20, data.length);
@@ -229,6 +322,9 @@ function extractBOQItems(data: (string | number | undefined)[][], maxRows: numbe
     const row = data[i] || [];
     const nonEmptyCells = row.filter(cell => cell !== undefined && cell !== null && String(cell).trim() !== '').length;
     if (nonEmptyCells < 3) continue;
+    
+    // Additional check: verify it's actually a header row
+    if (!isLikelyHeaderRow(row)) continue;
 
     const candidateHeaders = row.map(h => h?.toString() || '');
     const candidateMapping = detectColumnMapping(candidateHeaders);
@@ -240,12 +336,12 @@ function extractBOQItems(data: (string | number | undefined)[][], maxRows: numbe
     }
   }
 
-  // Fallback: first reasonably non-empty row
+  // Fallback: first row that looks like headers (not data)
   if (bestScore <= 0) {
     for (let i = 0; i < headerScanLimit; i++) {
       const row = data[i] || [];
       const nonEmptyCells = row.filter(cell => cell !== undefined && cell !== null && String(cell).trim() !== '').length;
-      if (nonEmptyCells >= 3) {
+      if (nonEmptyCells >= 3 && isLikelyHeaderRow(row)) {
         headerRowIndex = i;
         break;
       }
@@ -255,13 +351,12 @@ function extractBOQItems(data: (string | number | undefined)[][], maxRows: numbe
   const headers = (data[headerRowIndex] || []).map(h => h?.toString() || '');
   let columnMapping = detectColumnMapping(headers);
 
-  // Debug: log detected mapping
+  console.log('Excel extraction - Header row index:', headerRowIndex);
   console.log('Excel extraction - Headers:', headers);
-  console.log('Excel extraction - Column mapping:', columnMapping);
+  console.log('Excel extraction - Initial column mapping:', columnMapping);
 
   // If no headers matched at all, try smart positional detection
   if (Object.keys(columnMapping).length === 0) {
-    // Try to detect based on data patterns in first data row
     const firstDataRow = data[headerRowIndex + 1];
     if (firstDataRow) {
       columnMapping = detectColumnMappingFromData(headers, firstDataRow);
@@ -295,6 +390,37 @@ function extractBOQItems(data: (string | number | undefined)[][], maxRows: numbe
     }
   }
 
+  // CRITICAL: Use smart description finder if description column seems wrong
+  const usedIndices = new Set(Object.values(columnMapping).filter(v => v !== undefined) as number[]);
+  
+  // Check if description column is producing empty or numeric values
+  const testDescCol = columnMapping.description;
+  let descriptionNeedsRemap = false;
+  
+  if (testDescCol !== undefined) {
+    const sampleRows = data.slice(headerRowIndex + 1, headerRowIndex + 6);
+    const emptyOrNumericCount = sampleRows.filter(row => {
+      const val = row?.[testDescCol]?.toString()?.trim() || '';
+      return !val || !isNaN(parseFloat(val.replace(/[,،]/g, '')));
+    }).length;
+    
+    // If most sample values are empty or numeric, remap description
+    if (emptyOrNumericCount >= sampleRows.length * 0.6) {
+      descriptionNeedsRemap = true;
+      console.log('Excel extraction - Description column appears wrong, attempting smart detection');
+    }
+  } else {
+    descriptionNeedsRemap = true;
+  }
+  
+  if (descriptionNeedsRemap) {
+    const smartDescCol = findDescriptionColumnFromData(data, headerRowIndex, usedIndices);
+    if (smartDescCol !== undefined) {
+      columnMapping.description = smartDescCol;
+      console.log('Excel extraction - Smart description column found:', smartDescCol);
+    }
+  }
+
   console.log('Excel extraction - Final mapping:', columnMapping);
 
   // Extract items
@@ -311,7 +437,7 @@ function extractBOQItems(data: (string | number | undefined)[][], maxRows: numbe
       item.itemNo = convertArabicNumbers(rawValue || '');
     }
     
-    // For description, try multiple columns if primary is empty
+    // For description, use the mapped column
     if (columnMapping.description !== undefined) {
       const descValue = row[columnMapping.description]?.toString()?.trim();
       if (descValue) {
@@ -319,17 +445,25 @@ function extractBOQItems(data: (string | number | undefined)[][], maxRows: numbe
       }
     }
     
-    // If description is still empty, try to find it from other columns
+    // If description is still empty, try to find longest text in row
     if (!item.description) {
-      // Look for the longest text value in the row as potential description
       let longestText = '';
-      let longestIndex = -1;
+      const skipIndices = new Set([
+        columnMapping.itemNo,
+        columnMapping.quantity,
+        columnMapping.unitPrice,
+        columnMapping.totalPrice
+      ].filter(v => v !== undefined) as number[]);
+      
       row.forEach((cell, idx) => {
-        if (idx === columnMapping.itemNo) return; // Skip item number column
+        if (skipIndices.has(idx)) return;
         const cellText = cell?.toString()?.trim() || '';
-        if (cellText.length > longestText.length && cellText.length > 3 && isNaN(parseFloat(cellText))) {
-          longestText = cellText;
-          longestIndex = idx;
+        // Must be longer than current and look like text (not pure number)
+        if (cellText.length > longestText.length && cellText.length > 5) {
+          const numVal = parseFloat(cellText.replace(/[,،]/g, ''));
+          if (isNaN(numVal) || cellText.length > 15) {
+            longestText = cellText;
+          }
         }
       });
       if (longestText) {
@@ -364,7 +498,7 @@ function extractBOQItems(data: (string | number | undefined)[][], maxRows: numbe
     console.log('Excel extraction - Sample item:', items[0]);
   }
 
-  return items;
+  return { items, headerRowIndex, columnMapping };
 }
 
 // Detect column mapping from data patterns
@@ -492,6 +626,11 @@ export async function extractDataFromExcel(
   // Process max 3 sheets
   const sheetsToProcess = Math.min(sheetNames.length, 3);
   
+  // Store raw data and mapping from first sheet for remapping support
+  let rawData: (string | number | undefined)[][] = [];
+  let detectedHeaderRow = 0;
+  let finalColumnMapping: Record<string, number> = {};
+  
   for (let i = 0; i < sheetsToProcess; i++) {
     const sheetName = sheetNames[i];
     const sheetProgress = Math.round(((i + 1) / sheetsToProcess) * 100);
@@ -502,14 +641,21 @@ export async function extractDataFromExcel(
     
     const data = worksheetToArray(worksheet, 500);
     const text = dataToText(data, 300);
-    const items = extractBOQItems(data, 500);
+    const extractionResult = extractBOQItems(data, 500);
+    
+    // Store raw data from first sheet
+    if (i === 0) {
+      rawData = data;
+      detectedHeaderRow = extractionResult.headerRowIndex;
+      finalColumnMapping = extractionResult.columnMapping;
+    }
     
     if (text) {
       if (i > 0) allText += '\n\n--- ' + sheetName + ' ---\n\n';
       allText += text;
     }
     
-    allItems = allItems.concat(items);
+    allItems = allItems.concat(extractionResult.items);
     totalRows += Math.min(worksheet.rowCount, 500);
   }
   
@@ -533,6 +679,9 @@ export async function extractDataFromExcel(
     items: allItems,
     sheetNames,
     totalRows,
+    rawData,
+    detectedHeaderRow,
+    columnMapping: finalColumnMapping,
   };
 }
 
@@ -722,4 +871,56 @@ export function formatExcelDataForAnalysis(result: ExcelExtractionResult): strin
 
   const sheetInfo = result.sheetNames?.length ? `الأوراق: ${result.sheetNames.join(', ')}\n\n` : '';
   return `${sheetInfo}بيانات Excel (غير منظمة):\n\n${raw}`;
+}
+
+// Re-extract BOQ items with custom column mapping (for manual remapping)
+export function reExtractWithMapping(
+  rawData: (string | number | undefined)[][],
+  headerRowIndex: number,
+  customMapping: Record<string, number>,
+  maxRows: number = 1000
+): ExcelBOQItem[] {
+  const items: ExcelBOQItem[] = [];
+  
+  if (rawData.length < headerRowIndex + 2) return items;
+  
+  const endRow = Math.min(rawData.length, maxRows);
+  
+  for (let i = headerRowIndex + 1; i < endRow; i++) {
+    const row = rawData[i];
+    if (!row || row.every(cell => !cell || cell.toString().trim() === '')) continue;
+    
+    const item: ExcelBOQItem = {};
+    
+    if (customMapping.itemNo !== undefined && row[customMapping.itemNo] !== undefined) {
+      item.itemNo = convertArabicNumbers(row[customMapping.itemNo]?.toString() || '');
+    }
+    
+    if (customMapping.description !== undefined && row[customMapping.description] !== undefined) {
+      item.description = row[customMapping.description]?.toString()?.trim();
+    }
+    
+    if (customMapping.unit !== undefined && row[customMapping.unit] !== undefined) {
+      item.unit = row[customMapping.unit]?.toString();
+    }
+    
+    if (customMapping.quantity !== undefined) {
+      item.quantity = parseArabicNumber(row[customMapping.quantity]);
+    }
+    
+    if (customMapping.unitPrice !== undefined) {
+      item.unitPrice = parseArabicNumber(row[customMapping.unitPrice]);
+    }
+    
+    if (customMapping.totalPrice !== undefined) {
+      item.totalPrice = parseArabicNumber(row[customMapping.totalPrice]);
+    }
+    
+    // Only add items that have meaningful data
+    if (item.description || (item.itemNo && item.itemNo !== '')) {
+      items.push(item);
+    }
+  }
+  
+  return items;
 }

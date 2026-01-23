@@ -141,6 +141,9 @@ const Index = () => {
   const [excelProgress, setExcelProgress] = useState<{ stage: string; progress: number; message: string } | null>(null);
   // PHASE 2: Store Excel items for local analysis
   const [excelItems, setExcelItems] = useState<ExcelBOQItem[]>([]);
+  const [excelRawData, setExcelRawData] = useState<(string | number | undefined)[][] | undefined>();
+  const [excelHeaderRow, setExcelHeaderRow] = useState<number>(0);
+  const [excelColumnMapping, setExcelColumnMapping] = useState<Record<string, number>>({});
   const [showExcelPreview, setShowExcelPreview] = useState(false);
   const [showAIEnrichmentOption, setShowAIEnrichmentOption] = useState(false);
   const [showBOQComparison, setShowBOQComparison] = useState(false);
@@ -278,8 +281,11 @@ const Index = () => {
 
         if (hasAnyData) {
           setExtractedText(formattedText);
-          // PHASE 2: Store Excel items for local analysis
+          // PHASE 2: Store Excel items and raw data for local analysis & remapping
           setExcelItems(result.items);
+          setExcelRawData(result.rawData);
+          setExcelHeaderRow(result.detectedHeaderRow || 0);
+          setExcelColumnMapping(result.columnMapping || {});
           setExtractionStatus("success");
           updateStepStatus("extract", "complete");
           toast({
@@ -293,8 +299,8 @@ const Index = () => {
             toast({
               title: isArabic ? '🔍 معاينة البيانات' : '🔍 Data Preview',
               description: isArabic 
-                ? 'راجع البيانات المستخرجة وعدّلها قبل التحليل'
-                : 'Review and edit extracted data before analysis',
+                ? 'راجع البيانات المستخرجة وعدّلها قبل التحليل. يمكنك إعادة تعيين الأعمدة إذا كان هناك خطأ.'
+                : 'Review and edit extracted data before analysis. You can remap columns if there are issues.',
               duration: 5000,
             });
           }
@@ -392,8 +398,11 @@ const Index = () => {
     setAnalysisData(null);
     setWbsData(null);
     setWorkflowSteps(defaultWorkflowSteps);
-    // PHASE 2: Clear Excel items
+    // PHASE 2: Clear Excel items and raw data
     setExcelItems([]);
+    setExcelRawData(undefined);
+    setExcelHeaderRow(0);
+    setExcelColumnMapping({});
     setShowAIEnrichmentOption(false);
   };
 
@@ -2059,6 +2068,9 @@ const Index = () => {
         onClose={() => setShowExcelPreview(false)}
         items={excelItems}
         fileName={selectedFile?.name}
+        rawData={excelRawData}
+        detectedHeaderRow={excelHeaderRow}
+        columnMapping={excelColumnMapping}
         onConfirm={(confirmedItems) => {
           setExcelItems(confirmedItems);
           setShowExcelPreview(false);
