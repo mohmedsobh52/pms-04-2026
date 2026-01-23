@@ -62,6 +62,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { extractTextFromPDF, validateExtractedText, extractWithOCROnly } from "@/lib/pdf-utils";
 import { extractDataFromExcel, formatExcelDataForAnalysis, type ExcelBOQItem } from "@/lib/excel-utils";
 import { performLocalExcelAnalysis, shouldOfferAIEnrichment, type LocalAnalysisResult } from "@/lib/local-excel-analysis";
+import { ExcelDataPreview } from "@/components/ExcelDataPreview";
 
 function isExcelFile(file: File): boolean {
   return file.type.includes('spreadsheet') || file.type.includes('excel') || 
@@ -140,6 +141,7 @@ const Index = () => {
   const [excelProgress, setExcelProgress] = useState<{ stage: string; progress: number; message: string } | null>(null);
   // PHASE 2: Store Excel items for local analysis
   const [excelItems, setExcelItems] = useState<ExcelBOQItem[]>([]);
+  const [showExcelPreview, setShowExcelPreview] = useState(false);
   const [showAIEnrichmentOption, setShowAIEnrichmentOption] = useState(false);
   const [showBOQComparison, setShowBOQComparison] = useState(false);
   const [showP6Export, setShowP6Export] = useState(false);
@@ -285,13 +287,14 @@ const Index = () => {
             description: `${result.items.length} ${t('itemsExtracted')} ${result.sheetNames.length} ${t('sheets')}`,
           });
           
-          // PHASE 2: If Excel has structured items, run local analysis immediately
+          // PHASE 2: If Excel has structured items, show preview dialog
           if (result.items.length > 0) {
+            setShowExcelPreview(true);
             toast({
-              title: isArabic ? '🚀 تحليل سريع متاح' : '🚀 Quick Analysis Available',
+              title: isArabic ? '🔍 معاينة البيانات' : '🔍 Data Preview',
               description: isArabic 
-                ? 'يمكنك التحليل الفوري بدون AI أو استخدام AI للتحسين'
-                : 'Instant analysis available without AI, or use AI for enrichment',
+                ? 'راجع البيانات المستخرجة وعدّلها قبل التحليل'
+                : 'Review and edit extracted data before analysis',
               duration: 5000,
             });
           }
@@ -1673,6 +1676,18 @@ const Index = () => {
                       <Button variant="outline" size="sm" onClick={handleClearFile}>
                         {t('edit')}
                       </Button>
+                      {/* Excel Preview Button */}
+                      {excelItems.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowExcelPreview(true)}
+                          className="gap-2"
+                        >
+                          <FileSpreadsheet className="w-4 h-4" />
+                          {isArabic ? 'معاينة البيانات' : 'Preview Data'}
+                        </Button>
+                      )}
                       <Button
                         onClick={runAnalysis}
                         disabled={isProcessing}
@@ -2036,6 +2051,24 @@ const Index = () => {
           }, 500);
         }}
         isRetrying={isRetrying}
+      />
+
+      {/* Excel Data Preview Dialog */}
+      <ExcelDataPreview
+        isOpen={showExcelPreview}
+        onClose={() => setShowExcelPreview(false)}
+        items={excelItems}
+        fileName={selectedFile?.name}
+        onConfirm={(confirmedItems) => {
+          setExcelItems(confirmedItems);
+          setShowExcelPreview(false);
+          toast({
+            title: isArabic ? '✅ تم تأكيد البيانات' : '✅ Data Confirmed',
+            description: isArabic 
+              ? `${confirmedItems.length} بند جاهز للتحليل`
+              : `${confirmedItems.length} items ready for analysis`,
+          });
+        }}
       />
 
       {/* Footer */}
