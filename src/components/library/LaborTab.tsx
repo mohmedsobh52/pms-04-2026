@@ -10,8 +10,13 @@ import { useLaborRates, LABOR_CATEGORIES, LABOR_UNITS, SKILL_LEVELS, CURRENCIES 
 import { useLanguage } from "@/hooks/useLanguage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { PriceValidityIndicator, getValidityStatus } from "./PriceValidityIndicator";
 
-export const LaborTab = () => {
+interface LaborTabProps {
+  validityFilter?: string | null;
+}
+
+export const LaborTab = ({ validityFilter }: LaborTabProps) => {
   const { isArabic } = useLanguage();
   const { laborRates, loading, addLaborRate, deleteLaborRate, importFromExcel, calculateHourlyRate } = useLaborRates();
   const [search, setSearch] = useState("");
@@ -94,11 +99,21 @@ export const LaborTab = () => {
     e.target.value = '';
   };
 
-  const filteredLabor = laborRates.filter(l => 
-    l.name.toLowerCase().includes(search.toLowerCase()) ||
-    (l.name_ar && l.name_ar.includes(search)) ||
-    l.code.toLowerCase().includes(search.toLowerCase())
-  );
+  // Filter labor based on search and validity
+  const filteredLabor = laborRates.filter(l => {
+    const matchesSearch = l.name.toLowerCase().includes(search.toLowerCase()) ||
+      (l.name_ar && l.name_ar.includes(search)) ||
+      l.code.toLowerCase().includes(search.toLowerCase());
+    
+    if (!matchesSearch) return false;
+    
+    if (validityFilter) {
+      const status = getValidityStatus(l.valid_until, l.price_date);
+      return status === validityFilter;
+    }
+    
+    return true;
+  });
 
   const getUnitLabel = (unit: string) => {
     const found = LABOR_UNITS.find(u => u.value === unit);
@@ -355,10 +370,9 @@ export const LaborTab = () => {
                 <TableHead className="text-right">{isArabic ? "الكود" : "Code"}</TableHead>
                 <TableHead className="text-right">{isArabic ? "المسمى الوظيفي" : "Job Title"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "مستوى المهارة" : "Skill Level"}</TableHead>
-                <TableHead className="text-center">{isArabic ? "الوحدة" : "Unit"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "سعر اليوم" : "Daily Rate"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "سعر الساعة" : "Hourly Rate"}</TableHead>
-                <TableHead className="text-center">{isArabic ? "نسبة الإضافي %" : "Overtime %"}</TableHead>
+                <TableHead className="text-center">{isArabic ? "الصلاحية" : "Validity"}</TableHead>
                 <TableHead className="text-center w-24">{isArabic ? "إجراءات" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
@@ -372,14 +386,19 @@ export const LaborTab = () => {
                       {getSkillLevelLabel(labor.skill_level)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-center">{getUnitLabel(labor.unit)}</TableCell>
                   <TableCell className="text-center font-medium">
                     {labor.unit_rate.toLocaleString()} {getCurrencyLabel(labor.currency)}
                   </TableCell>
                   <TableCell className="text-center text-muted-foreground">
                     {labor.hourly_rate ? `${labor.hourly_rate.toLocaleString()} ${getCurrencyLabel(labor.currency)}` : "-"}
                   </TableCell>
-                  <TableCell className="text-center">{labor.overtime_percentage}%</TableCell>
+                  <TableCell className="text-center">
+                    <PriceValidityIndicator 
+                      priceDate={labor.price_date} 
+                      validUntil={labor.valid_until}
+                      showLabel={true}
+                    />
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8">

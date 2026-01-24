@@ -13,8 +13,13 @@ import { useMaterialPrices } from "@/hooks/useMaterialPrices";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { PriceValidityIndicator, getValidityStatus } from "./PriceValidityIndicator";
 
-export const EquipmentTab = () => {
+interface EquipmentTabProps {
+  validityFilter?: string | null;
+}
+
+export const EquipmentTab = ({ validityFilter }: EquipmentTabProps) => {
   const { isArabic } = useLanguage();
   const { equipmentRates, loading, addEquipmentRate, deleteEquipmentRate, importFromExcel } = useEquipmentRates();
   const { suppliers } = useMaterialPrices();
@@ -93,12 +98,22 @@ export const EquipmentTab = () => {
     e.target.value = '';
   };
 
-  const filteredEquipment = equipmentRates.filter(e => 
-    e.name.toLowerCase().includes(search.toLowerCase()) ||
-    (e.name_ar && e.name_ar.includes(search)) ||
-    e.code.toLowerCase().includes(search.toLowerCase()) ||
-    (e.description && e.description.toLowerCase().includes(search.toLowerCase()))
-  );
+  // Filter equipment based on search and validity
+  const filteredEquipment = equipmentRates.filter(e => {
+    const matchesSearch = e.name.toLowerCase().includes(search.toLowerCase()) ||
+      (e.name_ar && e.name_ar.includes(search)) ||
+      e.code.toLowerCase().includes(search.toLowerCase()) ||
+      (e.description && e.description.toLowerCase().includes(search.toLowerCase()));
+    
+    if (!matchesSearch) return false;
+    
+    if (validityFilter) {
+      const status = getValidityStatus(e.valid_until, e.price_date);
+      return status === validityFilter;
+    }
+    
+    return true;
+  });
 
   const getUnitLabel = (unit: string) => {
     const found = EQUIPMENT_UNITS.find(u => u.value === unit);
@@ -347,11 +362,9 @@ export const EquipmentTab = () => {
               <TableRow className="bg-muted/50">
                 <TableHead className="text-right">{isArabic ? "الكود" : "Code"}</TableHead>
                 <TableHead className="text-right">{isArabic ? "اسم المعدة" : "Equipment Name"}</TableHead>
-                <TableHead className="text-center">{isArabic ? "الوحدة" : "Unit"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "سعر اليوم" : "Daily Rate"}</TableHead>
-                <TableHead className="text-center">{isArabic ? "سعر الساعة" : "Hourly Rate"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "يشمل" : "Includes"}</TableHead>
-                <TableHead className="text-right">{isArabic ? "المورد" : "Supplier"}</TableHead>
+                <TableHead className="text-center">{isArabic ? "الصلاحية" : "Validity"}</TableHead>
                 <TableHead className="text-center w-24">{isArabic ? "إجراءات" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
@@ -367,12 +380,8 @@ export const EquipmentTab = () => {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-center">{getUnitLabel(equipment.unit)}</TableCell>
                   <TableCell className="text-center font-medium">
                     {equipment.rental_rate.toLocaleString()} {getCurrencyLabel(equipment.currency)}
-                  </TableCell>
-                  <TableCell className="text-center text-muted-foreground">
-                    {equipment.hourly_rate ? `${equipment.hourly_rate.toLocaleString()} ${getCurrencyLabel(equipment.currency)}` : "-"}
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-1">
@@ -389,7 +398,13 @@ export const EquipmentTab = () => {
                       {!equipment.includes_operator && !equipment.includes_fuel && "-"}
                     </div>
                   </TableCell>
-                  <TableCell>{equipment.supplier_name || "-"}</TableCell>
+                  <TableCell className="text-center">
+                    <PriceValidityIndicator 
+                      priceDate={equipment.price_date} 
+                      validUntil={equipment.valid_until}
+                      showLabel={true}
+                    />
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8">

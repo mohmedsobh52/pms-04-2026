@@ -10,8 +10,13 @@ import { Plus, Upload, Search, Trash2, Edit2, Package } from "lucide-react";
 import { useMaterialPrices, MATERIAL_CATEGORIES, CURRENCIES } from "@/hooks/useMaterialPrices";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PriceValidityIndicator, getValidityStatus } from "./PriceValidityIndicator";
 
-export const MaterialsTab = () => {
+interface MaterialsTabProps {
+  validityFilter?: string | null;
+}
+
+export const MaterialsTab = ({ validityFilter }: MaterialsTabProps) => {
   const { isArabic } = useLanguage();
   const { materials, suppliers, loading, addMaterial, deleteMaterial, importFromExcel } = useMaterialPrices();
   const [search, setSearch] = useState("");
@@ -87,12 +92,22 @@ export const MaterialsTab = () => {
     e.target.value = '';
   };
 
-  const filteredMaterials = materials.filter(m => 
-    m.name.toLowerCase().includes(search.toLowerCase()) ||
-    (m.name_ar && m.name_ar.includes(search)) ||
-    m.category.toLowerCase().includes(search.toLowerCase()) ||
-    (m.brand && m.brand.toLowerCase().includes(search.toLowerCase()))
-  );
+  // Filter materials based on search and validity
+  const filteredMaterials = materials.filter(m => {
+    const matchesSearch = m.name.toLowerCase().includes(search.toLowerCase()) ||
+      (m.name_ar && m.name_ar.includes(search)) ||
+      m.category.toLowerCase().includes(search.toLowerCase()) ||
+      (m.brand && m.brand.toLowerCase().includes(search.toLowerCase()));
+    
+    if (!matchesSearch) return false;
+    
+    if (validityFilter) {
+      const status = getValidityStatus(m.valid_until, m.price_date);
+      return status === validityFilter;
+    }
+    
+    return true;
+  });
 
   const getCurrencyLabel = (currency: string) => {
     const found = CURRENCIES.find(c => c.value === currency);
@@ -323,8 +338,7 @@ export const MaterialsTab = () => {
                 <TableHead className="text-center">{isArabic ? "الوحدة" : "Unit"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "سعر الوحدة" : "Unit Price"}</TableHead>
                 <TableHead className="text-right">{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
-                <TableHead className="text-right">{isArabic ? "المورد" : "Supplier"}</TableHead>
-                <TableHead className="text-center">{isArabic ? "نسبة الهدر %" : "Waste %"}</TableHead>
+                <TableHead className="text-center">{isArabic ? "الصلاحية" : "Validity"}</TableHead>
                 <TableHead className="text-center w-24">{isArabic ? "إجراءات" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
@@ -345,8 +359,13 @@ export const MaterialsTab = () => {
                     {material.unit_price.toLocaleString()} {getCurrencyLabel(material.currency)}
                   </TableCell>
                   <TableCell>{material.brand || "-"}</TableCell>
-                  <TableCell>{material.supplier_name || "-"}</TableCell>
-                  <TableCell className="text-center">{material.waste_percentage || 0}%</TableCell>
+                  <TableCell className="text-center">
+                    <PriceValidityIndicator 
+                      priceDate={material.price_date} 
+                      validUntil={material.valid_until}
+                      showLabel={true}
+                    />
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8">
