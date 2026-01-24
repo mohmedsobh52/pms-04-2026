@@ -1504,6 +1504,7 @@ export type Database = {
           file_name: string | null
           id: string
           name: string
+          status: string | null
           updated_at: string
           user_id: string
           wbs_data: Json | null
@@ -1514,6 +1515,7 @@ export type Database = {
           file_name?: string | null
           id?: string
           name: string
+          status?: string | null
           updated_at?: string
           user_id: string
           wbs_data?: Json | null
@@ -1524,6 +1526,7 @@ export type Database = {
           file_name?: string | null
           id?: string
           name?: string
+          status?: string | null
           updated_at?: string
           user_id?: string
           wbs_data?: Json | null

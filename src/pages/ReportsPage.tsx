@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { PageLayout } from "@/components/PageLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, FileDown, BarChart3, TrendingUp } from "lucide-react";
+import { RefreshCw, FileDown, BarChart3, TrendingUp, GitCompare } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,6 +11,7 @@ import { ReportsStatCards } from "@/components/reports/ReportsStatCards";
 import { ExportTab } from "@/components/reports/ExportTab";
 import { ProjectSummaryTab } from "@/components/reports/ProjectSummaryTab";
 import { RecentProjectsTab } from "@/components/reports/RecentProjectsTab";
+import { ProjectsComparisonExport } from "@/components/reports/ProjectsComparisonExport";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -28,6 +29,7 @@ interface Project {
   file_name?: string;
   created_at: string;
   updated_at: string;
+  status?: string;
 }
 
 const ReportsPage = () => {
@@ -81,15 +83,15 @@ const ReportsPage = () => {
     }
   };
 
-  // Calculate statistics
+  // Calculate statistics based on project status
   const stats = {
     totalProjects: projects.length,
-    inProgressProjects: 0, // Could be extended with status field
+    inProgressProjects: projects.filter(p => p.status === 'in_progress').length,
     totalBOQValue: projects.reduce((sum, p) => 
       sum + (p.analysis_data?.summary?.total_value || 0), 0),
-    completedProjects: 0,
-    draftProjects: projects.length,
-    pendingProjects: 0,
+    completedProjects: projects.filter(p => p.status === 'completed').length,
+    draftProjects: projects.filter(p => !p.status || p.status === 'draft').length,
+    pendingProjects: projects.filter(p => p.status === 'suspended').length,
   };
 
   return (
@@ -149,6 +151,10 @@ const ReportsPage = () => {
               <FileDown className="h-4 w-4" />
               {isArabic ? "التصدير" : "Export"}
             </TabsTrigger>
+            <TabsTrigger value="comparison" className="flex items-center gap-2">
+              <GitCompare className="h-4 w-4" />
+              {isArabic ? "مقارنة الأسعار" : "Price Comparison"}
+            </TabsTrigger>
             <TabsTrigger value="summary" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               {isArabic ? "ملخص المشروع" : "Project Summary"}
@@ -161,6 +167,10 @@ const ReportsPage = () => {
 
           <TabsContent value="export">
             <ExportTab projects={projects} isLoading={isLoading} />
+          </TabsContent>
+
+          <TabsContent value="comparison">
+            <ProjectsComparisonExport projects={projects} />
           </TabsContent>
 
           <TabsContent value="summary">

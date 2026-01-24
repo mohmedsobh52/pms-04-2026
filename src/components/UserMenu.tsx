@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Settings, FolderOpen, User, LogOut, ChevronDown } from "lucide-react";
+import { Settings, FolderOpen, User, LogOut, ChevronDown, BarChart3 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 
@@ -49,6 +49,12 @@ export function UserMenu() {
           <Link to="/projects" className="flex items-center gap-2 cursor-pointer">
             <FolderOpen className="h-4 w-4" />
             {isArabic ? "المشاريع المحفوظة" : "Saved Projects"}
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/reports" className="flex items-center gap-2 cursor-pointer">
+            <BarChart3 className="h-4 w-4" />
+            {isArabic ? "التقارير" : "Reports"}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
