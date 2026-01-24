@@ -11,7 +11,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { useColumnMappingTemplates, ColumnMappingTemplate } from '@/hooks/useColumnMappingTemplates';
 import { 
   Check, X, RotateCcw, FileSpreadsheet, AlertTriangle, Columns, Table2, ArrowRight,
-  Save, Trash2, Download, Upload, GitCompare, Eye
+  Save, Trash2, Download, Upload, GitCompare, Eye, Filter, ArrowDown, ArrowUp
 } from 'lucide-react';
 import { ExcelBOQItem, reExtractWithMapping } from '@/lib/excel-utils';
 import { toast } from 'sonner';
@@ -70,6 +70,9 @@ export function ExcelDataPreview({
   const [templateName, setTemplateName] = useState('');
   const [showTemplateInput, setShowTemplateInput] = useState(false);
   const [suggestedTemplate, setSuggestedTemplate] = useState<{ template: { id: string; name: string; mapping: Record<string, number>; headerRowIndex: number }; score: number } | null>(null);
+  
+  // Refs for scroll navigation
+  const scrollAreaRef = React.useRef<HTMLDivElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Reset when items change
@@ -192,6 +195,46 @@ export function ExcelDataPreview({
   const handleDeleteRow = (index: number) => {
     setEditedItems(prev => prev.filter((_, i) => i !== index));
   };
+
+  // Delete all rows with zero quantity
+  const handleDeleteZeroQuantityRows = () => {
+    const zeroQtyCount = editedItems.filter(item => !item.quantity || item.quantity === 0).length;
+    if (zeroQtyCount === 0) {
+      toast.info(isArabic ? 'لا توجد صفوف بكمية صفر' : 'No rows with zero quantity');
+      return;
+    }
+    
+    setEditedItems(prev => prev.filter(item => item.quantity && item.quantity > 0));
+    toast.success(
+      isArabic 
+        ? `تم حذف ${zeroQtyCount} صف بكمية صفر` 
+        : `Deleted ${zeroQtyCount} rows with zero quantity`
+    );
+  };
+
+  // Scroll navigation functions
+  const handleScrollToBottom = () => {
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
+      }
+    }
+  };
+
+  const handleScrollToTop = () => {
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  };
+
+  // Count zero quantity items
+  const zeroQuantityCount = useMemo(() => {
+    return editedItems.filter(item => !item.quantity || item.quantity === 0).length;
+  }, [editedItems]);
 
   // Apply custom column mapping
   const handleApplyMapping = () => {
@@ -378,23 +421,39 @@ export function ExcelDataPreview({
                 </div>
               )}
 
-              {/* Stats */}
-              <div className="flex flex-wrap gap-3 py-2 border-b">
-                <Badge variant="outline" className="gap-1">
-                  {isArabic ? 'إجمالي البنود' : 'Total Items'}: {stats.total}
-                </Badge>
-                <Badge variant={stats.withDescription === stats.total ? 'default' : 'secondary'} className="gap-1">
-                  {isArabic ? 'مع وصف' : 'With Description'}: {stats.withDescription}
-                </Badge>
-                <Badge variant={stats.withQuantity === stats.total ? 'default' : 'secondary'} className="gap-1">
-                  {isArabic ? 'مع كمية' : 'With Quantity'}: {stats.withQuantity}
-                </Badge>
-                <Badge variant={stats.withPrice === stats.total ? 'default' : 'secondary'} className="gap-1">
-                  {isArabic ? 'مع سعر' : 'With Price'}: {stats.withPrice}
-                </Badge>
-                <Badge variant="outline" className="gap-1 font-bold">
-                  {isArabic ? 'القيمة الإجمالية' : 'Total Value'}: {stats.totalValue.toLocaleString()} SAR
-                </Badge>
+              {/* Stats and Actions Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 py-2 border-b">
+                <div className="flex flex-wrap gap-3">
+                  <Badge variant="outline" className="gap-1">
+                    {isArabic ? 'إجمالي البنود' : 'Total Items'}: {stats.total}
+                  </Badge>
+                  <Badge variant={stats.withDescription === stats.total ? 'default' : 'secondary'} className="gap-1">
+                    {isArabic ? 'مع وصف' : 'With Description'}: {stats.withDescription}
+                  </Badge>
+                  <Badge variant={stats.withQuantity === stats.total ? 'default' : 'secondary'} className="gap-1">
+                    {isArabic ? 'مع كمية' : 'With Quantity'}: {stats.withQuantity}
+                  </Badge>
+                  <Badge variant={stats.withPrice === stats.total ? 'default' : 'secondary'} className="gap-1">
+                    {isArabic ? 'مع سعر' : 'With Price'}: {stats.withPrice}
+                  </Badge>
+                  <Badge variant="outline" className="gap-1 font-bold">
+                    {isArabic ? 'القيمة الإجمالية' : 'Total Value'}: {stats.totalValue.toLocaleString()} SAR
+                  </Badge>
+                </div>
+                
+                {/* Delete Zero Quantity Button */}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleDeleteZeroQuantityRows}
+                  className="gap-2 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                  disabled={zeroQuantityCount === 0}
+                >
+                  <Filter className="h-4 w-4" />
+                  {isArabic 
+                    ? `حذف صفوف الكمية صفر (${zeroQuantityCount})` 
+                    : `Remove Zero Qty (${zeroQuantityCount})`}
+                </Button>
               </div>
 
               {/* Warnings */}
@@ -409,8 +468,31 @@ export function ExcelDataPreview({
                 </div>
               )}
 
-              {/* Table */}
-              <ScrollArea className="flex-1 border rounded-md mt-2">
+              {/* Table with Side Navigation */}
+              <div className="relative flex-1 mt-2">
+                {/* Side Navigation Buttons */}
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2">
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-10 w-10 rounded-full shadow-lg border bg-background/95 backdrop-blur-sm hover:bg-primary hover:text-primary-foreground"
+                    onClick={handleScrollToTop}
+                    title={isArabic ? 'الذهاب للأعلى' : 'Go to top'}
+                  >
+                    <ArrowUp className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-10 w-10 rounded-full shadow-lg border bg-background/95 backdrop-blur-sm hover:bg-primary hover:text-primary-foreground"
+                    onClick={handleScrollToBottom}
+                    title={isArabic ? 'الذهاب للأسفل' : 'Go to bottom'}
+                  >
+                    <ArrowDown className="h-5 w-5" />
+                  </Button>
+                </div>
+                
+                <ScrollArea className="h-[400px] border rounded-md" ref={scrollAreaRef}>
                 <Table>
                   <TableHeader className="sticky top-0 bg-background z-10">
                     <TableRow>
@@ -458,7 +540,8 @@ export function ExcelDataPreview({
                       : `Showing first 50 of ${editedItems.length} items`}
                   </div>
                 )}
-              </ScrollArea>
+                </ScrollArea>
+              </div>
             </TabsContent>
 
             {/* Remap Columns Tab */}
