@@ -92,6 +92,13 @@ const quickActions = [
     description: { ar: "رفع وتحليل ملفات BOQ", en: "Upload and analyze BOQ files" }
   },
   { 
+    icon: Zap, 
+    label: { ar: "الاستخراج السريع", en: "Fast Extraction" }, 
+    href: "/fast-extraction", 
+    color: "from-orange-500 to-amber-500",
+    description: { ar: "رفع وتصنيف ملفات متعددة بسرعة", en: "Quickly upload and classify multiple files" }
+  },
+  { 
     icon: Plus, 
     label: { ar: "مشروع جديد", en: "New Project" }, 
     href: "/analyze", 
