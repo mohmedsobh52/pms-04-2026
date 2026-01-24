@@ -62,6 +62,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { extractTextFromPDF, validateExtractedText, extractWithOCROnly } from "@/lib/pdf-utils";
 import { extractDataFromExcel, formatExcelDataForAnalysis, type ExcelBOQItem } from "@/lib/excel-utils";
 import { performLocalExcelAnalysis, shouldOfferAIEnrichment, type LocalAnalysisResult } from "@/lib/local-excel-analysis";
+import { performLocalTextAnalysis, shouldUseAIForText, textContainsBOQData, isArabicText as checkArabicText, type LocalTextAnalysisResult } from "@/lib/local-text-analysis";
 import { ExcelDataPreview } from "@/components/ExcelDataPreview";
 
 function isExcelFile(file: File): boolean {
@@ -578,6 +579,99 @@ const Index = () => {
     }
     // ==================== END PHASE 2 ====================
 
+    // ==================== PHASE 2.5: LOCAL TEXT ANALYSIS FOR ARABIC/PDF ====================
+    // Try local text analysis first for any text content (not Excel)
+    // This provides instant results without AI rate limits
+    const isArabicContent = checkArabicText(rawText);
+    const hasBoqIndicators = textContainsBOQData(rawText);
+    
+    if (!isExcel && hasBoqIndicators && rawText.length < 150000) {
+      setIsProcessing(true);
+      updateStepStatus("analyze", "processing", 15);
+      
+      toast({
+        title: isArabic ? '⚡ تحليل فوري للنص' : '⚡ Instant Text Analysis',
+        description: isArabic 
+          ? 'جاري استخراج البنود بدون انتظار AI...'
+          : 'Extracting items without waiting for AI...',
+      });
+      
+      try {
+        const localTextResult = performLocalTextAnalysis(rawText, { fileName: selectedFile?.name });
+        
+        // Check if local analysis was successful enough
+        if (localTextResult.items.length >= 5 && !shouldUseAIForText(localTextResult)) {
+          // Convert local text result to standard format
+          const normalizedItems = localTextResult.items.map(item => ({
+            ...item,
+            item_number: item.item_number,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+            quantity: item.quantity,
+            description: item.description,
+            unit: item.unit,
+            category: item.category,
+            remarks: item.validation?.issues.length ? item.validation.issues.join('; ') : undefined,
+          }));
+          
+          const analysisResult = {
+            items: normalizedItems,
+            summary: {
+              total_items: localTextResult.summary.total_items,
+              total_value: localTextResult.summary.total_value,
+              currency: localTextResult.summary.currency,
+              categories: localTextResult.summary.categories,
+              quality_score: localTextResult.summary.quality_score,
+              quality_issues: localTextResult.summary.quality_issues,
+            },
+            analysis_type: 'local_text',
+            analysis_date: localTextResult.analysis_date,
+            processing_time_ms: localTextResult.processing_time_ms,
+          };
+          
+          setAnalysisData(analysisResult);
+          updateStepStatus("analyze", "complete", 100);
+          updateStepStatus("wbs", "complete");
+          updateStepStatus("export", "complete");
+          
+          toast({
+            title: isArabic ? '✅ اكتمل التحليل الفوري' : '✅ Instant Analysis Complete',
+            description: isArabic 
+              ? `${localTextResult.summary.total_items} بند في ${localTextResult.processing_time_ms}ms - جودة ${localTextResult.summary.quality_score}%`
+              : `${localTextResult.summary.total_items} items in ${localTextResult.processing_time_ms}ms - Quality ${localTextResult.summary.quality_score}%`,
+            duration: 5000,
+          });
+          
+          // Offer AI enrichment if quality is low
+          if (localTextResult.summary.quality_score < 70) {
+            setShowAIEnrichmentOption(true);
+            toast({
+              title: isArabic ? '💡 تحسين بالـ AI متاح' : '💡 AI Enrichment Available',
+              description: isArabic 
+                ? 'يمكن تحسين النتائج باستخدام الذكاء الاصطناعي'
+                : 'Results can be improved using AI',
+              duration: 8000,
+            });
+          }
+          
+          setIsProcessing(false);
+          return;
+        } else {
+          // Local analysis didn't find enough items, fall back to AI
+          console.log(`Local text analysis found ${localTextResult.items.length} items, falling back to AI`);
+          toast({
+            title: isArabic ? 'التبديل للتحليل بالـ AI' : 'Switching to AI Analysis',
+            description: isArabic 
+              ? `تم العثور على ${localTextResult.items.length} بند فقط محلياً، جاري استخدام AI للمزيد...`
+              : `Found only ${localTextResult.items.length} items locally, using AI for more...`,
+          });
+        }
+      } catch (localTextError) {
+        console.warn('Local text analysis error, falling back to AI:', localTextError);
+      }
+    }
+    // ==================== END PHASE 2.5 ====================
+
     // Check if we should use chunked analysis for large files
     const chunkThreshold = analysisSettings.chunkSize * 1000;
     const autoChunkThresholdBytes = (analysisSettings.autoChunkThreshold || 500) * 1024;
@@ -612,7 +706,9 @@ const Index = () => {
       });
     }
 
-    setIsProcessing(true);
+    if (!isProcessing) {
+      setIsProcessing(true);
+    }
     updateStepStatus("analyze", "processing", 10);
 
     // Auto-determine if we should use Job Queue based on file size, language, or file type
@@ -620,9 +716,10 @@ const Index = () => {
     // ALSO force Job Queue for Arabic content (Excel is handled locally now)
     const autoJobQueueThresholdBytes = (analysisSettings.autoJobQueueThreshold || 200) * 1024;
     
-    // Detect Arabic content by checking for Arabic characters
-    const isArabicContent = /[\u0600-\u06FF]/.test(rawText) && 
-      (rawText.match(/[\u0600-\u06FF]/g) || []).length > 100;
+    // Note: isArabicContent already detected above in Phase 2.5
+    // No need to re-detect - use the existing value
+    
+    // Force Job Queue for Arabic content or large files (Excel is handled locally now)
     
     // Force Job Queue for Arabic content or large files (Excel is handled locally now)
     const shouldUseJobQueue = analysisSettings.useJobQueue && user && (

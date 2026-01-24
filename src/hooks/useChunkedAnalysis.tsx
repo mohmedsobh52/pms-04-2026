@@ -49,14 +49,18 @@ interface ChunkedAnalysisOptions {
   maxResizeAttempts?: number; // Max resize attempts per chunk (default: 3)
 }
 
-const DEFAULT_CHUNK_SIZE = 30000;
-const DEFAULT_OVERLAP_SIZE = 500;
-const DEFAULT_MIN_CHUNK_SIZE = 5000;
-const DEFAULT_RESIZE_FACTOR = 0.6;
-const DEFAULT_MAX_RESIZE_ATTEMPTS = 3;
+// OPTIMIZED: Increased chunk sizes to reduce API calls and rate limit hits
+const DEFAULT_CHUNK_SIZE = 50000;  // Increased from 30000
+const DEFAULT_OVERLAP_SIZE = 300;  // Reduced from 500
+const DEFAULT_MIN_CHUNK_SIZE = 8000;  // Increased from 5000
+const DEFAULT_RESIZE_FACTOR = 0.65;  // Slightly increased from 0.6
+const DEFAULT_MAX_RESIZE_ATTEMPTS = 4;  // Increased from 3
 
-// Strong exponential backoff: 30s, 60s, 120s, 120s, 120s
-const BACKOFF_SCHEDULE = [30000, 60000, 120000, 120000, 120000];
+// Arabic-optimized chunk size (larger to reduce chunks)
+const DEFAULT_ARABIC_CHUNK_SIZE = 40000;  // NEW: was 15000, now much larger
+
+// OPTIMIZED: Faster backoff schedule - less waiting
+const BACKOFF_SCHEDULE = [15000, 30000, 45000, 60000, 90000];  // Reduced from 30s, 60s, 120s...
 
 // Detect truncated AI response
 function detectTruncatedResponse(content: any): boolean {
@@ -430,14 +434,14 @@ export function useChunkedAnalysis() {
       overlapSize = DEFAULT_OVERLAP_SIZE,
       maxRetries = 5,
       useCompression = true,
-      // Throttle options
+      // Throttle options - OPTIMIZED
       enableThrottle = true,
-      maxRequestsPerMinute = 3,
-      delayBetweenChunks = 5,
-      // Arabic optimization
+      maxRequestsPerMinute = 5,  // Increased from 3
+      delayBetweenChunks = 2,    // Reduced from 5 seconds
+      // Arabic optimization - OPTIMIZED
       arabicOptimization = true,
-      arabicChunkSize = 15000,
-      // Auto-resize options - NEW
+      arabicChunkSize = DEFAULT_ARABIC_CHUNK_SIZE,  // Now 40000 instead of 15000
+      // Auto-resize options
       enableAutoResize = true,
       minChunkSize = DEFAULT_MIN_CHUNK_SIZE,
       resizeReductionFactor = DEFAULT_RESIZE_FACTOR,
