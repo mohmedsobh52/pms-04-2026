@@ -12,7 +12,6 @@ import {
   Bell, 
   FileText,
   GitCompare,
-  ChevronRight,
   ChevronDown,
   Search,
   TrendingUp,
@@ -31,8 +30,13 @@ import {
   Clock,
   Link2,
   GripVertical,
-  Home,
-  Database
+  Database,
+  Briefcase,
+  Calculator,
+  FolderOpen,
+  Zap,
+  History,
+  Wrench
 } from "lucide-react";
 import { 
   DndContext, 
@@ -240,6 +244,12 @@ export function FloatingToolbar({
   const routeMap: Record<string, string> = {
     "dashboard": "/",
     "home": "/",
+    // Projects section
+    "projects-menu": "/projects",
+    "saved-projects": "/projects",
+    "new-project": "/",
+    "templates": "/templates",
+    // BOQ Items section
     "analysis": "/items",
     "wbs": "/items",
     "cost-brief": "/items",
@@ -247,42 +257,82 @@ export function FloatingToolbar({
     "time-schedule": "/items",
     "schedule-integration": "/items",
     "items-menu": "/items",
+    // Analysis section
     "analysis-tools": "/analysis-tools",
     "cost-analysis": "/analysis-tools",
     "compare": "/quotations",
     "boq-compare": "/analysis-tools",
     "market-rates": "/analysis-tools",
+    // Estimating section
+    "estimating-menu": "/quotations",
+    "quotations": "/quotations",
+    "historical-pricing": "/historical-pricing",
+    "fast-extraction": "/fast-extraction",
+    // Library
+    "library": "/library",
+    // Procurement section
     "procurement": "/procurement",
     "procurement-schedule": "/procurement",
     "material-prices": "/material-prices",
     "resources": "/procurement",
-    "upload": "/quotations",
+    // Other sections
     "reports": "/reports",
     "report": "/reports",
     "version-compare": "/compare-versions",
     "p6-export": "/p6-export",
     "risk": "/risk",
     "contracts": "/contracts",
-    "settings": "/settings",
-    "preferences": "/settings",
-    "help": "/about",
     "subcontractors": "/subcontractors",
     "attachments": "/attachments",
-    "templates": "/templates",
+    "calendar": "/calendar",
+    // Settings
+    "settings": "/settings",
+    "preferences": "/settings",
+    "notifications": "/settings",
+    "help": "/about",
   };
 
   const defaultMenuItems: MenuItem[] = [
+    // 1. Dashboard - نقطة البداية
     {
       id: "dashboard",
       icon: <LayoutDashboard className="w-4 h-4" />,
       label: "Dashboard",
       labelAr: "لوحة التحكم",
     },
+    // 2. Projects - الوصول السريع للمشاريع
+    {
+      id: "projects-menu",
+      icon: <Briefcase className="w-4 h-4" />,
+      label: "Projects",
+      labelAr: "المشاريع",
+      children: [
+        {
+          id: "saved-projects",
+          icon: <FolderOpen className="w-4 h-4" />,
+          label: "Saved Projects",
+          labelAr: "المشاريع المحفوظة",
+        },
+        {
+          id: "new-project",
+          icon: <FileStack className="w-4 h-4" />,
+          label: "New Project",
+          labelAr: "مشروع جديد",
+        },
+        {
+          id: "templates",
+          icon: <Layers className="w-4 h-4" />,
+          label: "Templates",
+          labelAr: "القوالب",
+        },
+      ],
+    },
+    // 3. BOQ Items - العمل الأساسي
     {
       id: "items-menu",
       icon: <Layers className="w-4 h-4" />,
-      label: "Items",
-      labelAr: "البنود",
+      label: "BOQ Items",
+      labelAr: "جدول الكميات",
       badge: String(6),
       children: [
         {
@@ -323,11 +373,12 @@ export function FloatingToolbar({
         },
       ],
     },
+    // 4. Analysis Tools - أدوات التحليل
     {
       id: "analysis-tools",
       icon: <BarChart3 className="w-4 h-4" />,
-      label: "Analysis Tools",
-      labelAr: "أدوات التحليل",
+      label: "Analysis",
+      labelAr: "التحليل",
       badge: String(4),
       children: [
         {
@@ -347,8 +398,6 @@ export function FloatingToolbar({
           icon: <FileStack className="w-4 h-4" />,
           label: "BOQ Compare",
           labelAr: "مقارنة BOQ",
-          badge: "New",
-          badgeVariant: "destructive",
         },
         {
           id: "market-rates",
@@ -358,6 +407,45 @@ export function FloatingToolbar({
         },
       ],
     },
+    // 5. Estimating - التسعير والعروض
+    {
+      id: "estimating-menu",
+      icon: <Calculator className="w-4 h-4" />,
+      label: "Estimating",
+      labelAr: "التسعير",
+      children: [
+        {
+          id: "quotations",
+          icon: <Receipt className="w-4 h-4" />,
+          label: "Quotations",
+          labelAr: "عروض الأسعار",
+        },
+        {
+          id: "historical-pricing",
+          icon: <History className="w-4 h-4" />,
+          label: "Historical Pricing",
+          labelAr: "الأسعار التاريخية",
+        },
+        {
+          id: "fast-extraction",
+          icon: <Zap className="w-4 h-4" />,
+          label: "Fast Extraction",
+          labelAr: "الاستخراج السريع",
+          badge: "New",
+          badgeVariant: "destructive",
+        },
+      ],
+    },
+    // 6. Library - المكتبة المرجعية
+    {
+      id: "library",
+      icon: <Database className="w-4 h-4" />,
+      label: "Library",
+      labelAr: "المكتبة",
+      badge: "New",
+      badgeVariant: "destructive",
+    },
+    // 7. Procurement - المشتريات
     {
       id: "procurement",
       icon: <Package className="w-4 h-4" />,
@@ -375,8 +463,6 @@ export function FloatingToolbar({
           icon: <Database className="w-4 h-4" />,
           label: "Price Database",
           labelAr: "قاعدة الأسعار",
-          badge: "New",
-          badgeVariant: "destructive",
         },
         {
           id: "resources",
@@ -386,12 +472,35 @@ export function FloatingToolbar({
         },
       ],
     },
+    // 8. Subcontractors - المقاولين
     {
-      id: "upload",
-      icon: <Receipt className="w-4 h-4" />,
-      label: "Quotations",
-      labelAr: "عروض الأسعار",
+      id: "subcontractors",
+      icon: <Users className="w-4 h-4" />,
+      label: "Subcontractors",
+      labelAr: "المقاولين من الباطن",
     },
+    // 9. Contracts - العقود
+    {
+      id: "contracts",
+      icon: <Building2 className="w-4 h-4" />,
+      label: "Contracts",
+      labelAr: "العقود",
+    },
+    // 10. Scheduling - الجدولة
+    {
+      id: "calendar",
+      icon: <Calendar className="w-4 h-4" />,
+      label: "Calendar",
+      labelAr: "التقويم",
+    },
+    // 11. Risk Management - إدارة المخاطر
+    {
+      id: "risk",
+      icon: <Shield className="w-4 h-4" />,
+      label: "Risk Management",
+      labelAr: "إدارة المخاطر",
+    },
+    // 12. Reports - التقارير
     {
       id: "reports",
       icon: <FileText className="w-4 h-4" />,
@@ -418,26 +527,7 @@ export function FloatingToolbar({
         },
       ],
     },
-    {
-      id: "templates",
-      icon: <Layers className="w-4 h-4" />,
-      label: "Templates",
-      labelAr: "القوالب",
-    },
-    {
-      id: "risk",
-      icon: <Shield className="w-4 h-4" />,
-      label: "Risk Management",
-      labelAr: "إدارة المخاطر",
-      badge: "New",
-      badgeVariant: "destructive",
-    },
-    {
-      id: "contracts",
-      icon: <Building2 className="w-4 h-4" />,
-      label: "Contracts",
-      labelAr: "العقود",
-    },
+    // 13. Attachments - المرفقات
     {
       id: "attachments",
       icon: <FileStack className="w-4 h-4" />,
@@ -472,7 +562,7 @@ export function FloatingToolbar({
 
   const settingsItems: MenuItem[] = [
     {
-      id: "settings",
+      id: "notifications",
       icon: <Bell className="w-4 h-4" />,
       label: "Notifications",
       labelAr: "الإشعارات",
@@ -487,7 +577,7 @@ export function FloatingToolbar({
       id: "help",
       icon: <HelpCircle className="w-4 h-4" />,
       label: "Help & Support",
-      labelAr: "المساعدة",
+      labelAr: "المساعدة والدعم",
     },
   ];
 
