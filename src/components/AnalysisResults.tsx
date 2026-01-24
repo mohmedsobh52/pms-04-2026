@@ -213,6 +213,16 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   // State for deleted items (to hide zero quantity rows)
   const [deletedItemNumbers, setDeletedItemNumbers] = useState<Set<string>>(new Set());
   
+  // State for restoration system - track deleted items with details
+  const [deletedItems, setDeletedItems] = useState<Array<{
+    itemNumber: string;
+    description: string;
+    deletedAt: Date;
+  }>>([]);
+  
+  // State for zero quantity filter
+  const [showOnlyZeroQty, setShowOnlyZeroQty] = useState(false);
+  
   // Table zoom, pinned columns, and visible columns state
   const [tableZoom, setTableZoom] = useState(() => {
     const saved = localStorage.getItem("boq_table_zoom");
@@ -550,6 +560,11 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
       !!item.item_number && !deletedItemNumbers.has(item.item_number)
     );
     
+    // Zero quantity filter (new feature)
+    if (showOnlyZeroQty) {
+      items = items.filter(item => !item.quantity || item.quantity === 0);
+    }
+    
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -613,7 +628,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     }
     
     return items;
-  }, [data.items, searchQuery, unitFilter, categoryFilter, costRangeFilter, sortField, sortDirection, deletedItemNumbers]);
+  }, [data.items, searchQuery, unitFilter, categoryFilter, costRangeFilter, sortField, sortDirection, deletedItemNumbers, showOnlyZeroQty]);
 
   // Count zero quantity items
   const zeroQuantityItems = useMemo(() => {
@@ -624,34 +639,104 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     );
   }, [data.items, deletedItemNumbers]);
 
-  // Handler to delete a single zero quantity row
+  // Handler to delete a single zero quantity row with undo support
   const handleDeleteZeroQtyRow = useCallback((itemNumber: string) => {
+    const item = (data.items || []).find(i => i.item_number === itemNumber);
+    
+    // Add to deleted items for restoration
+    setDeletedItems(prev => [...prev, {
+      itemNumber,
+      description: item?.description || '',
+      deletedAt: new Date()
+    }]);
+    
+    // Add to deleted set
     setDeletedItemNumbers(prev => {
       const newSet = new Set(prev);
       newSet.add(itemNumber);
       return newSet;
     });
+    
+    // Toast with undo action
     toast({
       title: isArabic ? "تم حذف البند" : "Item Deleted",
-      description: isArabic ? `تم حذف البند ${itemNumber}` : `Deleted item ${itemNumber}`,
+      description: item?.description?.substring(0, 40) || itemNumber,
+      action: (
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => handleRestoreItem(itemNumber)}
+          className="gap-1"
+        >
+          <RotateCcw className="w-3 h-3" />
+          {isArabic ? "تراجع" : "Undo"}
+        </Button>
+      ),
     });
-  }, [isArabic, toast]);
+  }, [data.items, isArabic, toast]);
 
   // Handler to delete all zero quantity rows
   const handleDeleteAllZeroQtyRows = useCallback(() => {
+    const zeroQtyItemsToDelete = zeroQuantityItems.map(item => ({
+      itemNumber: item.item_number,
+      description: item.description || '',
+      deletedAt: new Date()
+    }));
+    
+    // Add all to deleted items
+    setDeletedItems(prev => [...prev, ...zeroQtyItemsToDelete]);
+    
+    // Add to deleted set
     const zeroQtyItemNumbers = zeroQuantityItems.map(item => item.item_number);
     setDeletedItemNumbers(prev => {
       const newSet = new Set(prev);
       zeroQtyItemNumbers.forEach(num => newSet.add(num));
       return newSet;
     });
+    
     toast({
       title: isArabic ? "تم حذف البنود" : "Items Deleted",
       description: isArabic 
         ? `تم حذف ${zeroQtyItemNumbers.length} بند بكمية صفر` 
         : `Deleted ${zeroQtyItemNumbers.length} zero quantity items`,
+      action: (
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRestoreAllItems}
+          className="gap-1"
+        >
+          <RotateCcw className="w-3 h-3" />
+          {isArabic ? "استعادة الكل" : "Restore All"}
+        </Button>
+      ),
     });
   }, [zeroQuantityItems, isArabic, toast]);
+
+  // Handler to restore a single deleted item
+  const handleRestoreItem = useCallback((itemNumber: string) => {
+    setDeletedItemNumbers(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(itemNumber);
+      return newSet;
+    });
+    setDeletedItems(prev => prev.filter(i => i.itemNumber !== itemNumber));
+    toast({
+      title: isArabic ? "تم استعادة البند" : "Item Restored",
+      description: itemNumber,
+    });
+  }, [isArabic, toast]);
+
+  // Handler to restore all deleted items
+  const handleRestoreAllItems = useCallback(() => {
+    const count = deletedItemNumbers.size;
+    setDeletedItemNumbers(new Set());
+    setDeletedItems([]);
+    toast({
+      title: isArabic ? "تم استعادة جميع البنود" : "All Items Restored",
+      description: isArabic ? `تم استعادة ${count} بند` : `Restored ${count} items`,
+    });
+  }, [deletedItemNumbers.size, isArabic, toast]);
 
   // Scroll navigation handlers
   const handleScrollToTop = useCallback(() => {
@@ -1724,30 +1809,123 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                 </div>
               )}
 
-              {/* Items Found Counter */}
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <div className="flex items-center gap-3">
-                  <span>
-                    {filteredItems.length} {isArabic ? "عنصر" : "items"} 
-                    {hasActiveFilters && ` (${isArabic ? "من" : "of"} ${data.items?.length || 0})`}
-                  </span>
-                  {/* Delete Zero Quantity Items Button */}
+              {/* Statistics Bar - Enhanced Layout */}
+              <div className="flex flex-col gap-3">
+                {/* Top Stats Row */}
+                <div className="flex flex-wrap items-center gap-3 p-3 bg-muted/30 rounded-lg border border-border">
+                  {/* Total Items Badge */}
+                  <Badge variant="secondary" className="gap-1.5 px-3 py-1.5 text-sm bg-primary/10 text-primary border-primary/20">
+                    <Package className="w-4 h-4" />
+                    {data.items?.length || 0} {isArabic ? "بند" : "items"}
+                  </Badge>
+                  
+                  {/* Zero Quantity Badge */}
                   {zeroQuantityItems.length > 0 && (
+                    <Badge 
+                      variant="outline" 
+                      className="gap-1.5 px-3 py-1.5 text-sm bg-warning/10 text-warning border-warning/30 cursor-pointer hover:bg-warning/20 transition-colors"
+                      onClick={() => setShowOnlyZeroQty(!showOnlyZeroQty)}
+                    >
+                      <XCircle className="w-4 h-4" />
+                      {zeroQuantityItems.length} {isArabic ? "كمية صفر" : "zero qty"}
+                      {showOnlyZeroQty && <span className="ml-1 text-xs">(فلتر نشط)</span>}
+                    </Badge>
+                  )}
+                  
+                  {/* Deleted Items Badge with Restore */}
+                  {deletedItemNumbers.size > 0 && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Badge 
+                          variant="outline" 
+                          className="gap-1.5 px-3 py-1.5 text-sm bg-destructive/10 text-destructive border-destructive/30 cursor-pointer hover:bg-destructive/20 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          {deletedItemNumbers.size} {isArabic ? "محذوف" : "deleted"}
+                          <ChevronDown className="w-3 h-3 ml-1" />
+                        </Badge>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-80 max-h-64 overflow-y-auto">
+                        <div className="p-2 border-b border-border">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={handleRestoreAllItems}
+                            className="w-full gap-2 text-primary"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            {isArabic ? "استعادة الكل" : "Restore All"}
+                          </Button>
+                        </div>
+                        {deletedItems.map((item, idx) => (
+                          <DropdownMenuItem 
+                            key={idx}
+                            onClick={() => handleRestoreItem(item.itemNumber)}
+                            className="flex items-center justify-between gap-2"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <span className="font-mono text-xs text-primary">{item.itemNumber}</span>
+                              <p className="text-xs text-muted-foreground truncate">{item.description.substring(0, 40)}</p>
+                            </div>
+                            <RotateCcw className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                  
+                  <div className="flex-1" />
+                  
+                  {/* Zero Qty Filter Toggle */}
+                  <Button
+                    variant={showOnlyZeroQty ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowOnlyZeroQty(!showOnlyZeroQty)}
+                    className={cn(
+                      "gap-2",
+                      showOnlyZeroQty && "bg-warning text-warning-foreground hover:bg-warning/90"
+                    )}
+                  >
+                    <Filter className="w-4 h-4" />
+                    {isArabic ? "كمية صفر فقط" : "Zero Qty Only"}
+                  </Button>
+                  
+                  {/* Delete All Zero Qty Button */}
+                  {(showOnlyZeroQty || zeroQuantityItems.length > 0) && (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={handleDeleteAllZeroQtyRows}
                       className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10"
+                      disabled={zeroQuantityItems.length === 0}
                     >
                       <XCircle className="w-4 h-4" />
                       {isArabic 
-                        ? `حذف ${zeroQuantityItems.length} بند بكمية صفر` 
-                        : `Delete ${zeroQuantityItems.length} zero qty items`}
+                        ? `حذف ${zeroQuantityItems.length} بند` 
+                        : `Delete ${zeroQuantityItems.length}`}
                     </Button>
                   )}
                 </div>
-                {hasActiveFilters && (
+                
+                {/* Filtered Results Info */}
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">
+                      {filteredItems.length} {isArabic ? "عنصر معروض" : "items shown"} 
+                      {(hasActiveFilters || showOnlyZeroQty) && (
+                        <span className="text-muted-foreground/70">
+                          {` (${isArabic ? "من" : "of"} ${data.items?.length || 0})`}
+                        </span>
+                      )}
+                    </span>
+                  </div>
                   <div className="flex flex-wrap gap-1">
+                    {showOnlyZeroQty && (
+                      <Badge variant="secondary" className="gap-1 text-xs bg-warning/10 text-warning">
+                        {isArabic ? "كمية صفر" : "Zero Qty"}
+                        <X className="w-3 h-3 cursor-pointer" onClick={() => setShowOnlyZeroQty(false)} />
+                      </Badge>
+                    )}
                     {searchQuery && (
                       <Badge variant="outline" className="gap-1 text-xs">
                         {isArabic ? "بحث" : "Search"}: {searchQuery}
@@ -1769,7 +1947,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                       </Badge>
                     )}
                   </div>
-                )}
+                </div>
               </div>
             </div>
 
@@ -2313,8 +2491,27 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
         )}
       </div>
 
-      {/* Floating Scroll Navigation Bar */}
-      <div className="fixed right-4 bottom-1/2 translate-y-1/2 z-40 flex flex-col gap-2">
+      {/* Floating Scroll Navigation Bar - Enhanced */}
+      <div className="fixed right-4 bottom-1/2 translate-y-1/2 z-40 flex flex-col gap-2 items-center">
+        {/* Position Indicator */}
+        <div className="bg-background/95 backdrop-blur-sm border border-border rounded-lg px-3 py-2 shadow-lg mb-2">
+          <div className="text-xs font-medium text-center text-muted-foreground">
+            {filteredItems.length > 0 ? (
+              <>
+                <span className="text-primary font-bold">{filteredItems.length}</span>
+                <span className="mx-1">/</span>
+                <span>{data.items?.length || 0}</span>
+              </>
+            ) : (
+              <span>0</span>
+            )}
+          </div>
+          <div className="text-[10px] text-muted-foreground text-center">
+            {isArabic ? "بند" : "items"}
+          </div>
+        </div>
+        
+        {/* Scroll Buttons */}
         <Button
           variant="secondary"
           size="icon"
@@ -2333,6 +2530,19 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
         >
           <ArrowDown className="w-5 h-5" />
         </Button>
+        
+        {/* Deleted Items Quick Access */}
+        {deletedItemNumbers.size > 0 && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleRestoreAllItems}
+            className="h-10 w-10 rounded-full shadow-lg border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors mt-2"
+            title={isArabic ? `استعادة ${deletedItemNumbers.size} بند` : `Restore ${deletedItemNumbers.size} items`}
+          >
+            <RotateCcw className="w-5 h-5" />
+          </Button>
+        )}
       </div>
     </div>
   );
