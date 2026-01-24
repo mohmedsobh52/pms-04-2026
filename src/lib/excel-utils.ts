@@ -200,7 +200,7 @@ function getCellValue(cell: ExcelJS.Cell): string | number | undefined {
 }
 
 // Convert worksheet to array of arrays
-function worksheetToArray(worksheet: ExcelJS.Worksheet, maxRows: number = 1000): (string | number | undefined)[][] {
+function worksheetToArray(worksheet: ExcelJS.Worksheet, maxRows: number = 3000): (string | number | undefined)[][] {
   const result: (string | number | undefined)[][] = [];
   let rowCount = 0;
   
@@ -492,8 +492,8 @@ function extractBOQItems(data: (string | number | undefined)[][], maxRows: numbe
       item.totalPrice = item.quantity * item.unitPrice;
     }
 
-    // Only add items that have meaningful data
-    if (item.description || (item.itemNo && item.itemNo !== '')) {
+    // Only add items that have meaningful data - expanded conditions
+    if (item.description || (item.itemNo && item.itemNo !== '') || item.quantity || item.unitPrice) {
       items.push(item);
     }
   }
@@ -628,8 +628,8 @@ export async function extractDataFromExcel(
   let allItems: ExcelBOQItem[] = [];
   let totalRows = 0;
   
-  // Process max 3 sheets
-  const sheetsToProcess = Math.min(sheetNames.length, 3);
+  // Process all sheets (removed 3 sheet limit)
+  const sheetsToProcess = sheetNames.length;
   
   // Store raw data and mapping from first sheet for remapping support
   let rawData: (string | number | undefined)[][] = [];
@@ -644,9 +644,9 @@ export async function extractDataFromExcel(
     const worksheet = workbook.getWorksheet(sheetName);
     if (!worksheet) continue;
     
-    const data = worksheetToArray(worksheet, 500);
-    const text = dataToText(data, 300);
-    const extractionResult = extractBOQItems(data, 500);
+    const data = worksheetToArray(worksheet, 3000);
+    const text = dataToText(data, 500);
+    const extractionResult = extractBOQItems(data, 3000);
     
     // Store raw data from first sheet
     if (i === 0) {
@@ -661,7 +661,7 @@ export async function extractDataFromExcel(
     }
     
     allItems = allItems.concat(extractionResult.items);
-    totalRows += Math.min(worksheet.rowCount, 500);
+    totalRows += Math.min(worksheet.rowCount, 3000);
   }
   
   onProgress?.('formatting', 50, 'جاري تنسيق البيانات...');
