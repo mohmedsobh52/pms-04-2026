@@ -593,6 +593,57 @@ export type Database = {
           },
         ]
       }
+      equipment_rates: {
+        Row: {
+          category: string | null
+          code: string
+          created_at: string
+          id: string
+          name: string
+          name_ar: string | null
+          notes: string | null
+          operation_rate: number | null
+          rental_rate: number
+          supplier_id: string | null
+          supplier_name: string | null
+          unit: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          name_ar?: string | null
+          notes?: string | null
+          operation_rate?: number | null
+          rental_rate?: number
+          supplier_id?: string | null
+          supplier_name?: string | null
+          unit?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          name_ar?: string | null
+          notes?: string | null
+          operation_rate?: number | null
+          rental_rate?: number
+          supplier_id?: string | null
+          supplier_name?: string | null
+          unit?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       evm_alert_settings: {
         Row: {
           cpi_critical_threshold: number | null
@@ -751,6 +802,51 @@ export type Database = {
           },
         ]
       }
+      labor_rates: {
+        Row: {
+          category: string | null
+          code: string
+          created_at: string
+          id: string
+          name: string
+          name_ar: string | null
+          notes: string | null
+          overtime_percentage: number | null
+          unit: string
+          unit_rate: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          name_ar?: string | null
+          notes?: string | null
+          overtime_percentage?: number | null
+          unit?: string
+          unit_rate?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          name_ar?: string | null
+          notes?: string | null
+          overtime_percentage?: number | null
+          unit?: string
+          unit_rate?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       material_prices: {
         Row: {
           category: string
@@ -775,6 +871,7 @@ export type Database = {
           updated_at: string
           user_id: string
           valid_until: string | null
+          waste_percentage: number | null
         }
         Insert: {
           category: string
@@ -799,6 +896,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           valid_until?: string | null
+          waste_percentage?: number | null
         }
         Update: {
           category?: string
@@ -823,6 +921,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           valid_until?: string | null
+          waste_percentage?: number | null
         }
         Relationships: []
       }

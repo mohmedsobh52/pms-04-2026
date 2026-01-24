@@ -30,7 +30,8 @@ import {
   Layers,
   Target,
   Zap,
-  ChevronRight
+  ChevronRight,
+  Library
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -97,6 +98,13 @@ const quickActions = [
     href: "/fast-extraction", 
     color: "from-orange-500 to-amber-500",
     description: { ar: "رفع وتصنيف ملفات متعددة بسرعة", en: "Quickly upload and classify multiple files" }
+  },
+  { 
+    icon: Library, 
+    label: { ar: "المكتبة", en: "Library" }, 
+    href: "/library", 
+    color: "from-teal-500 to-cyan-500",
+    description: { ar: "إدارة المواد والعمالة والمعدات", en: "Manage materials, labor & equipment" }
   },
   { 
     icon: Plus, 
