@@ -21,6 +21,7 @@ import {
   FileUp,
   Plus,
   Settings,
+  Settings2,
   Users,
   ClipboardList,
   Shield,
@@ -42,6 +43,7 @@ import { PMSLogo } from "@/components/PMSLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { RealtimeNotifications } from "@/components/RealtimeNotifications";
+import { UserMenu } from "@/components/UserMenu";
 import {
   PieChart,
   Pie,
@@ -377,17 +379,20 @@ export default function HomePage() {
               {user && <RealtimeNotifications />}
               <LanguageToggle />
               <ThemeToggle />
-              {user ? (
-                <div className="flex items-center gap-2">
-              <Link to="/analyze">
-                <Button size="sm" className="gap-2">
-                  <FileUp className="w-4 h-4" />
-                  <span className="hidden sm:inline">{isArabic ? "تحليل ملف" : "Analyze File"}</span>
+              <Link to="/settings">
+                <Button variant="ghost" size="icon" className="h-9 w-9">
+                  <Settings2 className="h-4 w-4" />
                 </Button>
               </Link>
-                  <Button variant="outline" size="sm" onClick={signOut}>
-                    {isArabic ? "خروج" : "Logout"}
-                  </Button>
+              {user ? (
+                <div className="flex items-center gap-2">
+                  <Link to="/analyze">
+                    <Button size="sm" className="gap-2">
+                      <FileUp className="w-4 h-4" />
+                      <span className="hidden sm:inline">{isArabic ? "تحليل ملف" : "Analyze File"}</span>
+                    </Button>
+                  </Link>
+                  <UserMenu />
                 </div>
               ) : (
                 <Link to="/auth">

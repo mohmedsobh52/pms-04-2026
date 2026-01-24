@@ -5,8 +5,9 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { FloatingToolbar } from "@/components/FloatingToolbar";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserMenu } from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
-import { LogIn, LogOut, User } from "lucide-react";
+import { LogIn, Settings2 } from "lucide-react";
 import BackgroundImage from "@/components/BackgroundImage";
 import { PageLoadingProgress } from "@/components/PageLoadingProgress";
 import { PageTransition } from "@/components/PageTransition";
@@ -99,28 +100,17 @@ export function PageLayout({ children }: PageLayoutProps) {
             </span>
           </Link>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <ThemeToggle />
             <LanguageToggle />
+            <Link to="/settings">
+              <Button variant="ghost" size="icon" className="h-9 w-9">
+                <Settings2 className="h-4 w-4" />
+              </Button>
+            </Link>
             
             {user ? (
-              <div className="flex items-center gap-3">
-                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted">
-                  <User className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground truncate max-w-32">
-                    {user.email?.split('@')[0]}
-                  </span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={signOut}
-                  className="gap-2"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span className="hidden sm:inline">{isArabic ? "تسجيل الخروج" : "Logout"}</span>
-                </Button>
-              </div>
+              <UserMenu />
             ) : (
               <Link to="/auth">
                 <Button size="sm" className="gap-2">

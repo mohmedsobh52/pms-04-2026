@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Calendar, ArrowLeft } from "lucide-react";
+import { Calendar, ArrowLeft, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -7,6 +7,7 @@ import { PMSLogo } from "@/components/PMSLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { RealtimeNotifications } from "@/components/RealtimeNotifications";
+import { UserMenu } from "@/components/UserMenu";
 import { ProjectCalendar } from "@/components/ProjectCalendar";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -41,6 +42,18 @@ export default function CalendarPage() {
               {user && <RealtimeNotifications />}
               <LanguageToggle />
               <ThemeToggle />
+              <Link to="/settings">
+                <Button variant="ghost" size="icon" className="h-9 w-9">
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              </Link>
+              {user ? (
+                <UserMenu />
+              ) : (
+                <Link to="/auth">
+                  <Button size="sm">{isArabic ? "تسجيل الدخول" : "Sign In"}</Button>
+                </Link>
+              )}
             </div>
           </div>
         </div>
