@@ -1436,6 +1436,13 @@ const Index = () => {
               <ThemeToggle />
               <LanguageToggle />
               
+              <Link to="/settings">
+                <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-2 text-xs">
+                  <Settings2 className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline">{isArabic ? 'الإعدادات' : 'Settings'}</span>
+                </Button>
+              </Link>
+              
               {authLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
               ) : user ? (
