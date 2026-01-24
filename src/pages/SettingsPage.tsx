@@ -1,10 +1,11 @@
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { AIModelSelector } from "@/components/AIModelSelector";
 import { AnalysisStatusDashboard } from "@/components/AnalysisStatusDashboard";
+import { CompanySettingsPanel } from "@/components/CompanySettingsPanel";
 import { useLanguage } from "@/hooks/useLanguage";
 import { PageLayout } from "@/components/PageLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, Bell, Activity } from "lucide-react";
+import { Brain, Bell, Activity, Building2 } from "lucide-react";
 
 const SettingsPage = () => {
   const { isArabic } = useLanguage();
@@ -16,8 +17,12 @@ const SettingsPage = () => {
           {isArabic ? "الإعدادات" : "Settings"}
         </h2>
         
-        <Tabs defaultValue="ai" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="company" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="company" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              {isArabic ? "الشركة" : "Company"}
+            </TabsTrigger>
             <TabsTrigger value="ai" className="flex items-center gap-2">
               <Brain className="h-4 w-4" />
               {isArabic ? "نموذج AI" : "AI Model"}
@@ -31,6 +36,10 @@ const SettingsPage = () => {
               {isArabic ? "الإشعارات" : "Notifications"}
             </TabsTrigger>
           </TabsList>
+          
+          <TabsContent value="company" className="mt-6">
+            <CompanySettingsPanel />
+          </TabsContent>
           
           <TabsContent value="ai" className="mt-6">
             <AIModelSelector />
