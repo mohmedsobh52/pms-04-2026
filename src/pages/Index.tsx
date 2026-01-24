@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileUp, Sparkles, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown, Paperclip, Users, Copy, Settings2, FileSpreadsheet, Clock, Layers } from "lucide-react";
+import { FileUp, Sparkles, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown, Paperclip, Users, Copy, Settings2, FileSpreadsheet, Clock, Layers, Zap } from "lucide-react";
 import { PMSLogo } from "@/components/PMSLogo";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -1396,6 +1396,14 @@ const Index = () => {
                 }}
               />
               
+              {/* Fast Extraction Button */}
+              <Link to="/fast-extraction">
+                <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-2 text-xs text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/20">
+                  <Zap className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline">{isArabic ? 'استخراج سريع' : 'Fast Extract'}</span>
+                </Button>
+              </Link>
+              
               {/* Tools Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -1423,6 +1431,13 @@ const Index = () => {
                       <FileText className="w-4 h-4" />
                       <span>{isArabic ? 'التقرير الشامل' : 'Comprehensive Report'}</span>
                     </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link to="/fast-extraction" className="flex items-center gap-2">
+                      <Zap className="w-4 h-4" />
+                      <span>{isArabic ? 'الاستخراج السريع' : 'Fast Extraction'}</span>
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild className="cursor-pointer">
