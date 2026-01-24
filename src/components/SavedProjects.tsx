@@ -42,36 +42,23 @@ export function SavedProjects({ onLoadProject }: SavedProjectsProps) {
     
     setIsLoading(true);
     try {
-      // Fetch projects
+      // Fetch projects from saved_projects table
       const { data: projectsData, error: projectsError } = await supabase
         .from("saved_projects")
         .select("*")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (projectsError) throw projectsError;
 
-      // Check which projects have AI rates saved
-      const projectsWithRates = await Promise.all(
-        (projectsData || []).map(async (project) => {
-          // Get project items
-          const { data: projectItems } = await supabase
-            .from("project_items")
-            .select("id")
-            .eq("project_id", project.id)
-            .limit(1);
-
-          if (projectItems && projectItems.length > 0) {
-            // Check if any item has AI rates
-            const { count } = await supabase
-              .from("item_costs")
-              .select("*", { count: "exact", head: true })
-              .eq("project_item_id", projectItems[0].id);
-
-            return { ...project, has_ai_rates: (count || 0) > 0 };
-          }
-          return { ...project, has_ai_rates: false };
-        })
-      );
+      // Check if analysis_data has AI rates
+      const projectsWithRates = (projectsData || []).map((project) => {
+        const analysisData = project.analysis_data as { items?: Array<{ aiSuggestedRate?: number }> } | null;
+        const hasAiRates = analysisData?.items?.some(
+          (item) => item.aiSuggestedRate && item.aiSuggestedRate > 0
+        );
+        return { ...project, has_ai_rates: hasAiRates || false };
+      });
 
       setProjects(projectsWithRates);
     } catch (error: any) {
@@ -109,54 +96,10 @@ export function SavedProjects({ onLoadProject }: SavedProjectsProps) {
     }
   };
 
-  const handleLoad = async (project: SavedProject) => {
-    let analysisData = project.analysis_data;
-    
-    // Restore AI rates from database
-    try {
-      const { data: projectItems } = await supabase
-        .from("project_items")
-        .select("id, item_number")
-        .eq("project_id", project.id);
-
-      if (projectItems && projectItems.length > 0) {
-        const itemIds = projectItems.map(item => item.id);
-        const { data: itemCosts } = await supabase
-          .from("item_costs")
-          .select("project_item_id, ai_suggested_rate")
-          .in("project_item_id", itemIds);
-
-        if (itemCosts && itemCosts.length > 0) {
-          // Create a map of project_item_id to ai_suggested_rate
-          const ratesMap = new Map(
-            itemCosts.map(cost => {
-              const projectItem = projectItems.find(pi => pi.id === cost.project_item_id);
-              return [projectItem?.item_number, cost.ai_suggested_rate];
-            })
-          );
-
-          // Update analysis items with saved AI rates
-          if (analysisData?.items) {
-            analysisData = {
-              ...analysisData,
-              items: analysisData.items.map((item: any) => ({
-                ...item,
-                aiSuggestedRate: ratesMap.get(item.item_number) || item.aiSuggestedRate,
-              })),
-            };
-          }
-
-          toast({
-            title: "تم استعادة أسعار AI",
-            description: `تم تحميل ${itemCosts.filter(c => c.ai_suggested_rate).length} سعر محفوظ`,
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Error loading AI rates:", error);
-    }
-
-    onLoadProject(analysisData, project.wbs_data, project.id);
+  const handleLoad = (project: SavedProject) => {
+    // Load project data directly from saved_projects table
+    // AI rates are stored within analysis_data.items
+    onLoadProject(project.analysis_data, project.wbs_data, project.id);
     toast({
       title: "تم تحميل المشروع",
       description: project.name,
