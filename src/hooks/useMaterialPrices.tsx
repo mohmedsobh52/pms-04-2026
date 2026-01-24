@@ -23,6 +23,9 @@ export interface MaterialPrice {
   is_verified: boolean;
   valid_until?: string;
   notes?: string;
+  waste_percentage?: number;
+  brand?: string;
+  specifications?: string;
   created_at: string;
   updated_at: string;
 }
@@ -61,6 +64,14 @@ export const MATERIAL_CATEGORIES = [
   { value: 'glass', label: 'زجاج', label_en: 'Glass' },
   { value: 'hvac', label: 'تكييف وتبريد', label_en: 'HVAC' },
   { value: 'other', label: 'أخرى', label_en: 'Other' },
+];
+
+export const CURRENCIES = [
+  { value: 'SAR', label: 'ر.س', label_en: 'SAR' },
+  { value: 'EGP', label: 'ج.م', label_en: 'EGP' },
+  { value: 'USD', label: 'دولار', label_en: 'USD' },
+  { value: 'EUR', label: 'يورو', label_en: 'EUR' },
+  { value: 'AED', label: 'درهم', label_en: 'AED' },
 ];
 
 export const useMaterialPrices = () => {
@@ -226,6 +237,10 @@ export const useMaterialPrices = () => {
         unit_price: parseFloat(row.unit_price || row['السعر'] || row['سعر الوحدة'] || 0),
         currency: row.currency || row['العملة'] || 'SAR',
         supplier_name: row.supplier_name || row['المورد'] || '',
+        brand: row.brand || row['العلامة التجارية'] || '',
+        description: row.description || row['الوصف'] || '',
+        specifications: row.specifications || row['المواصفات'] || '',
+        waste_percentage: parseFloat(row.waste_percentage || row['نسبة الهدر'] || 0),
         source: 'import',
         price_date: new Date().toISOString().split('T')[0],
         is_verified: false,
@@ -258,7 +273,6 @@ export const useMaterialPrices = () => {
     const descLower = description.toLowerCase();
     const searchTerms = descLower.split(/[\s,،.-]+/).filter(t => t.length > 2);
     
-    // Scoring system for better matching
     let bestMatch: { material: MaterialPrice; score: number } | null = null;
     
     for (const material of materials) {
@@ -266,37 +280,31 @@ export const useMaterialPrices = () => {
         material.name + ' ' + 
         (material.name_ar || '') + ' ' + 
         (material.description || '') + ' ' +
-        (material.subcategory || '')
+        (material.subcategory || '') + ' ' +
+        (material.brand || '') + ' ' +
+        (material.specifications || '')
       ).toLowerCase();
       
       let score = 0;
       
-      // Exact name match (highest priority)
       if (materialText.includes(descLower) || descLower.includes(material.name.toLowerCase())) {
         score += 50;
       }
       
-      // Term matching
       for (const term of searchTerms) {
         if (materialText.includes(term)) {
           score += 10;
         }
       }
       
-      // Category match bonus
       if (category && material.category === category) {
         score += 15;
       }
       
-      // Unit similarity bonus
-      // (would need unit from BOQ item, skipping for now)
-      
-      // Prefer verified prices
       if (material.is_verified) {
         score += 5;
       }
       
-      // Prefer recent prices
       const priceAge = new Date().getTime() - new Date(material.price_date).getTime();
       const daysOld = priceAge / (1000 * 60 * 60 * 24);
       if (daysOld < 30) {
@@ -310,11 +318,9 @@ export const useMaterialPrices = () => {
       }
     }
     
-    // Only return match if score is above threshold
     return bestMatch && bestMatch.score >= 20 ? bestMatch.material : null;
   };
 
-  // Find multiple matching prices for a description
   const findAllMatchingPrices = (description: string, category?: string, limit = 5): MaterialPrice[] => {
     if (!description || materials.length === 0) return [];
     
@@ -325,7 +331,9 @@ export const useMaterialPrices = () => {
       const materialText = (
         material.name + ' ' + 
         (material.name_ar || '') + ' ' + 
-        (material.description || '')
+        (material.description || '') + ' ' +
+        (material.brand || '') + ' ' +
+        (material.specifications || '')
       ).toLowerCase();
       
       let score = 0;

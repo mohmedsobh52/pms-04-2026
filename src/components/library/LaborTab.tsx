@@ -1,29 +1,44 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Upload, Search, Trash2, Edit2, Users } from "lucide-react";
-import { useLaborRates, LABOR_CATEGORIES, LABOR_UNITS } from "@/hooks/useLaborRates";
+import { Plus, Upload, Search, Trash2, Edit2, Users, Info } from "lucide-react";
+import { useLaborRates, LABOR_CATEGORIES, LABOR_UNITS, SKILL_LEVELS, CURRENCIES } from "@/hooks/useLaborRates";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 
 export const LaborTab = () => {
   const { isArabic } = useLanguage();
-  const { laborRates, loading, addLaborRate, deleteLaborRate, importFromExcel } = useLaborRates();
+  const { laborRates, loading, addLaborRate, deleteLaborRate, importFromExcel, calculateHourlyRate } = useLaborRates();
   const [search, setSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [formData, setFormData] = useState({
     code: "",
     name: "",
     name_ar: "",
+    category: "general",
+    skill_level: "skilled",
     unit: "day",
     unit_rate: "",
+    currency: "SAR",
+    working_hours_per_day: "8",
+    hourly_rate: "0",
     overtime_percentage: "0",
-    category: "general",
   });
+
+  // Calculate hourly rate automatically when daily rate or working hours change
+  useEffect(() => {
+    if (formData.unit === 'day') {
+      const dailyRate = parseFloat(formData.unit_rate) || 0;
+      const hours = parseFloat(formData.working_hours_per_day) || 8;
+      const hourlyRate = calculateHourlyRate(dailyRate, hours);
+      setFormData(prev => ({ ...prev, hourly_rate: hourlyRate.toString() }));
+    }
+  }, [formData.unit_rate, formData.working_hours_per_day, formData.unit, calculateHourlyRate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,8 +50,16 @@ export const LaborTab = () => {
       unit_rate: parseFloat(formData.unit_rate) || 0,
       overtime_percentage: parseFloat(formData.overtime_percentage) || 0,
       category: formData.category,
+      skill_level: formData.skill_level,
+      currency: formData.currency,
+      working_hours_per_day: parseInt(formData.working_hours_per_day) || 8,
+      hourly_rate: parseFloat(formData.hourly_rate) || 0,
     });
-    setFormData({ code: "", name: "", name_ar: "", unit: "day", unit_rate: "", overtime_percentage: "0", category: "general" });
+    setFormData({ 
+      code: "", name: "", name_ar: "", category: "general", skill_level: "skilled",
+      unit: "day", unit_rate: "", currency: "SAR", working_hours_per_day: "8", 
+      hourly_rate: "0", overtime_percentage: "0" 
+    });
     setIsAddOpen(false);
   };
 
@@ -82,6 +105,27 @@ export const LaborTab = () => {
     return found ? (isArabic ? found.label : found.label_en) : unit;
   };
 
+  const getSkillLevelLabel = (level?: string) => {
+    if (!level) return "-";
+    const found = SKILL_LEVELS.find(s => s.value === level);
+    return found ? (isArabic ? found.label : found.label_en) : level;
+  };
+
+  const getCurrencyLabel = (currency?: string) => {
+    if (!currency) return "ر.س";
+    const found = CURRENCIES.find(c => c.value === currency);
+    return found ? found.label : currency;
+  };
+
+  const getSkillLevelVariant = (level?: string): "default" | "secondary" | "outline" => {
+    switch (level) {
+      case 'skilled': return 'default';
+      case 'semi-skilled': return 'secondary';
+      case 'unskilled': return 'outline';
+      default: return 'outline';
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -123,12 +167,32 @@ export const LaborTab = () => {
                 {isArabic ? "إضافة عمالة" : "Add Labor"}
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>{isArabic ? "إضافة عمالة جديدة" : "Add New Labor"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Row 1: Name */}
                 <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "الحرفة *" : "Job Title *"}</Label>
+                    <Input
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "الحرفة (عربي)" : "Job Title (Arabic)"}</Label>
+                    <Input
+                      value={formData.name_ar}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name_ar: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                {/* Row 2: Code, Category, Skill Level */}
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>{isArabic ? "الكود" : "Code"}</Label>
                     <Input
@@ -152,26 +216,25 @@ export const LaborTab = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "مستوى المهارة" : "Skill Level"}</Label>
+                    <Select value={formData.skill_level} onValueChange={(v) => setFormData(prev => ({ ...prev, skill_level: v }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SKILL_LEVELS.map(level => (
+                          <SelectItem key={level.value} value={level.value}>
+                            {isArabic ? level.label : level.label_en}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <Label>{isArabic ? "المسمى الوظيفي" : "Job Title"}</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>{isArabic ? "المسمى بالعربي" : "Arabic Title"}</Label>
-                  <Input
-                    value={formData.name_ar}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name_ar: e.target.value }))}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
+                {/* Row 3: Unit, Daily Rate, Currency */}
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>{isArabic ? "الوحدة" : "Unit"}</Label>
                     <Select value={formData.unit} onValueChange={(v) => setFormData(prev => ({ ...prev, unit: v }))}>
@@ -188,7 +251,7 @@ export const LaborTab = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>{isArabic ? "سعر الوحدة (ر.س)" : "Unit Rate (SAR)"}</Label>
+                    <Label>{isArabic ? "سعر اليوم *" : "Daily Rate *"}</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -197,19 +260,81 @@ export const LaborTab = () => {
                       required
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "العملة" : "Currency"}</Label>
+                    <Select value={formData.currency} onValueChange={(v) => setFormData(prev => ({ ...prev, currency: v }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CURRENCIES.map(curr => (
+                          <SelectItem key={curr.value} value={curr.value}>
+                            {curr.label} ({curr.label_en})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Row 4: Working Hours, Hourly Rate (calculated) */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "ساعات العمل/يوم" : "Working Hours/Day"}</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="24"
+                      value={formData.working_hours_per_day}
+                      onChange={(e) => setFormData(prev => ({ ...prev, working_hours_per_day: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1">
+                      {isArabic ? "سعر الساعة" : "Hourly Rate"}
+                      <span className="text-xs text-muted-foreground">({isArabic ? "محسوب" : "calculated"})</span>
+                    </Label>
+                    <Input
+                      type="number"
+                      value={formData.hourly_rate}
+                      disabled
+                      className="bg-muted"
+                    />
+                  </div>
+                </div>
+
+                {/* Row 5: Overtime */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "نسبة الإضافي %" : "Overtime %"}</Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={formData.overtime_percentage}
+                      onChange={(e) => setFormData(prev => ({ ...prev, overtime_percentage: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                {/* Info Note */}
+                <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">
+                  <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>
+                    {isArabic 
+                      ? "يتم حساب سعر الساعة تلقائياً من السعر اليومي وساعات العمل"
+                      : "Hourly rate is calculated automatically from daily rate and working hours"
+                    }
+                  </span>
                 </div>
                 
-                <div className="space-y-2">
-                  <Label>{isArabic ? "نسبة الإضافي %" : "Overtime %"}</Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={formData.overtime_percentage}
-                    onChange={(e) => setFormData(prev => ({ ...prev, overtime_percentage: e.target.value }))}
-                  />
-                </div>
-                
-                <Button type="submit" className="w-full">{isArabic ? "إضافة" : "Add"}</Button>
+                <DialogFooter className="gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>
+                    {isArabic ? "إلغاء" : "Cancel"}
+                  </Button>
+                  <Button type="submit" className="bg-green-600 hover:bg-green-700">
+                    {isArabic ? "إنشاء" : "Create"}
+                  </Button>
+                </DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
@@ -229,8 +354,10 @@ export const LaborTab = () => {
               <TableRow className="bg-muted/50">
                 <TableHead className="text-right">{isArabic ? "الكود" : "Code"}</TableHead>
                 <TableHead className="text-right">{isArabic ? "المسمى الوظيفي" : "Job Title"}</TableHead>
+                <TableHead className="text-center">{isArabic ? "مستوى المهارة" : "Skill Level"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "الوحدة" : "Unit"}</TableHead>
-                <TableHead className="text-center">{isArabic ? "سعر الوحدة" : "Unit Rate"}</TableHead>
+                <TableHead className="text-center">{isArabic ? "سعر اليوم" : "Daily Rate"}</TableHead>
+                <TableHead className="text-center">{isArabic ? "سعر الساعة" : "Hourly Rate"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "نسبة الإضافي %" : "Overtime %"}</TableHead>
                 <TableHead className="text-center w-24">{isArabic ? "إجراءات" : "Actions"}</TableHead>
               </TableRow>
@@ -240,8 +367,18 @@ export const LaborTab = () => {
                 <TableRow key={labor.id}>
                   <TableCell className="font-mono text-sm">{labor.code}</TableCell>
                   <TableCell>{isArabic && labor.name_ar ? labor.name_ar : labor.name}</TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant={getSkillLevelVariant(labor.skill_level)}>
+                      {getSkillLevelLabel(labor.skill_level)}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="text-center">{getUnitLabel(labor.unit)}</TableCell>
-                  <TableCell className="text-center font-medium">{labor.unit_rate.toLocaleString()} ر.س</TableCell>
+                  <TableCell className="text-center font-medium">
+                    {labor.unit_rate.toLocaleString()} {getCurrencyLabel(labor.currency)}
+                  </TableCell>
+                  <TableCell className="text-center text-muted-foreground">
+                    {labor.hourly_rate ? `${labor.hourly_rate.toLocaleString()} ${getCurrencyLabel(labor.currency)}` : "-"}
+                  </TableCell>
                   <TableCell className="text-center">{labor.overtime_percentage}%</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-1">

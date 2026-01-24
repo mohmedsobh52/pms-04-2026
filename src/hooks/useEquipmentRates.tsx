@@ -15,6 +15,12 @@ export interface EquipmentRate {
   supplier_id?: string;
   category?: string;
   notes?: string;
+  description?: string;
+  hourly_rate?: number;
+  monthly_rate?: number;
+  currency?: string;
+  includes_operator?: boolean;
+  includes_fuel?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -39,6 +45,14 @@ export const EQUIPMENT_UNITS = [
   { value: 'day', label: 'يوم', label_en: 'Day' },
   { value: 'hour', label: 'ساعة', label_en: 'Hour' },
   { value: 'month', label: 'شهر', label_en: 'Month' },
+];
+
+export const CURRENCIES = [
+  { value: 'SAR', label: 'ر.س', label_en: 'SAR' },
+  { value: 'EGP', label: 'ج.م', label_en: 'EGP' },
+  { value: 'USD', label: 'دولار', label_en: 'USD' },
+  { value: 'EUR', label: 'يورو', label_en: 'EUR' },
+  { value: 'AED', label: 'درهم', label_en: 'AED' },
 ];
 
 export const useEquipmentRates = () => {
@@ -145,8 +159,14 @@ export const useEquipmentRates = () => {
         unit: row.unit || row['الوحدة'] || 'day',
         rental_rate: parseFloat(row.rental_rate || row['سعر الإيجار'] || 0),
         operation_rate: parseFloat(row.operation_rate || row['سعر التشغيل'] || 0),
+        hourly_rate: parseFloat(row.hourly_rate || row['سعر الساعة'] || 0),
+        monthly_rate: parseFloat(row.monthly_rate || row['سعر الشهر'] || 0),
         supplier_name: row.supplier_name || row['المورد'] || '',
         category: row.category || row['الفئة'] || 'other',
+        currency: row.currency || row['العملة'] || 'SAR',
+        description: row.description || row['الوصف'] || row['المواصفات'] || '',
+        includes_operator: row.includes_operator === true || row['يشمل المشغل'] === 'نعم',
+        includes_fuel: row.includes_fuel === true || row['يشمل الوقود'] === 'نعم',
         notes: row.notes || row['ملاحظات'] || '',
       })).filter(e => e.name && (e.rental_rate > 0 || e.operation_rate > 0));
 
@@ -180,7 +200,7 @@ export const useEquipmentRates = () => {
     let bestMatch: { rate: EquipmentRate; score: number } | null = null;
     
     for (const rate of equipmentRates) {
-      const rateText = (rate.name + ' ' + (rate.name_ar || '')).toLowerCase();
+      const rateText = (rate.name + ' ' + (rate.name_ar || '') + ' ' + (rate.description || '')).toLowerCase();
       
       let score = 0;
       

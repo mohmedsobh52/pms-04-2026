@@ -13,6 +13,10 @@ export interface LaborRate {
   overtime_percentage: number;
   category?: string;
   notes?: string;
+  skill_level?: string;
+  currency?: string;
+  working_hours_per_day?: number;
+  hourly_rate?: number;
   created_at: string;
   updated_at: string;
 }
@@ -37,6 +41,20 @@ export const LABOR_UNITS = [
   { value: 'day', label: 'يوم', label_en: 'Day' },
   { value: 'hour', label: 'ساعة', label_en: 'Hour' },
   { value: 'month', label: 'شهر', label_en: 'Month' },
+];
+
+export const SKILL_LEVELS = [
+  { value: 'skilled', label: 'ماهر', label_en: 'Skilled' },
+  { value: 'semi-skilled', label: 'متوسط', label_en: 'Semi-skilled' },
+  { value: 'unskilled', label: 'مبتدئ', label_en: 'Unskilled' },
+];
+
+export const CURRENCIES = [
+  { value: 'SAR', label: 'ر.س', label_en: 'SAR' },
+  { value: 'EGP', label: 'ج.م', label_en: 'EGP' },
+  { value: 'USD', label: 'دولار', label_en: 'USD' },
+  { value: 'EUR', label: 'يورو', label_en: 'EUR' },
+  { value: 'AED', label: 'درهم', label_en: 'AED' },
 ];
 
 export const useLaborRates = () => {
@@ -69,13 +87,28 @@ export const useLaborRates = () => {
     loadData();
   }, [fetchLaborRates]);
 
+  const calculateHourlyRate = (dailyRate: number, workingHours: number = 8): number => {
+    if (workingHours <= 0) return 0;
+    return parseFloat((dailyRate / workingHours).toFixed(2));
+  };
+
   const addLaborRate = async (laborRate: Omit<LaborRate, 'id' | 'created_at' | 'updated_at'>) => {
     if (!user) return null;
 
     try {
+      // Calculate hourly rate if unit is 'day'
+      let hourlyRate = laborRate.hourly_rate;
+      if (laborRate.unit === 'day' && laborRate.working_hours_per_day) {
+        hourlyRate = calculateHourlyRate(laborRate.unit_rate, laborRate.working_hours_per_day);
+      }
+
       const { data, error } = await supabase
         .from('labor_rates')
-        .insert({ ...laborRate, user_id: user.id })
+        .insert({ 
+          ...laborRate, 
+          user_id: user.id,
+          hourly_rate: hourlyRate
+        })
         .select()
         .single();
 
@@ -93,9 +126,15 @@ export const useLaborRates = () => {
 
   const updateLaborRate = async (id: string, updates: Partial<LaborRate>) => {
     try {
+      // Recalculate hourly rate if needed
+      let hourlyRate = updates.hourly_rate;
+      if (updates.unit === 'day' && updates.unit_rate && updates.working_hours_per_day) {
+        hourlyRate = calculateHourlyRate(updates.unit_rate, updates.working_hours_per_day);
+      }
+
       const { data, error } = await supabase
         .from('labor_rates')
-        .update(updates)
+        .update({ ...updates, hourly_rate: hourlyRate })
         .eq('id', id)
         .select()
         .single();
@@ -135,17 +174,26 @@ export const useLaborRates = () => {
     if (!user) return false;
 
     try {
-      const laborToInsert = data.map(row => ({
-        user_id: user.id,
-        code: row.code || row['الكود'] || `L${Date.now()}`,
-        name: row.name || row['المسمى الوظيفي'] || row['الاسم'] || '',
-        name_ar: row.name_ar || row['الاسم بالعربي'] || row.name || '',
-        unit: row.unit || row['الوحدة'] || 'day',
-        unit_rate: parseFloat(row.unit_rate || row['سعر الوحدة'] || row['السعر'] || 0),
-        overtime_percentage: parseFloat(row.overtime_percentage || row['نسبة الإضافي'] || 0),
-        category: row.category || row['الفئة'] || 'general',
-        notes: row.notes || row['ملاحظات'] || '',
-      })).filter(l => l.name && l.unit_rate > 0);
+      const laborToInsert = data.map(row => {
+        const dailyRate = parseFloat(row.unit_rate || row['سعر الوحدة'] || row['السعر'] || 0);
+        const workingHours = parseInt(row.working_hours_per_day || row['ساعات العمل'] || 8);
+        
+        return {
+          user_id: user.id,
+          code: row.code || row['الكود'] || `L${Date.now()}`,
+          name: row.name || row['المسمى الوظيفي'] || row['الاسم'] || '',
+          name_ar: row.name_ar || row['الاسم بالعربي'] || row.name || '',
+          unit: row.unit || row['الوحدة'] || 'day',
+          unit_rate: dailyRate,
+          overtime_percentage: parseFloat(row.overtime_percentage || row['نسبة الإضافي'] || 0),
+          category: row.category || row['الفئة'] || 'general',
+          skill_level: row.skill_level || row['مستوى المهارة'] || 'skilled',
+          currency: row.currency || row['العملة'] || 'SAR',
+          working_hours_per_day: workingHours,
+          hourly_rate: calculateHourlyRate(dailyRate, workingHours),
+          notes: row.notes || row['ملاحظات'] || '',
+        };
+      }).filter(l => l.name && l.unit_rate > 0);
 
       if (laborToInsert.length === 0) {
         toast.error('لا توجد بيانات صالحة للاستيراد');
@@ -212,5 +260,6 @@ export const useLaborRates = () => {
     importFromExcel,
     findMatchingRate,
     refreshLaborRates: fetchLaborRates,
+    calculateHourlyRate,
   };
 };

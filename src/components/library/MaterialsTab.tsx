@@ -2,11 +2,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Upload, Search, Trash2, Edit2, Package } from "lucide-react";
-import { useMaterialPrices, MATERIAL_CATEGORIES, MaterialPrice } from "@/hooks/useMaterialPrices";
+import { useMaterialPrices, MATERIAL_CATEGORIES, CURRENCIES } from "@/hooks/useMaterialPrices";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -16,14 +17,18 @@ export const MaterialsTab = () => {
   const [search, setSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [formData, setFormData] = useState({
-    code: "",
     name: "",
     name_ar: "",
+    code: "",
+    category: "other",
+    waste_percentage: "0",
     unit: "m3",
     unit_price: "",
+    currency: "SAR",
     supplier_name: "",
-    waste_percentage: "0",
-    category: "other",
+    brand: "",
+    description: "",
+    specifications: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -35,11 +40,19 @@ export const MaterialsTab = () => {
       unit_price: parseFloat(formData.unit_price) || 0,
       supplier_name: formData.supplier_name,
       category: formData.category,
-      currency: "SAR",
+      currency: formData.currency,
+      brand: formData.brand,
+      description: formData.description,
+      specifications: formData.specifications,
+      waste_percentage: parseFloat(formData.waste_percentage) || 0,
       price_date: new Date().toISOString().split('T')[0],
       is_verified: false,
     });
-    setFormData({ code: "", name: "", name_ar: "", unit: "m3", unit_price: "", supplier_name: "", waste_percentage: "0", category: "other" });
+    setFormData({ 
+      name: "", name_ar: "", code: "", category: "other", waste_percentage: "0", 
+      unit: "m3", unit_price: "", currency: "SAR", supplier_name: "", 
+      brand: "", description: "", specifications: "" 
+    });
     setIsAddOpen(false);
   };
 
@@ -77,8 +90,14 @@ export const MaterialsTab = () => {
   const filteredMaterials = materials.filter(m => 
     m.name.toLowerCase().includes(search.toLowerCase()) ||
     (m.name_ar && m.name_ar.includes(search)) ||
-    m.category.toLowerCase().includes(search.toLowerCase())
+    m.category.toLowerCase().includes(search.toLowerCase()) ||
+    (m.brand && m.brand.toLowerCase().includes(search.toLowerCase()))
   );
+
+  const getCurrencyLabel = (currency: string) => {
+    const found = CURRENCIES.find(c => c.value === currency);
+    return found ? found.label : currency;
+  };
 
   if (loading) {
     return (
@@ -121,12 +140,32 @@ export const MaterialsTab = () => {
                 {isArabic ? "إضافة مادة" : "Add Material"}
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{isArabic ? "إضافة مادة جديدة" : "Add New Material"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Row 1: Name */}
                 <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "اسم المادة *" : "Material Name *"}</Label>
+                    <Input
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "الاسم (عربي)" : "Name (Arabic)"}</Label>
+                    <Input
+                      value={formData.name_ar}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name_ar: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                {/* Row 2: Code, Category, Waste */}
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>{isArabic ? "الكود" : "Code"}</Label>
                     <Input
@@ -150,18 +189,19 @@ export const MaterialsTab = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "نسبة الهدر %" : "Waste %"}</Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={formData.waste_percentage}
+                      onChange={(e) => setFormData(prev => ({ ...prev, waste_percentage: e.target.value }))}
+                    />
+                  </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <Label>{isArabic ? "اسم المادة" : "Material Name"}</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    required
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
+                {/* Row 3: Unit, Price, Currency */}
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>{isArabic ? "الوحدة" : "Unit"}</Label>
                     <Select value={formData.unit} onValueChange={(v) => setFormData(prev => ({ ...prev, unit: v }))}>
@@ -180,7 +220,7 @@ export const MaterialsTab = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>{isArabic ? "سعر الوحدة (ر.س)" : "Unit Price (SAR)"}</Label>
+                    <Label>{isArabic ? "سعر الوحدة *" : "Unit Price *"}</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -189,8 +229,24 @@ export const MaterialsTab = () => {
                       required
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "العملة" : "Currency"}</Label>
+                    <Select value={formData.currency} onValueChange={(v) => setFormData(prev => ({ ...prev, currency: v }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CURRENCIES.map(curr => (
+                          <SelectItem key={curr.value} value={curr.value}>
+                            {curr.label} ({curr.label_en})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 
+                {/* Row 4: Supplier, Brand */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>{isArabic ? "المورد" : "Supplier"}</Label>
@@ -206,17 +262,45 @@ export const MaterialsTab = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>{isArabic ? "نسبة الهدر %" : "Waste %"}</Label>
+                    <Label>{isArabic ? "العلامة التجارية" : "Brand"}</Label>
                     <Input
-                      type="number"
-                      step="0.1"
-                      value={formData.waste_percentage}
-                      onChange={(e) => setFormData(prev => ({ ...prev, waste_percentage: e.target.value }))}
+                      value={formData.brand}
+                      onChange={(e) => setFormData(prev => ({ ...prev, brand: e.target.value }))}
+                      placeholder={isArabic ? "مثال: سافيتو" : "e.g. Saveto"}
                     />
                   </div>
                 </div>
+
+                {/* Row 5: Description */}
+                <div className="space-y-2">
+                  <Label>{isArabic ? "الوصف" : "Description"}</Label>
+                  <Textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder={isArabic ? "وصف المادة..." : "Material description..."}
+                    rows={2}
+                  />
+                </div>
+
+                {/* Row 6: Specifications */}
+                <div className="space-y-2">
+                  <Label>{isArabic ? "المواصفات الفنية" : "Technical Specifications"}</Label>
+                  <Textarea
+                    value={formData.specifications}
+                    onChange={(e) => setFormData(prev => ({ ...prev, specifications: e.target.value }))}
+                    placeholder={isArabic ? "المواصفات الفنية للمادة..." : "Technical specifications..."}
+                    rows={2}
+                  />
+                </div>
                 
-                <Button type="submit" className="w-full">{isArabic ? "إضافة" : "Add"}</Button>
+                <DialogFooter className="gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>
+                    {isArabic ? "إلغاء" : "Cancel"}
+                  </Button>
+                  <Button type="submit" className="bg-green-600 hover:bg-green-700">
+                    {isArabic ? "إنشاء" : "Create"}
+                  </Button>
+                </DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
@@ -238,6 +322,7 @@ export const MaterialsTab = () => {
                 <TableHead className="text-right">{isArabic ? "الاسم" : "Name"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "الوحدة" : "Unit"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "سعر الوحدة" : "Unit Price"}</TableHead>
+                <TableHead className="text-right">{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
                 <TableHead className="text-right">{isArabic ? "المورد" : "Supplier"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "نسبة الهدر %" : "Waste %"}</TableHead>
                 <TableHead className="text-center w-24">{isArabic ? "إجراءات" : "Actions"}</TableHead>
@@ -247,11 +332,21 @@ export const MaterialsTab = () => {
               {filteredMaterials.map((material, index) => (
                 <TableRow key={material.id}>
                   <TableCell className="font-mono text-sm">{`M${String(index + 1).padStart(3, '0')}`}</TableCell>
-                  <TableCell>{isArabic && material.name_ar ? material.name_ar : material.name}</TableCell>
+                  <TableCell>
+                    <div>
+                      <div>{isArabic && material.name_ar ? material.name_ar : material.name}</div>
+                      {material.description && (
+                        <div className="text-xs text-muted-foreground truncate max-w-[200px]">{material.description}</div>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-center">{material.unit}</TableCell>
-                  <TableCell className="text-center font-medium">{material.unit_price.toLocaleString()} ر.س</TableCell>
+                  <TableCell className="text-center font-medium">
+                    {material.unit_price.toLocaleString()} {getCurrencyLabel(material.currency)}
+                  </TableCell>
+                  <TableCell>{material.brand || "-"}</TableCell>
                   <TableCell>{material.supplier_name || "-"}</TableCell>
-                  <TableCell className="text-center">0%</TableCell>
+                  <TableCell className="text-center">{material.waste_percentage || 0}%</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8">

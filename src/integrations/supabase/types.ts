@@ -598,7 +598,13 @@ export type Database = {
           category: string | null
           code: string
           created_at: string
+          currency: string | null
+          description: string | null
+          hourly_rate: number | null
           id: string
+          includes_fuel: boolean | null
+          includes_operator: boolean | null
+          monthly_rate: number | null
           name: string
           name_ar: string | null
           notes: string | null
@@ -614,7 +620,13 @@ export type Database = {
           category?: string | null
           code: string
           created_at?: string
+          currency?: string | null
+          description?: string | null
+          hourly_rate?: number | null
           id?: string
+          includes_fuel?: boolean | null
+          includes_operator?: boolean | null
+          monthly_rate?: number | null
           name: string
           name_ar?: string | null
           notes?: string | null
@@ -630,7 +642,13 @@ export type Database = {
           category?: string | null
           code?: string
           created_at?: string
+          currency?: string | null
+          description?: string | null
+          hourly_rate?: number | null
           id?: string
+          includes_fuel?: boolean | null
+          includes_operator?: boolean | null
+          monthly_rate?: number | null
           name?: string
           name_ar?: string | null
           notes?: string | null
@@ -807,48 +825,61 @@ export type Database = {
           category: string | null
           code: string
           created_at: string
+          currency: string | null
+          hourly_rate: number | null
           id: string
           name: string
           name_ar: string | null
           notes: string | null
           overtime_percentage: number | null
+          skill_level: string | null
           unit: string
           unit_rate: number
           updated_at: string
           user_id: string
+          working_hours_per_day: number | null
         }
         Insert: {
           category?: string | null
           code: string
           created_at?: string
+          currency?: string | null
+          hourly_rate?: number | null
           id?: string
           name: string
           name_ar?: string | null
           notes?: string | null
           overtime_percentage?: number | null
+          skill_level?: string | null
           unit?: string
           unit_rate?: number
           updated_at?: string
           user_id: string
+          working_hours_per_day?: number | null
         }
         Update: {
           category?: string | null
           code?: string
           created_at?: string
+          currency?: string | null
+          hourly_rate?: number | null
           id?: string
           name?: string
           name_ar?: string | null
           notes?: string | null
           overtime_percentage?: number | null
+          skill_level?: string | null
           unit?: string
           unit_rate?: number
           updated_at?: string
           user_id?: string
+          working_hours_per_day?: number | null
         }
         Relationships: []
       }
       material_prices: {
         Row: {
+          brand: string | null
           category: string
           city: string | null
           created_at: string
@@ -863,6 +894,7 @@ export type Database = {
           price_date: string | null
           source: string | null
           source_url: string | null
+          specifications: string | null
           subcategory: string | null
           supplier_contact: string | null
           supplier_name: string | null
@@ -874,6 +906,7 @@ export type Database = {
           waste_percentage: number | null
         }
         Insert: {
+          brand?: string | null
           category: string
           city?: string | null
           created_at?: string
@@ -888,6 +921,7 @@ export type Database = {
           price_date?: string | null
           source?: string | null
           source_url?: string | null
+          specifications?: string | null
           subcategory?: string | null
           supplier_contact?: string | null
           supplier_name?: string | null
@@ -899,6 +933,7 @@ export type Database = {
           waste_percentage?: number | null
         }
         Update: {
+          brand?: string | null
           category?: string
           city?: string | null
           created_at?: string
@@ -913,6 +948,7 @@ export type Database = {
           price_date?: string | null
           source?: string | null
           source_url?: string | null
+          specifications?: string | null
           subcategory?: string | null
           supplier_contact?: string | null
           supplier_name?: string | null
