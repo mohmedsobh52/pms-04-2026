@@ -17,6 +17,8 @@ export interface LaborRate {
   currency?: string;
   working_hours_per_day?: number;
   hourly_rate?: number;
+  price_date?: string;
+  valid_until?: string;
   created_at: string;
   updated_at: string;
 }

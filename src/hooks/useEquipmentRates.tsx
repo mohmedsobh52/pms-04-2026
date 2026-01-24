@@ -21,6 +21,8 @@ export interface EquipmentRate {
   currency?: string;
   includes_operator?: boolean;
   includes_fuel?: boolean;
+  price_date?: string;
+  valid_until?: string;
   created_at: string;
   updated_at: string;
 }

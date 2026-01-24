@@ -609,12 +609,14 @@ export type Database = {
           name_ar: string | null
           notes: string | null
           operation_rate: number | null
+          price_date: string | null
           rental_rate: number
           supplier_id: string | null
           supplier_name: string | null
           unit: string
           updated_at: string
           user_id: string
+          valid_until: string | null
         }
         Insert: {
           category?: string | null
@@ -631,12 +633,14 @@ export type Database = {
           name_ar?: string | null
           notes?: string | null
           operation_rate?: number | null
+          price_date?: string | null
           rental_rate?: number
           supplier_id?: string | null
           supplier_name?: string | null
           unit?: string
           updated_at?: string
           user_id: string
+          valid_until?: string | null
         }
         Update: {
           category?: string | null
@@ -653,12 +657,14 @@ export type Database = {
           name_ar?: string | null
           notes?: string | null
           operation_rate?: number | null
+          price_date?: string | null
           rental_rate?: number
           supplier_id?: string | null
           supplier_name?: string | null
           unit?: string
           updated_at?: string
           user_id?: string
+          valid_until?: string | null
         }
         Relationships: []
       }
@@ -832,11 +838,13 @@ export type Database = {
           name_ar: string | null
           notes: string | null
           overtime_percentage: number | null
+          price_date: string | null
           skill_level: string | null
           unit: string
           unit_rate: number
           updated_at: string
           user_id: string
+          valid_until: string | null
           working_hours_per_day: number | null
         }
         Insert: {
@@ -850,11 +858,13 @@ export type Database = {
           name_ar?: string | null
           notes?: string | null
           overtime_percentage?: number | null
+          price_date?: string | null
           skill_level?: string | null
           unit?: string
           unit_rate?: number
           updated_at?: string
           user_id: string
+          valid_until?: string | null
           working_hours_per_day?: number | null
         }
         Update: {
@@ -868,11 +878,13 @@ export type Database = {
           name_ar?: string | null
           notes?: string | null
           overtime_percentage?: number | null
+          price_date?: string | null
           skill_level?: string | null
           unit?: string
           unit_rate?: number
           updated_at?: string
           user_id?: string
+          valid_until?: string | null
           working_hours_per_day?: number | null
         }
         Relationships: []
