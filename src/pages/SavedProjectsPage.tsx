@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { 
   FolderOpen, Trash2, Loader2, Calendar, FileText, Search, 
   ArrowLeft, Eye, Edit, DollarSign, Package, Filter, X,
-  SortAsc, SortDesc, Download
+  SortAsc, SortDesc, Download, Settings2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserMenu } from "@/components/UserMenu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -261,9 +262,15 @@ export default function SavedProjectsPage() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <ThemeToggle />
+            <div className="flex items-center gap-2">
               <LanguageToggle />
+              <ThemeToggle />
+              <Link to="/settings">
+                <Button variant="ghost" size="icon" className="h-9 w-9">
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              </Link>
+              <UserMenu />
             </div>
           </div>
         </div>

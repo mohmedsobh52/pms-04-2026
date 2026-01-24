@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileUp, Sparkles, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown, Paperclip, Users, Copy, Settings2, FileSpreadsheet, Clock, Layers } from "lucide-react";
+import { FileUp, Sparkles, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown, Paperclip, Users, Copy, Settings2, FileSpreadsheet, Clock, Layers } from "lucide-react";
 import { PMSLogo } from "@/components/PMSLogo";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -33,6 +33,7 @@ import { ContractNotifications } from "@/components/ContractNotifications";
 import { ProjectAttachments } from "@/components/ProjectAttachments";
 import { SubcontractorManagement } from "@/components/SubcontractorManagement";
 import { BOQTemplates } from "@/components/BOQTemplates";
+import { UserMenu } from "@/components/UserMenu";
 import { AnalysisSettingsDialog, getAnalysisSettings, type AnalysisSettings } from "@/components/AnalysisSettingsDialog";
 import { ConnectionErrorDialog, detectErrorType, type ConnectionError } from "@/components/ConnectionErrorDialog";
 import { ChunkedAnalysisProgress } from "@/components/ChunkedAnalysisProgress";
@@ -1446,15 +1447,7 @@ const Index = () => {
               {authLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
               ) : user ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => signOut()}
-                  className="gap-1.5 h-8 px-2 text-xs"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span className="hidden lg:inline">{t('signOut')}</span>
-                </Button>
+                <UserMenu />
               ) : (
                 <Link to="/auth">
                   <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-2 text-xs">
