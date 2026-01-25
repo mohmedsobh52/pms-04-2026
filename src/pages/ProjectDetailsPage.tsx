@@ -610,15 +610,7 @@ export default function ProjectDetailsPage() {
 
   const handleStartPricing = () => {
     if (!project) return;
-    sessionStorage.setItem('loadedProject', JSON.stringify({
-      analysisData: project.analysis_data,
-      wbsData: project.wbs_data,
-    }));
-    navigate('/analyze');
-    toast({
-      title: isArabic ? "تم تحميل المشروع" : "Project loaded",
-      description: project.name,
-    });
+    navigate(`/projects/${projectId}/pricing`);
   };
 
   const handleEditProject = () => {

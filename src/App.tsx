@@ -41,6 +41,7 @@ import FastExtractionPage from "./pages/FastExtractionPage";
 import LibraryPage from "./pages/LibraryPage";
 import ProjectDetailsPage from "./pages/ProjectDetailsPage";
 import NewProjectPage from "./pages/NewProjectPage";
+import TenderSummaryPage from "./pages/TenderSummaryPage";
 
 const queryClient = new QueryClient();
 
@@ -64,6 +65,7 @@ const App = () => (
                 <Route path="/projects" element={<SavedProjectsPage />} />
                 <Route path="/projects/new" element={<NewProjectPage />} />
                 <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
+                <Route path="/projects/:projectId/pricing" element={<TenderSummaryPage />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/cost-analysis" element={<CostAnalysisPage />} />
                 <Route path="/changelog" element={<Changelog />} />
