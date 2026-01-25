@@ -14,11 +14,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ExportTab } from "@/components/reports/ExportTab";
+import { PriceAnalysisTab } from "@/components/reports/PriceAnalysisTab";
 import { ProjectSummaryTab } from "@/components/reports/ProjectSummaryTab";
 import { RecentProjectsTab } from "@/components/reports/RecentProjectsTab";
 import { ProjectsComparisonExport } from "@/components/reports/ProjectsComparisonExport";
+import { AdvancedReportsTab } from "@/components/reports/AdvancedReportsTab";
 import { ReportsStatCards } from "@/components/reports/ReportsStatCards";
-import { RefreshCw, Filter } from "lucide-react";
+import { 
+  RefreshCw, 
+  Filter, 
+  FileDown, 
+  BarChart3, 
+  GitCompare, 
+  FileText, 
+  Clock,
+  Settings2
+} from "lucide-react";
 import { PROJECT_STATUSES } from "@/lib/project-constants";
 
 interface Project {
@@ -90,13 +101,54 @@ const ReportsPage = () => {
     }, 0),
   };
 
+  const tabs = [
+    { 
+      value: "export", 
+      label: isArabic ? "التصدير" : "Export",
+      icon: FileDown 
+    },
+    { 
+      value: "price-analysis", 
+      label: isArabic ? "تحليل الأسعار" : "Price Analysis",
+      icon: BarChart3 
+    },
+    { 
+      value: "comparison", 
+      label: isArabic ? "مقارنة المشاريع" : "Compare Projects",
+      icon: GitCompare 
+    },
+    { 
+      value: "summary", 
+      label: isArabic ? "ملخص" : "Summary",
+      icon: FileText 
+    },
+    { 
+      value: "recent", 
+      label: isArabic ? "الأخيرة" : "Recent",
+      icon: Clock 
+    },
+    { 
+      value: "advanced", 
+      label: isArabic ? "متقدم" : "Advanced",
+      icon: Settings2 
+    },
+  ];
+
   return (
     <PageLayout>
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">
-            {isArabic ? "التقارير" : "Reports"}
-          </h1>
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-bold">
+              {isArabic ? "التقارير" : "Reports"}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isArabic 
+                ? "عرض وتصدير تقارير المشاريع والتسعير" 
+                : "View and export project and pricing reports"}
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-36">
@@ -121,6 +173,7 @@ const ReportsPage = () => {
           </div>
         </div>
 
+        {/* Stats Cards */}
         <ReportsStatCards 
           totalProjects={stats.totalProjects}
           inProgressProjects={stats.inProgressProjects}
@@ -130,24 +183,30 @@ const ReportsPage = () => {
           totalBOQValue={stats.totalBOQValue}
         />
 
+        {/* Tabs */}
         <Tabs defaultValue="export" className="mt-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="export">
-              {isArabic ? "التصدير" : "Export"}
-            </TabsTrigger>
-            <TabsTrigger value="comparison">
-              {isArabic ? "مقارنة الأسعار" : "Price Comparison"}
-            </TabsTrigger>
-            <TabsTrigger value="summary">
-              {isArabic ? "ملخص المشاريع" : "Project Summary"}
-            </TabsTrigger>
-            <TabsTrigger value="recent">
-              {isArabic ? "المشاريع الأخيرة" : "Recent Projects"}
-            </TabsTrigger>
+          <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1">
+            {tabs.map((tab) => (
+              <TabsTrigger 
+                key={tab.value} 
+                value={tab.value}
+                className="flex items-center gap-1.5 text-xs sm:text-sm px-2 sm:px-3"
+              >
+                <tab.icon className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden">
+                  {tab.label.split(' ')[0]}
+                </span>
+              </TabsTrigger>
+            ))}
           </TabsList>
 
           <TabsContent value="export" className="mt-4">
             <ExportTab projects={filteredProjects} isLoading={loading} />
+          </TabsContent>
+
+          <TabsContent value="price-analysis" className="mt-4">
+            <PriceAnalysisTab projects={filteredProjects} />
           </TabsContent>
 
           <TabsContent value="comparison" className="mt-4">
@@ -163,6 +222,10 @@ const ReportsPage = () => {
               projects={filteredProjects} 
               onDeleteProject={handleDeleteProject}
             />
+          </TabsContent>
+
+          <TabsContent value="advanced" className="mt-4">
+            <AdvancedReportsTab projects={filteredProjects} />
           </TabsContent>
         </Tabs>
       </div>
