@@ -145,6 +145,8 @@ export default function ProjectDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [itemsSearch, setItemsSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 100;
 
   // Document upload state
   const [isUploading, setIsUploading] = useState(false);
@@ -299,6 +301,21 @@ export default function ProjectDetailsPage() {
       item.category?.toLowerCase().includes(query)
     );
   }, [items, itemsSearch]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const displayedItems = filteredItems.slice(startIndex, startIndex + itemsPerPage);
+
+  // Zero quantity items count
+  const zeroQuantityCount = useMemo(() => {
+    return items.filter(item => !item.quantity || item.quantity === 0).length;
+  }, [items]);
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [itemsSearch]);
 
   // Handle file upload
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -614,6 +631,62 @@ export default function ProjectDetailsPage() {
     } catch (error: any) {
       toast({
         title: isArabic ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle delete zero quantity items
+  const handleDeleteZeroQuantityItems = async () => {
+    const zeroItems = items.filter(item => !item.quantity || item.quantity === 0);
+    
+    if (zeroItems.length === 0) {
+      toast({ 
+        title: isArabic ? "لا توجد بنود بكمية صفر" : "No zero quantity items" 
+      });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      isArabic 
+        ? `هل تريد حذف ${zeroItems.length} بند بكمية صفرية؟`
+        : `Delete ${zeroItems.length} items with zero quantity?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from("project_items")
+        .delete()
+        .eq("project_id", projectId)
+        .or("quantity.is.null,quantity.eq.0");
+
+      if (error) throw error;
+
+      toast({ 
+        title: isArabic ? "تم الحذف بنجاح" : "Deleted successfully",
+        description: isArabic 
+          ? `تم حذف ${zeroItems.length} بند`
+          : `${zeroItems.length} items deleted`
+      });
+
+      // Refresh items
+      const { data: updatedItems } = await supabase
+        .from("project_items")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("sort_order", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true });
+      
+      if (updatedItems) {
+        setItems(updatedItems);
+        setCurrentPage(1);
+      }
+    } catch (error: any) {
+      toast({
+        title: isArabic ? "خطأ في الحذف" : "Error deleting",
         description: error.message,
         variant: "destructive",
       });
@@ -1155,6 +1228,20 @@ export default function ProjectDetailsPage() {
                     </Button>
                     <Button 
                       variant="outline" 
+                      className="gap-2 text-destructive hover:text-destructive"
+                      onClick={handleDeleteZeroQuantityItems}
+                      disabled={zeroQuantityCount === 0}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      {isArabic ? "مسح الكميات الصفرية" : "Delete Zero Qty"}
+                      {zeroQuantityCount > 0 && (
+                        <Badge variant="secondary" className="ml-1">
+                          {zeroQuantityCount}
+                        </Badge>
+                      )}
+                    </Button>
+                    <Button 
+                      variant="outline" 
                       className="gap-2"
                       onClick={handleAutoPricing}
                       disabled={isAutoPricing || pricingStats.unpricedItems === 0}
@@ -1211,7 +1298,7 @@ export default function ProjectDetailsPage() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredItems.slice(0, 50).map((item) => (
+                        displayedItems.map((item) => (
                           <TableRow key={item.id}>
                             <TableCell>
                               <Checkbox 
@@ -1310,12 +1397,57 @@ export default function ProjectDetailsPage() {
                     </TableBody>
                   </Table>
                 </div>
-                {filteredItems.length > 50 && (
-                  <p className="text-sm text-muted-foreground text-center mt-4">
-                    {isArabic 
-                      ? `عرض 50 من ${filteredItems.length} بند` 
-                      : `Showing 50 of ${filteredItems.length} items`}
-                  </p>
+                {/* Pagination Controls */}
+                {filteredItems.length > 0 && (
+                  <div className="flex items-center justify-between mt-4 flex-wrap gap-4">
+                    <p className="text-sm text-muted-foreground">
+                      {isArabic 
+                        ? `عرض ${startIndex + 1}-${Math.min(startIndex + itemsPerPage, filteredItems.length)} من ${filteredItems.length} بند` 
+                        : `Showing ${startIndex + 1}-${Math.min(startIndex + itemsPerPage, filteredItems.length)} of ${filteredItems.length} items`}
+                    </p>
+                    
+                    {totalPages > 1 && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(1)}
+                          disabled={currentPage === 1}
+                        >
+                          {isArabic ? "الأولى" : "First"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          {isArabic ? "السابق" : "Previous"}
+                        </Button>
+                        
+                        <span className="text-sm px-3 font-medium">
+                          {currentPage} / {totalPages}
+                        </span>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          {isArabic ? "التالي" : "Next"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(totalPages)}
+                          disabled={currentPage === totalPages}
+                        >
+                          {isArabic ? "الأخيرة" : "Last"}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>
