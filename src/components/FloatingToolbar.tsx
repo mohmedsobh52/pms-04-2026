@@ -327,13 +327,13 @@ export function FloatingToolbar({
         },
       ],
     },
-    // 3. BOQ Items - العمل الأساسي
+    // 3. BOQ Items - العمل الأساسي (مبسط)
     {
       id: "items-menu",
       icon: <Layers className="w-4 h-4" />,
       label: "BOQ Items",
       labelAr: "جدول الكميات",
-      badge: String(6),
+      badge: String(4),
       children: [
         {
           id: "analysis",
@@ -358,18 +358,6 @@ export function FloatingToolbar({
           icon: <PieChart className="w-4 h-4" />,
           label: "Charts",
           labelAr: "الرسوم البيانية",
-        },
-        {
-          id: "time-schedule",
-          icon: <Clock className="w-4 h-4" />,
-          label: "Time Schedule",
-          labelAr: "الجدول الزمني",
-        },
-        {
-          id: "schedule-integration",
-          icon: <Link2 className="w-4 h-4" />,
-          label: "Schedule Integration",
-          labelAr: "تكامل الجدولة",
         },
       ],
     },
@@ -483,32 +471,63 @@ export function FloatingToolbar({
         },
       ],
     },
-    // 7. Scheduling - الجدولة
+    // 7. Scheduling - الجدولة والتخطيط (مدمج جديد)
     {
-      id: "calendar",
+      id: "scheduling",
       icon: <Calendar className="w-4 h-4" />,
-      label: "Calendar",
-      labelAr: "التقويم",
-    },
-    // 8. Risk Management - إدارة المخاطر
-    {
-      id: "risk",
-      icon: <Shield className="w-4 h-4" />,
-      label: "Risk Management",
-      labelAr: "إدارة المخاطر",
-    },
-    // 9. Reports - التقارير
-    {
-      id: "reports",
-      icon: <FileText className="w-4 h-4" />,
-      label: "Reports",
-      labelAr: "التقارير",
+      label: "Scheduling",
+      labelAr: "الجدولة والتخطيط",
       children: [
         {
-          id: "report",
+          id: "calendar",
+          icon: <Calendar className="w-4 h-4" />,
+          label: "Calendar",
+          labelAr: "التقويم",
+        },
+        {
+          id: "time-schedule",
+          icon: <Clock className="w-4 h-4" />,
+          label: "Time Schedule",
+          labelAr: "الجدول الزمني",
+        },
+        {
+          id: "schedule-integration",
+          icon: <Link2 className="w-4 h-4" />,
+          label: "Schedule Integration",
+          labelAr: "تكامل الجدولة",
+        },
+        {
+          id: "p6-export",
           icon: <FileSpreadsheet className="w-4 h-4" />,
-          label: "Full Report",
-          labelAr: "التقرير الشامل",
+          label: "P6 Export",
+          labelAr: "تصدير P6",
+        },
+      ],
+    },
+    // 8. Project Management - إدارة المشروع (مدمج جديد)
+    {
+      id: "project-management",
+      icon: <Briefcase className="w-4 h-4" />,
+      label: "Project Management",
+      labelAr: "إدارة المشروع",
+      children: [
+        {
+          id: "risk",
+          icon: <Shield className="w-4 h-4" />,
+          label: "Risk Management",
+          labelAr: "إدارة المخاطر",
+        },
+        {
+          id: "attachments",
+          icon: <FileStack className="w-4 h-4" />,
+          label: "Attachments",
+          labelAr: "المرفقات",
+        },
+        {
+          id: "reports",
+          icon: <FileText className="w-4 h-4" />,
+          label: "Reports",
+          labelAr: "التقارير",
         },
         {
           id: "version-compare",
@@ -516,20 +535,7 @@ export function FloatingToolbar({
           label: "Version Compare",
           labelAr: "مقارنة الإصدارات",
         },
-        {
-          id: "p6-export",
-          icon: <Calendar className="w-4 h-4" />,
-          label: "P6 Export",
-          labelAr: "تصدير P6",
-        },
       ],
-    },
-    // 10. Attachments - المرفقات
-    {
-      id: "attachments",
-      icon: <FileStack className="w-4 h-4" />,
-      label: "Attachments",
-      labelAr: "المرفقات",
     },
   ];
 
