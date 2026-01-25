@@ -124,6 +124,13 @@ const quickActions = [
     description: { ar: "إدارة العقود والاتفاقيات", en: "Manage contracts" }
   },
   { 
+    icon: Users, 
+    label: { ar: "مقاولي الباطن", en: "Subcontractors" }, 
+    href: "/subcontractors", 
+    bgClass: "bg-purple-500",
+    description: { ar: "إدارة مقاولي الباطن والمهام", en: "Manage subcontractors and tasks" }
+  },
+  { 
     icon: Briefcase, 
     label: { ar: "المشاريع", en: "Projects" }, 
     href: "/projects", 
@@ -152,7 +159,8 @@ const mainModules = [
   { icon: Calendar, label: { ar: "التقويم", en: "Calendar" }, href: "/calendar", count: null },
   { icon: ClipboardList, label: { ar: "بنود BOQ", en: "BOQ Items" }, href: "/items", count: "totalItems" },
   { icon: Package, label: { ar: "المشتريات", en: "Procurement" }, href: "/procurement", count: "pendingProcurement" },
-  { icon: Briefcase, label: { ar: "العقود والمقاولين", en: "Contracts & Subs" }, href: "/contracts", count: "totalContracts" },
+  { icon: FileText, label: { ar: "العقود", en: "Contracts" }, href: "/contracts", count: "totalContracts" },
+  { icon: Users, label: { ar: "مقاولي الباطن", en: "Subcontractors" }, href: "/subcontractors", count: "totalSubcontractors" },
   { icon: Receipt, label: { ar: "عروض الأسعار", en: "Quotations" }, href: "/quotations", count: "totalQuotations" },
   { icon: Shield, label: { ar: "إدارة المخاطر", en: "Risk Management" }, href: "/risk", count: "activeRisks" },
   { icon: BarChart3, label: { ar: "التقارير", en: "Reports" }, href: "/reports", count: null },

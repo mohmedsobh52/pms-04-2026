@@ -29,7 +29,7 @@ export function PageLayout({ children }: PageLayoutProps) {
     if (path === "/cost-analysis") return "cost-analysis";
     if (path === "/procurement") return "procurement";
     if (path === "/quotations") return "upload";
-    if (path === "/subcontractors") return "contracts";
+    if (path === "/subcontractors") return "subcontractors";
     if (path === "/contracts") return "contracts";
     if (path === "/risk") return "risk";
     if (path === "/reports") return "reports";
@@ -72,12 +72,13 @@ export function PageLayout({ children }: PageLayoutProps) {
       "p6-export": "/p6-export",
       "risk": "/risk",
       "contracts": "/contracts",
+      "subcontractors": "/subcontractors",
       "settings": "/settings",
       "preferences": "/settings",
       "help": "/about",
       "attachments": "/attachments",
       "templates": "/templates",
-      "subcontractors": "/contracts",
+      
       "library": "/library",
       "historical-pricing": "/historical-pricing",
       "fast-extraction": "/fast-extraction",

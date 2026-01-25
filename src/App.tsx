@@ -76,8 +76,9 @@ const App = () => (
                 <Route path="/analysis-tools" element={<AnalysisToolsPage />} />
                 <Route path="/procurement" element={<ProcurementPage />} />
                 <Route path="/quotations" element={<QuotationsPage />} />
-                {/* Subcontractors route now redirects to contracts page */}
+                {/* Separate routes for contracts and subcontractors */}
                 <Route path="/contracts" element={<ContractsPage />} />
+                <Route path="/subcontractors" element={<SubcontractorsPage />} />
                 <Route path="/risk" element={<RiskPage />} />
                 <Route path="/reports" element={<ReportsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />

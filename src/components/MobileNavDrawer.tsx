@@ -93,9 +93,16 @@ const navItems: NavItem[] = [
   {
     id: "contracts",
     icon: <FileText className="w-5 h-5" />,
-    label: "Contracts & Subcontractors",
-    labelAr: "العقود والمقاولين",
+    label: "Contracts",
+    labelAr: "العقود",
     href: "/contracts",
+  },
+  {
+    id: "subcontractors",
+    icon: <Users className="w-5 h-5" />,
+    label: "Subcontractors",
+    labelAr: "مقاولي الباطن",
+    href: "/subcontractors",
   },
   {
     id: "calendar",
