@@ -58,6 +58,7 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
 import { DetailedPriceDialog } from "@/components/pricing/DetailedPriceDialog";
+import { EditItemDialog } from "@/components/items/EditItemDialog";
 
 interface ProjectData {
   id: string;
@@ -76,11 +77,16 @@ interface ProjectItem {
   id: string;
   item_number: string;
   description: string | null;
+  description_ar: string | null;
   unit: string | null;
   quantity: number | null;
   unit_price: number | null;
   total_price: number | null;
   category: string | null;
+  subcategory: string | null;
+  specifications: string | null;
+  is_section: boolean | null;
+  sort_order: number | null;
 }
 
 interface ProjectAttachment {
@@ -159,6 +165,8 @@ export default function ProjectDetailsPage() {
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [showDetailedPriceDialog, setShowDetailedPriceDialog] = useState(false);
   const [selectedItemForPricing, setSelectedItemForPricing] = useState<ProjectItem | null>(null);
+  const [showEditItemDialog, setShowEditItemDialog] = useState(false);
+  const [selectedItemForEdit, setSelectedItemForEdit] = useState<ProjectItem | null>(null);
 
   // Fetch project data
   useEffect(() => {
@@ -1267,7 +1275,13 @@ export default function ProjectDetailsPage() {
                                     {isArabic ? "تسعير مفصل" : "Detailed Price"}
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem className="gap-2">
+                                  <DropdownMenuItem 
+                                    onClick={() => {
+                                      setSelectedItemForEdit(item as ProjectItem);
+                                      setShowEditItemDialog(true);
+                                    }}
+                                    className="gap-2"
+                                  >
                                     <Edit className="w-4 h-4" />
                                     {isArabic ? "تعديل" : "Edit"}
                                   </DropdownMenuItem>
@@ -1656,7 +1670,60 @@ export default function ProjectDetailsPage() {
             .from("project_items")
             .select("*")
             .eq("project_id", projectId)
-            .order("item_number");
+            .order("sort_order", { ascending: true, nullsFirst: false })
+            .order("created_at", { ascending: true });
+          if (data) setItems(data);
+        }}
+      />
+
+      {/* Edit Item Dialog */}
+      <EditItemDialog
+        isOpen={showEditItemDialog}
+        onClose={() => {
+          setShowEditItemDialog(false);
+          setSelectedItemForEdit(null);
+        }}
+        item={selectedItemForEdit}
+        onSave={async (updatedData) => {
+          if (!selectedItemForEdit) return;
+          
+          const { error } = await supabase
+            .from("project_items")
+            .update({
+              item_number: updatedData.item_number,
+              description: updatedData.description,
+              description_ar: updatedData.description_ar,
+              unit: updatedData.unit,
+              quantity: updatedData.quantity,
+              category: updatedData.category === "none" ? null : updatedData.category,
+              subcategory: updatedData.subcategory,
+              specifications: updatedData.specifications,
+              is_section: updatedData.is_section,
+              total_price: updatedData.is_section 
+                ? null 
+                : (updatedData.quantity || 0) * (selectedItemForEdit.unit_price || 0)
+            })
+            .eq("id", selectedItemForEdit.id);
+            
+          if (error) {
+            toast({
+              title: isArabic ? "خطأ في الحفظ" : "Error saving",
+              variant: "destructive",
+            });
+            throw error;
+          }
+          
+          toast({
+            title: isArabic ? "تم حفظ التغييرات" : "Changes saved",
+          });
+          
+          // Refresh items after save
+          const { data } = await supabase
+            .from("project_items")
+            .select("*")
+            .eq("project_id", projectId)
+            .order("sort_order", { ascending: true, nullsFirst: false })
+            .order("created_at", { ascending: true });
           if (data) setItems(data);
         }}
       />

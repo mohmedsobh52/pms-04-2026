@@ -1322,8 +1322,10 @@ export type Database = {
           category: string | null
           created_at: string
           description: string | null
+          description_ar: string | null
           id: string
           is_detailed_priced: boolean | null
+          is_section: boolean | null
           item_number: string
           notes: string | null
           overhead_percentage: number | null
@@ -1332,6 +1334,8 @@ export type Database = {
           project_id: string
           quantity: number | null
           sort_order: number | null
+          specifications: string | null
+          subcategory: string | null
           total_price: number | null
           unit: string | null
           unit_price: number | null
@@ -1340,8 +1344,10 @@ export type Database = {
           category?: string | null
           created_at?: string
           description?: string | null
+          description_ar?: string | null
           id?: string
           is_detailed_priced?: boolean | null
+          is_section?: boolean | null
           item_number: string
           notes?: string | null
           overhead_percentage?: number | null
@@ -1350,6 +1356,8 @@ export type Database = {
           project_id: string
           quantity?: number | null
           sort_order?: number | null
+          specifications?: string | null
+          subcategory?: string | null
           total_price?: number | null
           unit?: string | null
           unit_price?: number | null
@@ -1358,8 +1366,10 @@ export type Database = {
           category?: string | null
           created_at?: string
           description?: string | null
+          description_ar?: string | null
           id?: string
           is_detailed_priced?: boolean | null
+          is_section?: boolean | null
           item_number?: string
           notes?: string | null
           overhead_percentage?: number | null
@@ -1368,6 +1378,8 @@ export type Database = {
           project_id?: string
           quantity?: number | null
           sort_order?: number | null
+          specifications?: string | null
+          subcategory?: string | null
           total_price?: number | null
           unit?: string | null
           unit_price?: number | null
