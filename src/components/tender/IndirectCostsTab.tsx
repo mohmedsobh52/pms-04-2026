@@ -1,16 +1,19 @@
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, Calculator, Building2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Calculator, Building2, Copy, ListFilter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -44,9 +47,12 @@ export interface IndirectCost {
   categoryEn: string;
   name: string;
   nameEn: string;
+  description: string;
+  descriptionEn: string;
   costType: "fixed" | "percentage";
   value: number;
   total: number;
+  notes: string;
 }
 
 const categories = {
@@ -54,6 +60,36 @@ const categories = {
   operational: { ar: "مصاريف تشغيلية", en: "Operational Expenses" },
   financial: { ar: "مصاريف مالية", en: "Financial Costs" },
   reserve: { ar: "احتياطي", en: "Reserve" },
+  other: { ar: "أخرى", en: "Other" },
+};
+
+// Cost presets for quick selection
+const COST_PRESETS: Record<string, { nameAr: string; nameEn: string; descAr: string; descEn: string; defaultValue: number; type: "fixed" | "percentage" }[]> = {
+  headquarters: [
+    { nameAr: "مصاريف إدارية", nameEn: "Administrative Expenses", descAr: "مصاريف الإدارة العامة", descEn: "General administrative costs", defaultValue: 3, type: "percentage" },
+    { nameAr: "دعم فني", nameEn: "Technical Support", descAr: "تكاليف الدعم الفني للمشروع", descEn: "Technical support costs", defaultValue: 1.5, type: "percentage" },
+    { nameAr: "تنسيق وإشراف", nameEn: "Coordination & Supervision", descAr: "مصاريف التنسيق والإشراف", descEn: "Coordination and supervision costs", defaultValue: 1, type: "percentage" },
+  ],
+  operational: [
+    { nameAr: "اتصالات وإنترنت", nameEn: "Communications & Internet", descAr: "فواتير الهاتف والإنترنت", descEn: "Phone and internet bills", defaultValue: 24000, type: "fixed" },
+    { nameAr: "كهرباء ومياه", nameEn: "Electricity & Water", descAr: "فواتير الخدمات", descEn: "Utility bills", defaultValue: 36000, type: "fixed" },
+    { nameAr: "قرطاسية ومطبوعات", nameEn: "Stationery & Printing", descAr: "مستلزمات المكتب", descEn: "Office supplies", defaultValue: 12000, type: "fixed" },
+    { nameAr: "صيانة المعدات", nameEn: "Equipment Maintenance", descAr: "صيانة معدات المكتب", descEn: "Office equipment maintenance", defaultValue: 18000, type: "fixed" },
+    { nameAr: "نظافة وأمن", nameEn: "Cleaning & Security", descAr: "خدمات النظافة والحراسة", descEn: "Cleaning and security services", defaultValue: 30000, type: "fixed" },
+  ],
+  financial: [
+    { nameAr: "عمولات بنكية", nameEn: "Bank Commissions", descAr: "رسوم ضمانات ومعاملات بنكية", descEn: "Bank fees and commissions", defaultValue: 0.5, type: "percentage" },
+    { nameAr: "فوائد تمويل", nameEn: "Financing Interest", descAr: "فوائد تمويل المشروع", descEn: "Project financing interest", defaultValue: 2, type: "percentage" },
+    { nameAr: "رسوم حكومية", nameEn: "Government Fees", descAr: "رسوم ورخص حكومية", descEn: "Government licenses and fees", defaultValue: 15000, type: "fixed" },
+  ],
+  reserve: [
+    { nameAr: "احتياطي طوارئ", nameEn: "Contingency Reserve", descAr: "احتياطي للظروف الطارئة", descEn: "Reserve for unforeseen circumstances", defaultValue: 2, type: "percentage" },
+    { nameAr: "احتياطي مخاطر", nameEn: "Risk Reserve", descAr: "احتياطي لتغطية المخاطر", descEn: "Reserve for risk coverage", defaultValue: 1, type: "percentage" },
+    { nameAr: "احتياطي تضخم", nameEn: "Inflation Reserve", descAr: "احتياطي لتغطية ارتفاع الأسعار", descEn: "Reserve for price escalation", defaultValue: 1.5, type: "percentage" },
+  ],
+  other: [
+    { nameAr: "مصاريف متنوعة", nameEn: "Miscellaneous Expenses", descAr: "مصاريف أخرى غير مصنفة", descEn: "Other unclassified expenses", defaultValue: 10000, type: "fixed" },
+  ],
 };
 
 interface IndirectCostsTabProps {
@@ -72,6 +108,8 @@ export function IndirectCostsTab({
   onTotalChange 
 }: IndirectCostsTabProps) {
   const [isInitialized, setIsInitialized] = useState(false);
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+
   const calculateTotal = (costType: "fixed" | "percentage", value: number) => {
     return costType === "percentage" ? (contractValue * value) / 100 : value;
   };
@@ -83,9 +121,12 @@ export function IndirectCostsTab({
       categoryEn: "Headquarters",
       name: "مصاريف إدارية",
       nameEn: "Administrative Expenses",
+      description: "مصاريف الإدارة العامة",
+      descriptionEn: "General administrative costs",
       costType: "percentage",
       value: 3,
       total: calculateTotal("percentage", 3),
+      notes: "",
     },
     {
       id: "2",
@@ -93,9 +134,12 @@ export function IndirectCostsTab({
       categoryEn: "Headquarters",
       name: "دعم فني",
       nameEn: "Technical Support",
+      description: "تكاليف الدعم الفني للمشروع",
+      descriptionEn: "Technical support costs",
       costType: "percentage",
       value: 1.5,
       total: calculateTotal("percentage", 1.5),
+      notes: "",
     },
     {
       id: "3",
@@ -103,9 +147,12 @@ export function IndirectCostsTab({
       categoryEn: "Headquarters",
       name: "تنسيق وإشراف",
       nameEn: "Coordination & Supervision",
+      description: "مصاريف التنسيق والإشراف",
+      descriptionEn: "Coordination and supervision costs",
       costType: "percentage",
       value: 1,
       total: calculateTotal("percentage", 1),
+      notes: "",
     },
     {
       id: "4",
@@ -113,9 +160,12 @@ export function IndirectCostsTab({
       categoryEn: "Operational",
       name: "اتصالات وإنترنت",
       nameEn: "Communications & Internet",
+      description: "فواتير الهاتف والإنترنت",
+      descriptionEn: "Phone and internet bills",
       costType: "fixed",
       value: 24000,
       total: 24000,
+      notes: "",
     },
     {
       id: "5",
@@ -123,9 +173,12 @@ export function IndirectCostsTab({
       categoryEn: "Operational",
       name: "كهرباء ومياه",
       nameEn: "Electricity & Water",
+      description: "فواتير الخدمات",
+      descriptionEn: "Utility bills",
       costType: "fixed",
       value: 36000,
       total: 36000,
+      notes: "",
     },
     {
       id: "6",
@@ -133,9 +186,12 @@ export function IndirectCostsTab({
       categoryEn: "Operational",
       name: "قرطاسية ومطبوعات",
       nameEn: "Stationery & Printing",
+      description: "مستلزمات المكتب",
+      descriptionEn: "Office supplies",
       costType: "fixed",
       value: 12000,
       total: 12000,
+      notes: "",
     },
     {
       id: "7",
@@ -143,9 +199,12 @@ export function IndirectCostsTab({
       categoryEn: "Financial",
       name: "عمولات بنكية",
       nameEn: "Bank Commissions",
+      description: "رسوم ضمانات ومعاملات بنكية",
+      descriptionEn: "Bank fees and commissions",
       costType: "percentage",
       value: 0.5,
       total: calculateTotal("percentage", 0.5),
+      notes: "",
     },
     {
       id: "8",
@@ -153,9 +212,12 @@ export function IndirectCostsTab({
       categoryEn: "Financial",
       name: "فوائد تمويل",
       nameEn: "Financing Interest",
+      description: "فوائد تمويل المشروع",
+      descriptionEn: "Project financing interest",
       costType: "percentage",
       value: 2,
       total: calculateTotal("percentage", 2),
+      notes: "",
     },
     {
       id: "9",
@@ -163,9 +225,12 @@ export function IndirectCostsTab({
       categoryEn: "Reserve",
       name: "احتياطي طوارئ",
       nameEn: "Contingency Reserve",
+      description: "احتياطي للظروف الطارئة",
+      descriptionEn: "Reserve for unforeseen circumstances",
       costType: "percentage",
       value: 2,
       total: calculateTotal("percentage", 2),
+      notes: "",
     },
   ];
 
@@ -189,6 +254,7 @@ export function IndirectCostsTab({
       onDataChange?.(costs);
     }
   }, [costs, isInitialized]);
+
   const [showDialog, setShowDialog] = useState(false);
   const [editingCost, setEditingCost] = useState<IndirectCost | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -197,8 +263,12 @@ export function IndirectCostsTab({
     category: "headquarters" as keyof typeof categories,
     name: "",
     nameEn: "",
+    description: "",
+    descriptionEn: "",
     costType: "fixed" as "fixed" | "percentage",
     value: 0,
+    notes: "",
+    selectedPreset: "",
   });
 
   // Recalculate totals when contract value changes
@@ -226,8 +296,12 @@ export function IndirectCostsTab({
       category: "headquarters",
       name: "",
       nameEn: "",
+      description: "",
+      descriptionEn: "",
       costType: "fixed",
       value: 0,
+      notes: "",
+      selectedPreset: "",
     });
     setShowDialog(true);
   };
@@ -238,10 +312,44 @@ export function IndirectCostsTab({
       category: cost.category as keyof typeof categories,
       name: cost.name,
       nameEn: cost.nameEn,
+      description: cost.description || "",
+      descriptionEn: cost.descriptionEn || "",
       costType: cost.costType,
       value: cost.value,
+      notes: cost.notes || "",
+      selectedPreset: "",
     });
     setShowDialog(true);
+  };
+
+  const handleDuplicate = (cost: IndirectCost) => {
+    const newCost: IndirectCost = {
+      ...cost,
+      id: Date.now().toString(),
+      name: `${cost.name} (نسخة)`,
+      nameEn: `${cost.nameEn} (Copy)`,
+    };
+    setCosts(prev => [...prev, newCost]);
+  };
+
+  const handlePresetSelect = (presetIndex: string) => {
+    if (!presetIndex) return;
+    
+    const presets = COST_PRESETS[formData.category] || [];
+    const preset = presets[parseInt(presetIndex)];
+    
+    if (preset) {
+      setFormData(prev => ({
+        ...prev,
+        name: preset.nameAr,
+        nameEn: preset.nameEn,
+        description: preset.descAr,
+        descriptionEn: preset.descEn,
+        costType: preset.type,
+        value: preset.defaultValue,
+        selectedPreset: presetIndex,
+      }));
+    }
   };
 
   const handleSave = () => {
@@ -256,9 +364,12 @@ export function IndirectCostsTab({
               categoryEn: categories[formData.category].en,
               name: formData.name,
               nameEn: formData.nameEn,
+              description: formData.description,
+              descriptionEn: formData.descriptionEn,
               costType: formData.costType,
               value: formData.value,
               total,
+              notes: formData.notes,
             }
           : c
       ));
@@ -269,9 +380,12 @@ export function IndirectCostsTab({
         categoryEn: categories[formData.category].en,
         name: formData.name,
         nameEn: formData.nameEn,
+        description: formData.description,
+        descriptionEn: formData.descriptionEn,
         costType: formData.costType,
         value: formData.value,
         total,
+        notes: formData.notes,
       };
       setCosts(prev => [...prev, newCost]);
     }
@@ -290,9 +404,15 @@ export function IndirectCostsTab({
       case "operational": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
       case "financial": return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
       case "reserve": return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
+      case "other": return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200";
       default: return "";
     }
   };
+
+  // Filter costs based on selected category
+  const filteredCosts = filterCategory === "all" 
+    ? costs 
+    : costs.filter(c => c.category === filterCategory);
 
   // Group costs by category
   const groupedCosts = costs.reduce((acc, cost) => {
@@ -302,6 +422,12 @@ export function IndirectCostsTab({
     acc[cost.category].push(cost);
     return acc;
   }, {} as Record<string, IndirectCost[]>);
+
+  // Calculate percentage of total for each cost
+  const getPercentageOfTotal = (cost: IndirectCost) => {
+    if (totalCost === 0) return 0;
+    return ((cost.total / totalCost) * 100).toFixed(1);
+  };
 
   return (
     <Card>
@@ -329,6 +455,25 @@ export function IndirectCostsTab({
           </div>
         </div>
 
+        {/* Filter by Category */}
+        <div className="mb-4 flex items-center gap-2">
+          <ListFilter className="w-4 h-4 text-muted-foreground" />
+          <Label className="text-sm">{isArabic ? "فلترة حسب الفئة:" : "Filter by Category:"}</Label>
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{isArabic ? "جميع الفئات" : "All Categories"}</SelectItem>
+              {Object.entries(categories).map(([key, value]) => (
+                <SelectItem key={key} value={key}>
+                  {isArabic ? value.ar : value.en}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -339,11 +484,12 @@ export function IndirectCostsTab({
                 <TableHead className="text-center">{isArabic ? "النوع" : "Type"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "القيمة" : "Value"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "الإجمالي" : "Total"}</TableHead>
-                <TableHead className="w-24">{isArabic ? "إجراءات" : "Actions"}</TableHead>
+                <TableHead className="text-center">{isArabic ? "%" : "%"}</TableHead>
+                <TableHead className="w-28">{isArabic ? "إجراءات" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {costs.map((cost, index) => (
+              {filteredCosts.map((cost, index) => (
                 <TableRow key={cost.id}>
                   <TableCell className="font-medium">{index + 1}</TableCell>
                   <TableCell>
@@ -359,6 +505,11 @@ export function IndirectCostsTab({
                       <p className="text-xs text-muted-foreground">
                         {isArabic ? cost.nameEn : cost.name}
                       </p>
+                      {(cost.description || cost.descriptionEn) && (
+                        <p className="text-xs text-muted-foreground mt-1 italic">
+                          {isArabic ? cost.description : cost.descriptionEn}
+                        </p>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
@@ -376,8 +527,19 @@ export function IndirectCostsTab({
                   <TableCell className="text-center font-medium text-primary">
                     {formatCurrency(cost.total)}
                   </TableCell>
+                  <TableCell className="text-center text-xs text-muted-foreground">
+                    {getPercentageOfTotal(cost)}%
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleDuplicate(cost)}
+                        title={isArabic ? "نسخ" : "Duplicate"}
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(cost)}>
                         <Pencil className="w-4 h-4" />
                       </Button>
@@ -393,15 +555,17 @@ export function IndirectCostsTab({
         </div>
 
         {/* Category Summaries */}
-        <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-4">
           {Object.entries(categories).map(([key, value]) => {
             const categoryTotal = groupedCosts[key]?.reduce((sum, c) => sum + c.total, 0) || 0;
+            const categoryPercent = totalCost > 0 ? ((categoryTotal / totalCost) * 100).toFixed(1) : "0";
             return (
               <div key={key} className="bg-muted/50 rounded-lg p-3 text-center">
                 <p className="text-xs text-muted-foreground">
                   {isArabic ? value.ar : value.en}
                 </p>
                 <p className="font-semibold">SAR {formatCurrency(categoryTotal)}</p>
+                <p className="text-xs text-muted-foreground">{categoryPercent}%</p>
               </div>
             );
           })}
@@ -416,42 +580,100 @@ export function IndirectCostsTab({
             <p className="text-2xl font-bold text-primary">
               SAR {formatCurrency(totalCost)}
             </p>
+            <p className="text-xs text-muted-foreground">
+              {isArabic ? "من قيمة العقد" : "of Contract Value"}: {((totalCost / contractValue) * 100).toFixed(2)}%
+            </p>
           </div>
         </div>
 
         {/* Add/Edit Dialog */}
         <Dialog open={showDialog} onOpenChange={setShowDialog}>
-          <DialogContent>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingCost
                   ? (isArabic ? "تعديل بند" : "Edit Item")
-                  : (isArabic ? "إضافة بند" : "Add Item")}
+                  : (isArabic ? "إضافة بند تكلفة غير مباشرة" : "Add Indirect Cost Item")}
               </DialogTitle>
+              <DialogDescription>
+                {isArabic 
+                  ? "إضافة بند تكلفة غير مباشرة جديد للمشروع"
+                  : "Add a new indirect cost item to the project"}
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>{isArabic ? "الفئة" : "Category"}</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value: keyof typeof categories) => 
-                    setFormData({ ...formData, category: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(categories).map(([key, value]) => (
-                      <SelectItem key={key} value={key}>
-                        {isArabic ? value.ar : value.en}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Category and Cost Type */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{isArabic ? "اسم البند (عربي)" : "Item Name (Arabic)"}</Label>
+                  <Label>{isArabic ? "الفئة *" : "Category *"}</Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value: keyof typeof categories) => {
+                      setFormData({ ...formData, category: value, selectedPreset: "" });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(categories).map(([key, value]) => (
+                        <SelectItem key={key} value={key}>
+                          {isArabic ? value.ar : value.en}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{isArabic ? "نوع الحساب *" : "Calculation Type *"}</Label>
+                  <RadioGroup
+                    value={formData.costType}
+                    onValueChange={(value: "fixed" | "percentage") => 
+                      setFormData({ ...formData, costType: value })}
+                    className="flex gap-4 pt-2"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="fixed" id="fixed" />
+                      <Label htmlFor="fixed" className="cursor-pointer">
+                        {isArabic ? "مبلغ ثابت" : "Fixed Amount"}
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="percentage" id="percentage" />
+                      <Label htmlFor="percentage" className="cursor-pointer">
+                        {isArabic ? "نسبة مئوية" : "Percentage"}
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              </div>
+
+              {/* Preset Selection */}
+              {COST_PRESETS[formData.category]?.length > 0 && (
+                <div className="space-y-2">
+                  <Label>{isArabic ? "اختيار بند جاهز (اختياري)" : "Select Preset (Optional)"}</Label>
+                  <Select
+                    value={formData.selectedPreset}
+                    onValueChange={handlePresetSelect}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={isArabic ? "اختر من القائمة أو أدخل يدوياً" : "Select from list or enter manually"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COST_PRESETS[formData.category]?.map((preset, idx) => (
+                        <SelectItem key={idx} value={idx.toString()}>
+                          {isArabic ? preset.nameAr : preset.nameEn} - {preset.type === "percentage" ? `${preset.defaultValue}%` : `${formatCurrency(preset.defaultValue)} SAR`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Item Names */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{isArabic ? "اسم البند (عربي) *" : "Item Name (Arabic) *"}</Label>
                   <Input
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -459,7 +681,7 @@ export function IndirectCostsTab({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{isArabic ? "اسم البند (إنجليزي)" : "Item Name (English)"}</Label>
+                  <Label>{isArabic ? "اسم البند (إنجليزي) *" : "Item Name (English) *"}</Label>
                   <Input
                     value={formData.nameEn}
                     onChange={(e) => setFormData({ ...formData, nameEn: e.target.value })}
@@ -467,41 +689,84 @@ export function IndirectCostsTab({
                   />
                 </div>
               </div>
+
+              {/* Descriptions */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{isArabic ? "نوع التكلفة" : "Cost Type"}</Label>
-                  <Select
-                    value={formData.costType}
-                    onValueChange={(value: "fixed" | "percentage") => 
-                      setFormData({ ...formData, costType: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="fixed">{isArabic ? "مبلغ ثابت" : "Fixed Amount"}</SelectItem>
-                      <SelectItem value="percentage">{isArabic ? "نسبة مئوية" : "Percentage"}</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>{isArabic ? "الوصف (عربي)" : "Description (Arabic)"}</Label>
+                  <Input
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder={isArabic ? "وصف اختياري" : "Optional description"}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label>
-                    {formData.costType === "percentage" 
-                      ? (isArabic ? "النسبة %" : "Percentage %")
-                      : (isArabic ? "المبلغ" : "Amount")}
-                  </Label>
+                  <Label>{isArabic ? "الوصف (إنجليزي)" : "Description (English)"}</Label>
                   <Input
-                    type="number"
-                    step={formData.costType === "percentage" ? "0.1" : "1"}
-                    min="0"
-                    value={formData.value}
-                    onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) || 0 })}
+                    value={formData.descriptionEn}
+                    onChange={(e) => setFormData({ ...formData, descriptionEn: e.target.value })}
+                    placeholder={isArabic ? "وصف اختياري" : "Optional description"}
                   />
                 </div>
               </div>
-              <div className="bg-muted rounded-lg p-4">
-                <div className="flex justify-between text-lg font-bold">
-                  <span>{isArabic ? "الإجمالي" : "Total"}</span>
+
+              {/* Value Input */}
+              <div className="space-y-2">
+                <Label>
+                  {formData.costType === "percentage" 
+                    ? (isArabic ? "النسبة المئوية % *" : "Percentage % *")
+                    : (isArabic ? "المبلغ الثابت (SAR) *" : "Fixed Amount (SAR) *")}
+                </Label>
+                <Input
+                  type="number"
+                  step={formData.costType === "percentage" ? "0.1" : "1"}
+                  min="0"
+                  value={formData.value}
+                  onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) || 0 })}
+                  className="text-lg"
+                />
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
+                <Textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder={isArabic ? "ملاحظات اختيارية..." : "Optional notes..."}
+                  rows={2}
+                />
+              </div>
+
+              {/* Calculation Summary */}
+              <div className="bg-muted rounded-lg p-4 space-y-2">
+                <h4 className="font-semibold text-sm">
+                  {isArabic ? "تفاصيل الحساب" : "Calculation Details"}
+                </h4>
+                {formData.costType === "percentage" ? (
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {isArabic ? "قيمة العقد" : "Contract Value"}
+                      </span>
+                      <span>SAR {formatCurrency(contractValue)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {isArabic ? "النسبة المطبقة" : "Applied Percentage"}
+                      </span>
+                      <span>{formData.value}%</span>
+                    </div>
+                    <div className="border-t pt-2 mt-2">
+                      <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                        <span>=</span>
+                        <span>{formatCurrency(contractValue)} × {formData.value}%</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+                <div className="flex justify-between text-lg font-bold pt-2 border-t">
+                  <span>{isArabic ? "المبلغ المحسوب" : "Calculated Amount"}</span>
                   <span className="text-primary">
                     SAR {formatCurrency(calculateTotal(formData.costType, formData.value))}
                   </span>
@@ -513,7 +778,9 @@ export function IndirectCostsTab({
                 {isArabic ? "إلغاء" : "Cancel"}
               </Button>
               <Button onClick={handleSave} disabled={!formData.name || !formData.nameEn}>
-                {isArabic ? "حفظ" : "Save"}
+                {editingCost 
+                  ? (isArabic ? "تحديث" : "Update")
+                  : (isArabic ? "إضافة" : "Add")}
               </Button>
             </DialogFooter>
           </DialogContent>
