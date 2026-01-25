@@ -39,6 +39,7 @@ import MaterialPricesPage from "./pages/MaterialPricesPage";
 import CalendarPage from "./pages/CalendarPage";
 import FastExtractionPage from "./pages/FastExtractionPage";
 import LibraryPage from "./pages/LibraryPage";
+import ProjectDetailsPage from "./pages/ProjectDetailsPage";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,7 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/shared/:shareCode" element={<SharedView />} />
                 <Route path="/projects" element={<SavedProjectsPage />} />
+                <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/cost-analysis" element={<CostAnalysisPage />} />
                 <Route path="/changelog" element={<Changelog />} />

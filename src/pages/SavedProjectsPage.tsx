@@ -158,16 +158,8 @@ export default function SavedProjectsPage() {
   };
 
   const handleLoadProject = (project: ProjectData) => {
-    // Store in sessionStorage and navigate back
-    sessionStorage.setItem('loadedProject', JSON.stringify({
-      analysisData: project.analysis_data,
-      wbsData: project.wbs_data,
-    }));
-    navigate('/');
-    toast({
-      title: isArabic ? "تم تحميل المشروع" : "Project loaded",
-      description: project.name,
-    });
+    // Navigate to project details page
+    navigate(`/projects/${project.id}`);
   };
 
   // Filter and sort projects
