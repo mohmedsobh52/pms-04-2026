@@ -49,6 +49,19 @@ interface PricingSettings {
   currency: string;
   startDate?: string;
   endDate?: string;
+  // Risk Management
+  riskLevel: "low" | "medium" | "high" | "very_high";
+  riskPercentage: number;
+  emergencyPercentage: number;
+  // Company Overhead
+  companyOverhead: number;
+  // Discounts
+  discountPercentage: number;
+  discountReason: string;
+  // Default Rates
+  defaultOverhead: number;
+  defaultProfit: number;
+  defaultWaste: number;
 }
 
 interface Totals {
@@ -111,6 +124,17 @@ export default function TenderSummaryPage() {
     contingency: 5,
     projectDuration: 12,
     currency: "SAR",
+    startDate: "",
+    endDate: "",
+    riskLevel: "medium",
+    riskPercentage: 5,
+    emergencyPercentage: 3,
+    companyOverhead: 5,
+    discountPercentage: 0,
+    discountReason: "",
+    defaultOverhead: 10,
+    defaultProfit: 15,
+    defaultWaste: 5,
   });
 
   // Section data for persistence
@@ -181,13 +205,16 @@ export default function TenderSummaryPage() {
       }
 
       if (pricingData) {
-        setPricingSettings({
+        setPricingSettings(prev => ({
+          ...prev,
           contractValue: Number(pricingData.contract_value) || 10000000,
           profitMargin: Number(pricingData.profit_margin) || 10,
           contingency: Number(pricingData.contingency) || 5,
           projectDuration: pricingData.project_duration || 12,
           currency: pricingData.currency || "SAR",
-        });
+          startDate: (pricingData as any).start_date || "",
+          endDate: (pricingData as any).end_date || "",
+        }));
 
         setTotals({
           staffCosts: Number(pricingData.total_staff_costs) || 0,
