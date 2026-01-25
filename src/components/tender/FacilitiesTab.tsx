@@ -1,0 +1,349 @@
+import { useState } from "react";
+import { Plus, Pencil, Trash2, Building2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+export interface Facility {
+  id: string;
+  name: string;
+  nameEn: string;
+  type: "rent" | "purchase";
+  unitCost: number;
+  quantity: number;
+  duration: number;
+  total: number;
+}
+
+const defaultFacilities: Facility[] = [
+  { id: "1", name: "مكتب الموقع", nameEn: "Site Office", type: "rent", unitCost: 5000, quantity: 1, duration: 12, total: 60000 },
+  { id: "2", name: "مخيم العمال", nameEn: "Workers Camp", type: "rent", unitCost: 10000, quantity: 1, duration: 12, total: 120000 },
+  { id: "3", name: "مستودع مواد", nameEn: "Materials Store", type: "rent", unitCost: 3000, quantity: 2, duration: 12, total: 72000 },
+  { id: "4", name: "كرفان مهندسين", nameEn: "Engineers Caravan", type: "purchase", unitCost: 25000, quantity: 2, duration: 1, total: 50000 },
+  { id: "5", name: "حمامات متنقلة", nameEn: "Portable Toilets", type: "rent", unitCost: 1000, quantity: 4, duration: 12, total: 48000 },
+  { id: "6", name: "مولد كهرباء", nameEn: "Power Generator", type: "purchase", unitCost: 50000, quantity: 1, duration: 1, total: 50000 },
+  { id: "7", name: "خزان مياه", nameEn: "Water Tank", type: "purchase", unitCost: 15000, quantity: 2, duration: 1, total: 30000 },
+];
+
+interface FacilitiesTabProps {
+  isArabic: boolean;
+  onTotalChange?: (total: number) => void;
+}
+
+export function FacilitiesTab({ isArabic, onTotalChange }: FacilitiesTabProps) {
+  const [facilities, setFacilities] = useState<Facility[]>(defaultFacilities);
+  const [showDialog, setShowDialog] = useState(false);
+  const [editingFacility, setEditingFacility] = useState<Facility | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const [formData, setFormData] = useState({
+    name: "",
+    nameEn: "",
+    type: "rent" as "rent" | "purchase",
+    unitCost: 0,
+    quantity: 1,
+    duration: 12,
+  });
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat(isArabic ? "ar-SA" : "en-US").format(value);
+  };
+
+  const totalCost = facilities.reduce((sum, f) => sum + f.total, 0);
+  const rentTotal = facilities.filter(f => f.type === "rent").reduce((sum, f) => sum + f.total, 0);
+  const purchaseTotal = facilities.filter(f => f.type === "purchase").reduce((sum, f) => sum + f.total, 0);
+
+  const calculateTotal = (data: typeof formData) => {
+    if (data.type === "purchase") {
+      return data.unitCost * data.quantity;
+    }
+    return data.unitCost * data.quantity * data.duration;
+  };
+
+  const handleAdd = () => {
+    setEditingFacility(null);
+    setFormData({ name: "", nameEn: "", type: "rent", unitCost: 0, quantity: 1, duration: 12 });
+    setShowDialog(true);
+  };
+
+  const handleEdit = (facility: Facility) => {
+    setEditingFacility(facility);
+    setFormData({
+      name: facility.name,
+      nameEn: facility.nameEn,
+      type: facility.type,
+      unitCost: facility.unitCost,
+      quantity: facility.quantity,
+      duration: facility.duration,
+    });
+    setShowDialog(true);
+  };
+
+  const handleSave = () => {
+    const total = calculateTotal(formData);
+    
+    if (editingFacility) {
+      setFacilities(prev => prev.map(f => 
+        f.id === editingFacility.id 
+          ? { ...f, ...formData, total } 
+          : f
+      ));
+    } else {
+      const newFacility: Facility = {
+        id: Date.now().toString(),
+        ...formData,
+        total,
+      };
+      setFacilities(prev => [...prev, newFacility]);
+    }
+    
+    setShowDialog(false);
+    onTotalChange?.(totalCost);
+  };
+
+  const handleDelete = (id: string) => {
+    setFacilities(prev => prev.filter(f => f.id !== id));
+    setDeleteId(null);
+    onTotalChange?.(totalCost);
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="flex items-center gap-2">
+          <Building2 className="w-5 h-5" />
+          {isArabic ? "المرافق" : "Facilities"}
+        </CardTitle>
+        <Button onClick={handleAdd} className="gap-2">
+          <Plus className="w-4 h-4" />
+          {isArabic ? "إضافة مرفق" : "Add Facility"}
+        </Button>
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">#</TableHead>
+                <TableHead>{isArabic ? "المرفق" : "Facility"}</TableHead>
+                <TableHead className="text-center">{isArabic ? "النوع" : "Type"}</TableHead>
+                <TableHead className="text-center">{isArabic ? "التكلفة" : "Cost"}</TableHead>
+                <TableHead className="text-center">{isArabic ? "العدد" : "Qty"}</TableHead>
+                <TableHead className="text-center">{isArabic ? "المدة" : "Duration"}</TableHead>
+                <TableHead className="text-center">{isArabic ? "الإجمالي" : "Total"}</TableHead>
+                <TableHead className="w-24">{isArabic ? "إجراءات" : "Actions"}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {facilities.map((facility, index) => (
+                <TableRow key={facility.id}>
+                  <TableCell className="font-medium">{index + 1}</TableCell>
+                  <TableCell>
+                    <div>
+                      <p className="font-medium">{isArabic ? facility.name : facility.nameEn}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {isArabic ? facility.nameEn : facility.name}
+                      </p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant={facility.type === "rent" ? "outline" : "secondary"}>
+                      {facility.type === "rent" 
+                        ? (isArabic ? "إيجار" : "Rent") 
+                        : (isArabic ? "شراء" : "Purchase")}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-center">{formatCurrency(facility.unitCost)}</TableCell>
+                  <TableCell className="text-center">{facility.quantity}</TableCell>
+                  <TableCell className="text-center">
+                    {facility.type === "rent" 
+                      ? `${facility.duration} ${isArabic ? "شهر" : "mo"}` 
+                      : "-"}
+                  </TableCell>
+                  <TableCell className="text-center font-medium">{formatCurrency(facility.total)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(facility)}>
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => setDeleteId(facility.id)}>
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Totals */}
+        <div className="mt-4 flex justify-end gap-4">
+          <div className="bg-muted/50 rounded-lg px-4 py-3 text-center">
+            <p className="text-xs text-muted-foreground">{isArabic ? "إيجارات" : "Rentals"}</p>
+            <p className="font-semibold">SAR {formatCurrency(rentTotal)}</p>
+          </div>
+          <div className="bg-muted/50 rounded-lg px-4 py-3 text-center">
+            <p className="text-xs text-muted-foreground">{isArabic ? "مشتريات" : "Purchases"}</p>
+            <p className="font-semibold">SAR {formatCurrency(purchaseTotal)}</p>
+          </div>
+          <div className="bg-muted rounded-lg px-6 py-3">
+            <p className="text-sm text-muted-foreground">{isArabic ? "الإجمالي" : "Total"}</p>
+            <p className="text-2xl font-bold text-primary">SAR {formatCurrency(totalCost)}</p>
+          </div>
+        </div>
+
+        {/* Add/Edit Dialog */}
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {editingFacility 
+                  ? (isArabic ? "تعديل مرفق" : "Edit Facility") 
+                  : (isArabic ? "إضافة مرفق" : "Add Facility")}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{isArabic ? "اسم المرفق (عربي)" : "Facility Name (Arabic)"}</Label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder={isArabic ? "مثال: مكتب الموقع" : "e.g., مكتب الموقع"}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{isArabic ? "اسم المرفق (إنجليزي)" : "Facility Name (English)"}</Label>
+                  <Input
+                    value={formData.nameEn}
+                    onChange={(e) => setFormData({ ...formData, nameEn: e.target.value })}
+                    placeholder={isArabic ? "مثال: Site Office" : "e.g., Site Office"}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>{isArabic ? "نوع التكلفة" : "Cost Type"}</Label>
+                <Select
+                  value={formData.type}
+                  onValueChange={(value: "rent" | "purchase") => setFormData({ ...formData, type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="rent">{isArabic ? "إيجار شهري" : "Monthly Rent"}</SelectItem>
+                    <SelectItem value="purchase">{isArabic ? "شراء (مرة واحدة)" : "Purchase (One-time)"}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>
+                    {formData.type === "rent" 
+                      ? (isArabic ? "التكلفة الشهرية" : "Monthly Cost") 
+                      : (isArabic ? "سعر الوحدة" : "Unit Price")}
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={formData.unitCost}
+                    onChange={(e) => setFormData({ ...formData, unitCost: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{isArabic ? "العدد" : "Quantity"}</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={formData.quantity}
+                    onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
+                  />
+                </div>
+                {formData.type === "rent" && (
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "المدة (شهر)" : "Duration (months)"}</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={formData.duration}
+                      onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 1 })}
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="bg-muted rounded-lg p-4">
+                <p className="text-sm text-muted-foreground">{isArabic ? "الإجمالي المتوقع" : "Expected Total"}</p>
+                <p className="text-xl font-bold">
+                  SAR {formatCurrency(calculateTotal(formData))}
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDialog(false)}>
+                {isArabic ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button onClick={handleSave}>
+                {isArabic ? "حفظ" : "Save"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation */}
+        <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{isArabic ? "تأكيد الحذف" : "Confirm Delete"}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {isArabic 
+                  ? "هل أنت متأكد من حذف هذا المرفق؟ لا يمكن التراجع عن هذا الإجراء." 
+                  : "Are you sure you want to delete this facility? This action cannot be undone."}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+              <AlertDialogAction onClick={() => deleteId && handleDelete(deleteId)}>
+                {isArabic ? "حذف" : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </CardContent>
+    </Card>
+  );
+}

@@ -15,6 +15,10 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
+import { SiteStaffTab } from "@/components/tender/SiteStaffTab";
+import { FacilitiesTab } from "@/components/tender/FacilitiesTab";
+import { InsuranceTab } from "@/components/tender/InsuranceTab";
+import { GuaranteesTab } from "@/components/tender/GuaranteesTab";
 
 interface ProjectData {
   id: string;
@@ -232,70 +236,22 @@ export default function TenderSummaryPage() {
 
           {/* Site Staff Tab */}
           <TabsContent value="staff">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  {isArabic ? "طاقم الموقع" : "Site Staff"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-center py-8">
-                  {isArabic ? "قريباً - إدارة طاقم الموقع" : "Coming soon - Site staff management"}
-                </p>
-              </CardContent>
-            </Card>
+            <SiteStaffTab isArabic={isArabic} />
           </TabsContent>
 
           {/* Facilities Tab */}
           <TabsContent value="facilities">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="w-5 h-5" />
-                  {isArabic ? "المرافق" : "Facilities"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-center py-8">
-                  {isArabic ? "قريباً - إدارة المرافق" : "Coming soon - Facilities management"}
-                </p>
-              </CardContent>
-            </Card>
+            <FacilitiesTab isArabic={isArabic} />
           </TabsContent>
 
           {/* Insurance Tab */}
           <TabsContent value="insurance">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="w-5 h-5" />
-                  {isArabic ? "التأمين" : "Insurance"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-center py-8">
-                  {isArabic ? "قريباً - إدارة التأمين" : "Coming soon - Insurance management"}
-                </p>
-              </CardContent>
-            </Card>
+            <InsuranceTab isArabic={isArabic} />
           </TabsContent>
 
           {/* Guarantees Tab */}
           <TabsContent value="guarantees">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileCheck className="w-5 h-5" />
-                  {isArabic ? "الضمانات" : "Guarantees"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-center py-8">
-                  {isArabic ? "قريباً - إدارة الضمانات" : "Coming soon - Guarantees management"}
-                </p>
-              </CardContent>
-            </Card>
+            <GuaranteesTab isArabic={isArabic} />
           </TabsContent>
 
           {/* Indirect Costs Tab */}
