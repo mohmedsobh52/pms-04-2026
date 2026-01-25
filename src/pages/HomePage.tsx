@@ -1,62 +1,58 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  LayoutDashboard,
-  FolderOpen,
-  FileText,
-  TrendingUp,
+import { 
+  FileUp, 
+  Zap, 
+  Library, 
+  Plus, 
+  Receipt, 
+  FileText, 
+  FolderOpen, 
+  BarChart3, 
+  Shield, 
+  TrendingUp, 
+  Calendar, 
+  Building2, 
+  Users, 
   DollarSign,
   Activity,
-  Loader2,
-  AlertTriangle,
-  CheckCircle2,
+  Target,
+  Briefcase,
   Clock,
-  BarChart3,
-  PieChart as PieChartIcon,
+  AlertTriangle,
+  Layers,
+  Settings,
+  ChevronRight,
   Package,
-  Receipt,
-  Calendar,
+  LayoutDashboard,
+  ClipboardList,
+  Loader2,
+  PieChart as PieChartIcon,
   ArrowUpRight,
   ArrowDownRight,
-  FileUp,
-  Plus,
-  Settings,
-  Settings2,
-  Users,
-  ClipboardList,
-  Shield,
-  Briefcase,
-  Building2,
-  Layers,
-  Target,
-  Zap,
-  ChevronRight,
-  Library
+  Settings2
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
-import { PMSLogo } from "@/components/PMSLogo";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { supabase } from "@/integrations/supabase/client";
 import { LanguageToggle } from "@/components/LanguageToggle";
-import { RealtimeNotifications } from "@/components/RealtimeNotifications";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
+import { PMSLogo } from "@/components/PMSLogo";
+import { RealtimeNotifications } from "@/components/RealtimeNotifications";
+import { useAuth } from "@/hooks/useAuth";
 import {
   PieChart,
   Pie,
   Cell,
   ResponsiveContainer,
-  BarChart,
-  Bar,
+  CartesianGrid,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
-  Legend,
   AreaChart,
   Area
 } from "recharts";
@@ -89,63 +85,63 @@ const quickActions = [
     icon: FileUp, 
     label: { ar: "تحليل ملف BOQ", en: "Analyze BOQ File" }, 
     href: "/analyze", 
-    colorVar: "qa-blue",
+    bgClass: "bg-blue-500",
     description: { ar: "رفع وتحليل ملفات BOQ", en: "Upload and analyze BOQ files" }
   },
   { 
     icon: Zap, 
     label: { ar: "الاستخراج السريع", en: "Fast Extraction" }, 
     href: "/fast-extraction", 
-    colorVar: "qa-orange",
+    bgClass: "bg-orange-500",
     description: { ar: "رفع وتصنيف ملفات متعددة بسرعة", en: "Quickly upload and classify multiple files" }
   },
   { 
     icon: Library, 
     label: { ar: "المكتبة", en: "Library" }, 
     href: "/library", 
-    colorVar: "qa-teal",
+    bgClass: "bg-teal-500",
     description: { ar: "إدارة المواد والعمالة والمعدات", en: "Manage materials, labor & equipment" }
   },
   { 
     icon: Plus, 
     label: { ar: "مشروع جديد", en: "New Project" }, 
     href: "/analyze", 
-    colorVar: "qa-green",
+    bgClass: "bg-green-500",
     description: { ar: "إنشاء مشروع جديد", en: "Create a new project" }
   },
   { 
     icon: Receipt, 
     label: { ar: "عروض الأسعار", en: "Quotations" }, 
     href: "/quotations", 
-    colorVar: "qa-purple",
+    bgClass: "bg-purple-500",
     description: { ar: "إدارة عروض الأسعار", en: "Manage price quotations" }
   },
   { 
     icon: FileText, 
     label: { ar: "العقود", en: "Contracts" }, 
     href: "/contracts", 
-    colorVar: "qa-amber",
+    bgClass: "bg-amber-500",
     description: { ar: "إدارة العقود والاتفاقيات", en: "Manage contracts" }
   },
   { 
-    icon: FolderOpen, 
-    label: { ar: "المشاريع المحفوظة", en: "Saved Projects" }, 
+    icon: Briefcase, 
+    label: { ar: "المشاريع", en: "Projects" }, 
     href: "/projects", 
-    colorVar: "qa-indigo",
-    description: { ar: "عرض وإدارة المشاريع المحفوظة", en: "View and manage saved projects" }
+    bgClass: "bg-indigo-500",
+    description: { ar: "عرض وإدارة جميع المشاريع", en: "View and manage all projects" }
   },
   { 
     icon: BarChart3, 
     label: { ar: "التقارير", en: "Reports" }, 
     href: "/reports", 
-    colorVar: "qa-rose",
+    bgClass: "bg-rose-500",
     description: { ar: "عرض وتصدير تقارير المشاريع", en: "View and export project reports" }
   },
   { 
     icon: Shield, 
     label: { ar: "إدارة المخاطر", en: "Risk Management" }, 
     href: "/risk", 
-    colorVar: "qa-red",
+    bgClass: "bg-red-500",
     description: { ar: "تتبع وإدارة مخاطر المشروع", en: "Track and manage project risks" }
   },
 ];
@@ -173,8 +169,8 @@ export default function HomePage() {
   const [projectTrends, setProjectTrends] = useState<any[]>([]);
   const [categoryDistribution, setCategoryDistribution] = useState<any[]>([]);
 
-  const { user, loading: authLoading, signOut } = useAuth();
-  const { isArabic, t } = useLanguage();
+  const { user, loading: authLoading } = useAuth();
+  const { isArabic } = useLanguage();
   const navigate = useNavigate();
 
   const CHART_COLORS = [
@@ -364,9 +360,9 @@ export default function HomePage() {
   };
 
   const getPerformanceStatus = (value: number) => {
-    if (value >= 1) return { color: "text-green-500", bgColor: "bg-green-500/10", icon: ArrowUpRight, label: isArabic ? "جيد" : "Good" };
-    if (value >= 0.9) return { color: "text-yellow-500", bgColor: "bg-yellow-500/10", icon: Activity, label: isArabic ? "تحذير" : "Warning" };
-    return { color: "text-red-500", bgColor: "bg-red-500/10", icon: ArrowDownRight, label: isArabic ? "حرج" : "Critical" };
+    if (value >= 1) return { color: "text-green-600 dark:text-green-400", bgColor: "bg-green-500/10", icon: ArrowUpRight, label: isArabic ? "جيد" : "Good" };
+    if (value >= 0.9) return { color: "text-yellow-600 dark:text-yellow-400", bgColor: "bg-yellow-500/10", icon: Activity, label: isArabic ? "تحذير" : "Warning" };
+    return { color: "text-red-600 dark:text-red-400", bgColor: "bg-red-500/10", icon: ArrowDownRight, label: isArabic ? "حرج" : "Critical" };
   };
 
   const formatDate = (dateString: string) => {
@@ -464,10 +460,7 @@ export default function HomePage() {
               <Card className="group hover:shadow-lg transition-all duration-300 cursor-pointer border-2 hover:border-primary/50 h-full">
                 <CardContent className="p-6 text-center space-y-3">
                   <div 
-                    className="w-14 h-14 mx-auto rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform"
-                    style={{
-                      background: `linear-gradient(135deg, hsl(var(--${action.colorVar})) 0%, hsl(var(--${action.colorVar}) / 0.8) 100%)`
-                    }}
+                    className={`w-14 h-14 mx-auto rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform ${action.bgClass}`}
                   >
                     <action.icon className="w-7 h-7 text-white" />
                   </div>
@@ -498,7 +491,7 @@ export default function HomePage() {
               <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-green-500" />
+                    <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
                     {isArabic ? "القيمة الإجمالية" : "Total Value"}
                   </CardTitle>
                 </CardHeader>
@@ -511,7 +504,7 @@ export default function HomePage() {
               <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Package className="h-4 w-4 text-blue-500" />
+                    <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     {isArabic ? "البنود" : "Items"}
                   </CardTitle>
                 </CardHeader>
@@ -523,7 +516,7 @@ export default function HomePage() {
               <Card className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 border-purple-500/20">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Receipt className="h-4 w-4 text-purple-500" />
+                    <Receipt className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                     {isArabic ? "عروض الأسعار" : "Quotations"}
                   </CardTitle>
                 </CardHeader>
@@ -535,7 +528,7 @@ export default function HomePage() {
               <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/20">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Briefcase className="h-4 w-4 text-orange-500" />
+                    <Briefcase className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                     {isArabic ? "العقود" : "Contracts"}
                   </CardTitle>
                 </CardHeader>
@@ -547,7 +540,7 @@ export default function HomePage() {
               <Card className="bg-gradient-to-br from-red-500/10 to-red-500/5 border-red-500/20">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-red-500" />
+                    <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
                     {isArabic ? "المخاطر النشطة" : "Active Risks"}
                   </CardTitle>
                 </CardHeader>
@@ -697,7 +690,7 @@ export default function HomePage() {
                           <div 
                             key={project.id} 
                             className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
-                            onClick={() => navigate(`/projects`)}
+                            onClick={() => navigate(`/projects/${project.id}`)}
                           >
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
