@@ -373,19 +373,25 @@ export function FloatingToolbar({
         },
       ],
     },
-    // 4. Analysis Tools - أدوات التحليل
+    // 4. Analysis & Estimating - دمج التحليل والتسعير
     {
-      id: "analysis-tools",
+      id: "analysis-estimating",
       icon: <BarChart3 className="w-4 h-4" />,
-      label: "Analysis",
-      labelAr: "التحليل",
-      badge: String(4),
+      label: "Analysis & Estimating",
+      labelAr: "التحليل والتسعير",
+      badge: String(7),
       children: [
         {
           id: "cost-analysis",
           icon: <DollarSign className="w-4 h-4" />,
           label: "Cost Analysis",
           labelAr: "تحليل التكاليف",
+        },
+        {
+          id: "quotations",
+          icon: <Receipt className="w-4 h-4" />,
+          label: "Quotations",
+          labelAr: "عروض الأسعار",
         },
         {
           id: "compare",
@@ -400,31 +406,16 @@ export function FloatingToolbar({
           labelAr: "مقارنة BOQ",
         },
         {
-          id: "market-rates",
-          icon: <TrendingUp className="w-4 h-4" />,
-          label: "Market Rates",
-          labelAr: "أسعار السوق",
-        },
-      ],
-    },
-    // 5. Estimating - التسعير والعروض
-    {
-      id: "estimating-menu",
-      icon: <Calculator className="w-4 h-4" />,
-      label: "Estimating",
-      labelAr: "التسعير",
-      children: [
-        {
-          id: "quotations",
-          icon: <Receipt className="w-4 h-4" />,
-          label: "Quotations",
-          labelAr: "عروض الأسعار",
-        },
-        {
           id: "historical-pricing",
           icon: <History className="w-4 h-4" />,
           label: "Historical Pricing",
           labelAr: "الأسعار التاريخية",
+        },
+        {
+          id: "market-rates",
+          icon: <TrendingUp className="w-4 h-4" />,
+          label: "Market Rates",
+          labelAr: "أسعار السوق",
         },
         {
           id: "fast-extraction",
@@ -436,33 +427,32 @@ export function FloatingToolbar({
         },
       ],
     },
-    // 6. Library - المكتبة المرجعية
+    // 5. Library & Procurement - دمج المكتبة والمشتريات
     {
-      id: "library",
+      id: "library-procurement",
       icon: <Database className="w-4 h-4" />,
-      label: "Library",
-      labelAr: "المكتبة",
+      label: "Library & Procurement",
+      labelAr: "المكتبة والمشتريات",
       badge: "New",
       badgeVariant: "destructive",
-    },
-    // 7. Procurement - المشتريات
-    {
-      id: "procurement",
-      icon: <Package className="w-4 h-4" />,
-      label: "Procurement",
-      labelAr: "المشتريات",
       children: [
         {
-          id: "procurement-schedule",
-          icon: <ClipboardList className="w-4 h-4" />,
-          label: "Schedule",
-          labelAr: "الجدولة",
+          id: "library",
+          icon: <Database className="w-4 h-4" />,
+          label: "Library",
+          labelAr: "المكتبة",
         },
         {
           id: "material-prices",
           icon: <Database className="w-4 h-4" />,
-          label: "Price Database",
-          labelAr: "قاعدة الأسعار",
+          label: "Material Prices",
+          labelAr: "أسعار المواد",
+        },
+        {
+          id: "procurement-schedule",
+          icon: <ClipboardList className="w-4 h-4" />,
+          label: "Procurement Schedule",
+          labelAr: "جدولة المشتريات",
         },
         {
           id: "resources",
@@ -472,35 +462,42 @@ export function FloatingToolbar({
         },
       ],
     },
-    // 8. Subcontractors - المقاولين
+    // 6. Stakeholders - دمج المقاولين والعقود
     {
-      id: "subcontractors",
+      id: "stakeholders",
       icon: <Users className="w-4 h-4" />,
-      label: "Subcontractors",
-      labelAr: "المقاولين من الباطن",
+      label: "Stakeholders",
+      labelAr: "الأطراف المعنية",
+      children: [
+        {
+          id: "subcontractors",
+          icon: <Users className="w-4 h-4" />,
+          label: "Subcontractors",
+          labelAr: "المقاولين من الباطن",
+        },
+        {
+          id: "contracts",
+          icon: <Building2 className="w-4 h-4" />,
+          label: "Contracts",
+          labelAr: "العقود",
+        },
+      ],
     },
-    // 9. Contracts - العقود
-    {
-      id: "contracts",
-      icon: <Building2 className="w-4 h-4" />,
-      label: "Contracts",
-      labelAr: "العقود",
-    },
-    // 10. Scheduling - الجدولة
+    // 7. Scheduling - الجدولة
     {
       id: "calendar",
       icon: <Calendar className="w-4 h-4" />,
       label: "Calendar",
       labelAr: "التقويم",
     },
-    // 11. Risk Management - إدارة المخاطر
+    // 8. Risk Management - إدارة المخاطر
     {
       id: "risk",
       icon: <Shield className="w-4 h-4" />,
       label: "Risk Management",
       labelAr: "إدارة المخاطر",
     },
-    // 12. Reports - التقارير
+    // 9. Reports - التقارير
     {
       id: "reports",
       icon: <FileText className="w-4 h-4" />,
@@ -527,7 +524,7 @@ export function FloatingToolbar({
         },
       ],
     },
-    // 13. Attachments - المرفقات
+    // 10. Attachments - المرفقات
     {
       id: "attachments",
       icon: <FileStack className="w-4 h-4" />,

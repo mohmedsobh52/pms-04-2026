@@ -1,25 +1,21 @@
 import { ReactNode } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useLanguage } from "@/hooks/useLanguage";
 import { FloatingToolbar } from "@/components/FloatingToolbar";
-import { LanguageToggle } from "@/components/LanguageToggle";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { UserMenu } from "@/components/UserMenu";
-import { Button } from "@/components/ui/button";
-import { LogIn, Settings2, Home } from "lucide-react";
 import BackgroundImage from "@/components/BackgroundImage";
 import { PageLoadingProgress } from "@/components/PageLoadingProgress";
 import { PageTransition } from "@/components/PageTransition";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { BackToHomeButton } from "@/components/BackToHomeButton";
+import { UnifiedHeader } from "@/components/UnifiedHeader";
+import { useLanguage } from "@/hooks/useLanguage";
 
 interface PageLayoutProps {
   children: ReactNode;
 }
 
 export function PageLayout({ children }: PageLayoutProps) {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { isArabic } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
@@ -30,6 +26,7 @@ export function PageLayout({ children }: PageLayoutProps) {
     if (path === "/" || path === "/dashboard") return "dashboard";
     if (path === "/items") return "analysis";
     if (path === "/analysis-tools") return "analysis-tools";
+    if (path === "/cost-analysis") return "cost-analysis";
     if (path === "/procurement") return "procurement";
     if (path === "/quotations") return "upload";
     if (path === "/subcontractors") return "subcontractors";
@@ -42,6 +39,9 @@ export function PageLayout({ children }: PageLayoutProps) {
     if (path === "/p6-export") return "p6-export";
     if (path === "/compare-versions") return "version-compare";
     if (path === "/material-prices") return "material-prices";
+    if (path === "/library") return "library";
+    if (path === "/historical-pricing") return "historical-pricing";
+    if (path === "/fast-extraction") return "fast-extraction";
     return "dashboard";
   };
 
@@ -57,7 +57,7 @@ export function PageLayout({ children }: PageLayoutProps) {
       "time-schedule": "/items",
       "schedule-integration": "/items",
       "analysis-tools": "/analysis-tools",
-      "cost-analysis": "/analysis-tools",
+      "cost-analysis": "/cost-analysis",
       "compare": "/quotations",
       "boq-compare": "/analysis-tools",
       "market-rates": "/analysis-tools",
@@ -78,6 +78,14 @@ export function PageLayout({ children }: PageLayoutProps) {
       "attachments": "/attachments",
       "templates": "/templates",
       "subcontractors": "/subcontractors",
+      "library": "/library",
+      "historical-pricing": "/historical-pricing",
+      "fast-extraction": "/fast-extraction",
+      "quotations": "/quotations",
+      // Merged menu routes
+      "analysis-estimating": "/analysis-tools",
+      "library-procurement": "/library",
+      "stakeholders": "/subcontractors",
     };
     
     const route = routes[tab] || "/";
@@ -89,43 +97,11 @@ export function PageLayout({ children }: PageLayoutProps) {
       <BackgroundImage />
       <PageLoadingProgress />
       
-      {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <span className="text-white font-bold text-lg">B</span>
-            </div>
-            <span className="font-display text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              BOQ Analyzer
-            </span>
-          </Link>
-
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <LanguageToggle />
-            <Link to="/settings">
-              <Button variant="ghost" size="icon" className="h-9 w-9">
-                <Settings2 className="h-4 w-4" />
-              </Button>
-            </Link>
-            
-            {user ? (
-              <UserMenu />
-            ) : (
-              <Link to="/auth">
-                <Button size="sm" className="gap-2">
-                  <LogIn className="w-4 h-4" />
-                  {isArabic ? "تسجيل الدخول" : "Login"}
-                </Button>
-              </Link>
-            )}
-          </div>
-        </div>
-      </header>
+      {/* Unified Header */}
+      <UnifiedHeader />
 
       {/* Main Content */}
-      <main className="flex-1 container mx-auto px-4 py-8">
+      <main className="flex-1 container mx-auto px-4 py-6 md:py-8">
         <div className="flex items-center gap-4 mb-4">
           <BackToHomeButton />
           <div className="flex-1">
@@ -146,7 +122,7 @@ export function PageLayout({ children }: PageLayoutProps) {
       )}
 
       {/* Footer */}
-      <footer className="border-t border-border py-6">
+      <footer className="border-t border-border py-4 md:py-6">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
           <p>{isArabic ? "مدعوم بالذكاء الاصطناعي" : "Powered by AI"}</p>
         </div>

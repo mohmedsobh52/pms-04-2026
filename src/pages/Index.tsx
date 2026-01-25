@@ -2,8 +2,6 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { FileUp, Sparkles, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown, Paperclip, Users, Copy, Settings2, FileSpreadsheet, Clock, Layers, Zap, Home } from "lucide-react";
 import { PMSLogo } from "@/components/PMSLogo";
-import { LanguageToggle } from "@/components/LanguageToggle";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLanguage } from "@/hooks/useLanguage";
 import { FileUpload } from "@/components/FileUpload";
 import { WorkflowStatus, defaultWorkflowSteps, type WorkflowStep, type StepStatus } from "@/components/WorkflowStatus";
@@ -44,6 +42,7 @@ import { AIMonitoringDashboard } from "@/components/AIMonitoringDashboard";
 import { AICreditsCounter } from "@/components/AICreditsCounter";
 import { useChunkedAnalysis, compressText } from "@/hooks/useChunkedAnalysis";
 import { EstimatedAnalysisTime } from "@/components/EstimatedAnalysisTime";
+import { UnifiedHeader } from "@/components/UnifiedHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -1329,65 +1328,21 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background overflow-x-auto" dir={isArabic ? 'rtl' : 'ltr'} ref={mainContentRef}>
-      {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between gap-4">
-            {/* Logo */}
-            <div className="flex items-center gap-2 shrink-0">
-              <PMSLogo size="md" showText />
-            </div>
-            
-            {/* Navigation Tabs - Clean horizontal layout */}
-            <nav className="flex-1 flex items-center justify-center overflow-x-auto scrollbar-hide">
-              <div className="flex items-center gap-1 bg-muted/30 rounded-lg p-1">
-                <Link to="/">
-                  <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs font-medium hover:bg-background/80 rounded-md">
-                    <Home className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{isArabic ? 'الرئيسية' : 'Home'}</span>
-                  </Button>
-                </Link>
-                
-                <Link to="/dashboard">
-                  <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs font-medium hover:bg-background/80 data-[active=true]:bg-background data-[active=true]:shadow-sm rounded-md" data-active="true">
-                    <LayoutDashboard className="w-3.5 h-3.5" />
-                    <span>{isArabic ? 'لوحة التحكم' : 'Dashboard'}</span>
-                  </Button>
-                </Link>
-                
-                <Link to="/cost-analysis">
-                  <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs font-medium hover:bg-background/80 rounded-md">
-                    <Scale className="w-3.5 h-3.5" />
-                    <span className="hidden md:inline">{isArabic ? 'تحليل التكاليف' : 'Cost Analysis'}</span>
-                  </Button>
-                </Link>
-                
-                <Link to="/saved-projects">
-                  <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs font-medium hover:bg-background/80 rounded-md">
-                    <Save className="w-3.5 h-3.5" />
-                    <span className="hidden md:inline">{isArabic ? 'المشاريع' : 'Projects'}</span>
-                  </Button>
-                </Link>
-
-                <Link to="/about">
-                  <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs font-medium hover:bg-background/80 rounded-md">
-                    <FileText className="w-3.5 h-3.5" />
-                    <span className="hidden lg:inline">{isArabic ? 'حول' : 'About'}</span>
-                  </Button>
-                </Link>
-              </div>
-            </nav>
-
-            {/* Right Actions - Simplified */}
-            <div className="flex items-center gap-2 shrink-0">
-              {/* Share Button */}
+      {/* Unified Header */}
+      <UnifiedHeader showQuickNav={true} />
+      
+      {/* Secondary Actions Bar - Context-specific tools */}
+      <div className="border-b border-border bg-card/30 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-2">
+          <div className="flex items-center justify-between gap-2">
+            {/* Left: Share & Project Management */}
+            <div className="flex items-center gap-2">
               <ShareAnalysis 
                 analysisData={analysisData}
                 wbsData={wbsData}
                 fileName={selectedFile?.name}
               />
               
-              {/* Project Management */}
               <LocalProjectManager
                 analysisData={analysisData}
                 wbsData={wbsData}
@@ -1402,21 +1357,15 @@ const Index = () => {
                   updateStepStatus("export", "complete");
                 }}
               />
-              
-              {/* Fast Extraction Button */}
-              <Link to="/fast-extraction">
-                <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-2 text-xs text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/20">
-                  <Zap className="w-3.5 h-3.5" />
-                  <span className="hidden lg:inline">{isArabic ? 'استخراج سريع' : 'Fast Extract'}</span>
-                </Button>
-              </Link>
-              
-              {/* Tools Dropdown */}
+            </div>
+
+            {/* Right: Tools Dropdown */}
+            <div className="flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-2 text-xs">
                     <MoreHorizontal className="w-3.5 h-3.5" />
-                    <span className="hidden lg:inline">{isArabic ? 'أدوات' : 'Tools'}</span>
+                    <span className="hidden sm:inline">{isArabic ? 'أدوات' : 'Tools'}</span>
                     <ChevronDown className="w-3 h-3" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -1441,13 +1390,6 @@ const Index = () => {
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link to="/fast-extraction" className="flex items-center gap-2">
-                      <Zap className="w-4 h-4" />
-                      <span>{isArabic ? 'الاستخراج السريع' : 'Fast Extraction'}</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild className="cursor-pointer">
                     <Link to="/changelog" className="flex items-center gap-2">
                       <FileStack className="w-4 h-4" />
                       <span>{isArabic ? 'سجل التحديثات' : 'Changelog'}</span>
@@ -1455,33 +1397,10 @@ const Index = () => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              
-              <ThemeToggle />
-              <LanguageToggle />
-              
-              <Link to="/settings">
-                <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-2 text-xs">
-                  <Settings2 className="w-3.5 h-3.5" />
-                  <span className="hidden lg:inline">{isArabic ? 'الإعدادات' : 'Settings'}</span>
-                </Button>
-              </Link>
-              
-              {authLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-              ) : user ? (
-                <UserMenu />
-              ) : (
-                <Link to="/auth">
-                  <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-2 text-xs">
-                    <LogIn className="w-3.5 h-3.5" />
-                    <span className="hidden lg:inline">{t('signIn')}</span>
-                  </Button>
-                </Link>
-              )}
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Hero Section */}
       <section className="py-12 px-4">
