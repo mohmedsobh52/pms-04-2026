@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Pencil, Trash2, FileCheck, Info, Landmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -147,6 +147,11 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, onTotalChang
 
   const totalCost = guarantees.reduce((sum, g) => sum + g.totalCost, 0);
   const totalGuaranteeValue = guarantees.reduce((sum, g) => sum + g.guaranteeValue, 0);
+
+  // Notify parent of total changes
+  useEffect(() => {
+    onTotalChange?.(totalCost);
+  }, [totalCost, onTotalChange]);
 
   const handleContractValueChange = (value: number) => {
     setBaseContractValue(value);

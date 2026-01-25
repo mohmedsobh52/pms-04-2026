@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Pencil, Trash2, Shield, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -112,6 +112,11 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, onTotalChange
   };
 
   const totalPremium = insurances.reduce((sum, i) => sum + i.premium, 0);
+
+  // Notify parent of total changes
+  useEffect(() => {
+    onTotalChange?.(totalPremium);
+  }, [totalPremium, onTotalChange]);
 
   const handleContractValueChange = (value: number) => {
     setBaseContractValue(value);

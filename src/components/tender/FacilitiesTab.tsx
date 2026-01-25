@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Pencil, Trash2, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -86,6 +86,11 @@ export function FacilitiesTab({ isArabic, onTotalChange }: FacilitiesTabProps) {
   const totalCost = facilities.reduce((sum, f) => sum + f.total, 0);
   const rentTotal = facilities.filter(f => f.type === "rent").reduce((sum, f) => sum + f.total, 0);
   const purchaseTotal = facilities.filter(f => f.type === "purchase").reduce((sum, f) => sum + f.total, 0);
+
+  // Notify parent of total changes
+  useEffect(() => {
+    onTotalChange?.(totalCost);
+  }, [totalCost, onTotalChange]);
 
   const calculateTotal = (data: typeof formData) => {
     if (data.type === "purchase") {
