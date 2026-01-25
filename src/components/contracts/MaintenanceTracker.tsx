@@ -335,12 +335,12 @@ export const MaintenanceTracker = () => {
 
               <div>
                 <Label>{isArabic ? "الضمان (اختياري)" : "Warranty (optional)"}</Label>
-                <Select value={formData.warranty_id} onValueChange={(v) => setFormData({ ...formData, warranty_id: v })}>
+                <Select value={formData.warranty_id || "none"} onValueChange={(v) => setFormData({ ...formData, warranty_id: v === "none" ? "" : v })}>
                   <SelectTrigger>
                     <SelectValue placeholder={isArabic ? "ربط بضمان" : "Link to warranty"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{isArabic ? "بدون ربط" : "No link"}</SelectItem>
+                    <SelectItem value="none">{isArabic ? "بدون ربط" : "No link"}</SelectItem>
                     {warranties
                       .filter(w => w.contract_id === formData.contract_id)
                       .map(w => (
