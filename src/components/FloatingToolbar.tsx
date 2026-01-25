@@ -282,6 +282,8 @@ export function FloatingToolbar({
     // Other sections
     "reports": "/reports",
     "report": "/reports",
+    "reports-menu": "/reports",
+    "export-templates": "/reports",
     "version-compare": "/compare-versions",
     "p6-export": "/p6-export",
     "risk": "/risk",
@@ -551,17 +553,32 @@ export function FloatingToolbar({
           label: "Attachments",
           labelAr: "المرفقات",
         },
+      ],
+    },
+    // 9. Reports - التقارير
+    {
+      id: "reports-menu",
+      icon: <FileText className="w-4 h-4" />,
+      label: "Reports",
+      labelAr: "التقارير",
+      children: [
         {
           id: "reports",
           icon: <FileText className="w-4 h-4" />,
-          label: "Reports",
-          labelAr: "التقارير",
+          label: "Full Report",
+          labelAr: "التقرير الشامل",
         },
         {
           id: "version-compare",
           icon: <GitCompare className="w-4 h-4" />,
           label: "Version Compare",
           labelAr: "مقارنة الإصدارات",
+        },
+        {
+          id: "export-templates",
+          icon: <FileSpreadsheet className="w-4 h-4" />,
+          label: "Export Templates",
+          labelAr: "قوالب التصدير",
         },
       ],
     },

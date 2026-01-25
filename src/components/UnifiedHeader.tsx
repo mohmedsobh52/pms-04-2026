@@ -22,7 +22,8 @@ import {
   BarChart3,
   Database,
   Zap,
-  Loader2
+  Loader2,
+  FileBarChart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -160,6 +161,17 @@ export function UnifiedHeader({ showQuickNav = true }: UnifiedHeaderProps) {
         <div className="flex items-center gap-1 md:gap-2">
           <ThemeToggle />
           <LanguageToggle />
+          
+          <Link to="/reports" className="hidden sm:block">
+            <Button 
+              variant={isActive("/reports") ? "secondary" : "ghost"} 
+              size="icon" 
+              className="h-9 w-9"
+              title={isArabic ? "التقارير" : "Reports"}
+            >
+              <FileBarChart className="h-4 w-4" />
+            </Button>
+          </Link>
           
           <Link to="/settings" className="hidden sm:block">
             <Button variant="ghost" size="icon" className="h-9 w-9">
