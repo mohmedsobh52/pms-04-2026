@@ -1,6 +1,10 @@
 import { ContractManagement } from "@/components/ContractManagement";
-import { ContractNotifications } from "@/components/ContractNotifications";
 import { FIDICContractTemplates } from "@/components/FIDICContractTemplates";
+import { ContractsDashboard } from "@/components/contracts/ContractsDashboard";
+import { ContractMilestones } from "@/components/contracts/ContractMilestones";
+import { ContractPayments } from "@/components/contracts/ContractPayments";
+import { ContractTimeline } from "@/components/contracts/ContractTimeline";
+import { SmartContractAlerts } from "@/components/contracts/SmartContractAlerts";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLayout } from "@/components/PageLayout";
@@ -13,7 +17,10 @@ import {
   DollarSign,
   BookOpen,
   AlertTriangle,
-  Clock
+  Clock,
+  BarChart3,
+  Target,
+  Calendar
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
@@ -49,7 +56,6 @@ const ContractsPage = () => {
       const contractList = contracts || [];
       const now = new Date();
 
-      // Count expiring (within 30 days) and overdue contracts
       const expiringContracts = contractList.filter(c => {
         if (!c.end_date || c.status === 'completed' || c.status === 'terminated') return false;
         const daysLeft = differenceInDays(new Date(c.end_date), now);
@@ -102,7 +108,7 @@ const ContractsPage = () => {
           </div>
         </div>
 
-        {/* Stats Overview - Enhanced */}
+        {/* Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
             <CardContent className="p-4">
@@ -189,20 +195,36 @@ const ContractsPage = () => {
           </Card>
         </div>
 
-        {/* Main Tabs - Added FIDIC */}
+        {/* Main Tabs */}
         <Tabs defaultValue="contracts" className="space-y-4">
-          <TabsList className="grid grid-cols-3 w-full md:w-auto">
+          <TabsList className="flex flex-wrap h-auto gap-1">
             <TabsTrigger value="contracts" className="gap-2">
               <FileText className="w-4 h-4" />
-              <span>{isArabic ? "العقود" : "Contracts"}</span>
+              <span className="hidden sm:inline">{isArabic ? "العقود" : "Contracts"}</span>
+            </TabsTrigger>
+            <TabsTrigger value="dashboard" className="gap-2">
+              <BarChart3 className="w-4 h-4" />
+              <span className="hidden sm:inline">{isArabic ? "لوحة التحكم" : "Dashboard"}</span>
+            </TabsTrigger>
+            <TabsTrigger value="milestones" className="gap-2">
+              <Target className="w-4 h-4" />
+              <span className="hidden sm:inline">{isArabic ? "المعالم" : "Milestones"}</span>
+            </TabsTrigger>
+            <TabsTrigger value="payments" className="gap-2">
+              <DollarSign className="w-4 h-4" />
+              <span className="hidden sm:inline">{isArabic ? "الدفعات" : "Payments"}</span>
+            </TabsTrigger>
+            <TabsTrigger value="timeline" className="gap-2">
+              <Calendar className="w-4 h-4" />
+              <span className="hidden sm:inline">{isArabic ? "الجدول الزمني" : "Timeline"}</span>
             </TabsTrigger>
             <TabsTrigger value="fidic" className="gap-2">
               <BookOpen className="w-4 h-4" />
-              <span>{isArabic ? "قوالب FIDIC" : "FIDIC"}</span>
+              <span className="hidden sm:inline">{isArabic ? "FIDIC" : "FIDIC"}</span>
             </TabsTrigger>
             <TabsTrigger value="alerts" className="gap-2">
               <Bell className="w-4 h-4" />
-              <span>{isArabic ? "التذكيرات" : "Alerts"}</span>
+              <span className="hidden sm:inline">{isArabic ? "التنبيهات" : "Alerts"}</span>
             </TabsTrigger>
           </TabsList>
 
@@ -210,12 +232,28 @@ const ContractsPage = () => {
             <ContractManagement />
           </TabsContent>
 
+          <TabsContent value="dashboard" className="mt-4">
+            <ContractsDashboard />
+          </TabsContent>
+
+          <TabsContent value="milestones" className="mt-4">
+            <ContractMilestones />
+          </TabsContent>
+
+          <TabsContent value="payments" className="mt-4">
+            <ContractPayments />
+          </TabsContent>
+
+          <TabsContent value="timeline" className="mt-4">
+            <ContractTimeline />
+          </TabsContent>
+
           <TabsContent value="fidic" className="mt-4">
             <FIDICContractTemplates />
           </TabsContent>
 
           <TabsContent value="alerts" className="mt-4">
-            <ContractNotifications />
+            <SmartContractAlerts />
           </TabsContent>
         </Tabs>
       </div>

@@ -296,6 +296,173 @@ export type Database = {
         }
         Relationships: []
       }
+      contract_alert_settings: {
+        Row: {
+          created_at: string | null
+          email_notifications: boolean | null
+          expiry_alerts_enabled: boolean | null
+          expiry_days_before: number[] | null
+          id: string
+          in_app_notifications: boolean | null
+          milestone_alerts_enabled: boolean | null
+          milestone_days_before: number[] | null
+          payment_alerts_enabled: boolean | null
+          payment_days_before: number[] | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email_notifications?: boolean | null
+          expiry_alerts_enabled?: boolean | null
+          expiry_days_before?: number[] | null
+          id?: string
+          in_app_notifications?: boolean | null
+          milestone_alerts_enabled?: boolean | null
+          milestone_days_before?: number[] | null
+          payment_alerts_enabled?: boolean | null
+          payment_days_before?: number[] | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          email_notifications?: boolean | null
+          expiry_alerts_enabled?: boolean | null
+          expiry_days_before?: number[] | null
+          id?: string
+          in_app_notifications?: boolean | null
+          milestone_alerts_enabled?: boolean | null
+          milestone_days_before?: number[] | null
+          payment_alerts_enabled?: boolean | null
+          payment_days_before?: number[] | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      contract_milestones: {
+        Row: {
+          completion_date: string | null
+          contract_id: string
+          created_at: string | null
+          description: string | null
+          due_date: string
+          id: string
+          milestone_name: string
+          notes: string | null
+          payment_amount: number | null
+          payment_percentage: number | null
+          sort_order: number | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          completion_date?: string | null
+          contract_id: string
+          created_at?: string | null
+          description?: string | null
+          due_date: string
+          id?: string
+          milestone_name: string
+          notes?: string | null
+          payment_amount?: number | null
+          payment_percentage?: number | null
+          sort_order?: number | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          completion_date?: string | null
+          contract_id?: string
+          created_at?: string | null
+          description?: string | null
+          due_date?: string
+          id?: string
+          milestone_name?: string
+          notes?: string | null
+          payment_amount?: number | null
+          payment_percentage?: number | null
+          sort_order?: number | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_milestones_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contract_payments: {
+        Row: {
+          amount: number
+          contract_id: string
+          created_at: string | null
+          description: string | null
+          due_date: string
+          id: string
+          invoice_number: string | null
+          milestone_id: string | null
+          notes: string | null
+          payment_date: string | null
+          payment_number: number
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          contract_id: string
+          created_at?: string | null
+          description?: string | null
+          due_date: string
+          id?: string
+          invoice_number?: string | null
+          milestone_id?: string | null
+          notes?: string | null
+          payment_date?: string | null
+          payment_number: number
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          contract_id?: string
+          created_at?: string | null
+          description?: string | null
+          due_date?: string
+          id?: string
+          invoice_number?: string | null
+          milestone_id?: string | null
+          notes?: string | null
+          payment_date?: string | null
+          payment_number?: number
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_payments_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_payments_milestone_id_fkey"
+            columns: ["milestone_id"]
+            isOneToOne: false
+            referencedRelation: "contract_milestones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contracts: {
         Row: {
           contract_number: string
