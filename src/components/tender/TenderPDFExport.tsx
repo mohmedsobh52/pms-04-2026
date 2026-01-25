@@ -15,6 +15,15 @@ import { Download, FileText, Loader2 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+interface DirectCosts {
+  materials: number;
+  labor: number;
+  equipment: number;
+  totalBoq: number;
+  overhead?: number;
+  profit?: number;
+}
+
 interface TenderPDFExportProps {
   isArabic: boolean;
   projectName: string;
@@ -39,6 +48,8 @@ interface TenderPDFExportProps {
   guaranteesData?: any[];
   indirectCostsData?: any[];
   subcontractorsData?: any[];
+  directCosts?: DirectCosts;
+  projectArea?: number;
 }
 
 export function TenderPDFExport({
@@ -52,16 +63,20 @@ export function TenderPDFExport({
   guaranteesData = [],
   indirectCostsData = [],
   subcontractorsData = [],
+  directCosts,
+  projectArea = 0,
 }: TenderPDFExportProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [options, setOptions] = useState({
+    includeDirectCosts: true,
     includeStaff: true,
     includeFacilities: true,
     includeInsurance: true,
     includeGuarantees: true,
     includeIndirectCosts: true,
     includeSubcontractors: true,
+    includePricePerSqm: true,
     includeSummary: true,
   });
 
@@ -117,6 +132,10 @@ export function TenderPDFExport({
         ["Duration", `${pricingSettings.projectDuration} months`],
       ];
 
+      if (projectArea > 0) {
+        settingsData.push(["Built Area", `${formatCurrency(projectArea)} m²`]);
+      }
+
       autoTable(doc, {
         startY: yPos,
         head: [["Setting", "Value"]],
@@ -128,9 +147,47 @@ export function TenderPDFExport({
 
       yPos = (doc as any).lastAutoTable.finalY + 15;
 
+      // Direct Costs Section (NEW)
+      if (options.includeDirectCosts && directCosts) {
+        if (yPos > 250) {
+          doc.addPage();
+          yPos = 20;
+        }
+
+        doc.setFontSize(12);
+        doc.setTextColor(34, 197, 94);
+        doc.text("Direct Costs (BOQ)", margin, yPos);
+        yPos += 8;
+
+        const directCostsData = [
+          ["Materials", `${pricingSettings.currency} ${formatCurrency(directCosts.materials)}`],
+          ["Labor", `${pricingSettings.currency} ${formatCurrency(directCosts.labor)}`],
+          ["Equipment", `${pricingSettings.currency} ${formatCurrency(directCosts.equipment)}`],
+        ];
+
+        autoTable(doc, {
+          startY: yPos,
+          head: [["Category", "Amount"]],
+          body: directCostsData,
+          foot: [["Total Direct Costs (BOQ)", `${pricingSettings.currency} ${formatCurrency(directCosts.totalBoq)}`]],
+          margin: { left: margin, right: margin },
+          styles: { fontSize: 10 },
+          headStyles: { fillColor: [34, 197, 94] },
+          footStyles: { fillColor: [34, 197, 94], textColor: [255, 255, 255], fontStyle: "bold" },
+        });
+
+        yPos = (doc as any).lastAutoTable.finalY + 10;
+      }
+
       // Staff Costs
       if (options.includeStaff && staffData.length > 0) {
+        if (yPos > 250) {
+          doc.addPage();
+          yPos = 20;
+        }
+
         doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
         doc.text("Site Staff Costs", margin, yPos);
         yPos += 8;
 
@@ -138,14 +195,14 @@ export function TenderPDFExport({
           s.position || s.positionEn,
           s.count?.toString() || "1",
           formatCurrency(s.monthlySalary || 0),
-          formatCurrency(s.totalAnnual || 0),
+          formatCurrency(s.totalAnnual || s.total || 0),
         ]);
 
         autoTable(doc, {
           startY: yPos,
-          head: [["Position", "Count", "Monthly Salary", "Annual Total"]],
+          head: [["Position", "Count", "Monthly Salary", "Total"]],
           body: staffTableData,
-          foot: [["", "", "Total", formatCurrency(totals.staffCosts)]],
+          foot: [["", "", "Total", `${pricingSettings.currency} ${formatCurrency(totals.staffCosts)}`]],
           margin: { left: margin, right: margin },
           styles: { fontSize: 9 },
           headStyles: { fillColor: [59, 130, 246] },
@@ -169,14 +226,14 @@ export function TenderPDFExport({
         const facilitiesTableData = facilitiesData.map((f: any) => [
           f.name || f.nameEn,
           formatCurrency(f.monthlyCost || 0),
-          formatCurrency(f.annualCost || 0),
+          formatCurrency(f.annualCost || f.total || 0),
         ]);
 
         autoTable(doc, {
           startY: yPos,
-          head: [["Facility", "Monthly Cost", "Annual Cost"]],
+          head: [["Facility", "Monthly Cost", "Total"]],
           body: facilitiesTableData,
-          foot: [["", "Total", formatCurrency(totals.facilitiesCosts)]],
+          foot: [["", "Total", `${pricingSettings.currency} ${formatCurrency(totals.facilitiesCosts)}`]],
           margin: { left: margin, right: margin },
           styles: { fontSize: 9 },
           headStyles: { fillColor: [16, 185, 129] },
@@ -200,14 +257,14 @@ export function TenderPDFExport({
         const insuranceTableData = insuranceData.map((i: any) => [
           i.type || i.typeEn,
           i.percentage ? `${i.percentage}%` : "-",
-          formatCurrency(i.premium || 0),
+          formatCurrency(i.premium || i.total || 0),
         ]);
 
         autoTable(doc, {
           startY: yPos,
           head: [["Insurance Type", "Rate", "Premium"]],
           body: insuranceTableData,
-          foot: [["", "Total", formatCurrency(totals.insuranceCosts)]],
+          foot: [["", "Total", `${pricingSettings.currency} ${formatCurrency(totals.insuranceCosts)}`]],
           margin: { left: margin, right: margin },
           styles: { fontSize: 9 },
           headStyles: { fillColor: [245, 158, 11] },
@@ -231,14 +288,14 @@ export function TenderPDFExport({
         const guaranteesTableData = guaranteesData.map((g: any) => [
           g.type || g.typeEn,
           g.percentage ? `${g.percentage}%` : "-",
-          formatCurrency(g.cost || 0),
+          formatCurrency(g.cost || g.total || 0),
         ]);
 
         autoTable(doc, {
           startY: yPos,
           head: [["Guarantee Type", "Rate", "Cost"]],
           body: guaranteesTableData,
-          foot: [["", "Total", formatCurrency(totals.guaranteesCosts)]],
+          foot: [["", "Total", `${pricingSettings.currency} ${formatCurrency(totals.guaranteesCosts)}`]],
           margin: { left: margin, right: margin },
           styles: { fontSize: 9 },
           headStyles: { fillColor: [239, 68, 68] },
@@ -270,7 +327,7 @@ export function TenderPDFExport({
           startY: yPos,
           head: [["Category", "Item", "Value", "Total"]],
           body: indirectTableData,
-          foot: [["", "", "Total", formatCurrency(totals.indirectCosts)]],
+          foot: [["", "", "Total", `${pricingSettings.currency} ${formatCurrency(totals.indirectCosts)}`]],
           margin: { left: margin, right: margin },
           styles: { fontSize: 9 },
           headStyles: { fillColor: [139, 92, 246] },
@@ -292,17 +349,16 @@ export function TenderPDFExport({
         yPos += 8;
 
         const subcontractorsTableData = subcontractorsData.map((s: any) => [
-          s.name || s.nameEn,
-          s.specialty || "-",
-          s.scopeOfWork || "-",
+          s.subcontractorName || s.name || s.nameEn,
+          s.scope || s.specialty || "-",
           formatCurrency(s.contractValue || 0),
         ]);
 
         autoTable(doc, {
           startY: yPos,
-          head: [["Subcontractor", "Specialty", "Scope", "Contract Value"]],
+          head: [["Subcontractor", "Scope", "Contract Value"]],
           body: subcontractorsTableData,
-          foot: [["", "", "Total", formatCurrency(totals.subcontractorsCosts)]],
+          foot: [["", "Total", `${pricingSettings.currency} ${formatCurrency(totals.subcontractorsCosts)}`]],
           margin: { left: margin, right: margin },
           styles: { fontSize: 9 },
           headStyles: { fillColor: [236, 72, 153] },
@@ -314,7 +370,7 @@ export function TenderPDFExport({
 
       // Final Summary
       if (options.includeSummary) {
-        if (yPos > 220) {
+        if (yPos > 200) {
           doc.addPage();
           yPos = 20;
         }
@@ -324,41 +380,73 @@ export function TenderPDFExport({
         doc.text("Financial Summary", margin, yPos);
         yPos += 10;
 
+        const directCostsTotal = directCosts?.totalBoq || 0;
         const totalIndirect = totals.staffCosts + totals.facilitiesCosts + totals.insuranceCosts + totals.guaranteesCosts + totals.indirectCosts + totals.subcontractorsCosts;
-        const subtotal = totalIndirect;
-        const profit = subtotal * (pricingSettings.profitMargin / 100);
-        const contingency = subtotal * (pricingSettings.contingency / 100);
-        const grandTotal = subtotal + profit + contingency;
+        const allCosts = directCostsTotal + totalIndirect;
+        const profit = allCosts * (pricingSettings.profitMargin / 100);
+        const contingency = allCosts * (pricingSettings.contingency / 100);
+        const grandTotal = allCosts + profit + contingency;
+        const pricePerSqm = projectArea > 0 ? grandTotal / projectArea : 0;
 
-        const summaryData = [
-          ["Site Staff Costs", formatCurrency(totals.staffCosts)],
-          ["Facilities Costs", formatCurrency(totals.facilitiesCosts)],
-          ["Insurance Costs", formatCurrency(totals.insuranceCosts)],
-          ["Guarantees Costs", formatCurrency(totals.guaranteesCosts)],
-          ["Other Indirect Costs", formatCurrency(totals.indirectCosts)],
-          ["Subcontractors Costs", formatCurrency(totals.subcontractorsCosts)],
+        const summaryData: [string, string][] = [
+          ["Direct Costs (BOQ)", `${pricingSettings.currency} ${formatCurrency(directCostsTotal)}`],
+          ["  - Materials", `${pricingSettings.currency} ${formatCurrency(directCosts?.materials || 0)}`],
+          ["  - Labor", `${pricingSettings.currency} ${formatCurrency(directCosts?.labor || 0)}`],
+          ["  - Equipment", `${pricingSettings.currency} ${formatCurrency(directCosts?.equipment || 0)}`],
           ["─────────────────", "─────────────"],
-          ["Total Indirect Costs", formatCurrency(totalIndirect)],
-          [`Profit (${pricingSettings.profitMargin}%)`, formatCurrency(profit)],
-          [`Contingency (${pricingSettings.contingency}%)`, formatCurrency(contingency)],
+          ["Site Staff Costs", `${pricingSettings.currency} ${formatCurrency(totals.staffCosts)}`],
+          ["Facilities Costs", `${pricingSettings.currency} ${formatCurrency(totals.facilitiesCosts)}`],
+          ["Insurance Costs", `${pricingSettings.currency} ${formatCurrency(totals.insuranceCosts)}`],
+          ["Guarantees Costs", `${pricingSettings.currency} ${formatCurrency(totals.guaranteesCosts)}`],
+          ["Other Indirect Costs", `${pricingSettings.currency} ${formatCurrency(totals.indirectCosts)}`],
+          ["Subcontractors Costs", `${pricingSettings.currency} ${formatCurrency(totals.subcontractorsCosts)}`],
+          ["─────────────────", "─────────────"],
+          ["Total Indirect Costs", `${pricingSettings.currency} ${formatCurrency(totalIndirect)}`],
+          ["═══════════════", "═══════════"],
+          ["TOTAL ALL COSTS", `${pricingSettings.currency} ${formatCurrency(allCosts)}`],
+          [`Profit (${pricingSettings.profitMargin}%)`, `+ ${pricingSettings.currency} ${formatCurrency(profit)}`],
+          [`Contingency (${pricingSettings.contingency}%)`, `+ ${pricingSettings.currency} ${formatCurrency(contingency)}`],
           ["═══════════════", "═══════════"],
           ["GRAND TOTAL", `${pricingSettings.currency} ${formatCurrency(grandTotal)}`],
         ];
+
+        // Add price per sqm if area is provided
+        if (options.includePricePerSqm && projectArea > 0) {
+          summaryData.push(["─────────────────", "─────────────"]);
+          summaryData.push(["Built Area", `${formatCurrency(projectArea)} m²`]);
+          summaryData.push(["Price per m²", `${pricingSettings.currency} ${formatCurrency(pricePerSqm)}`]);
+        }
 
         autoTable(doc, {
           startY: yPos,
           body: summaryData,
           margin: { left: margin, right: margin },
-          styles: { fontSize: 11 },
+          styles: { fontSize: 10 },
           columnStyles: {
             0: { fontStyle: "bold" },
             1: { halign: "right" },
           },
           didParseCell: (data) => {
-            if (data.row.index === summaryData.length - 1) {
+            // Grand Total row styling
+            if (data.row.index === 18) {
               data.cell.styles.fillColor = [30, 64, 175];
               data.cell.styles.textColor = [255, 255, 255];
               data.cell.styles.fontSize = 12;
+              data.cell.styles.fontStyle = "bold";
+            }
+            // Total All Costs row
+            if (data.row.index === 14) {
+              data.cell.styles.fillColor = [240, 240, 240];
+              data.cell.styles.fontStyle = "bold";
+            }
+            // Direct Costs row
+            if (data.row.index === 0) {
+              data.cell.styles.fillColor = [220, 252, 231];
+              data.cell.styles.fontStyle = "bold";
+            }
+            // Price per sqm row
+            if (projectArea > 0 && data.row.index === summaryData.length - 1) {
+              data.cell.styles.fillColor = [219, 234, 254];
               data.cell.styles.fontStyle = "bold";
             }
           },
@@ -414,12 +502,14 @@ export function TenderPDFExport({
 
         <div className="space-y-4 py-4">
           {[
+            { key: "includeDirectCosts", labelAr: "التكاليف المباشرة (BOQ)", labelEn: "Direct Costs (BOQ)" },
             { key: "includeStaff", labelAr: "طاقم الموقع", labelEn: "Site Staff" },
             { key: "includeFacilities", labelAr: "المرافق", labelEn: "Facilities" },
             { key: "includeInsurance", labelAr: "التأمين", labelEn: "Insurance" },
             { key: "includeGuarantees", labelAr: "الضمانات", labelEn: "Guarantees" },
             { key: "includeIndirectCosts", labelAr: "التكاليف غير المباشرة", labelEn: "Indirect Costs" },
             { key: "includeSubcontractors", labelAr: "مقاولي الباطن", labelEn: "Subcontractors" },
+            { key: "includePricePerSqm", labelAr: "سعر المتر المربع", labelEn: "Price per m²" },
             { key: "includeSummary", labelAr: "الملخص المالي", labelEn: "Financial Summary" },
           ].map((item) => (
             <div key={item.key} className="flex items-center space-x-2 rtl:space-x-reverse">
