@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, FileCheck, Info, Landmark } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Plus, Pencil, Trash2, FileCheck, Info, Landmark, AlertTriangle, Clock, Building, Calendar, Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +45,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { differenceInDays, addMonths, format } from "date-fns";
 
 export interface Guarantee {
   id: string;
@@ -55,6 +58,15 @@ export interface Guarantee {
   bankCharges: number;
   duration: number;
   totalCost: number;
+  // New fields
+  bankName?: string;
+  bankBranch?: string;
+  guaranteeNumber?: string;
+  issueDate?: string;
+  expiryDate?: string;
+  status?: "active" | "expiring" | "expired" | "released";
+  renewalDate?: string;
+  notes?: string;
 }
 
 const guaranteeTypes = {
@@ -64,6 +76,27 @@ const guaranteeTypes = {
   retention: { ar: "ضمان المحتجزات", en: "Retention Bond" },
 };
 
+const SAUDI_BANKS = [
+  { value: "snb", labelAr: "البنك الأهلي السعودي", labelEn: "Saudi National Bank (SNB)" },
+  { value: "alrajhi", labelAr: "مصرف الراجحي", labelEn: "Al Rajhi Bank" },
+  { value: "riyadh", labelAr: "بنك الرياض", labelEn: "Riyad Bank" },
+  { value: "sab", labelAr: "البنك السعودي البريطاني (ساب)", labelEn: "SABB" },
+  { value: "anb", labelAr: "البنك العربي الوطني", labelEn: "Arab National Bank (ANB)" },
+  { value: "albilad", labelAr: "بنك البلاد", labelEn: "Bank Albilad" },
+  { value: "alinma", labelAr: "مصرف الإنماء", labelEn: "Alinma Bank" },
+  { value: "bsf", labelAr: "البنك السعودي الفرنسي", labelEn: "Banque Saudi Fransi" },
+  { value: "sib", labelAr: "بنك الاستثمار السعودي", labelEn: "Saudi Investment Bank" },
+  { value: "jazira", labelAr: "بنك الجزيرة", labelEn: "Bank AlJazira" },
+  { value: "other", labelAr: "أخرى", labelEn: "Other" },
+];
+
+const GUARANTEE_STATUS = [
+  { value: "active", labelAr: "نشط", labelEn: "Active", color: "bg-green-500" },
+  { value: "expiring", labelAr: "ينتهي قريباً", labelEn: "Expiring Soon", color: "bg-yellow-500" },
+  { value: "expired", labelAr: "منتهي", labelEn: "Expired", color: "bg-red-500" },
+  { value: "released", labelAr: "محرر", labelEn: "Released", color: "bg-gray-500" },
+];
+
 interface GuaranteesTabProps {
   isArabic: boolean;
   contractValue?: number;
@@ -72,12 +105,35 @@ interface GuaranteesTabProps {
   onTotalChange?: (total: number) => void;
 }
 
+const getExpiryStatus = (expiryDate?: string, currentStatus?: string): "active" | "expiring" | "expired" | "released" => {
+  if (currentStatus === "released") return "released";
+  if (!expiryDate) return "active";
+  
+  const expiry = new Date(expiryDate);
+  const today = new Date();
+  const daysLeft = differenceInDays(expiry, today);
+  
+  if (daysLeft < 0) return "expired";
+  if (daysLeft <= 30) return "expiring";
+  return "active";
+};
+
+const getStatusBadge = (status: string, isArabic: boolean) => {
+  const statusConfig = GUARANTEE_STATUS.find(s => s.value === status);
+  if (!statusConfig) return <Badge variant="secondary">{status}</Badge>;
+  
+  return (
+    <Badge className={`${statusConfig.color} hover:${statusConfig.color}`}>
+      {isArabic ? statusConfig.labelAr : statusConfig.labelEn}
+    </Badge>
+  );
+};
+
 export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData, onDataChange, onTotalChange }: GuaranteesTabProps) {
   const [baseContractValue, setBaseContractValue] = useState(contractValue);
   const [isInitialized, setIsInitialized] = useState(false);
   
   const calculateCost = (guaranteeValue: number, bankCharges: number, duration: number) => {
-    // Cost = (Guarantee Value × Bank Commission × Duration in months) / 12
     return (guaranteeValue * (bankCharges / 100) * duration) / 12;
   };
 
@@ -92,7 +148,8 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
       guaranteeValue: value * 0.02, 
       bankCharges: 1.5,
       duration: 3,
-      totalCost: calculateCost(value * 0.02, 1.5, 3)
+      totalCost: calculateCost(value * 0.02, 1.5, 3),
+      status: "active",
     },
     { 
       id: "2", 
@@ -104,7 +161,8 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
       guaranteeValue: value * 0.10, 
       bankCharges: 1.5,
       duration: 24,
-      totalCost: calculateCost(value * 0.10, 1.5, 24)
+      totalCost: calculateCost(value * 0.10, 1.5, 24),
+      status: "active",
     },
     { 
       id: "3", 
@@ -116,7 +174,8 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
       guaranteeValue: value * 0.15, 
       bankCharges: 1.5,
       duration: 12,
-      totalCost: calculateCost(value * 0.15, 1.5, 12)
+      totalCost: calculateCost(value * 0.15, 1.5, 12),
+      status: "active",
     },
     { 
       id: "4", 
@@ -128,7 +187,8 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
       guaranteeValue: value * 0.05, 
       bankCharges: 1.5,
       duration: 12,
-      totalCost: calculateCost(value * 0.05, 1.5, 12)
+      totalCost: calculateCost(value * 0.05, 1.5, 12),
+      status: "active",
     },
   ];
 
@@ -136,7 +196,6 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
     initialData && initialData.length > 0 ? initialData : calculateDefaultGuarantees(baseContractValue)
   );
 
-  // Sync with initial data
   useEffect(() => {
     if (initialData && initialData.length > 0 && !isInitialized) {
       setGuarantees(initialData);
@@ -146,12 +205,12 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
     }
   }, [initialData]);
 
-  // Notify parent of data changes
   useEffect(() => {
     if (isInitialized) {
       onDataChange?.(guarantees);
     }
   }, [guarantees, isInitialized]);
+
   const [showDialog, setShowDialog] = useState(false);
   const [editingGuarantee, setEditingGuarantee] = useState<Guarantee | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -161,23 +220,45 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
     percentage: 0,
     bankCharges: 1.5,
     duration: 12,
+    bankName: "",
+    bankBranch: "",
+    guaranteeNumber: "",
+    issueDate: "",
+    expiryDate: "",
+    status: "active" as Guarantee["status"],
+    renewalDate: "",
+    notes: "",
   });
 
+  // Alert for expiring/expired guarantees
+  const alertGuarantees = useMemo(() => {
+    return guarantees.filter(g => {
+      const status = getExpiryStatus(g.expiryDate, g.status);
+      return status === "expiring" || status === "expired";
+    });
+  }, [guarantees]);
+
+  // Summary stats
+  const summaryStats = useMemo(() => {
+    const activeCount = guarantees.filter(g => getExpiryStatus(g.expiryDate, g.status) === "active").length;
+    const expiringCount = guarantees.filter(g => getExpiryStatus(g.expiryDate, g.status) === "expiring").length;
+    const releasedCount = guarantees.filter(g => g.status === "released").length;
+    return { activeCount, expiringCount, releasedCount };
+  }, [guarantees]);
+
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat(isArabic ? "ar-SA" : "en-US").format(value);
+    return new Intl.NumberFormat('en-US').format(value);
   };
 
   const totalCost = guarantees.reduce((sum, g) => sum + g.totalCost, 0);
   const totalGuaranteeValue = guarantees.reduce((sum, g) => sum + g.guaranteeValue, 0);
 
-  // Notify parent of total changes
   useEffect(() => {
     onTotalChange?.(totalCost);
   }, [totalCost, onTotalChange]);
 
   const handleContractValueChange = (value: number) => {
     setBaseContractValue(value);
-    // Recalculate all guarantees based on new contract value
     setGuarantees(prev => prev.map(g => {
       const newGuaranteeValue = value * (g.percentage / 100);
       return {
@@ -191,7 +272,22 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
 
   const handleAdd = () => {
     setEditingGuarantee(null);
-    setFormData({ type: "bid_bond", percentage: 5, bankCharges: 1.5, duration: 12 });
+    const today = format(new Date(), "yyyy-MM-dd");
+    const defaultExpiry = format(addMonths(new Date(), 24), "yyyy-MM-dd");
+    setFormData({ 
+      type: "bid_bond", 
+      percentage: 5, 
+      bankCharges: 1.5, 
+      duration: 12,
+      bankName: "",
+      bankBranch: "",
+      guaranteeNumber: "",
+      issueDate: today,
+      expiryDate: defaultExpiry,
+      status: "active",
+      renewalDate: "",
+      notes: "",
+    });
     setShowDialog(true);
   };
 
@@ -202,13 +298,22 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
       percentage: guarantee.percentage,
       bankCharges: guarantee.bankCharges,
       duration: guarantee.duration,
+      bankName: guarantee.bankName || "",
+      bankBranch: guarantee.bankBranch || "",
+      guaranteeNumber: guarantee.guaranteeNumber || "",
+      issueDate: guarantee.issueDate || "",
+      expiryDate: guarantee.expiryDate || "",
+      status: guarantee.status || "active",
+      renewalDate: guarantee.renewalDate || "",
+      notes: guarantee.notes || "",
     });
     setShowDialog(true);
   };
 
   const handleSave = () => {
     const guaranteeValue = baseContractValue * (formData.percentage / 100);
-    const totalCost = calculateCost(guaranteeValue, formData.bankCharges, formData.duration);
+    const cost = calculateCost(guaranteeValue, formData.bankCharges, formData.duration);
+    const status = formData.status === "released" ? "released" : getExpiryStatus(formData.expiryDate, formData.status);
     
     if (editingGuarantee) {
       setGuarantees(prev => prev.map(g => 
@@ -223,7 +328,15 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
               guaranteeValue,
               bankCharges: formData.bankCharges,
               duration: formData.duration,
-              totalCost 
+              totalCost: cost,
+              bankName: formData.bankName,
+              bankBranch: formData.bankBranch,
+              guaranteeNumber: formData.guaranteeNumber,
+              issueDate: formData.issueDate,
+              expiryDate: formData.expiryDate,
+              status,
+              renewalDate: formData.renewalDate,
+              notes: formData.notes,
             } 
           : g
       ));
@@ -238,7 +351,15 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
         guaranteeValue,
         bankCharges: formData.bankCharges,
         duration: formData.duration,
-        totalCost,
+        totalCost: cost,
+        bankName: formData.bankName,
+        bankBranch: formData.bankBranch,
+        guaranteeNumber: formData.guaranteeNumber,
+        issueDate: formData.issueDate,
+        expiryDate: formData.expiryDate,
+        status,
+        renewalDate: formData.renewalDate,
+        notes: formData.notes,
       };
       setGuarantees(prev => [...prev, newGuarantee]);
     }
@@ -253,6 +374,16 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
     onTotalChange?.(totalCost);
   };
 
+  const handleBankChange = (value: string) => {
+    const selectedBank = SAUDI_BANKS.find(b => b.value === value);
+    if (selectedBank) {
+      setFormData({
+        ...formData,
+        bankName: isArabic ? selectedBank.labelAr : selectedBank.labelEn,
+      });
+    }
+  };
+
   const getTypeBadgeColor = (type: Guarantee["type"]) => {
     switch (type) {
       case "bid_bond": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
@@ -262,6 +393,10 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
       default: return "";
     }
   };
+
+  // Current form calculations
+  const currentGuaranteeValue = baseContractValue * (formData.percentage / 100);
+  const currentTotalCost = calculateCost(currentGuaranteeValue, formData.bankCharges, formData.duration);
 
   return (
     <Card>
@@ -276,6 +411,65 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
         </Button>
       </CardHeader>
       <CardContent>
+        {/* Expiry Alerts */}
+        {alertGuarantees.length > 0 && (
+          <Alert variant="destructive" className="mb-4 border-orange-500 bg-orange-50 dark:bg-orange-900/20">
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
+            <AlertTitle className="text-orange-800 dark:text-orange-200">
+              {isArabic ? "تنبيهات الضمانات" : "Guarantee Alerts"}
+            </AlertTitle>
+            <AlertDescription className="text-orange-700 dark:text-orange-300">
+              <div className="mt-2 space-y-1">
+                {alertGuarantees.map(g => {
+                  const daysLeft = g.expiryDate ? differenceInDays(new Date(g.expiryDate), new Date()) : 0;
+                  return (
+                    <div key={g.id} className="flex items-center gap-2 text-sm">
+                      <Clock className="w-3 h-3" />
+                      <span className="font-medium">{isArabic ? g.name : g.nameEn}</span>
+                      {g.guaranteeNumber && <span className="text-xs">({g.guaranteeNumber})</span>}
+                      <span>-</span>
+                      <span>
+                        {daysLeft < 0 
+                          ? (isArabic ? `منتهي منذ ${Math.abs(daysLeft)} يوم` : `Expired ${Math.abs(daysLeft)} days ago`)
+                          : (isArabic ? `ينتهي خلال ${daysLeft} يوم` : `Expires in ${daysLeft} days`)
+                        }
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Summary Stats */}
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          <Card>
+            <CardContent className="p-3 text-center">
+              <div className="text-xl font-bold text-primary">{guarantees.length}</div>
+              <div className="text-xs text-muted-foreground">{isArabic ? "إجمالي" : "Total"}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 text-center">
+              <div className="text-xl font-bold text-green-600">{summaryStats.activeCount}</div>
+              <div className="text-xs text-muted-foreground">{isArabic ? "نشط" : "Active"}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 text-center">
+              <div className="text-xl font-bold text-yellow-600">{summaryStats.expiringCount}</div>
+              <div className="text-xs text-muted-foreground">{isArabic ? "ينتهي قريباً" : "Expiring"}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 text-center">
+              <div className="text-xl font-bold text-gray-600">{summaryStats.releasedCount}</div>
+              <div className="text-xs text-muted-foreground">{isArabic ? "محرر" : "Released"}</div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Contract Value Input */}
         <div className="mb-6 p-4 bg-muted/50 rounded-lg">
           <div className="flex items-center gap-4">
@@ -318,50 +512,50 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12">#</TableHead>
-                <TableHead>{isArabic ? "نوع الضمان" : "Guarantee Type"}</TableHead>
-                <TableHead className="text-center">{isArabic ? "النسبة %" : "Rate %"}</TableHead>
-                <TableHead className="text-center">{isArabic ? "قيمة الضمان" : "Guarantee Value"}</TableHead>
-                <TableHead className="text-center">{isArabic ? "عمولة البنك" : "Bank Fee"}</TableHead>
-                <TableHead className="text-center">{isArabic ? "المدة" : "Duration"}</TableHead>
+                <TableHead>{isArabic ? "نوع الضمان" : "Type"}</TableHead>
+                <TableHead>{isArabic ? "البنك" : "Bank"}</TableHead>
+                <TableHead>{isArabic ? "رقم الضمان" : "Guarantee #"}</TableHead>
+                <TableHead className="text-center">{isArabic ? "الانتهاء" : "Expiry"}</TableHead>
+                <TableHead className="text-center">{isArabic ? "الحالة" : "Status"}</TableHead>
+                <TableHead className="text-center">{isArabic ? "القيمة" : "Value"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "التكلفة" : "Cost"}</TableHead>
                 <TableHead className="w-24">{isArabic ? "إجراءات" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {guarantees.map((guarantee, index) => (
-                <TableRow key={guarantee.id}>
-                  <TableCell className="font-medium">{index + 1}</TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <Badge className={getTypeBadgeColor(guarantee.type)}>
-                        {isArabic ? guarantee.name : guarantee.nameEn}
-                      </Badge>
-                      <p className="text-xs text-muted-foreground">
-                        {isArabic ? guarantee.nameEn : guarantee.name}
-                      </p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">{guarantee.percentage}%</TableCell>
-                  <TableCell className="text-center">{formatCurrency(guarantee.guaranteeValue)}</TableCell>
-                  <TableCell className="text-center">{guarantee.bankCharges}%</TableCell>
-                  <TableCell className="text-center">
-                    {guarantee.duration} {isArabic ? "شهر" : "mo"}
-                  </TableCell>
-                  <TableCell className="text-center font-medium text-primary">
-                    {formatCurrency(guarantee.totalCost)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(guarantee)}>
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDeleteId(guarantee.id)}>
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {guarantees.map((guarantee, index) => {
+                const status = getExpiryStatus(guarantee.expiryDate, guarantee.status);
+                return (
+                  <TableRow key={guarantee.id}>
+                    <TableCell className="font-medium">{index + 1}</TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <Badge className={getTypeBadgeColor(guarantee.type)}>
+                          {isArabic ? guarantee.name : guarantee.nameEn}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm">{guarantee.bankName || "-"}</TableCell>
+                    <TableCell className="font-mono text-sm">{guarantee.guaranteeNumber || "-"}</TableCell>
+                    <TableCell className="text-center text-sm">{guarantee.expiryDate || "-"}</TableCell>
+                    <TableCell className="text-center">{getStatusBadge(status, isArabic)}</TableCell>
+                    <TableCell className="text-center">{formatCurrency(guarantee.guaranteeValue)}</TableCell>
+                    <TableCell className="text-center font-medium text-primary">
+                      {formatCurrency(guarantee.totalCost)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(guarantee)}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => setDeleteId(guarantee.id)}>
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
@@ -384,7 +578,7 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
 
         {/* Add/Edit Dialog */}
         <Dialog open={showDialog} onOpenChange={setShowDialog}>
-          <DialogContent>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingGuarantee 
@@ -393,24 +587,124 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>{isArabic ? "نوع الضمان" : "Guarantee Type"}</Label>
-                <Select
-                  value={formData.type}
-                  onValueChange={(value: Guarantee["type"]) => setFormData({ ...formData, type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(guaranteeTypes).map(([key, value]) => (
-                      <SelectItem key={key} value={key}>
-                        {isArabic ? value.ar : value.en}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Row 1: Type and Status */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{isArabic ? "نوع الضمان" : "Guarantee Type"}</Label>
+                  <Select
+                    value={formData.type}
+                    onValueChange={(value: Guarantee["type"]) => setFormData({ ...formData, type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(guaranteeTypes).map(([key, value]) => (
+                        <SelectItem key={key} value={key}>
+                          {isArabic ? value.ar : value.en}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{isArabic ? "الحالة" : "Status"}</Label>
+                  <Select 
+                    value={formData.status} 
+                    onValueChange={(value) => setFormData({ ...formData, status: value as Guarantee["status"] })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {GUARANTEE_STATUS.map((status) => (
+                        <SelectItem key={status.value} value={status.value}>
+                          {isArabic ? status.labelAr : status.labelEn}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+
+              {/* Row 2: Bank Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1">
+                    <Building className="w-3 h-3" />
+                    {isArabic ? "البنك المصدر" : "Issuing Bank"}
+                  </Label>
+                  <Select onValueChange={handleBankChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={isArabic ? "اختر البنك" : "Select bank"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SAUDI_BANKS.map((bank) => (
+                        <SelectItem key={bank.value} value={bank.value}>
+                          {isArabic ? bank.labelAr : bank.labelEn}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{isArabic ? "فرع البنك" : "Bank Branch"}</Label>
+                  <Input
+                    value={formData.bankBranch}
+                    onChange={(e) => setFormData({ ...formData, bankBranch: e.target.value })}
+                    placeholder={isArabic ? "مثال: فرع الرياض" : "e.g., Riyadh Branch"}
+                  />
+                </div>
+              </div>
+
+              {/* Row 3: Guarantee Number */}
+              <div className="space-y-2">
+                <Label>{isArabic ? "رقم خطاب الضمان" : "Guarantee Number"}</Label>
+                <Input
+                  value={formData.guaranteeNumber}
+                  onChange={(e) => setFormData({ ...formData, guaranteeNumber: e.target.value })}
+                  placeholder="LG-2024-001234"
+                />
+              </div>
+
+              {/* Row 4: Dates */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    {isArabic ? "تاريخ الإصدار" : "Issue Date"}
+                  </Label>
+                  <Input
+                    type="date"
+                    value={formData.issueDate}
+                    onChange={(e) => setFormData({ ...formData, issueDate: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    {isArabic ? "تاريخ الانتهاء" : "Expiry Date"}
+                  </Label>
+                  <Input
+                    type="date"
+                    value={formData.expiryDate}
+                    onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    {isArabic ? "تاريخ التجديد" : "Renewal Date"}
+                  </Label>
+                  <Input
+                    type="date"
+                    value={formData.renewalDate}
+                    onChange={(e) => setFormData({ ...formData, renewalDate: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Row 5: Financial */}
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>{isArabic ? "نسبة الضمان %" : "Guarantee Rate %"}</Label>
@@ -442,22 +736,45 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
                   />
                 </div>
               </div>
-              <div className="bg-muted rounded-lg p-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{isArabic ? "قيمة الضمان" : "Guarantee Value"}</span>
-                  <span>SAR {formatCurrency(baseContractValue * (formData.percentage / 100))}</span>
-                </div>
-                <div className="flex justify-between text-lg font-bold border-t pt-2">
-                  <span>{isArabic ? "تكلفة الضمان" : "Guarantee Cost"}</span>
-                  <span className="text-primary">
-                    SAR {formatCurrency(calculateCost(
-                      baseContractValue * (formData.percentage / 100),
-                      formData.bankCharges,
-                      formData.duration
-                    ))}
-                  </span>
-                </div>
+
+              {/* Row 6: Notes */}
+              <div className="space-y-2">
+                <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
+                <Textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder={isArabic ? "ملاحظات إضافية..." : "Additional notes..."}
+                  rows={3}
+                />
               </div>
+
+              {/* Cost Calculation */}
+              <Card className="bg-muted/50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Calculator className="w-4 h-4" />
+                    {isArabic ? "حساب التكاليف" : "Cost Calculation"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{isArabic ? "قيمة الضمان:" : "Guarantee Value:"}</span>
+                      <span className="font-medium">SAR {formatCurrency(currentGuaranteeValue)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{isArabic ? "المعادلة:" : "Formula:"}</span>
+                      <span className="font-mono text-xs">{formatCurrency(currentGuaranteeValue)} × {formData.bankCharges}% × {formData.duration}/12</span>
+                    </div>
+                  </div>
+                  <div className="border-t pt-2">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold">{isArabic ? "تكلفة الضمان:" : "Guarantee Cost:"}</span>
+                      <span className="text-xl font-bold text-primary">SAR {formatCurrency(currentTotalCost)}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowDialog(false)}>
