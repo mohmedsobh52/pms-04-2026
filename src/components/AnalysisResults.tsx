@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud, ArrowUp, ArrowDown, XCircle } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud, ArrowUp, ArrowDown, XCircle, TrendingUp, Sparkles, Brain } from "lucide-react";
 import { DualHorizontalScrollBar } from "./DualHorizontalScrollBar";
 import { TableControls, BOQ_TABLE_COLUMNS } from "./TableControls";
 import {
@@ -1481,20 +1481,36 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* AI Market Rate Suggestions - Standalone Button */}
-            <MarketRateSuggestions 
-              items={data.items || []} 
-              projectId={savedProjectId}
-              onApplyRate={onApplyRate} 
-              onApplyAIRates={handleApplyAIRates}
-              onApplyAIRatesToCalcPrice={handleApplyAIRatesToCalcPrice}
-            />
-
-            {/* Enhanced Multi-Analyzer Pricing */}
-            <EnhancedPricingAnalysis 
-              items={data.items || []}
-              onApplyRates={handleApplyAIRates}
-            />
+            {/* Price Analysis Dropdown - Unified */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <TrendingUp className="w-4 h-4" />
+                  {isArabic ? "تحليل الأسعار" : "Price Analysis"}
+                  <ChevronDown className="w-3 h-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64 bg-popover">
+                <DropdownMenuItem className="p-0" onSelect={(e) => e.preventDefault()}>
+                  <MarketRateSuggestions 
+                    items={data.items || []} 
+                    projectId={savedProjectId}
+                    onApplyRate={onApplyRate} 
+                    onApplyAIRates={handleApplyAIRates}
+                    onApplyAIRatesToCalcPrice={handleApplyAIRatesToCalcPrice}
+                    triggerOnly={true}
+                  />
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="p-0" onSelect={(e) => e.preventDefault()}>
+                  <EnhancedPricingAnalysis 
+                    items={data.items || []}
+                    onApplyRates={handleApplyAIRates}
+                    triggerOnly={true}
+                  />
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* Tools Dropdown */}
             <DropdownMenu>

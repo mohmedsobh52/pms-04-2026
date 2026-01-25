@@ -52,6 +52,8 @@ interface EnhancedSuggestion {
 interface EnhancedPricingAnalysisProps {
   items: BOQItem[];
   onApplyRates?: (rates: Array<{ itemId: string; rate: number }>) => void;
+  triggerOnly?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 const ANALYZERS = [
@@ -69,7 +71,7 @@ const LOCATIONS = [
   { value: "Madinah", label: "المدينة / Madinah" },
 ];
 
-export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricingAnalysisProps) {
+export function EnhancedPricingAnalysis({ items, onApplyRates, triggerOnly, onOpenChange }: EnhancedPricingAnalysisProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -247,41 +249,31 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
 
   const visibleSuggestions = suggestions.filter(s => !deletedSuggestions.has(s.item_number));
 
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2 border-primary/50 hover:bg-primary/10">
-          <Brain className="w-4 h-4 text-primary" />
-          <span>تحليل متقدم للأسعار</span>
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <Brain className="w-5 h-5 text-primary" />
-            تحليل الأسعار المتقدم بالذكاء الاصطناعي المتعدد
-          </DialogTitle>
-        </DialogHeader>
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    onOpenChange?.(open);
+  };
 
-        <div className="flex flex-col gap-4 flex-1 overflow-hidden">
-          {/* Section 1: Settings Panel - Compact */}
-          <div className="p-3 bg-muted/30 rounded-lg border">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Settings2 className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium text-sm">إعدادات التحليل</span>
-              </div>
-              <Select value={location} onValueChange={setLocation}>
-                <SelectTrigger className="w-[180px] h-8 text-sm">
-                  <SelectValue placeholder="اختر المدينة" />
-                </SelectTrigger>
-                <SelectContent>
-                  {LOCATIONS.map(loc => (
-                    <SelectItem key={loc.value} value={loc.value}>{loc.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+  const dialogContent = (
+    <div className="flex flex-col gap-4 flex-1 overflow-hidden">
+      {/* Section 1: Settings Panel - Compact */}
+      <div className="p-3 bg-muted/30 rounded-lg border">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Settings2 className="w-4 h-4 text-muted-foreground" />
+            <span className="font-medium text-sm">إعدادات التحليل</span>
+          </div>
+          <Select value={location} onValueChange={setLocation}>
+            <SelectTrigger className="w-[180px] h-8 text-sm">
+              <SelectValue placeholder="اختر المدينة" />
+            </SelectTrigger>
+            <SelectContent>
+              {LOCATIONS.map(loc => (
+                <SelectItem key={loc.value} value={loc.value}>{loc.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
             {/* Analyzers Selection - Horizontal */}
             <div className="grid grid-cols-4 gap-2">
@@ -521,6 +513,50 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
             </div>
           )}
         </div>
+  );
+
+  // If triggerOnly mode, render just a clickable element that opens the dialog
+  if (triggerOnly) {
+    return (
+      <>
+        <div 
+          className="flex items-center gap-2 w-full px-2 py-1.5 cursor-pointer hover:bg-accent rounded-sm"
+          onClick={() => handleOpenChange(true)}
+        >
+          <Brain className="w-4 h-4 text-primary" />
+          <span>تحليل متقدم للأسعار</span>
+        </div>
+        <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+          <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-lg">
+                <Brain className="w-5 h-5 text-primary" />
+                تحليل الأسعار المتقدم بالذكاء الاصطناعي المتعدد
+              </DialogTitle>
+            </DialogHeader>
+            {dialogContent}
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="gap-2 border-primary/50 hover:bg-primary/10">
+          <Brain className="w-4 h-4 text-primary" />
+          <span>تحليل متقدم للأسعار</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-lg">
+            <Brain className="w-5 h-5 text-primary" />
+            تحليل الأسعار المتقدم بالذكاء الاصطناعي المتعدد
+          </DialogTitle>
+        </DialogHeader>
+        {dialogContent}
       </DialogContent>
     </Dialog>
   );
