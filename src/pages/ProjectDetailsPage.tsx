@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { 
   ArrowLeft, Home, ChevronRight, Edit, Play, MoreVertical,
   Package, Percent, DollarSign, FileText, Building2, Calendar,
   File, Settings, LayoutList, FolderOpen, Loader2, Search,
-  Filter, Download, Trash2, CheckCircle, XCircle
+  Filter, Download, Trash2, CheckCircle, XCircle, Upload, Save, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +35,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  PieChart, Pie, Cell, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend
+} from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -62,9 +74,11 @@ interface ProjectItem {
 interface ProjectAttachment {
   id: string;
   file_name: string;
+  file_path: string;
   file_type: string | null;
   file_size: number | null;
   uploaded_at: string;
+  category: string | null;
 }
 
 const statusConfig = {
@@ -86,6 +100,20 @@ const statusConfig = {
   },
 };
 
+const currencies = [
+  { value: "SAR", label: "ريال سعودي / SAR" },
+  { value: "USD", label: "دولار أمريكي / USD" },
+  { value: "EUR", label: "يورو / EUR" },
+  { value: "AED", label: "درهم إماراتي / AED" },
+  { value: "KWD", label: "دينار كويتي / KWD" },
+  { value: "QAR", label: "ريال قطري / QAR" },
+  { value: "BHD", label: "دينار بحريني / BHD" },
+  { value: "OMR", label: "ريال عماني / OMR" },
+  { value: "EGP", label: "جنيه مصري / EGP" },
+];
+
+const CHART_COLORS = ["#22c55e", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6"];
+
 export default function ProjectDetailsPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
@@ -99,6 +127,15 @@ export default function ProjectDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [itemsSearch, setItemsSearch] = useState("");
+
+  // Document upload state
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Settings edit state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ name: "", currency: "SAR" });
+  const [isSaving, setIsSaving] = useState(false);
 
   // Fetch project data
   useEffect(() => {
@@ -116,6 +153,10 @@ export default function ProjectDetailsPage() {
 
         if (projectError) throw projectError;
         setProject(projectData);
+        setEditForm({
+          name: projectData.name || "",
+          currency: projectData.currency || "SAR",
+        });
 
         // Fetch items
         const { data: itemsData, error: itemsError } = await supabase
@@ -127,8 +168,8 @@ export default function ProjectDetailsPage() {
         if (itemsError) throw itemsError;
         setItems(itemsData || []);
 
-        // Fetch attachments from saved_projects if available
-        // Note: Attachments are linked via saved_projects table
+        // Fetch attachments
+        await fetchAttachments();
       } catch (error: any) {
         console.error("Error fetching project:", error);
         toast({
@@ -144,6 +185,25 @@ export default function ProjectDetailsPage() {
     fetchProjectData();
   }, [user, projectId]);
 
+  // Fetch attachments
+  const fetchAttachments = async () => {
+    if (!projectId || !user) return;
+    
+    const { data, error } = await supabase
+      .from("project_attachments")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("uploaded_at", { ascending: false });
+
+    if (!error && data) {
+      // Filter by project_id if set, otherwise show all user attachments
+      const filtered = data.filter(att => 
+        att.file_path?.includes(projectId) || !att.file_path
+      );
+      setAttachments(filtered);
+    }
+  };
+
   // Calculate pricing statistics
   const pricingStats = useMemo(() => {
     const totalItems = items.length;
@@ -153,6 +213,45 @@ export default function ProjectDetailsPage() {
     const totalValue = items.reduce((sum, item) => sum + (item.total_price || 0), 0);
     
     return { totalItems, pricedItems, unpricedItems, pricingPercentage, totalValue };
+  }, [items]);
+
+  // Chart data: Pricing distribution
+  const pricingDistributionData = useMemo(() => [
+    { 
+      name: isArabic ? "بنود مسعرة" : "Priced Items", 
+      value: pricingStats.pricedItems, 
+      color: "#22c55e" 
+    },
+    { 
+      name: isArabic ? "بنود غير مسعرة" : "Unpriced Items", 
+      value: pricingStats.unpricedItems, 
+      color: "#f59e0b" 
+    }
+  ], [pricingStats, isArabic]);
+
+  // Chart data: Category distribution
+  const categoryDistribution = useMemo(() => {
+    const grouped = items.reduce((acc, item) => {
+      const cat = item.category || (isArabic ? "غير مصنف" : "Uncategorized");
+      acc[cat] = (acc[cat] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    return Object.entries(grouped)
+      .map(([name, value]) => ({ name, value }))
+      .slice(0, 6);
+  }, [items, isArabic]);
+
+  // Chart data: Top items by value
+  const topValueItems = useMemo(() => {
+    return items
+      .filter(item => item.total_price && item.total_price > 0)
+      .sort((a, b) => (b.total_price || 0) - (a.total_price || 0))
+      .slice(0, 5)
+      .map(item => ({
+        name: item.item_number,
+        value: item.total_price || 0
+      }));
   }, [items]);
 
   // Filter items for BOQ tab
@@ -165,6 +264,161 @@ export default function ProjectDetailsPage() {
       item.category?.toLowerCase().includes(query)
     );
   }, [items, itemsSearch]);
+
+  // Handle file upload
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0 || !user || !projectId) return;
+
+    setIsUploading(true);
+
+    try {
+      for (const file of Array.from(files)) {
+        const filePath = `${user.id}/${projectId}/${Date.now()}_${file.name}`;
+        
+        // Upload to storage
+        const { error: uploadError } = await supabase.storage
+          .from("project-files")
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        // Save metadata to database
+        const { error: dbError } = await supabase
+          .from("project_attachments")
+          .insert({
+            project_id: projectId,
+            user_id: user.id,
+            file_name: file.name,
+            file_path: filePath,
+            file_size: file.size,
+            file_type: file.type,
+            category: "general"
+          });
+
+        if (dbError) throw dbError;
+      }
+
+      await fetchAttachments();
+
+      toast({
+        title: isArabic ? "تم رفع الملف بنجاح" : "File uploaded successfully",
+      });
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      toast({
+        title: isArabic ? "خطأ في رفع الملف" : "Error uploading file",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  // Handle file download
+  const handleDownload = async (attachment: ProjectAttachment) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from("project-files")
+        .download(attachment.file_path);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = attachment.file_name;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      toast({
+        title: isArabic ? "خطأ في التحميل" : "Error downloading",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle file delete
+  const handleDeleteAttachment = async (attachment: ProjectAttachment) => {
+    try {
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from("project-files")
+        .remove([attachment.file_path]);
+
+      if (storageError) throw storageError;
+
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from("project_attachments")
+        .delete()
+        .eq("id", attachment.id);
+
+      if (dbError) throw dbError;
+
+      await fetchAttachments();
+
+      toast({
+        title: isArabic ? "تم حذف الملف" : "File deleted",
+      });
+    } catch (error: any) {
+      toast({
+        title: isArabic ? "خطأ في الحذف" : "Error deleting",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle settings save
+  const handleSaveSettings = async () => {
+    if (!projectId || !editForm.name.trim()) {
+      toast({
+        title: isArabic ? "اسم المشروع مطلوب" : "Project name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from("project_data")
+        .update({
+          name: editForm.name.trim(),
+          currency: editForm.currency,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", projectId);
+
+      if (error) throw error;
+
+      setProject(prev => prev ? {
+        ...prev,
+        name: editForm.name.trim(),
+        currency: editForm.currency,
+        updated_at: new Date().toISOString()
+      } : null);
+
+      setIsEditing(false);
+      toast({
+        title: isArabic ? "تم حفظ التغييرات" : "Changes saved",
+      });
+    } catch (error: any) {
+      toast({
+        title: isArabic ? "خطأ في الحفظ" : "Error saving",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleStartPricing = () => {
     if (!project) return;
@@ -180,7 +434,6 @@ export default function ProjectDetailsPage() {
   };
 
   const handleEditProject = () => {
-    // Navigate to edit mode or open edit dialog
     navigate(`/projects/${projectId}/edit`);
   };
 
@@ -202,6 +455,10 @@ export default function ProjectDetailsPage() {
   const formatFileSize = (bytes: number | null) => {
     if (!bytes) return '-';
     const mb = bytes / (1024 * 1024);
+    if (mb < 1) {
+      const kb = bytes / 1024;
+      return `${kb.toFixed(1)} KB`;
+    }
     return `${mb.toFixed(2)} MB`;
   };
 
@@ -244,7 +501,7 @@ export default function ProjectDetailsPage() {
     );
   }
 
-  const projectStatus = "draft"; // Default status, can be extended with database field
+  const projectStatus = "draft";
   const statusInfo = statusConfig[projectStatus as keyof typeof statusConfig];
 
   return (
@@ -257,7 +514,6 @@ export default function ProjectDetailsPage() {
               <Button variant="ghost" size="icon" onClick={() => navigate('/projects')}>
                 <ArrowLeft className="w-5 h-5" />
               </Button>
-              {/* Breadcrumbs */}
               <nav className="flex items-center gap-2 text-sm">
                 <Link to="/" className="text-muted-foreground hover:text-foreground flex items-center gap-1">
                   <Home className="w-4 h-4" />
@@ -514,6 +770,114 @@ export default function ProjectDetailsPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Charts Section */}
+            {items.length > 0 && (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Pricing Distribution Pie Chart */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">
+                      {isArabic ? "توزيع التسعير" : "Pricing Distribution"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
+                        <Pie
+                          data={pricingDistributionData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={40}
+                          outerRadius={70}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {pricingDistributionData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          formatter={(value: number) => [value, isArabic ? "عدد" : "Count"]}
+                        />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                {/* Category Distribution Bar Chart */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">
+                      {isArabic ? "توزيع الفئات" : "Category Distribution"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={categoryDistribution} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" />
+                        <YAxis 
+                          dataKey="name" 
+                          type="category" 
+                          width={80} 
+                          tick={{ fontSize: 11 }}
+                          tickFormatter={(value) => value.length > 10 ? `${value.slice(0, 10)}...` : value}
+                        />
+                        <Tooltip />
+                        <Bar 
+                          dataKey="value" 
+                          fill="hsl(var(--primary))" 
+                          radius={[0, 4, 4, 0]} 
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                {/* Top Items by Value */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">
+                      {isArabic ? "أعلى البنود قيمة" : "Top Items by Value"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {topValueItems.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={topValueItems}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                          <XAxis 
+                            dataKey="name" 
+                            tick={{ fontSize: 10 }}
+                            tickFormatter={(value) => value.length > 8 ? `${value.slice(0, 8)}...` : value}
+                          />
+                          <YAxis 
+                            tickFormatter={(value) => 
+                              value >= 1000000 ? `${(value / 1000000).toFixed(1)}M` :
+                              value >= 1000 ? `${(value / 1000).toFixed(0)}K` : value
+                            }
+                          />
+                          <Tooltip 
+                            formatter={(value: number) => [formatCurrency(value), isArabic ? "القيمة" : "Value"]}
+                          />
+                          <Bar 
+                            dataKey="value" 
+                            fill="#22c55e" 
+                            radius={[4, 4, 0, 0]} 
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+                        {isArabic ? "لا توجد بيانات" : "No data available"}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </TabsContent>
 
           {/* BOQ Tab */}
@@ -599,10 +963,39 @@ export default function ProjectDetailsPage() {
           <TabsContent value="documents" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <File className="w-5 h-5" />
-                  {isArabic ? "المستندات المرفقة" : "Attached Documents"}
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <File className="w-5 h-5" />
+                    {isArabic ? "المستندات المرفقة" : "Attached Documents"}
+                    {attachments.length > 0 && (
+                      <Badge variant="secondary">{attachments.length}</Badge>
+                    )}
+                  </CardTitle>
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={handleFileUpload}
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.dwg,.dxf"
+                    />
+                    <Button 
+                      onClick={() => fileInputRef.current?.click()} 
+                      disabled={isUploading}
+                      className="gap-2"
+                    >
+                      {isUploading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Upload className="w-4 h-4" />
+                      )}
+                      {isUploading 
+                        ? (isArabic ? "جاري الرفع..." : "Uploading...") 
+                        : (isArabic ? "رفع ملف" : "Upload File")}
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {attachments.length === 0 ? (
@@ -614,8 +1007,12 @@ export default function ProjectDetailsPage() {
                     <p className="text-muted-foreground text-sm mb-4">
                       {isArabic ? "لم يتم رفع أي مستندات لهذا المشروع" : "No documents have been uploaded for this project"}
                     </p>
-                    <Button variant="outline" className="gap-2">
-                      <FileText className="w-4 h-4" />
+                    <Button 
+                      variant="outline" 
+                      className="gap-2"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="w-4 h-4" />
                       {isArabic ? "رفع مستند" : "Upload Document"}
                     </Button>
                   </div>
@@ -637,9 +1034,23 @@ export default function ProjectDetailsPage() {
                             </p>
                           </div>
                         </div>
-                        <Button variant="ghost" size="icon">
-                          <Download className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleDownload(attachment)}
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleDeleteAttachment(attachment)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -652,30 +1063,103 @@ export default function ProjectDetailsPage() {
           <TabsContent value="settings" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="w-5 h-5" />
-                  {isArabic ? "إعدادات المشروع" : "Project Settings"}
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="w-5 h-5" />
+                    {isArabic ? "إعدادات المشروع" : "Project Settings"}
+                  </CardTitle>
+                  {!isEditing ? (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setEditForm({
+                          name: project.name || "",
+                          currency: project.currency || "SAR",
+                        });
+                        setIsEditing(true);
+                      }}
+                      className="gap-2"
+                    >
+                      <Edit className="w-4 h-4" />
+                      {isArabic ? "تعديل" : "Edit"}
+                    </Button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setIsEditing(false)}
+                        className="gap-2"
+                      >
+                        <X className="w-4 h-4" />
+                        {isArabic ? "إلغاء" : "Cancel"}
+                      </Button>
+                      <Button 
+                        onClick={handleSaveSettings} 
+                        disabled={isSaving}
+                        className="gap-2"
+                      >
+                        {isSaving ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Save className="w-4 h-4" />
+                        )}
+                        {isSaving 
+                          ? (isArabic ? "جاري الحفظ..." : "Saving...") 
+                          : (isArabic ? "حفظ" : "Save")}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">
+                  <Label htmlFor="projectName">
                     {isArabic ? "اسم المشروع" : "Project Name"}
-                  </label>
-                  <Input value={project.name} readOnly />
+                  </Label>
+                  {isEditing ? (
+                    <Input 
+                      id="projectName"
+                      value={editForm.name} 
+                      onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder={isArabic ? "أدخل اسم المشروع" : "Enter project name"}
+                    />
+                  ) : (
+                    <Input value={project.name} readOnly className="bg-muted/50" />
+                  )}
                 </div>
+                
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">
+                  <Label htmlFor="currency">
                     {isArabic ? "العملة" : "Currency"}
-                  </label>
-                  <Input value={project.currency || 'SAR'} readOnly />
+                  </Label>
+                  {isEditing ? (
+                    <Select
+                      value={editForm.currency}
+                      onValueChange={(val) => setEditForm(prev => ({ ...prev, currency: val }))}
+                    >
+                      <SelectTrigger id="currency">
+                        <SelectValue placeholder={isArabic ? "اختر العملة" : "Select currency"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {currencies.map((c) => (
+                          <SelectItem key={c.value} value={c.value}>
+                            {c.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input value={project.currency || 'SAR'} readOnly className="bg-muted/50" />
+                  )}
                 </div>
+                
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">
+                  <Label>
                     {isArabic ? "آخر تحديث" : "Last Updated"}
-                  </label>
-                  <Input value={formatDate(project.updated_at)} readOnly />
+                  </Label>
+                  <Input value={formatDate(project.updated_at)} readOnly className="bg-muted/50" />
                 </div>
+                
                 <div className="pt-4 border-t">
                   <Button variant="destructive" className="gap-2">
                     <Trash2 className="w-4 h-4" />
