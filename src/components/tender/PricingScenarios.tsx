@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { forwardRef, useState, useMemo } from "react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,8 +42,9 @@ interface Scenario {
   icon: 'pessimistic' | 'realistic' | 'optimistic' | 'custom';
 }
 
-const PricingScenarios = ({ pricingSettings, totals, currency = "SAR" }: PricingScenariosProps) => {
-  const { isArabic: isRTL } = useLanguage();
+const PricingScenarios = forwardRef<HTMLDivElement, PricingScenariosProps>(
+  ({ pricingSettings, totals, currency = "SAR" }, ref) => {
+    const { isArabic: isRTL } = useLanguage();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [customScenario, setCustomScenario] = useState<Partial<Scenario>>({
     name: "",
@@ -397,6 +398,8 @@ const PricingScenarios = ({ pricingSettings, totals, currency = "SAR" }: Pricing
       </CardContent>
     </Card>
   );
-};
+});
+
+PricingScenarios.displayName = "PricingScenarios";
 
 export default PricingScenarios;

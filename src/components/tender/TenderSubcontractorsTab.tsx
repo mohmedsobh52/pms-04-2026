@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { forwardRef, useState, useEffect } from "react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,15 +41,16 @@ interface TenderSubcontractorsTabProps {
   onDataChange: (data: TenderSubcontractor[], total: number) => void;
 }
 
-const TenderSubcontractorsTab = ({
-  projectId,
-  initialData = [],
-  projectItems = [],
-  contractValue,
-  currency = "SAR",
-  onDataChange
-}: TenderSubcontractorsTabProps) => {
-  const { isArabic: isRTL } = useLanguage();
+const TenderSubcontractorsTab = forwardRef<HTMLDivElement, TenderSubcontractorsTabProps>(
+  ({
+    projectId,
+    initialData = [],
+    projectItems = [],
+    contractValue,
+    currency = "SAR",
+    onDataChange
+  }, ref) => {
+    const { isArabic: isRTL } = useLanguage();
   const [subcontractors, setSubcontractors] = useState<TenderSubcontractor[]>(initialData);
   const [availableSubcontractors, setAvailableSubcontractors] = useState<any[]>([]);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -489,6 +490,8 @@ const TenderSubcontractorsTab = ({
       )}
     </div>
   );
-};
+});
+
+TenderSubcontractorsTab.displayName = "TenderSubcontractorsTab";
 
 export default TenderSubcontractorsTab;

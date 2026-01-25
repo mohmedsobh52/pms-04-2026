@@ -1,3 +1,4 @@
+import { forwardRef, useState } from "react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, AlertCircle, CheckCircle, Lightbulb, TrendingDown } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
 
 interface CostTotals {
   totalStaffCosts: number;
@@ -36,9 +36,10 @@ interface AlertItem {
   targetPercentage: number;
 }
 
-const TenderCostAlerts = ({ contractValue, totals, currency = "SAR" }: TenderCostAlertsProps) => {
-  const { isArabic: isRTL } = useLanguage();
-  const [isOpen, setIsOpen] = useState(true);
+const TenderCostAlerts = forwardRef<HTMLDivElement, TenderCostAlertsProps>(
+  ({ contractValue, totals, currency = "SAR" }, ref) => {
+    const { isArabic: isRTL } = useLanguage();
+    const [isOpen, setIsOpen] = useState(true);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat(isRTL ? 'ar-SA' : 'en-US', {
@@ -144,7 +145,7 @@ const TenderCostAlerts = ({ contractValue, totals, currency = "SAR" }: TenderCos
   const successAlerts = alerts.filter(a => a.level === 'success');
   const totalPotentialSavings = alerts.reduce((sum, a) => sum + a.potentialSavings, 0);
 
-  if (alerts.length === 0) return null;
+    if (alerts.length === 0) return null;
 
   const getAlertIcon = (level: string) => {
     switch (level) {
@@ -294,6 +295,8 @@ const TenderCostAlerts = ({ contractValue, totals, currency = "SAR" }: TenderCos
       </Card>
     </Collapsible>
   );
-};
+});
+
+TenderCostAlerts.displayName = "TenderCostAlerts";
 
 export default TenderCostAlerts;
