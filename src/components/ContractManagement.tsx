@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   FileText,
   Plus,
@@ -13,6 +13,11 @@ import {
   CheckCircle,
   AlertCircle,
   XCircle,
+  Search,
+  Filter,
+  Eye,
+  Download,
+  PieChart,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,6 +47,8 @@ import { useToast } from "@/hooks/use-toast";
 import { format, differenceInDays } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 
 interface Contract {
   id: string;
@@ -73,7 +80,15 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [viewingContract, setViewingContract] = useState<Contract | null>(null);
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
+  
+  // Search and Filter states
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  
   const [formData, setFormData] = useState({
     contract_number: "",
     contract_title: "",
@@ -89,18 +104,18 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
     notes: "",
   });
 
-  // FIDIC-based contract types
+  // FIDIC-based contract types with colors
   const contractTypes = [
-    { value: "fidic_red", labelEn: "FIDIC Red Book (Construction)", labelAr: "فيديك الكتاب الأحمر (البناء)" },
-    { value: "fidic_yellow", labelEn: "FIDIC Yellow Book (Design-Build)", labelAr: "فيديك الكتاب الأصفر (التصميم والبناء)" },
-    { value: "fidic_silver", labelEn: "FIDIC Silver Book (EPC/Turnkey)", labelAr: "فيديك الكتاب الفضي (تسليم مفتاح)" },
-    { value: "fidic_green", labelEn: "FIDIC Green Book (Short Form)", labelAr: "فيديك الكتاب الأخضر (النموذج القصير)" },
-    { value: "fidic_pink", labelEn: "FIDIC Pink Book (MDB)", labelAr: "فيديك الكتاب الوردي (بنوك التنمية)" },
-    { value: "fixed_price", labelEn: "Fixed Price", labelAr: "سعر ثابت" },
-    { value: "cost_plus", labelEn: "Cost Plus", labelAr: "التكلفة زائد" },
-    { value: "time_materials", labelEn: "Time & Materials", labelAr: "الوقت والمواد" },
-    { value: "unit_price", labelEn: "Unit Price", labelAr: "سعر الوحدة" },
-    { value: "lump_sum", labelEn: "Lump Sum", labelAr: "مبلغ مقطوع" },
+    { value: "fidic_red", labelEn: "FIDIC Red Book (Construction)", labelAr: "فيديك الكتاب الأحمر (البناء)", color: "bg-red-500" },
+    { value: "fidic_yellow", labelEn: "FIDIC Yellow Book (Design-Build)", labelAr: "فيديك الكتاب الأصفر (التصميم والبناء)", color: "bg-yellow-500" },
+    { value: "fidic_silver", labelEn: "FIDIC Silver Book (EPC/Turnkey)", labelAr: "فيديك الكتاب الفضي (تسليم مفتاح)", color: "bg-gray-500" },
+    { value: "fidic_green", labelEn: "FIDIC Green Book (Short Form)", labelAr: "فيديك الكتاب الأخضر (النموذج القصير)", color: "bg-green-500" },
+    { value: "fidic_pink", labelEn: "FIDIC Pink Book (MDB)", labelAr: "فيديك الكتاب الوردي (بنوك التنمية)", color: "bg-pink-500" },
+    { value: "fixed_price", labelEn: "Fixed Price", labelAr: "سعر ثابت", color: "bg-blue-500" },
+    { value: "cost_plus", labelEn: "Cost Plus", labelAr: "التكلفة زائد", color: "bg-indigo-500" },
+    { value: "time_materials", labelEn: "Time & Materials", labelAr: "الوقت والمواد", color: "bg-purple-500" },
+    { value: "unit_price", labelEn: "Unit Price", labelAr: "سعر الوحدة", color: "bg-cyan-500" },
+    { value: "lump_sum", labelEn: "Lump Sum", labelAr: "مبلغ مقطوع", color: "bg-teal-500" },
   ];
 
   const statuses = [
@@ -139,6 +154,21 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
   useEffect(() => {
     fetchContracts();
   }, [user, projectId]);
+
+  // Filtered contracts based on search and filters
+  const filteredContracts = useMemo(() => {
+    return contracts.filter(contract => {
+      const matchesSearch = searchTerm === "" || 
+        contract.contract_title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        contract.contract_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (contract.contractor_name?.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesStatus = statusFilter === "all" || contract.status === statusFilter;
+      const matchesType = typeFilter === "all" || contract.contract_type === typeFilter;
+      
+      return matchesSearch && matchesStatus && matchesType;
+    });
+  }, [contracts, searchTerm, statusFilter, typeFilter]);
 
   const handleSave = async () => {
     if (!user || !formData.contract_number || !formData.contract_title) return;
@@ -234,6 +264,11 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
     setIsDialogOpen(true);
   };
 
+  const openViewDialog = (contract: Contract) => {
+    setViewingContract(contract);
+    setIsViewDialogOpen(true);
+  };
+
   const getContractProgress = (contract: Contract) => {
     if (!contract.start_date || !contract.end_date) return 0;
     const start = new Date(contract.start_date);
@@ -249,8 +284,12 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
     return differenceInDays(new Date(contract.end_date), new Date());
   };
 
-  const totalValue = contracts.reduce((sum, c) => sum + (c.contract_value || 0), 0);
-  const activeContracts = contracts.filter((c) => c.status === "active").length;
+  const getContractTypeInfo = (type: string) => {
+    return contractTypes.find(t => t.value === type);
+  };
+
+  const totalValue = filteredContracts.reduce((sum, c) => sum + (c.contract_value || 0), 0);
+  const activeContracts = filteredContracts.filter((c) => c.status === "active").length;
 
   const formatCurrency = (value: number, currency: string) => {
     return new Intl.NumberFormat(isArabic ? "ar-SA" : "en-US", {
@@ -263,7 +302,7 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
   return (
     <Card>
       <CardHeader className="border-b bg-gradient-to-r from-blue-500/10 to-indigo-500/10">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-blue-500/10">
               <FileText className="w-5 h-5 text-blue-600" />
@@ -283,12 +322,53 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
       </CardHeader>
 
       <CardContent className="p-4 space-y-4">
-        {/* Stats */}
+        {/* Search and Filter Bar */}
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder={isArabic ? "بحث بالاسم أو الرقم..." : "Search by name or number..."}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full md:w-[180px]">
+              <Filter className="w-4 h-4 mr-2" />
+              <SelectValue placeholder={isArabic ? "الحالة" : "Status"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{isArabic ? "جميع الحالات" : "All Statuses"}</SelectItem>
+              {statuses.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  {isArabic ? s.labelAr : s.labelEn}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-full md:w-[200px]">
+              <Filter className="w-4 h-4 mr-2" />
+              <SelectValue placeholder={isArabic ? "النوع" : "Type"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{isArabic ? "جميع الأنواع" : "All Types"}</SelectItem>
+              {contractTypes.map((t) => (
+                <SelectItem key={t.value} value={t.value}>
+                  {isArabic ? t.labelAr : t.labelEn}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Quick Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="p-3 rounded-lg bg-muted/50 border">
-            <div className="text-2xl font-bold">{contracts.length}</div>
+            <div className="text-2xl font-bold">{filteredContracts.length}</div>
             <div className="text-xs text-muted-foreground">
-              {isArabic ? "إجمالي العقود" : "Total Contracts"}
+              {isArabic ? "العقود المعروضة" : "Showing"}
             </div>
           </div>
           <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
@@ -312,15 +392,16 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
           <div className="text-center py-8">
             <Loader2 className="w-6 h-6 animate-spin mx-auto" />
           </div>
-        ) : contracts.length === 0 ? (
+        ) : filteredContracts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>{isArabic ? "لا توجد عقود مسجلة" : "No contracts recorded"}</p>
+            <p>{isArabic ? "لا توجد عقود مطابقة" : "No matching contracts"}</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {contracts.map((contract) => {
+            {filteredContracts.map((contract) => {
               const status = statuses.find((s) => s.value === contract.status);
+              const contractType = getContractTypeInfo(contract.contract_type);
               const progress = getContractProgress(contract);
               const daysRemaining = getDaysRemaining(contract);
 
@@ -328,13 +409,18 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
                 <div key={contract.id} className="p-4 rounded-lg border bg-card hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <Badge variant="outline" className="text-xs">
                           {contract.contract_number}
                         </Badge>
                         <Badge className={cn("text-white text-xs", status?.color)}>
                           {isArabic ? status?.labelAr : status?.labelEn}
                         </Badge>
+                        {contractType && (
+                          <Badge variant="secondary" className={cn("text-xs text-white", contractType.color)}>
+                            {contract.contract_type.startsWith("fidic_") ? "FIDIC" : ""}
+                          </Badge>
+                        )}
                       </div>
                       <h4 className="font-medium">{contract.contract_title}</h4>
                       {contract.contractor_name && (
@@ -345,6 +431,9 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
                       )}
                     </div>
                     <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => openViewDialog(contract)}>
+                        <Eye className="w-4 h-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => openEditDialog(contract)}>
                         <Edit className="w-4 h-4" />
                       </Button>
@@ -370,8 +459,8 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
                     )}
                     <div className="flex items-center gap-1">
                       <FileText className="w-4 h-4 text-muted-foreground" />
-                      <span>
-                        {contractTypes.find((t) => t.value === contract.contract_type)?.[isArabic ? "labelAr" : "labelEn"]}
+                      <span className="text-xs">
+                        {contractType?.[isArabic ? "labelAr" : "labelEn"]}
                       </span>
                     </div>
                     {contract.start_date && (
@@ -409,6 +498,117 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
           </div>
         )}
       </CardContent>
+
+      {/* View Contract Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              {isArabic ? "تفاصيل العقد" : "Contract Details"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {viewingContract && (
+            <ScrollArea className="max-h-[60vh]">
+              <div className="space-y-4 p-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className="text-sm">
+                    {viewingContract.contract_number}
+                  </Badge>
+                  <Badge className={cn("text-white", statuses.find(s => s.value === viewingContract.status)?.color)}>
+                    {isArabic ? statuses.find(s => s.value === viewingContract.status)?.labelAr : statuses.find(s => s.value === viewingContract.status)?.labelEn}
+                  </Badge>
+                </div>
+                
+                <h3 className="text-xl font-semibold">{viewingContract.contract_title}</h3>
+                
+                <Separator />
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">{isArabic ? "المقاول" : "Contractor"}</Label>
+                    <p className="font-medium">{viewingContract.contractor_name || "-"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">{isArabic ? "نوع العقد" : "Contract Type"}</Label>
+                    <p className="font-medium">{getContractTypeInfo(viewingContract.contract_type)?.[isArabic ? "labelAr" : "labelEn"]}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">{isArabic ? "القيمة" : "Value"}</Label>
+                    <p className="font-medium text-lg text-primary">
+                      {viewingContract.contract_value ? formatCurrency(viewingContract.contract_value, viewingContract.currency) : "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">{isArabic ? "العملة" : "Currency"}</Label>
+                    <p className="font-medium">{viewingContract.currency}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">{isArabic ? "تاريخ البدء" : "Start Date"}</Label>
+                    <p className="font-medium">
+                      {viewingContract.start_date ? format(new Date(viewingContract.start_date), "PPP", { locale: isArabic ? ar : enUS }) : "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">{isArabic ? "تاريخ الانتهاء" : "End Date"}</Label>
+                    <p className="font-medium">
+                      {viewingContract.end_date ? format(new Date(viewingContract.end_date), "PPP", { locale: isArabic ? ar : enUS }) : "-"}
+                    </p>
+                  </div>
+                </div>
+
+                {viewingContract.start_date && viewingContract.end_date && (
+                  <>
+                    <Separator />
+                    <div className="space-y-2">
+                      <Label className="text-muted-foreground">{isArabic ? "التقدم الزمني" : "Time Progress"}</Label>
+                      <Progress value={getContractProgress(viewingContract)} className="h-3" />
+                      <p className="text-sm text-muted-foreground text-center">
+                        {getContractProgress(viewingContract).toFixed(0)}%
+                      </p>
+                    </div>
+                  </>
+                )}
+                
+                {viewingContract.payment_terms && (
+                  <>
+                    <Separator />
+                    <div>
+                      <Label className="text-muted-foreground">{isArabic ? "شروط الدفع" : "Payment Terms"}</Label>
+                      <p className="mt-1 p-3 bg-muted rounded-lg text-sm">{viewingContract.payment_terms}</p>
+                    </div>
+                  </>
+                )}
+                
+                {viewingContract.scope_of_work && (
+                  <div>
+                    <Label className="text-muted-foreground">{isArabic ? "نطاق العمل" : "Scope of Work"}</Label>
+                    <p className="mt-1 p-3 bg-muted rounded-lg text-sm">{viewingContract.scope_of_work}</p>
+                  </div>
+                )}
+                
+                {viewingContract.notes && (
+                  <div>
+                    <Label className="text-muted-foreground">{isArabic ? "ملاحظات" : "Notes"}</Label>
+                    <p className="mt-1 p-3 bg-muted rounded-lg text-sm">{viewingContract.notes}</p>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+              {isArabic ? "إغلاق" : "Close"}
+            </Button>
+            <Button onClick={() => { setIsViewDialogOpen(false); viewingContract && openEditDialog(viewingContract); }}>
+              <Edit className="w-4 h-4 mr-2" />
+              {isArabic ? "تعديل" : "Edit"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

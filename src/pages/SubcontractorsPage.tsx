@@ -1,7 +1,6 @@
 import { SubcontractorManagement } from "@/components/SubcontractorManagement";
 import { SubcontractorBOQLink } from "@/components/SubcontractorBOQLink";
 import { SubcontractorProgressDashboard } from "@/components/SubcontractorProgressDashboard";
-import { FIDICContractTemplates } from "@/components/FIDICContractTemplates";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,7 +11,6 @@ import {
   Users, 
   LayoutDashboard, 
   Link2, 
-  FileText,
   CheckCircle,
   TrendingUp,
   DollarSign
@@ -190,9 +188,9 @@ const SubcontractorsPage = () => {
           </Card>
         </div>
 
-        {/* Main Tabs */}
+        {/* Main Tabs - FIDIC removed */}
         <Tabs defaultValue="dashboard" className="space-y-4">
-          <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full md:w-auto">
+          <TabsList className="grid grid-cols-3 w-full md:w-auto">
             <TabsTrigger value="dashboard" className="gap-2">
               <LayoutDashboard className="w-4 h-4" />
               <span className="hidden md:inline">{isArabic ? "لوحة التحكم" : "Dashboard"}</span>
@@ -204,10 +202,6 @@ const SubcontractorsPage = () => {
             <TabsTrigger value="boq-link" className="gap-2">
               <Link2 className="w-4 h-4" />
               <span className="hidden md:inline">{isArabic ? "ربط البنود" : "BOQ Link"}</span>
-            </TabsTrigger>
-            <TabsTrigger value="fidic" className="gap-2">
-              <FileText className="w-4 h-4" />
-              <span className="hidden md:inline">{isArabic ? "قوالب FIDIC" : "FIDIC"}</span>
             </TabsTrigger>
           </TabsList>
 
@@ -242,10 +236,6 @@ const SubcontractorsPage = () => {
                 />
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="fidic" className="mt-4">
-            <FIDICContractTemplates />
           </TabsContent>
         </Tabs>
       </div>
