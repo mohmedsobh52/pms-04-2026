@@ -826,6 +826,62 @@ export type Database = {
           },
         ]
       }
+      item_pricing_details: {
+        Row: {
+          created_at: string
+          duration: number | null
+          id: string
+          notes: string | null
+          pricing_type: string
+          project_item_id: string
+          quantity: number | null
+          resource_id: string | null
+          resource_name: string
+          total_cost: number | null
+          unit: string | null
+          unit_price: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration?: number | null
+          id?: string
+          notes?: string | null
+          pricing_type: string
+          project_item_id: string
+          quantity?: number | null
+          resource_id?: string | null
+          resource_name: string
+          total_cost?: number | null
+          unit?: string | null
+          unit_price?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duration?: number | null
+          id?: string
+          notes?: string | null
+          pricing_type?: string
+          project_item_id?: string
+          quantity?: number | null
+          resource_id?: string | null
+          resource_name?: string
+          total_cost?: number | null
+          unit?: string | null
+          unit_price?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_pricing_details_project_item_id_fkey"
+            columns: ["project_item_id"]
+            isOneToOne: false
+            referencedRelation: "project_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       labor_rates: {
         Row: {
           category: string | null
@@ -1267,8 +1323,12 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          is_detailed_priced: boolean | null
           item_number: string
           notes: string | null
+          overhead_percentage: number | null
+          pricing_notes: string | null
+          profit_percentage: number | null
           project_id: string
           quantity: number | null
           total_price: number | null
@@ -1280,8 +1340,12 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_detailed_priced?: boolean | null
           item_number: string
           notes?: string | null
+          overhead_percentage?: number | null
+          pricing_notes?: string | null
+          profit_percentage?: number | null
           project_id: string
           quantity?: number | null
           total_price?: number | null
@@ -1293,8 +1357,12 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_detailed_priced?: boolean | null
           item_number?: string
           notes?: string | null
+          overhead_percentage?: number | null
+          pricing_notes?: string | null
+          profit_percentage?: number | null
           project_id?: string
           quantity?: number | null
           total_price?: number | null

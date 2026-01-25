@@ -57,6 +57,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
+import { DetailedPriceDialog } from "@/components/pricing/DetailedPriceDialog";
 
 interface ProjectData {
   id: string;
@@ -156,6 +157,8 @@ export default function ProjectDetailsPage() {
   const [quickPriceValue, setQuickPriceValue] = useState("");
   const [newItem, setNewItem] = useState({ item_number: "", description: "", unit: "", quantity: "" });
   const [isAddingItem, setIsAddingItem] = useState(false);
+  const [showDetailedPriceDialog, setShowDetailedPriceDialog] = useState(false);
+  const [selectedItemForPricing, setSelectedItemForPricing] = useState<ProjectItem | null>(null);
 
   // Fetch project data
   useEffect(() => {
@@ -1252,7 +1255,13 @@ export default function ProjectDetailsPage() {
                                     <DollarSign className="w-4 h-4" />
                                     {isArabic ? "تسعير سريع" : "Quick Price"}
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem className="gap-2">
+                                  <DropdownMenuItem 
+                                    onClick={() => {
+                                      setSelectedItemForPricing(item as any);
+                                      setShowDetailedPriceDialog(true);
+                                    }}
+                                    className="gap-2"
+                                  >
                                     <FileText className="w-4 h-4" />
                                     {isArabic ? "تسعير مفصل" : "Detailed Price"}
                                   </DropdownMenuItem>
@@ -1630,6 +1639,26 @@ export default function ProjectDetailsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Detailed Price Dialog */}
+      <DetailedPriceDialog
+        isOpen={showDetailedPriceDialog}
+        onClose={() => {
+          setShowDetailedPriceDialog(false);
+          setSelectedItemForPricing(null);
+        }}
+        item={selectedItemForPricing}
+        currency={project?.currency || "SAR"}
+        onSave={async () => {
+          // Refresh items after save
+          const { data } = await supabase
+            .from("project_items")
+            .select("*")
+            .eq("project_id", projectId)
+            .order("item_number");
+          if (data) setItems(data);
+        }}
+      />
     </div>
   );
 }
