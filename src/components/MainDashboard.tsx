@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, 
   FolderOpen, 
@@ -28,7 +29,9 @@ import {
   ShieldAlert,
   FileSignature,
   Calculator,
-  Link2
+  Link2,
+  ArrowRight,
+  Eye
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -110,6 +113,7 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
   
   const { user } = useAuth();
   const { isArabic, t } = useLanguage();
+  const navigate = useNavigate();
 
   const CHART_COLORS = [
     "hsl(var(--primary))",
@@ -1046,40 +1050,111 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
         {/* Recent Projects */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FolderOpen className="w-5 h-5 text-primary" />
-              {isArabic ? "المشاريع الأخيرة" : "Recent Projects"}
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <FolderOpen className="w-5 h-5 text-primary" />
+                {isArabic ? "المشاريع الأخيرة" : "Recent Projects"}
+              </CardTitle>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => navigate("/saved-projects")}
+                className="text-muted-foreground hover:text-primary"
+              >
+                {isArabic ? "عرض الكل" : "View All"}
+                <ArrowRight className="w-4 h-4 ms-1" />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {stats.recentProjects.length > 0 ? (
               <div className="space-y-3">
-                {stats.recentProjects.map((project) => (
-                  <div
-                    key={project.id}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border hover:border-primary/30 transition-colors cursor-pointer"
-                    onClick={() => onLoadProject?.(project.analysis_data, project.wbs_data, project.id)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <FileText className="w-5 h-5 text-primary" />
+                {stats.recentProjects.map((project) => {
+                  const getStatusBadge = (status: string | null) => {
+                    switch (status) {
+                      case 'in_progress':
+                        return { label: isArabic ? 'قيد التنفيذ' : 'In Progress', variant: 'default' as const };
+                      case 'completed':
+                        return { label: isArabic ? 'مكتمل' : 'Completed', variant: 'secondary' as const };
+                      case 'suspended':
+                        return { label: isArabic ? 'معلق' : 'Suspended', variant: 'destructive' as const };
+                      default:
+                        return { label: isArabic ? 'مسودة' : 'Draft', variant: 'outline' as const };
+                    }
+                  };
+                  
+                  const statusBadge = getStatusBadge(project.status);
+                  const itemsCount = project.analysis_data?.items?.length || 0;
+                  const totalValue = project.analysis_data?.items?.reduce(
+                    (sum: number, item: any) => sum + (item.total_price || 0), 0
+                  ) || 0;
+                  
+                  return (
+                    <div
+                      key={project.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-muted/50 transition-all cursor-pointer group"
+                      onClick={() => navigate(`/projects/${project.id}`)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <FileText className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{project.name}</p>
+                            <Badge variant={statusBadge.variant} className="text-xs">
+                              {statusBadge.label}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {new Date(project.created_at).toLocaleDateString(isArabic ? 'ar-SA' : 'en-US')}
+                            </span>
+                            <span>•</span>
+                            <span>{itemsCount} {isArabic ? 'بند' : 'items'}</span>
+                            {totalValue > 0 && (
+                              <>
+                                <span>•</span>
+                                <span className="text-primary font-medium">
+                                  SAR {totalValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">{project.name}</p>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {new Date(project.created_at).toLocaleDateString(isArabic ? 'ar-SA' : 'en-US')}
-                        </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/projects/${project.id}`);
+                          }}
+                          title={isArabic ? "عرض التفاصيل" : "View Details"}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                       </div>
                     </div>
-                    <ArrowUpRight className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <FolderOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
                 <p>{isArabic ? "لا توجد مشاريع محفوظة" : "No saved projects"}</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-3"
+                  onClick={() => navigate("/analysis")}
+                >
+                  {isArabic ? "إنشاء مشروع جديد" : "Create New Project"}
+                </Button>
               </div>
             )}
           </CardContent>
