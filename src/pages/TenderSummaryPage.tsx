@@ -124,7 +124,7 @@ export default function TenderSummaryPage() {
     try {
       // Load project data
       const { data: projectData, error: projectError } = await supabase
-        .from("saved_projects")
+        .from("project_data")
         .select("*")
         .eq("id", projectId)
         .maybeSingle();
