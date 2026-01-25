@@ -60,6 +60,14 @@ const categories = {
   operational: { ar: "مصاريف تشغيلية", en: "Operational Expenses" },
   financial: { ar: "مصاريف مالية", en: "Financial Costs" },
   reserve: { ar: "احتياطي", en: "Reserve" },
+  technical: { ar: "مصاريف فنية", en: "Technical Expenses" },
+  legal: { ar: "مصاريف قانونية", en: "Legal Expenses" },
+  marketing: { ar: "تسويق وعلاقات", en: "Marketing & Relations" },
+  training: { ar: "تدريب وتطوير", en: "Training & Development" },
+  safety: { ar: "السلامة والصحة", en: "Safety & Health" },
+  quality: { ar: "ضبط الجودة", en: "Quality Control" },
+  environmental: { ar: "البيئة", en: "Environmental" },
+  transport: { ar: "النقل والمواصلات", en: "Transportation" },
   other: { ar: "أخرى", en: "Other" },
 };
 
@@ -87,8 +95,58 @@ const COST_PRESETS: Record<string, { nameAr: string; nameEn: string; descAr: str
     { nameAr: "احتياطي مخاطر", nameEn: "Risk Reserve", descAr: "احتياطي لتغطية المخاطر", descEn: "Reserve for risk coverage", defaultValue: 1, type: "percentage" },
     { nameAr: "احتياطي تضخم", nameEn: "Inflation Reserve", descAr: "احتياطي لتغطية ارتفاع الأسعار", descEn: "Reserve for price escalation", defaultValue: 1.5, type: "percentage" },
   ],
+  technical: [
+    { nameAr: "استشارات هندسية", nameEn: "Engineering Consultancy", descAr: "رسوم الاستشاريين الهندسيين", descEn: "Engineering consultant fees", defaultValue: 1.5, type: "percentage" },
+    { nameAr: "مختبرات واختبارات", nameEn: "Labs & Testing", descAr: "فحوصات المواد والتربة", descEn: "Material and soil testing", defaultValue: 25000, type: "fixed" },
+    { nameAr: "رسومات تنفيذية", nameEn: "Shop Drawings", descAr: "إعداد الرسومات التفصيلية", descEn: "Detailed drawings preparation", defaultValue: 0.5, type: "percentage" },
+    { nameAr: "برامج هندسية", nameEn: "Engineering Software", descAr: "تراخيص برامج التصميم", descEn: "Design software licenses", defaultValue: 15000, type: "fixed" },
+  ],
+  legal: [
+    { nameAr: "استشارات قانونية", nameEn: "Legal Consultancy", descAr: "أتعاب المحامين والمستشارين", descEn: "Lawyer and consultant fees", defaultValue: 20000, type: "fixed" },
+    { nameAr: "رسوم عقود", nameEn: "Contract Fees", descAr: "رسوم إعداد ومراجعة العقود", descEn: "Contract preparation and review fees", defaultValue: 0.3, type: "percentage" },
+    { nameAr: "تسجيل وتوثيق", nameEn: "Registration & Notarization", descAr: "رسوم التوثيق الرسمي", descEn: "Official notarization fees", defaultValue: 10000, type: "fixed" },
+    { nameAr: "تراخيص وتصاريح", nameEn: "Licenses & Permits", descAr: "رسوم التراخيص الحكومية", descEn: "Government license fees", defaultValue: 25000, type: "fixed" },
+  ],
+  marketing: [
+    { nameAr: "علاقات عامة", nameEn: "Public Relations", descAr: "تكاليف العلاقات العامة", descEn: "PR costs", defaultValue: 15000, type: "fixed" },
+    { nameAr: "دعاية وإعلان", nameEn: "Advertising", descAr: "حملات إعلانية وتسويقية", descEn: "Advertising campaigns", defaultValue: 10000, type: "fixed" },
+    { nameAr: "هدايا وضيافة", nameEn: "Gifts & Hospitality", descAr: "استضافة العملاء والضيوف", descEn: "Client hospitality", defaultValue: 8000, type: "fixed" },
+    { nameAr: "مواد تسويقية", nameEn: "Marketing Materials", descAr: "كتيبات وعروض تقديمية", descEn: "Brochures and presentations", defaultValue: 5000, type: "fixed" },
+  ],
+  training: [
+    { nameAr: "تدريب الموظفين", nameEn: "Staff Training", descAr: "برامج تدريبية للعاملين", descEn: "Training programs", defaultValue: 20000, type: "fixed" },
+    { nameAr: "شهادات مهنية", nameEn: "Professional Certifications", descAr: "الحصول على الشهادات المهنية", descEn: "Obtaining certifications", defaultValue: 15000, type: "fixed" },
+    { nameAr: "ورش عمل", nameEn: "Workshops", descAr: "ورش عمل متخصصة", descEn: "Specialized workshops", defaultValue: 10000, type: "fixed" },
+    { nameAr: "مؤتمرات ومعارض", nameEn: "Conferences & Exhibitions", descAr: "المشاركة في الفعاليات", descEn: "Event participation", defaultValue: 12000, type: "fixed" },
+  ],
+  safety: [
+    { nameAr: "معدات السلامة", nameEn: "Safety Equipment", descAr: "معدات الحماية الشخصية", descEn: "PPE equipment", defaultValue: 30000, type: "fixed" },
+    { nameAr: "تدريب السلامة", nameEn: "Safety Training", descAr: "دورات السلامة المهنية", descEn: "Safety courses", defaultValue: 15000, type: "fixed" },
+    { nameAr: "فحوصات طبية", nameEn: "Medical Checkups", descAr: "الفحص الطبي الدوري للعاملين", descEn: "Periodic medical examination", defaultValue: 12000, type: "fixed" },
+    { nameAr: "إسعافات أولية", nameEn: "First Aid", descAr: "مستلزمات وأدوات الإسعاف", descEn: "First aid supplies", defaultValue: 5000, type: "fixed" },
+    { nameAr: "مسؤول سلامة", nameEn: "Safety Officer", descAr: "راتب مسؤول السلامة", descEn: "Safety officer salary", defaultValue: 60000, type: "fixed" },
+  ],
+  quality: [
+    { nameAr: "فحوصات الجودة", nameEn: "Quality Inspections", descAr: "اختبارات ضبط الجودة", descEn: "QC testing", defaultValue: 0.5, type: "percentage" },
+    { nameAr: "شهادات الأيزو", nameEn: "ISO Certifications", descAr: "الحصول على شهادات الجودة", descEn: "Quality certifications", defaultValue: 20000, type: "fixed" },
+    { nameAr: "أدوات القياس", nameEn: "Measuring Tools", descAr: "معدات القياس والمعايرة", descEn: "Calibration equipment", defaultValue: 10000, type: "fixed" },
+    { nameAr: "مهندس جودة", nameEn: "Quality Engineer", descAr: "راتب مهندس الجودة", descEn: "Quality engineer salary", defaultValue: 72000, type: "fixed" },
+  ],
+  environmental: [
+    { nameAr: "دراسات بيئية", nameEn: "Environmental Studies", descAr: "تقييم الأثر البيئي", descEn: "Environmental impact assessment", defaultValue: 25000, type: "fixed" },
+    { nameAr: "إدارة النفايات", nameEn: "Waste Management", descAr: "التخلص من النفايات", descEn: "Waste disposal", defaultValue: 15000, type: "fixed" },
+    { nameAr: "مكافحة التلوث", nameEn: "Pollution Control", descAr: "معالجة التلوث والغبار", descEn: "Pollution treatment", defaultValue: 10000, type: "fixed" },
+    { nameAr: "إعادة تأهيل الموقع", nameEn: "Site Rehabilitation", descAr: "تأهيل الموقع بعد الانتهاء", descEn: "Post-completion site restoration", defaultValue: 20000, type: "fixed" },
+  ],
+  transport: [
+    { nameAr: "نقل موظفين", nameEn: "Staff Transportation", descAr: "مواصلات العاملين اليومية", descEn: "Daily worker transportation", defaultValue: 40000, type: "fixed" },
+    { nameAr: "وقود ومحروقات", nameEn: "Fuel & Gasoline", descAr: "تكاليف الوقود للمركبات", descEn: "Vehicle fuel costs", defaultValue: 50000, type: "fixed" },
+    { nameAr: "صيانة مركبات", nameEn: "Vehicle Maintenance", descAr: "صيانة السيارات والشاحنات", descEn: "Car and truck maintenance", defaultValue: 25000, type: "fixed" },
+    { nameAr: "تأمين مركبات", nameEn: "Vehicle Insurance", descAr: "تأمين على المركبات", descEn: "Vehicle insurance", defaultValue: 15000, type: "fixed" },
+  ],
   other: [
     { nameAr: "مصاريف متنوعة", nameEn: "Miscellaneous Expenses", descAr: "مصاريف أخرى غير مصنفة", descEn: "Other unclassified expenses", defaultValue: 10000, type: "fixed" },
+    { nameAr: "مصاريف طارئة", nameEn: "Emergency Expenses", descAr: "مصاريف غير متوقعة", descEn: "Unexpected expenses", defaultValue: 0.5, type: "percentage" },
   ],
 };
 
@@ -404,8 +462,16 @@ export function IndirectCostsTab({
       case "operational": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
       case "financial": return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
       case "reserve": return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
+      case "technical": return "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200";
+      case "legal": return "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200";
+      case "marketing": return "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200";
+      case "training": return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200";
+      case "safety": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
+      case "quality": return "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200";
+      case "environmental": return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200";
+      case "transport": return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200";
       case "other": return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200";
-      default: return "";
+      default: return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200";
     }
   };
 
