@@ -1828,11 +1828,13 @@ export type Database = {
           project_id: string
           staff_data: Json | null
           start_date: string | null
+          subcontractors_data: Json | null
           total_facilities_costs: number | null
           total_guarantees_costs: number | null
           total_indirect_costs: number | null
           total_insurance_costs: number | null
           total_staff_costs: number | null
+          total_subcontractors_costs: number | null
           total_value: number | null
           updated_at: string | null
           user_id: string
@@ -1853,11 +1855,13 @@ export type Database = {
           project_id: string
           staff_data?: Json | null
           start_date?: string | null
+          subcontractors_data?: Json | null
           total_facilities_costs?: number | null
           total_guarantees_costs?: number | null
           total_indirect_costs?: number | null
           total_insurance_costs?: number | null
           total_staff_costs?: number | null
+          total_subcontractors_costs?: number | null
           total_value?: number | null
           updated_at?: string | null
           user_id: string
@@ -1878,11 +1882,13 @@ export type Database = {
           project_id?: string
           staff_data?: Json | null
           start_date?: string | null
+          subcontractors_data?: Json | null
           total_facilities_costs?: number | null
           total_guarantees_costs?: number | null
           total_indirect_costs?: number | null
           total_insurance_costs?: number | null
           total_staff_costs?: number | null
+          total_subcontractors_costs?: number | null
           total_value?: number | null
           updated_at?: string | null
           user_id?: string

@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft, Home, ChevronRight, RefreshCw, Calculator,
   Users, Building2, Shield, FileCheck, Settings, FileText,
-  Table as TableIcon, Loader2
+  Table as TableIcon, Loader2, HardHat
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +24,9 @@ import { PricingSettingsTab } from "@/components/tender/PricingSettingsTab";
 import { TenderCharts } from "@/components/tender/TenderCharts";
 import { TenderPDFExport } from "@/components/tender/TenderPDFExport";
 import { SaveStatusIndicator } from "@/components/tender/SaveStatusIndicator";
+import TenderCostAlerts from "@/components/tender/TenderCostAlerts";
+import PricingScenarios from "@/components/tender/PricingScenarios";
+import TenderSubcontractorsTab from "@/components/tender/TenderSubcontractorsTab";
 
 interface ProjectData {
   id: string;
@@ -51,6 +54,19 @@ interface Totals {
   insuranceCosts: number;
   guaranteesCosts: number;
   indirectCosts: number;
+  subcontractorsCosts: number;
+}
+
+interface TenderSubcontractor {
+  id: string;
+  subcontractorId: string;
+  subcontractorName: string;
+  linkedItems: string[];
+  scope: string;
+  contractValue: number;
+  paymentTerms: string;
+  retentionPercentage: number;
+  status: 'draft' | 'negotiating' | 'confirmed' | 'signed';
 }
 
 export default function TenderSummaryPage() {
@@ -73,6 +89,7 @@ export default function TenderSummaryPage() {
     insuranceCosts: 0,
     guaranteesCosts: 0,
     indirectCosts: 0,
+    subcontractorsCosts: 0,
   });
 
   const [pricingSettings, setPricingSettings] = useState<PricingSettings>({
@@ -89,6 +106,7 @@ export default function TenderSummaryPage() {
   const [insuranceData, setInsuranceData] = useState<any[]>([]);
   const [guaranteesData, setGuaranteesData] = useState<any[]>([]);
   const [indirectCostsData, setIndirectCostsData] = useState<any[]>([]);
+  const [subcontractorsData, setSubcontractorsData] = useState<TenderSubcontractor[]>([]);
 
   // Save status
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved" | "error">("saved");
@@ -138,6 +156,7 @@ export default function TenderSummaryPage() {
           insuranceCosts: Number(pricingData.total_insurance_costs) || 0,
           guaranteesCosts: Number(pricingData.total_guarantees_costs) || 0,
           indirectCosts: Number(pricingData.total_indirect_costs) || 0,
+          subcontractorsCosts: Number((pricingData as any).total_subcontractors_costs) || 0,
         });
 
         setStaffData(Array.isArray(pricingData.staff_data) ? pricingData.staff_data as any[] : []);
@@ -145,6 +164,7 @@ export default function TenderSummaryPage() {
         setInsuranceData(Array.isArray(pricingData.insurance_data) ? pricingData.insurance_data as any[] : []);
         setGuaranteesData(Array.isArray(pricingData.guarantees_data) ? pricingData.guarantees_data as any[] : []);
         setIndirectCostsData(Array.isArray(pricingData.indirect_costs_data) ? pricingData.indirect_costs_data as any[] : []);
+        setSubcontractorsData(Array.isArray((pricingData as any).subcontractors_data) ? (pricingData as any).subcontractors_data : []);
         
         setLastSaved(new Date(pricingData.updated_at));
       }
@@ -186,14 +206,16 @@ export default function TenderSummaryPage() {
           insurance_data: insuranceData,
           guarantees_data: guaranteesData,
           indirect_costs_data: indirectCostsData,
+          subcontractors_data: subcontractorsData as any,
           total_staff_costs: totals.staffCosts,
           total_facilities_costs: totals.facilitiesCosts,
           total_insurance_costs: totals.insuranceCosts,
           total_guarantees_costs: totals.guaranteesCosts,
           total_indirect_costs: totals.indirectCosts,
+          total_subcontractors_costs: totals.subcontractorsCosts,
           total_value: calculateTotalValue(),
           updated_at: new Date().toISOString(),
-        }, {
+        } as any, {
           onConflict: "project_id",
         });
 
@@ -205,7 +227,7 @@ export default function TenderSummaryPage() {
       console.error("Error saving data:", error);
       setSaveStatus("error");
     }
-  }, [projectId, user, hasLoadedData, pricingSettings, staffData, facilitiesData, insuranceData, guaranteesData, indirectCostsData, totals]);
+  }, [projectId, user, hasLoadedData, pricingSettings, staffData, facilitiesData, insuranceData, guaranteesData, indirectCostsData, subcontractorsData, totals]);
 
   // Auto-save with debounce
   useEffect(() => {
@@ -217,13 +239,18 @@ export default function TenderSummaryPage() {
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [pricingSettings, staffData, facilitiesData, insuranceData, guaranteesData, indirectCostsData, totals]);
+  }, [pricingSettings, staffData, facilitiesData, insuranceData, guaranteesData, indirectCostsData, subcontractorsData, totals]);
 
   const calculateTotalValue = () => {
-    const totalIndirect = totals.staffCosts + totals.facilitiesCosts + totals.insuranceCosts + totals.guaranteesCosts + totals.indirectCosts;
+    const totalIndirect = totals.staffCosts + totals.facilitiesCosts + totals.insuranceCosts + totals.guaranteesCosts + totals.indirectCosts + totals.subcontractorsCosts;
     const profit = totalIndirect * (pricingSettings.profitMargin / 100);
     const contingency = totalIndirect * (pricingSettings.contingency / 100);
     return totalIndirect + profit + contingency;
+  };
+
+  const handleSubcontractorsChange = (data: TenderSubcontractor[], total: number) => {
+    setSubcontractorsData(data);
+    setTotals(prev => ({ ...prev, subcontractorsCosts: total }));
   };
 
   const handleCalculate = async () => {
@@ -253,6 +280,7 @@ export default function TenderSummaryPage() {
     { id: "insurance", labelAr: "التأمين", labelEn: "Insurance", icon: Shield },
     { id: "guarantees", labelAr: "الضمانات", labelEn: "Guarantees", icon: FileCheck },
     { id: "indirect", labelAr: "التكاليف غير المباشرة", labelEn: "Indirect Costs", icon: Calculator },
+    { id: "subcontractors", labelAr: "مقاولو الباطن", labelEn: "Subcontractors", icon: HardHat },
     { id: "settings", labelAr: "الإعدادات", labelEn: "Settings", icon: Settings },
   ];
 
@@ -263,7 +291,7 @@ export default function TenderSummaryPage() {
     }).format(value);
   };
 
-  const totalIndirect = totals.staffCosts + totals.facilitiesCosts + totals.insuranceCosts + totals.guaranteesCosts + totals.indirectCosts;
+  const totalIndirect = totals.staffCosts + totals.facilitiesCosts + totals.insuranceCosts + totals.guaranteesCosts + totals.indirectCosts + totals.subcontractorsCosts;
   const profit = totalIndirect * (pricingSettings.profitMargin / 100);
   const contingency = totalIndirect * (pricingSettings.contingency / 100);
   const grandTotal = totalIndirect + profit + contingency;
@@ -383,8 +411,36 @@ export default function TenderSummaryPage() {
           {/* Summary Tab */}
           <TabsContent value="summary">
             <div className="space-y-6">
+              {/* Cost Alerts */}
+              <TenderCostAlerts 
+                contractValue={pricingSettings.contractValue}
+                totals={{
+                  totalStaffCosts: totals.staffCosts,
+                  totalFacilitiesCosts: totals.facilitiesCosts,
+                  totalInsuranceCosts: totals.insuranceCosts,
+                  totalGuaranteesCosts: totals.guaranteesCosts,
+                  totalIndirectCosts: totals.indirectCosts,
+                  totalSubcontractorsCosts: totals.subcontractorsCosts,
+                }}
+                currency={pricingSettings.currency}
+              />
+
               {/* Charts */}
               <TenderCharts isArabic={isArabic} totals={totals} />
+
+              {/* Pricing Scenarios */}
+              <PricingScenarios 
+                pricingSettings={pricingSettings}
+                totals={{
+                  totalStaffCosts: totals.staffCosts,
+                  totalFacilitiesCosts: totals.facilitiesCosts,
+                  totalInsuranceCosts: totals.insuranceCosts,
+                  totalGuaranteesCosts: totals.guaranteesCosts,
+                  totalIndirectCosts: totals.indirectCosts,
+                  totalSubcontractorsCosts: totals.subcontractorsCosts,
+                }}
+                currency={pricingSettings.currency}
+              />
 
               {/* Financial Summary */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -524,6 +580,17 @@ export default function TenderSummaryPage() {
               initialData={indirectCostsData}
               onDataChange={setIndirectCostsData}
               onTotalChange={(total) => setTotals(prev => ({ ...prev, indirectCosts: total }))}
+            />
+          </TabsContent>
+
+          {/* Subcontractors Tab */}
+          <TabsContent value="subcontractors">
+            <TenderSubcontractorsTab
+              projectId={projectId || ""}
+              initialData={subcontractorsData}
+              contractValue={pricingSettings.contractValue}
+              currency={pricingSettings.currency}
+              onDataChange={handleSubcontractorsChange}
             />
           </TabsContent>
 
