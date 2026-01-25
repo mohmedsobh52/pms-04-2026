@@ -59,14 +59,19 @@ const categories = {
 interface IndirectCostsTabProps {
   isArabic: boolean;
   contractValue?: number;
+  initialData?: IndirectCost[];
+  onDataChange?: (data: IndirectCost[]) => void;
   onTotalChange?: (total: number) => void;
 }
 
 export function IndirectCostsTab({ 
   isArabic, 
-  contractValue = 10000000, 
+  contractValue = 10000000,
+  initialData,
+  onDataChange,
   onTotalChange 
 }: IndirectCostsTabProps) {
+  const [isInitialized, setIsInitialized] = useState(false);
   const calculateTotal = (costType: "fixed" | "percentage", value: number) => {
     return costType === "percentage" ? (contractValue * value) / 100 : value;
   };
@@ -164,7 +169,26 @@ export function IndirectCostsTab({
     },
   ];
 
-  const [costs, setCosts] = useState<IndirectCost[]>(createDefaultCosts);
+  const [costs, setCosts] = useState<IndirectCost[]>(
+    initialData && initialData.length > 0 ? initialData : createDefaultCosts()
+  );
+
+  // Sync with initial data
+  useEffect(() => {
+    if (initialData && initialData.length > 0 && !isInitialized) {
+      setCosts(initialData);
+      setIsInitialized(true);
+    } else if (!initialData || initialData.length === 0) {
+      setIsInitialized(true);
+    }
+  }, [initialData]);
+
+  // Notify parent of data changes
+  useEffect(() => {
+    if (isInitialized) {
+      onDataChange?.(costs);
+    }
+  }, [costs, isInitialized]);
   const [showDialog, setShowDialog] = useState(false);
   const [editingCost, setEditingCost] = useState<IndirectCost | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);

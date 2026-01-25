@@ -49,11 +49,14 @@ export interface Insurance {
 interface InsuranceTabProps {
   isArabic: boolean;
   contractValue?: number;
+  initialData?: Insurance[];
+  onDataChange?: (data: Insurance[]) => void;
   onTotalChange?: (total: number) => void;
 }
 
-export function InsuranceTab({ isArabic, contractValue = 10000000, onTotalChange }: InsuranceTabProps) {
+export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, onDataChange, onTotalChange }: InsuranceTabProps) {
   const [baseContractValue, setBaseContractValue] = useState(contractValue);
+  const [isInitialized, setIsInitialized] = useState(false);
   
   const calculateDefaultInsurances = (value: number): Insurance[] => [
     { 
@@ -94,7 +97,26 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, onTotalChange
     },
   ];
 
-  const [insurances, setInsurances] = useState<Insurance[]>(calculateDefaultInsurances(baseContractValue));
+  const [insurances, setInsurances] = useState<Insurance[]>(
+    initialData && initialData.length > 0 ? initialData : calculateDefaultInsurances(baseContractValue)
+  );
+
+  // Sync with initial data
+  useEffect(() => {
+    if (initialData && initialData.length > 0 && !isInitialized) {
+      setInsurances(initialData);
+      setIsInitialized(true);
+    } else if (!initialData || initialData.length === 0) {
+      setIsInitialized(true);
+    }
+  }, [initialData]);
+
+  // Notify parent of data changes
+  useEffect(() => {
+    if (isInitialized) {
+      onDataChange?.(insurances);
+    }
+  }, [insurances, isInitialized]);
   const [showDialog, setShowDialog] = useState(false);
   const [editingInsurance, setEditingInsurance] = useState<Insurance | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);

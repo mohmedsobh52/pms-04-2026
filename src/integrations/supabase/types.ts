@@ -1811,6 +1811,92 @@ export type Database = {
         }
         Relationships: []
       }
+      tender_pricing: {
+        Row: {
+          contingency: number | null
+          contract_value: number | null
+          created_at: string | null
+          currency: string | null
+          end_date: string | null
+          facilities_data: Json | null
+          guarantees_data: Json | null
+          id: string
+          indirect_costs_data: Json | null
+          insurance_data: Json | null
+          profit_margin: number | null
+          project_duration: number | null
+          project_id: string
+          staff_data: Json | null
+          start_date: string | null
+          total_facilities_costs: number | null
+          total_guarantees_costs: number | null
+          total_indirect_costs: number | null
+          total_insurance_costs: number | null
+          total_staff_costs: number | null
+          total_value: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          contingency?: number | null
+          contract_value?: number | null
+          created_at?: string | null
+          currency?: string | null
+          end_date?: string | null
+          facilities_data?: Json | null
+          guarantees_data?: Json | null
+          id?: string
+          indirect_costs_data?: Json | null
+          insurance_data?: Json | null
+          profit_margin?: number | null
+          project_duration?: number | null
+          project_id: string
+          staff_data?: Json | null
+          start_date?: string | null
+          total_facilities_costs?: number | null
+          total_guarantees_costs?: number | null
+          total_indirect_costs?: number | null
+          total_insurance_costs?: number | null
+          total_staff_costs?: number | null
+          total_value?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          contingency?: number | null
+          contract_value?: number | null
+          created_at?: string | null
+          currency?: string | null
+          end_date?: string | null
+          facilities_data?: Json | null
+          guarantees_data?: Json | null
+          id?: string
+          indirect_costs_data?: Json | null
+          insurance_data?: Json | null
+          profit_margin?: number | null
+          project_duration?: number | null
+          project_id?: string
+          staff_data?: Json | null
+          start_date?: string | null
+          total_facilities_costs?: number | null
+          total_guarantees_costs?: number | null
+          total_indirect_costs?: number | null
+          total_insurance_costs?: number | null
+          total_staff_costs?: number | null
+          total_value?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tender_pricing_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "saved_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       timeline_estimates: {
         Row: {
           created_at: string

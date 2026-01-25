@@ -67,11 +67,14 @@ const guaranteeTypes = {
 interface GuaranteesTabProps {
   isArabic: boolean;
   contractValue?: number;
+  initialData?: Guarantee[];
+  onDataChange?: (data: Guarantee[]) => void;
   onTotalChange?: (total: number) => void;
 }
 
-export function GuaranteesTab({ isArabic, contractValue = 10000000, onTotalChange }: GuaranteesTabProps) {
+export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData, onDataChange, onTotalChange }: GuaranteesTabProps) {
   const [baseContractValue, setBaseContractValue] = useState(contractValue);
+  const [isInitialized, setIsInitialized] = useState(false);
   
   const calculateCost = (guaranteeValue: number, bankCharges: number, duration: number) => {
     // Cost = (Guarantee Value × Bank Commission × Duration in months) / 12
@@ -129,7 +132,26 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, onTotalChang
     },
   ];
 
-  const [guarantees, setGuarantees] = useState<Guarantee[]>(calculateDefaultGuarantees(baseContractValue));
+  const [guarantees, setGuarantees] = useState<Guarantee[]>(
+    initialData && initialData.length > 0 ? initialData : calculateDefaultGuarantees(baseContractValue)
+  );
+
+  // Sync with initial data
+  useEffect(() => {
+    if (initialData && initialData.length > 0 && !isInitialized) {
+      setGuarantees(initialData);
+      setIsInitialized(true);
+    } else if (!initialData || initialData.length === 0) {
+      setIsInitialized(true);
+    }
+  }, [initialData]);
+
+  // Notify parent of data changes
+  useEffect(() => {
+    if (isInitialized) {
+      onDataChange?.(guarantees);
+    }
+  }, [guarantees, isInitialized]);
   const [showDialog, setShowDialog] = useState(false);
   const [editingGuarantee, setEditingGuarantee] = useState<Guarantee | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);

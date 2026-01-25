@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft, Home, ChevronRight, RefreshCw, Calculator,
@@ -19,6 +19,11 @@ import { SiteStaffTab } from "@/components/tender/SiteStaffTab";
 import { FacilitiesTab } from "@/components/tender/FacilitiesTab";
 import { InsuranceTab } from "@/components/tender/InsuranceTab";
 import { GuaranteesTab } from "@/components/tender/GuaranteesTab";
+import { IndirectCostsTab } from "@/components/tender/IndirectCostsTab";
+import { PricingSettingsTab } from "@/components/tender/PricingSettingsTab";
+import { TenderCharts } from "@/components/tender/TenderCharts";
+import { TenderPDFExport } from "@/components/tender/TenderPDFExport";
+import { SaveStatusIndicator } from "@/components/tender/SaveStatusIndicator";
 
 interface ProjectData {
   id: string;
@@ -30,15 +35,22 @@ interface ProjectData {
   updated_at: string;
 }
 
-interface TenderSummary {
-  directCosts: number;
-  indirectCosts: number;
+interface PricingSettings {
+  contractValue: number;
+  profitMargin: number;
+  contingency: number;
+  projectDuration: number;
+  currency: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+interface Totals {
   staffCosts: number;
   facilitiesCosts: number;
   insuranceCosts: number;
   guaranteesCosts: number;
-  profitMargin: number;
-  totalValue: number;
+  indirectCosts: number;
 }
 
 export default function TenderSummaryPage() {
@@ -51,28 +63,95 @@ export default function TenderSummaryPage() {
 
   const [activeTab, setActiveTab] = useState("summary");
   const [project, setProject] = useState<ProjectData | null>(null);
-  const [tenderSummary, setTenderSummary] = useState<TenderSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCalculating, setIsCalculating] = useState(false);
+  
+  // Centralized state for all data
+  const [totals, setTotals] = useState<Totals>({
+    staffCosts: 0,
+    facilitiesCosts: 0,
+    insuranceCosts: 0,
+    guaranteesCosts: 0,
+    indirectCosts: 0,
+  });
 
+  const [pricingSettings, setPricingSettings] = useState<PricingSettings>({
+    contractValue: 10000000,
+    profitMargin: 10,
+    contingency: 5,
+    projectDuration: 12,
+    currency: "SAR",
+  });
+
+  // Section data for persistence
+  const [staffData, setStaffData] = useState<any[]>([]);
+  const [facilitiesData, setFacilitiesData] = useState<any[]>([]);
+  const [insuranceData, setInsuranceData] = useState<any[]>([]);
+  const [guaranteesData, setGuaranteesData] = useState<any[]>([]);
+  const [indirectCostsData, setIndirectCostsData] = useState<any[]>([]);
+
+  // Save status
+  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved" | "error">("saved");
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [hasLoadedData, setHasLoadedData] = useState(false);
+
+  // Load project and pricing data
   useEffect(() => {
-    if (projectId) {
-      fetchProjectData();
+    if (projectId && user) {
+      loadData();
     }
-  }, [projectId]);
+  }, [projectId, user]);
 
-  const fetchProjectData = async () => {
+  const loadData = async () => {
     try {
-      const { data, error } = await supabase
-        .from("project_data")
+      // Load project data
+      const { data: projectData, error: projectError } = await supabase
+        .from("saved_projects")
         .select("*")
         .eq("id", projectId)
         .single();
 
-      if (error) throw error;
-      setProject(data);
+      if (projectError) throw projectError;
+      setProject(projectData);
+
+      // Load pricing data
+      const { data: pricingData, error: pricingError } = await supabase
+        .from("tender_pricing")
+        .select("*")
+        .eq("project_id", projectId)
+        .maybeSingle();
+
+      if (pricingData) {
+        setPricingSettings({
+          contractValue: Number(pricingData.contract_value) || 10000000,
+          profitMargin: Number(pricingData.profit_margin) || 10,
+          contingency: Number(pricingData.contingency) || 5,
+          projectDuration: pricingData.project_duration || 12,
+          currency: pricingData.currency || "SAR",
+          startDate: pricingData.start_date || undefined,
+          endDate: pricingData.end_date || undefined,
+        });
+
+        setTotals({
+          staffCosts: Number(pricingData.total_staff_costs) || 0,
+          facilitiesCosts: Number(pricingData.total_facilities_costs) || 0,
+          insuranceCosts: Number(pricingData.total_insurance_costs) || 0,
+          guaranteesCosts: Number(pricingData.total_guarantees_costs) || 0,
+          indirectCosts: Number(pricingData.total_indirect_costs) || 0,
+        });
+
+        setStaffData(Array.isArray(pricingData.staff_data) ? pricingData.staff_data as any[] : []);
+        setFacilitiesData(Array.isArray(pricingData.facilities_data) ? pricingData.facilities_data as any[] : []);
+        setInsuranceData(Array.isArray(pricingData.insurance_data) ? pricingData.insurance_data as any[] : []);
+        setGuaranteesData(Array.isArray(pricingData.guarantees_data) ? pricingData.guarantees_data as any[] : []);
+        setIndirectCostsData(Array.isArray(pricingData.indirect_costs_data) ? pricingData.indirect_costs_data as any[] : []);
+        
+        setLastSaved(new Date(pricingData.updated_at));
+      }
+      
+      setHasLoadedData(true);
     } catch (error) {
-      console.error("Error fetching project:", error);
+      console.error("Error loading data:", error);
       toast({
         title: isArabic ? "خطأ" : "Error",
         description: isArabic ? "فشل في تحميل بيانات المشروع" : "Failed to load project data",
@@ -83,24 +162,74 @@ export default function TenderSummaryPage() {
     }
   };
 
+  // Debounced save function
+  const saveData = useCallback(async () => {
+    if (!projectId || !user || !hasLoadedData) return;
+
+    setSaveStatus("saving");
+
+    try {
+      const { error } = await supabase
+        .from("tender_pricing")
+        .upsert({
+          project_id: projectId,
+          user_id: user.id,
+          contract_value: pricingSettings.contractValue,
+          profit_margin: pricingSettings.profitMargin,
+          contingency: pricingSettings.contingency,
+          project_duration: pricingSettings.projectDuration,
+          currency: pricingSettings.currency,
+          start_date: pricingSettings.startDate || null,
+          end_date: pricingSettings.endDate || null,
+          staff_data: staffData,
+          facilities_data: facilitiesData,
+          insurance_data: insuranceData,
+          guarantees_data: guaranteesData,
+          indirect_costs_data: indirectCostsData,
+          total_staff_costs: totals.staffCosts,
+          total_facilities_costs: totals.facilitiesCosts,
+          total_insurance_costs: totals.insuranceCosts,
+          total_guarantees_costs: totals.guaranteesCosts,
+          total_indirect_costs: totals.indirectCosts,
+          total_value: calculateTotalValue(),
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: "project_id",
+        });
+
+      if (error) throw error;
+
+      setSaveStatus("saved");
+      setLastSaved(new Date());
+    } catch (error) {
+      console.error("Error saving data:", error);
+      setSaveStatus("error");
+    }
+  }, [projectId, user, hasLoadedData, pricingSettings, staffData, facilitiesData, insuranceData, guaranteesData, indirectCostsData, totals]);
+
+  // Auto-save with debounce
+  useEffect(() => {
+    if (!hasLoadedData) return;
+    
+    setSaveStatus("unsaved");
+    const timer = setTimeout(() => {
+      saveData();
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [pricingSettings, staffData, facilitiesData, insuranceData, guaranteesData, indirectCostsData, totals]);
+
+  const calculateTotalValue = () => {
+    const totalIndirect = totals.staffCosts + totals.facilitiesCosts + totals.insuranceCosts + totals.guaranteesCosts + totals.indirectCosts;
+    const profit = totalIndirect * (pricingSettings.profitMargin / 100);
+    const contingency = totalIndirect * (pricingSettings.contingency / 100);
+    return totalIndirect + profit + contingency;
+  };
+
   const handleCalculate = async () => {
     setIsCalculating(true);
     try {
-      // Simulate calculation - in production this would calculate from project items
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Demo summary data
-      setTenderSummary({
-        directCosts: 0,
-        indirectCosts: 0,
-        staffCosts: 0,
-        facilitiesCosts: 0,
-        insuranceCosts: 0,
-        guaranteesCosts: 0,
-        profitMargin: 10,
-        totalValue: 0,
-      });
-
+      await saveData();
       toast({
         title: isArabic ? "تم الحساب" : "Calculated",
         description: isArabic ? "تم حساب ملخص العطاء بنجاح" : "Tender summary calculated successfully",
@@ -126,6 +255,18 @@ export default function TenderSummaryPage() {
     { id: "indirect", labelAr: "التكاليف غير المباشرة", labelEn: "Indirect Costs", icon: Calculator },
     { id: "settings", labelAr: "الإعدادات", labelEn: "Settings", icon: Settings },
   ];
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  };
+
+  const totalIndirect = totals.staffCosts + totals.facilitiesCosts + totals.insuranceCosts + totals.guaranteesCosts + totals.indirectCosts;
+  const profit = totalIndirect * (pricingSettings.profitMargin / 100);
+  const contingency = totalIndirect * (pricingSettings.contingency / 100);
+  const grandTotal = totalIndirect + profit + contingency;
 
   if (isLoading) {
     return (
@@ -176,16 +317,30 @@ export default function TenderSummaryPage() {
               </nav>
             </div>
 
-            {/* Center - Title */}
+            {/* Center - Title and Save Status */}
             <div className="flex flex-col items-center">
               <h1 className="text-lg font-bold">
                 {isArabic ? "ملخص العطاء" : "Tender Summary"}
               </h1>
-              <p className="text-sm text-muted-foreground">{project?.name}</p>
+              <div className="flex items-center gap-3">
+                <p className="text-sm text-muted-foreground">{project?.name}</p>
+                <SaveStatusIndicator status={saveStatus} lastSaved={lastSaved} isArabic={isArabic} />
+              </div>
             </div>
 
             {/* Left side - Actions */}
             <div className="flex items-center gap-2">
+              <TenderPDFExport
+                isArabic={isArabic}
+                projectName={project?.name || "Project"}
+                pricingSettings={pricingSettings}
+                totals={totals}
+                staffData={staffData}
+                facilitiesData={facilitiesData}
+                insuranceData={insuranceData}
+                guaranteesData={guaranteesData}
+                indirectCostsData={indirectCostsData}
+              />
               <Button
                 onClick={handleCalculate}
                 disabled={isCalculating}
@@ -196,7 +351,7 @@ export default function TenderSummaryPage() {
                 ) : (
                   <RefreshCw className="w-4 h-4" />
                 )}
-                {isArabic ? "حساب" : "Calculate"}
+                {isArabic ? "حفظ" : "Save"}
               </Button>
               <LanguageToggle />
               <ThemeToggle />
@@ -227,163 +382,161 @@ export default function TenderSummaryPage() {
 
           {/* Summary Tab */}
           <TabsContent value="summary">
-            {tenderSummary ? (
-              <TenderSummaryContent summary={tenderSummary} isArabic={isArabic} />
-            ) : (
-              <EmptyState onCalculate={handleCalculate} isCalculating={isCalculating} isArabic={isArabic} />
-            )}
+            <div className="space-y-6">
+              {/* Charts */}
+              <TenderCharts isArabic={isArabic} totals={totals} />
+
+              {/* Financial Summary */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Indirect Costs Breakdown */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">
+                      {isArabic ? "تفاصيل التكاليف غير المباشرة" : "Indirect Costs Breakdown"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {[
+                        { labelAr: "طاقم الموقع", labelEn: "Site Staff", value: totals.staffCosts, color: "bg-blue-500" },
+                        { labelAr: "المرافق", labelEn: "Facilities", value: totals.facilitiesCosts, color: "bg-emerald-500" },
+                        { labelAr: "التأمين", labelEn: "Insurance", value: totals.insuranceCosts, color: "bg-amber-500" },
+                        { labelAr: "الضمانات", labelEn: "Guarantees", value: totals.guaranteesCosts, color: "bg-red-500" },
+                        { labelAr: "تكاليف أخرى", labelEn: "Other Indirect", value: totals.indirectCosts, color: "bg-violet-500" },
+                      ].map((item, index) => (
+                        <div key={index} className="flex items-center justify-between py-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-3 h-3 rounded-full ${item.color}`} />
+                            <span className="text-sm text-muted-foreground">
+                              {isArabic ? item.labelAr : item.labelEn}
+                            </span>
+                          </div>
+                          <span className="font-medium">
+                            {pricingSettings.currency} {formatCurrency(item.value)}
+                          </span>
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between pt-3 border-t font-bold">
+                        <span>{isArabic ? "إجمالي غير المباشرة" : "Total Indirect"}</span>
+                        <span className="text-primary">
+                          {pricingSettings.currency} {formatCurrency(totalIndirect)}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Final Summary */}
+                <Card className="border-primary/20">
+                  <CardHeader className="bg-primary/5">
+                    <CardTitle className="text-base">
+                      {isArabic ? "الملخص المالي" : "Financial Summary"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between py-2">
+                        <span className="text-muted-foreground">
+                          {isArabic ? "إجمالي التكاليف غير المباشرة" : "Total Indirect Costs"}
+                        </span>
+                        <span className="font-medium">
+                          {pricingSettings.currency} {formatCurrency(totalIndirect)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-2">
+                        <span className="text-muted-foreground">
+                          {isArabic ? `الربح (${pricingSettings.profitMargin}%)` : `Profit (${pricingSettings.profitMargin}%)`}
+                        </span>
+                        <span className="font-medium text-emerald-600">
+                          + {pricingSettings.currency} {formatCurrency(profit)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-2">
+                        <span className="text-muted-foreground">
+                          {isArabic ? `الاحتياطي (${pricingSettings.contingency}%)` : `Contingency (${pricingSettings.contingency}%)`}
+                        </span>
+                        <span className="font-medium text-amber-600">
+                          + {pricingSettings.currency} {formatCurrency(contingency)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-4 border-t-2 border-primary/20">
+                        <span className="text-lg font-bold">
+                          {isArabic ? "القيمة الإجمالية" : "Grand Total"}
+                        </span>
+                        <span className="text-xl font-bold text-primary">
+                          {pricingSettings.currency} {formatCurrency(grandTotal)}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </TabsContent>
 
           {/* Site Staff Tab */}
           <TabsContent value="staff">
-            <SiteStaffTab isArabic={isArabic} />
+            <SiteStaffTab
+              isArabic={isArabic}
+              initialData={staffData}
+              onDataChange={setStaffData}
+              onTotalChange={(total) => setTotals(prev => ({ ...prev, staffCosts: total }))}
+            />
           </TabsContent>
 
           {/* Facilities Tab */}
           <TabsContent value="facilities">
-            <FacilitiesTab isArabic={isArabic} />
+            <FacilitiesTab
+              isArabic={isArabic}
+              initialData={facilitiesData}
+              onDataChange={setFacilitiesData}
+              onTotalChange={(total) => setTotals(prev => ({ ...prev, facilitiesCosts: total }))}
+            />
           </TabsContent>
 
           {/* Insurance Tab */}
           <TabsContent value="insurance">
-            <InsuranceTab isArabic={isArabic} />
+            <InsuranceTab
+              isArabic={isArabic}
+              contractValue={pricingSettings.contractValue}
+              initialData={insuranceData}
+              onDataChange={setInsuranceData}
+              onTotalChange={(total) => setTotals(prev => ({ ...prev, insuranceCosts: total }))}
+            />
           </TabsContent>
 
           {/* Guarantees Tab */}
           <TabsContent value="guarantees">
-            <GuaranteesTab isArabic={isArabic} />
+            <GuaranteesTab
+              isArabic={isArabic}
+              contractValue={pricingSettings.contractValue}
+              initialData={guaranteesData}
+              onDataChange={setGuaranteesData}
+              onTotalChange={(total) => setTotals(prev => ({ ...prev, guaranteesCosts: total }))}
+            />
           </TabsContent>
 
           {/* Indirect Costs Tab */}
           <TabsContent value="indirect">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calculator className="w-5 h-5" />
-                  {isArabic ? "التكاليف غير المباشرة" : "Indirect Costs"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-center py-8">
-                  {isArabic ? "قريباً - إدارة التكاليف غير المباشرة" : "Coming soon - Indirect costs management"}
-                </p>
-              </CardContent>
-            </Card>
+            <IndirectCostsTab
+              isArabic={isArabic}
+              contractValue={pricingSettings.contractValue}
+              initialData={indirectCostsData}
+              onDataChange={setIndirectCostsData}
+              onTotalChange={(total) => setTotals(prev => ({ ...prev, indirectCosts: total }))}
+            />
           </TabsContent>
 
           {/* Settings Tab */}
           <TabsContent value="settings">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="w-5 h-5" />
-                  {isArabic ? "الإعدادات" : "Settings"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-center py-8">
-                  {isArabic ? "قريباً - إعدادات التسعير" : "Coming soon - Pricing settings"}
-                </p>
-              </CardContent>
-            </Card>
+            <PricingSettingsTab
+              isArabic={isArabic}
+              settings={pricingSettings}
+              onSettingsChange={setPricingSettings}
+            />
           </TabsContent>
         </Tabs>
       </main>
-    </div>
-  );
-}
-
-// Empty State Component
-function EmptyState({
-  onCalculate,
-  isCalculating,
-  isArabic,
-}: {
-  onCalculate: () => void;
-  isCalculating: boolean;
-  isArabic: boolean;
-}) {
-  return (
-    <Card>
-      <CardContent className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center mb-4">
-          <TableIcon className="w-8 h-8 text-muted-foreground" />
-        </div>
-        <h3 className="text-xl font-semibold text-amber-500 mb-2">
-          {isArabic ? "لا يوجد ملخص عطاء" : "No tender summary"}
-        </h3>
-        <p className="text-muted-foreground mb-6 max-w-md">
-          {isArabic
-            ? "انقر على حساب لإنشاء ملخص العطاء"
-            : "Click calculate to create tender summary"}
-        </p>
-        <Button
-          onClick={onCalculate}
-          disabled={isCalculating}
-          className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-        >
-          {isCalculating ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <RefreshCw className="w-4 h-4" />
-          )}
-          {isArabic ? "احسب الآن" : "Calculate Now"}
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
-// Tender Summary Content Component
-function TenderSummaryContent({
-  summary,
-  isArabic,
-}: {
-  summary: TenderSummary;
-  isArabic: boolean;
-}) {
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat(isArabic ? "ar-SA" : "en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  };
-
-  const summaryItems = [
-    { labelAr: "التكاليف المباشرة", labelEn: "Direct Costs", value: summary.directCosts },
-    { labelAr: "تكاليف طاقم الموقع", labelEn: "Staff Costs", value: summary.staffCosts },
-    { labelAr: "تكاليف المرافق", labelEn: "Facilities Costs", value: summary.facilitiesCosts },
-    { labelAr: "تكاليف التأمين", labelEn: "Insurance Costs", value: summary.insuranceCosts },
-    { labelAr: "تكاليف الضمانات", labelEn: "Guarantees Costs", value: summary.guaranteesCosts },
-    { labelAr: "التكاليف غير المباشرة", labelEn: "Indirect Costs", value: summary.indirectCosts },
-  ];
-
-  return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{isArabic ? "ملخص التكاليف" : "Cost Summary"}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {summaryItems.map((item, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between py-2 border-b last:border-0"
-              >
-                <span className="text-muted-foreground">
-                  {isArabic ? item.labelAr : item.labelEn}
-                </span>
-                <span className="font-medium">{formatCurrency(item.value)}</span>
-              </div>
-            ))}
-            <div className="flex items-center justify-between py-3 border-t-2 font-bold text-lg">
-              <span>{isArabic ? "الإجمالي" : "Total"}</span>
-              <span className="text-primary">{formatCurrency(summary.totalValue)}</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

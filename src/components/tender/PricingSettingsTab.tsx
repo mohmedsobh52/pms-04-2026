@@ -20,8 +20,8 @@ export interface PricingSettings {
   contingency: number;
   projectDuration: number;
   currency: string;
-  startDate: string;
-  endDate: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 interface PricingSettingsTabProps {

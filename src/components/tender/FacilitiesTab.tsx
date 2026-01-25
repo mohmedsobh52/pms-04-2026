@@ -61,11 +61,31 @@ const defaultFacilities: Facility[] = [
 
 interface FacilitiesTabProps {
   isArabic: boolean;
+  initialData?: Facility[];
+  onDataChange?: (data: Facility[]) => void;
   onTotalChange?: (total: number) => void;
 }
 
-export function FacilitiesTab({ isArabic, onTotalChange }: FacilitiesTabProps) {
-  const [facilities, setFacilities] = useState<Facility[]>(defaultFacilities);
+export function FacilitiesTab({ isArabic, initialData, onDataChange, onTotalChange }: FacilitiesTabProps) {
+  const [facilities, setFacilities] = useState<Facility[]>(initialData && initialData.length > 0 ? initialData : defaultFacilities);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Sync with initial data
+  useEffect(() => {
+    if (initialData && initialData.length > 0 && !isInitialized) {
+      setFacilities(initialData);
+      setIsInitialized(true);
+    } else if (!initialData || initialData.length === 0) {
+      setIsInitialized(true);
+    }
+  }, [initialData]);
+
+  // Notify parent of data changes
+  useEffect(() => {
+    if (isInitialized) {
+      onDataChange?.(facilities);
+    }
+  }, [facilities, isInitialized]);
   const [showDialog, setShowDialog] = useState(false);
   const [editingFacility, setEditingFacility] = useState<Facility | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);

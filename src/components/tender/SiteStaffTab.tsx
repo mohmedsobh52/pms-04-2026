@@ -53,11 +53,31 @@ const defaultStaff: StaffMember[] = [
 
 interface SiteStaffTabProps {
   isArabic: boolean;
+  initialData?: StaffMember[];
+  onDataChange?: (data: StaffMember[]) => void;
   onTotalChange?: (total: number) => void;
 }
 
-export function SiteStaffTab({ isArabic, onTotalChange }: SiteStaffTabProps) {
-  const [staff, setStaff] = useState<StaffMember[]>(defaultStaff);
+export function SiteStaffTab({ isArabic, initialData, onDataChange, onTotalChange }: SiteStaffTabProps) {
+  const [staff, setStaff] = useState<StaffMember[]>(initialData && initialData.length > 0 ? initialData : defaultStaff);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Sync with initial data
+  useEffect(() => {
+    if (initialData && initialData.length > 0 && !isInitialized) {
+      setStaff(initialData);
+      setIsInitialized(true);
+    } else if (!initialData || initialData.length === 0) {
+      setIsInitialized(true);
+    }
+  }, [initialData]);
+
+  // Notify parent of data changes
+  useEffect(() => {
+    if (isInitialized) {
+      onDataChange?.(staff);
+    }
+  }, [staff, isInitialized]);
   const [showDialog, setShowDialog] = useState(false);
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
