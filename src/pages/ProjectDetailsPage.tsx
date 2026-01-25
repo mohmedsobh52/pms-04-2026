@@ -146,7 +146,10 @@ export default function ProjectDetailsPage() {
   const [activeTab, setActiveTab] = useState("overview");
   const [itemsSearch, setItemsSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 100;
+  const [itemsPerPage, setItemsPerPage] = useState<number>(() => {
+    const saved = localStorage.getItem("boq_items_per_page");
+    return saved ? parseInt(saved, 10) : 100;
+  });
 
   // Document upload state
   const [isUploading, setIsUploading] = useState(false);
@@ -302,10 +305,23 @@ export default function ProjectDetailsPage() {
     );
   }, [items, itemsSearch]);
 
-  // Pagination
-  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const displayedItems = filteredItems.slice(startIndex, startIndex + itemsPerPage);
+  // Pagination with configurable items per page
+  const effectiveItemsPerPage = itemsPerPage >= filteredItems.length ? filteredItems.length : itemsPerPage;
+  const totalPages = Math.ceil(filteredItems.length / effectiveItemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * effectiveItemsPerPage;
+  const displayedItems = filteredItems.slice(startIndex, startIndex + effectiveItemsPerPage);
+
+  // Handler for changing items per page
+  const handleItemsPerPageChange = (value: string) => {
+    if (value === "all") {
+      setItemsPerPage(filteredItems.length || 1000);
+    } else {
+      const newValue = parseInt(value, 10);
+      setItemsPerPage(newValue);
+      localStorage.setItem("boq_items_per_page", value);
+    }
+    setCurrentPage(1);
+  };
 
   // Zero quantity items count
   const zeroQuantityCount = useMemo(() => {
@@ -1400,11 +1416,34 @@ export default function ProjectDetailsPage() {
                 {/* Pagination Controls */}
                 {filteredItems.length > 0 && (
                   <div className="flex items-center justify-between mt-4 flex-wrap gap-4">
-                    <p className="text-sm text-muted-foreground">
-                      {isArabic 
-                        ? `عرض ${startIndex + 1}-${Math.min(startIndex + itemsPerPage, filteredItems.length)} من ${filteredItems.length} بند` 
-                        : `Showing ${startIndex + 1}-${Math.min(startIndex + itemsPerPage, filteredItems.length)} of ${filteredItems.length} items`}
-                    </p>
+                    <div className="flex items-center gap-4">
+                      <p className="text-sm text-muted-foreground">
+                        {isArabic 
+                          ? `عرض ${startIndex + 1}-${Math.min(startIndex + effectiveItemsPerPage, filteredItems.length)} من ${filteredItems.length} بند` 
+                          : `Showing ${startIndex + 1}-${Math.min(startIndex + effectiveItemsPerPage, filteredItems.length)} of ${filteredItems.length} items`}
+                      </p>
+                      
+                      {/* Items Per Page Selector */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">
+                          {isArabic ? "بنود/صفحة:" : "Per page:"}
+                        </span>
+                        <Select
+                          value={itemsPerPage >= filteredItems.length && itemsPerPage > 200 ? "all" : itemsPerPage.toString()}
+                          onValueChange={handleItemsPerPageChange}
+                        >
+                          <SelectTrigger className="w-24 h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="50">50</SelectItem>
+                            <SelectItem value="100">100</SelectItem>
+                            <SelectItem value="200">200</SelectItem>
+                            <SelectItem value="all">{isArabic ? "الكل" : "All"}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                     
                     {totalPages > 1 && (
                       <div className="flex items-center gap-2">
