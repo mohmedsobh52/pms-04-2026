@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Pencil, Trash2, Shield, Info, AlertTriangle, Clock, Building2, FileText, Calendar } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield, Info, AlertTriangle, Clock, Building2, FileText, Calendar, Calculator, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,12 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -47,15 +49,77 @@ import {
 } from "@/components/ui/tooltip";
 import { differenceInDays, addDays, format } from "date-fns";
 
+// Insurance presets with default rates
+const INSURANCE_PRESETS = [
+  { 
+    value: "car", 
+    labelAr: "جميع مخاطر المقاول", 
+    labelEn: "Contractor's All Risk (CAR)",
+    defaultRate: 0.25,
+    descriptionAr: "تغطية شاملة لجميع مخاطر البناء والتشييد",
+    descriptionEn: "Comprehensive coverage for all construction risks"
+  },
+  { 
+    value: "third_party", 
+    labelAr: "المسؤولية تجاه الغير", 
+    labelEn: "Third Party Liability",
+    defaultRate: 0.15,
+    descriptionAr: "تغطية الأضرار التي قد تلحق بالغير",
+    descriptionEn: "Coverage for damages to third parties"
+  },
+  { 
+    value: "workers", 
+    labelAr: "تأمين العمال", 
+    labelEn: "Workers' Compensation",
+    defaultRate: 2.0,
+    descriptionAr: "تغطية إصابات وحوادث العمل",
+    descriptionEn: "Coverage for worker injuries and accidents"
+  },
+  { 
+    value: "equipment", 
+    labelAr: "تأمين المعدات", 
+    labelEn: "Equipment Insurance",
+    defaultRate: 0.5,
+    descriptionAr: "تغطية المعدات والآلات ضد التلف والسرقة",
+    descriptionEn: "Coverage for equipment damage and theft"
+  },
+  { 
+    value: "professional", 
+    labelAr: "المسؤولية المهنية", 
+    labelEn: "Professional Indemnity",
+    defaultRate: 0.3,
+    descriptionAr: "تغطية الأخطاء المهنية والإهمال",
+    descriptionEn: "Coverage for professional errors and negligence"
+  },
+  { 
+    value: "decennial", 
+    labelAr: "التأمين العشري", 
+    labelEn: "Decennial Insurance",
+    defaultRate: 1.5,
+    descriptionAr: "تغطية العيوب الإنشائية لمدة 10 سنوات",
+    descriptionEn: "10-year structural defects coverage"
+  },
+  { 
+    value: "custom", 
+    labelAr: "نوع مخصص", 
+    labelEn: "Custom Type",
+    defaultRate: 0,
+    descriptionAr: "",
+    descriptionEn: ""
+  },
+];
+
 export interface Insurance {
   id: string;
   type: string;
   typeEn: string;
   description: string;
+  descriptionAr: string;
   percentage: number;
   baseValue: number;
   premium: number;
-  // New fields
+  premiumType: "percentage" | "fixed";
+  fixedPremium: number;
   insurerName?: string;
   policyNumber?: string;
   coverageType?: string;
@@ -92,6 +156,8 @@ const INSURANCE_COMPANIES = [
   { value: "walaa", labelAr: "ولاء للتأمين", labelEn: "Walaa Insurance" },
   { value: "axa", labelAr: "أكسا", labelEn: "AXA" },
   { value: "zurich", labelAr: "زيوريخ", labelEn: "Zurich" },
+  { value: "allianz", labelAr: "أليانز", labelEn: "Allianz" },
+  { value: "gulf_union", labelAr: "الاتحاد التعاوني", labelEn: "Gulf Union" },
   { value: "other", labelAr: "أخرى", labelEn: "Other" },
 ];
 
@@ -122,16 +188,20 @@ const getStatusBadge = (status: string, isArabic: boolean) => {
 export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, onDataChange, onTotalChange }: InsuranceTabProps) {
   const [baseContractValue, setBaseContractValue] = useState(contractValue);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<string>("");
   
   const calculateDefaultInsurances = (value: number): Insurance[] => [
     { 
       id: "1", 
       type: "تأمين جميع أخطار المقاولين", 
       typeEn: "Contractor's All Risk (CAR)", 
-      description: "يغطي الأضرار المادية للمشروع",
+      description: "Comprehensive coverage for all construction risks",
+      descriptionAr: "يغطي الأضرار المادية للمشروع",
       percentage: 0.25, 
       baseValue: value, 
       premium: value * 0.0025,
+      premiumType: "percentage",
+      fixedPremium: 0,
       insurerName: "",
       policyNumber: "",
       coverageType: "comprehensive",
@@ -143,10 +213,13 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
       id: "2", 
       type: "تأمين المسؤولية تجاه الغير", 
       typeEn: "Third Party Liability", 
-      description: "يغطي الأضرار التي قد تلحق بالغير",
+      description: "Coverage for damages to third parties",
+      descriptionAr: "يغطي الأضرار التي قد تلحق بالغير",
       percentage: 0.15, 
       baseValue: value, 
       premium: value * 0.0015,
+      premiumType: "percentage",
+      fixedPremium: 0,
       coverageType: "comprehensive",
       status: "active",
     },
@@ -154,10 +227,13 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
       id: "3", 
       type: "تأمين العمال", 
       typeEn: "Workers' Compensation", 
-      description: "يغطي إصابات وحوادث العمل",
+      description: "Coverage for worker injuries and accidents",
+      descriptionAr: "يغطي إصابات وحوادث العمل",
       percentage: 2.0, 
       baseValue: value * 0.05,
       premium: value * 0.05 * 0.02,
+      premiumType: "percentage",
+      fixedPremium: 0,
       coverageType: "basic",
       status: "active",
     },
@@ -165,10 +241,13 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
       id: "4", 
       type: "تأمين المعدات", 
       typeEn: "Equipment Insurance", 
-      description: "يغطي المعدات ضد السرقة والتلف",
+      description: "Coverage for equipment damage and theft",
+      descriptionAr: "يغطي المعدات ضد السرقة والتلف",
       percentage: 0.5, 
       baseValue: value * 0.1,
       premium: value * 0.1 * 0.005,
+      premiumType: "percentage",
+      fixedPremium: 0,
       coverageType: "comprehensive",
       status: "active",
     },
@@ -180,7 +259,14 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
 
   useEffect(() => {
     if (initialData && initialData.length > 0 && !isInitialized) {
-      setInsurances(initialData);
+      // Ensure all new fields have defaults
+      const migratedData = initialData.map(ins => ({
+        ...ins,
+        descriptionAr: ins.descriptionAr || ins.description || "",
+        premiumType: ins.premiumType || "percentage" as const,
+        fixedPremium: ins.fixedPremium || 0,
+      }));
+      setInsurances(migratedData);
       setIsInitialized(true);
     } else if (!initialData || initialData.length === 0) {
       setIsInitialized(true);
@@ -201,8 +287,11 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
     type: "",
     typeEn: "",
     description: "",
+    descriptionAr: "",
     percentage: 0,
     baseValue: 0,
+    premiumType: "percentage" as "percentage" | "fixed",
+    fixedPremium: 0,
     insurerName: "",
     policyNumber: "",
     coverageType: "comprehensive",
@@ -241,21 +330,66 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
 
   const handleContractValueChange = (value: number) => {
     setBaseContractValue(value);
-    setInsurances(prev => prev.map(ins => ({
-      ...ins,
-      baseValue: ins.id === "3" ? value * 0.05 : ins.id === "4" ? value * 0.1 : value,
-      premium: (ins.id === "3" ? value * 0.05 : ins.id === "4" ? value * 0.1 : value) * (ins.percentage / 100)
-    })));
+    setInsurances(prev => prev.map(ins => {
+      if (ins.premiumType === "fixed") return ins;
+      return {
+        ...ins,
+        baseValue: ins.id === "3" ? value * 0.05 : ins.id === "4" ? value * 0.1 : value,
+        premium: (ins.id === "3" ? value * 0.05 : ins.id === "4" ? value * 0.1 : value) * (ins.percentage / 100)
+      };
+    }));
+  };
+
+  // Calculate premium based on type
+  const calculatePremium = () => {
+    if (formData.premiumType === "fixed") {
+      return formData.fixedPremium;
+    }
+    return formData.baseValue * (formData.percentage / 100);
+  };
+
+  // Coverage days calculation
+  const coverageDays = useMemo(() => {
+    if (formData.startDate && formData.expiryDate) {
+      return differenceInDays(new Date(formData.expiryDate), new Date(formData.startDate));
+    }
+    return 0;
+  }, [formData.startDate, formData.expiryDate]);
+
+  const daysUntilExpiry = useMemo(() => {
+    if (formData.expiryDate) {
+      return differenceInDays(new Date(formData.expiryDate), new Date());
+    }
+    return 0;
+  }, [formData.expiryDate]);
+
+  const handlePresetChange = (presetValue: string) => {
+    setSelectedPreset(presetValue);
+    const preset = INSURANCE_PRESETS.find(p => p.value === presetValue);
+    if (preset && presetValue !== "custom") {
+      setFormData(prev => ({
+        ...prev,
+        type: preset.labelAr,
+        typeEn: preset.labelEn,
+        descriptionAr: preset.descriptionAr,
+        description: preset.descriptionEn,
+        percentage: preset.defaultRate,
+      }));
+    }
   };
 
   const handleAdd = () => {
     setEditingInsurance(null);
+    setSelectedPreset("");
     setFormData({ 
       type: "", 
       typeEn: "", 
       description: "", 
+      descriptionAr: "",
       percentage: 0, 
       baseValue: baseContractValue,
+      premiumType: "percentage",
+      fixedPremium: 0,
       insurerName: "",
       policyNumber: "",
       coverageType: "comprehensive",
@@ -270,12 +404,17 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
 
   const handleEdit = (insurance: Insurance) => {
     setEditingInsurance(insurance);
+    const preset = INSURANCE_PRESETS.find(p => p.labelAr === insurance.type || p.labelEn === insurance.typeEn);
+    setSelectedPreset(preset?.value || "custom");
     setFormData({
       type: insurance.type,
       typeEn: insurance.typeEn,
       description: insurance.description,
+      descriptionAr: insurance.descriptionAr || insurance.description,
       percentage: insurance.percentage,
       baseValue: insurance.baseValue,
+      premiumType: insurance.premiumType || "percentage",
+      fixedPremium: insurance.fixedPremium || 0,
       insurerName: insurance.insurerName || "",
       policyNumber: insurance.policyNumber || "",
       coverageType: insurance.coverageType || "comprehensive",
@@ -288,8 +427,18 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
     setShowDialog(true);
   };
 
+  const handleDuplicate = (insurance: Insurance) => {
+    const newInsurance: Insurance = {
+      ...insurance,
+      id: Date.now().toString(),
+      policyNumber: "",
+      status: "active",
+    };
+    setInsurances(prev => [...prev, newInsurance]);
+  };
+
   const handleSave = () => {
-    const premium = formData.baseValue * (formData.percentage / 100);
+    const premium = calculatePremium();
     const status = getExpiryStatus(formData.expiryDate);
     
     if (editingInsurance) {
@@ -435,7 +584,7 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
           </div>
         </div>
 
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -443,10 +592,11 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
                 <TableHead>{isArabic ? "نوع التأمين" : "Insurance Type"}</TableHead>
                 <TableHead>{isArabic ? "شركة التأمين" : "Insurer"}</TableHead>
                 <TableHead>{isArabic ? "رقم البوليصة" : "Policy #"}</TableHead>
+                <TableHead className="text-center">{isArabic ? "طريقة الحساب" : "Calc. Type"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "الانتهاء" : "Expiry"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "الحالة" : "Status"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "القسط" : "Premium"}</TableHead>
-                <TableHead className="w-24">{isArabic ? "إجراءات" : "Actions"}</TableHead>
+                <TableHead className="w-28">{isArabic ? "إجراءات" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -465,6 +615,13 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
                     </TableCell>
                     <TableCell>{insurance.insurerName || "-"}</TableCell>
                     <TableCell className="font-mono text-sm">{insurance.policyNumber || "-"}</TableCell>
+                    <TableCell className="text-center">
+                      {insurance.premiumType === "fixed" ? (
+                        <Badge variant="outline">{isArabic ? "ثابت" : "Fixed"}</Badge>
+                      ) : (
+                        <span className="text-sm">{insurance.percentage}%</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-center text-sm">{insurance.expiryDate || "-"}</TableCell>
                     <TableCell className="text-center">{getStatusBadge(status, isArabic)}</TableCell>
                     <TableCell className="text-center font-medium text-primary">
@@ -472,6 +629,9 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleDuplicate(insurance)} title={isArabic ? "نسخ" : "Duplicate"}>
+                          <Copy className="w-4 h-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleEdit(insurance)}>
                           <Pencil className="w-4 h-4" />
                         </Button>
@@ -503,34 +663,82 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
         <Dialog open={showDialog} onOpenChange={setShowDialog}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5" />
                 {editingInsurance 
                   ? (isArabic ? "تعديل تأمين" : "Edit Insurance") 
                   : (isArabic ? "إضافة تأمين" : "Add Insurance")}
               </DialogTitle>
+              <DialogDescription>
+                {isArabic ? "إضافة تغطية تأمينية جديدة للمشروع" : "Add a new insurance coverage for the project"}
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              {/* Row 1: Type Names */}
+              {/* Row 0: Insurance Type Preset */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  {isArabic ? "نوع التأمين" : "Insurance Type"} <span className="text-destructive">*</span>
+                </Label>
+                <Select value={selectedPreset} onValueChange={handlePresetChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={isArabic ? "اختر نوع التأمين" : "Select insurance type"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INSURANCE_PRESETS.map(preset => (
+                      <SelectItem key={preset.value} value={preset.value}>
+                        {isArabic ? preset.labelAr : preset.labelEn}
+                        {preset.defaultRate > 0 && ` (${preset.defaultRate}%)`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Row 1: Custom Type Names (shown when custom is selected) */}
+              {selectedPreset === "custom" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "اسم التأمين (عربي)" : "Insurance Name (Arabic)"}</Label>
+                    <Input
+                      value={formData.type}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                      placeholder={isArabic ? "مثال: تأمين المعدات" : "e.g., تأمين المعدات"}
+                      dir="rtl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "اسم التأمين (إنجليزي)" : "Insurance Name (English)"}</Label>
+                    <Input
+                      value={formData.typeEn}
+                      onChange={(e) => setFormData({ ...formData, typeEn: e.target.value })}
+                      placeholder="e.g., Equipment Insurance"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Row 2: Descriptions */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{isArabic ? "نوع التأمين (عربي)" : "Insurance Type (Arabic)"}</Label>
+                  <Label>{isArabic ? "الوصف (عربي)" : "Description (Arabic)"}</Label>
                   <Input
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    placeholder={isArabic ? "مثال: تأمين المعدات" : "e.g., تأمين المعدات"}
+                    value={formData.descriptionAr}
+                    onChange={(e) => setFormData({ ...formData, descriptionAr: e.target.value })}
+                    placeholder={isArabic ? "وصف التغطية التأمينية" : "Insurance coverage description"}
+                    dir="rtl"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{isArabic ? "نوع التأمين (إنجليزي)" : "Insurance Type (English)"}</Label>
+                  <Label>{isArabic ? "الوصف (إنجليزي)" : "Description (English)"}</Label>
                   <Input
-                    value={formData.typeEn}
-                    onChange={(e) => setFormData({ ...formData, typeEn: e.target.value })}
-                    placeholder={isArabic ? "مثال: Equipment Insurance" : "e.g., Equipment Insurance"}
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Insurance coverage description"
                   />
                 </div>
               </div>
 
-              {/* Row 2: Insurer and Policy */}
+              {/* Row 3: Insurer and Policy */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="flex items-center gap-1">
@@ -549,6 +757,14 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
                       ))}
                     </SelectContent>
                   </Select>
+                  {formData.insurerName && (
+                    <Input
+                      value={formData.insurerName}
+                      onChange={(e) => setFormData({ ...formData, insurerName: e.target.value })}
+                      placeholder={isArabic ? "أو أدخل اسم الشركة" : "Or enter company name"}
+                      className="mt-2"
+                    />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="flex items-center gap-1">
@@ -563,7 +779,7 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
                 </div>
               </div>
 
-              {/* Row 3: Coverage Type and Dates */}
+              {/* Row 4: Coverage Type and Dates */}
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>{isArabic ? "نوع التغطية" : "Coverage Type"}</Label>
@@ -607,30 +823,82 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
                 </div>
               </div>
 
-              {/* Row 4: Values */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>{isArabic ? "نسبة التأمين %" : "Insurance Rate %"}</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.percentage}
-                    onChange={(e) => setFormData({ ...formData, percentage: parseFloat(e.target.value) || 0 })}
-                  />
+              {/* Coverage Duration Info */}
+              {coverageDays > 0 && (
+                <div className="flex items-center gap-4 p-3 bg-muted rounded-lg">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm">
+                    {isArabic ? "مدة التغطية:" : "Coverage Duration:"} <strong>{coverageDays}</strong> {isArabic ? "يوم" : "days"}
+                  </span>
+                  {daysUntilExpiry > 0 && daysUntilExpiry <= 30 && (
+                    <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600">
+                      <AlertTriangle className="w-3 h-3 mr-1" />
+                      {daysUntilExpiry} {isArabic ? "يوم متبقي" : "days left"}
+                    </Badge>
+                  )}
                 </div>
-                <div className="space-y-2">
-                  <Label>{isArabic ? "القيمة المؤمنة" : "Insured Value"}</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={formData.baseValue}
-                    onChange={(e) => setFormData({ ...formData, baseValue: parseFloat(e.target.value) || 0 })}
-                  />
-                </div>
+              )}
+
+              {/* Row 5: Premium Calculation Method */}
+              <div className="space-y-4 p-4 border rounded-lg">
+                <Label className="flex items-center gap-2 text-base font-medium">
+                  <Calculator className="w-4 h-4" />
+                  {isArabic ? "طريقة حساب القسط" : "Premium Calculation Method"}
+                </Label>
+                <RadioGroup
+                  value={formData.premiumType}
+                  onValueChange={(value: "percentage" | "fixed") => setFormData({ ...formData, premiumType: value })}
+                  className="flex gap-6"
+                >
+                  <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                    <RadioGroupItem value="percentage" id="percentage" />
+                    <Label htmlFor="percentage" className="cursor-pointer">
+                      {isArabic ? "نسبة مئوية (%)" : "Percentage (%)"}
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                    <RadioGroupItem value="fixed" id="fixed" />
+                    <Label htmlFor="fixed" className="cursor-pointer">
+                      {isArabic ? "قسط ثابت" : "Fixed Premium"}
+                    </Label>
+                  </div>
+                </RadioGroup>
+
+                {formData.premiumType === "percentage" ? (
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div className="space-y-2">
+                      <Label>{isArabic ? "القيمة المؤمنة (SAR)" : "Insured Value (SAR)"}</Label>
+                      <Input
+                        type="number"
+                        value={formData.baseValue}
+                        onChange={(e) => setFormData({ ...formData, baseValue: parseFloat(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{isArabic ? "معدل القسط (%)" : "Premium Rate (%)"}</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.percentage}
+                        onChange={(e) => setFormData({ ...formData, percentage: parseFloat(e.target.value) || 0 })}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4">
+                    <Label>{isArabic ? "قسط ثابت (SAR)" : "Fixed Premium (SAR)"}</Label>
+                    <Input
+                      type="number"
+                      value={formData.fixedPremium}
+                      onChange={(e) => setFormData({ ...formData, fixedPremium: parseFloat(e.target.value) || 0 })}
+                      className="mt-2"
+                    />
+                  </div>
+                )}
               </div>
 
-              {/* Row 5: Contact */}
+              {/* Row 6: Contact */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>{isArabic ? "جهة الاتصال" : "Contact Person"}</Label>
@@ -645,19 +913,9 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
                   <Input
                     value={formData.contactPhone}
                     onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
-                    placeholder={isArabic ? "رقم الهاتف" : "Phone number"}
+                    placeholder="+966 5X XXX XXXX"
                   />
                 </div>
-              </div>
-
-              {/* Row 6: Description */}
-              <div className="space-y-2">
-                <Label>{isArabic ? "الوصف" : "Description"}</Label>
-                <Input
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder={isArabic ? "وصف مختصر للتغطية" : "Brief description of coverage"}
-                />
               </div>
 
               {/* Row 7: Notes */}
@@ -672,19 +930,55 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
               </div>
 
               {/* Premium Summary */}
-              <div className="bg-muted rounded-lg p-4">
-                <p className="text-sm text-muted-foreground">{isArabic ? "قسط التأمين المتوقع" : "Expected Premium"}</p>
-                <p className="text-xl font-bold text-primary">
-                  SAR {formatCurrency(formData.baseValue * (formData.percentage / 100))}
-                </p>
+              <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <Calculator className="w-5 h-5 text-primary" />
+                  <span className="font-semibold">{isArabic ? "ملخص الحساب" : "Calculation Summary"}</span>
+                </div>
+                <div className="space-y-2 text-sm">
+                  {formData.premiumType === "percentage" ? (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">{isArabic ? "القيمة المؤمنة" : "Insured Value"}</span>
+                        <span>SAR {formatCurrency(formData.baseValue)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">{isArabic ? "معدل القسط" : "Premium Rate"}</span>
+                        <span>{formData.percentage}%</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{isArabic ? "قسط ثابت" : "Fixed Premium"}</span>
+                      <span>SAR {formatCurrency(formData.fixedPremium)}</span>
+                    </div>
+                  )}
+                  <div className="border-t pt-2 mt-2">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold">{isArabic ? "إجمالي القسط" : "Total Premium"}</span>
+                      <span className="text-xl font-bold text-primary">
+                        SAR {formatCurrency(calculatePremium())}
+                      </span>
+                    </div>
+                  </div>
+                  {coverageDays > 0 && calculatePremium() > 0 && (
+                    <div className="flex justify-between text-xs text-muted-foreground pt-1">
+                      <span>{isArabic ? "القسط اليومي" : "Daily Premium"}</span>
+                      <span>SAR {formatCurrency(calculatePremium() / coverageDays)}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowDialog(false)}>
                 {isArabic ? "إلغاء" : "Cancel"}
               </Button>
-              <Button onClick={handleSave}>
-                {isArabic ? "حفظ" : "Save"}
+              <Button onClick={handleSave} disabled={!formData.type && !selectedPreset}>
+                {editingInsurance 
+                  ? (isArabic ? "حفظ التغييرات" : "Save Changes")
+                  : (isArabic ? "إضافة التأمين" : "Add Insurance")
+                }
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -703,7 +997,7 @@ export function InsuranceTab({ isArabic, contractValue = 10000000, initialData, 
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
-              <AlertDialogAction onClick={() => deleteId && handleDelete(deleteId)}>
+              <AlertDialogAction onClick={() => deleteId && handleDelete(deleteId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 {isArabic ? "حذف" : "Delete"}
               </AlertDialogAction>
             </AlertDialogFooter>
