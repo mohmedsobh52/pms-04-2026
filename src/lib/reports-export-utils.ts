@@ -21,33 +21,35 @@ interface AnalysisData {
   };
 }
 
-// Export BOQ to Excel
-export const exportBOQToExcel = async (items: BOQItem[], projectName: string) => {
+// Export BOQ to Excel with RTL support
+export const exportBOQToExcel = async (items: BOQItem[], projectName: string, isArabic = false) => {
   const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet('BOQ');
+  const worksheet = workbook.addWorksheet('BOQ', {
+    views: [{ rightToLeft: isArabic }]
+  });
 
-  // Header row
+  // Header row with proper font for Arabic
   worksheet.columns = [
-    { header: 'Item No.', key: 'item_number', width: 12 },
-    { header: 'Description', key: 'description', width: 50 },
-    { header: 'Unit', key: 'unit', width: 10 },
-    { header: 'Quantity', key: 'quantity', width: 12 },
-    { header: 'Unit Price', key: 'unit_price', width: 15 },
-    { header: 'Total Price', key: 'total_price', width: 18 },
+    { header: isArabic ? 'رقم البند' : 'Item No.', key: 'item_number', width: 12 },
+    { header: isArabic ? 'الوصف' : 'Description', key: 'description', width: 50 },
+    { header: isArabic ? 'الوحدة' : 'Unit', key: 'unit', width: 10 },
+    { header: isArabic ? 'الكمية' : 'Quantity', key: 'quantity', width: 12 },
+    { header: isArabic ? 'سعر الوحدة' : 'Unit Price', key: 'unit_price', width: 15 },
+    { header: isArabic ? 'الإجمالي' : 'Total Price', key: 'total_price', width: 18 },
   ];
 
-  // Style header
-  worksheet.getRow(1).font = { bold: true };
+  // Style header with Arabic-compatible font
+  worksheet.getRow(1).font = { bold: true, name: 'Arial', size: 11, color: { argb: 'FFFFFFFF' } };
   worksheet.getRow(1).fill = {
     type: 'pattern',
     pattern: 'solid',
     fgColor: { argb: 'FF4472C4' }
   };
-  worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  worksheet.getRow(1).alignment = { horizontal: isArabic ? 'right' : 'left', vertical: 'middle' };
 
-  // Add data
+  // Add data with proper font
   items.forEach((item) => {
-    worksheet.addRow({
+    const row = worksheet.addRow({
       item_number: item.item_number || '',
       description: item.description || '',
       unit: item.unit || '',
@@ -55,6 +57,8 @@ export const exportBOQToExcel = async (items: BOQItem[], projectName: string) =>
       unit_price: item.unit_price || 0,
       total_price: item.total_price || (item.quantity || 0) * (item.unit_price || 0),
     });
+    row.font = { name: 'Arial', size: 10 };
+    row.alignment = { horizontal: isArabic ? 'right' : 'left', vertical: 'middle' };
   });
 
   // Calculate total
@@ -64,18 +68,19 @@ export const exportBOQToExcel = async (items: BOQItem[], projectName: string) =>
   // Add total row
   const totalRow = worksheet.addRow({
     item_number: '',
-    description: 'TOTAL',
+    description: isArabic ? 'الإجمالي' : 'TOTAL',
     unit: '',
     quantity: '',
     unit_price: '',
     total_price: totalValue,
   });
-  totalRow.font = { bold: true };
+  totalRow.font = { bold: true, name: 'Arial', size: 11 };
   totalRow.fill = {
     type: 'pattern',
     pattern: 'solid',
     fgColor: { argb: 'FFE2EFDA' }
   };
+  totalRow.alignment = { horizontal: isArabic ? 'right' : 'left', vertical: 'middle' };
 
   // Generate file
   const buffer = await workbook.xlsx.writeBuffer();
@@ -88,14 +93,17 @@ export const exportBOQToExcel = async (items: BOQItem[], projectName: string) =>
   URL.revokeObjectURL(url);
 };
 
-// Export Enhanced BOQ to Excel with bilingual support
+// Export Enhanced BOQ to Excel with bilingual support and RTL
 export const exportEnhancedBOQToExcel = async (
   items: BOQItem[], 
   projectName: string, 
   language: 'en' | 'ar' | 'both'
 ) => {
   const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet('Enhanced BOQ');
+  const isRTL = language === 'ar';
+  const worksheet = workbook.addWorksheet('Enhanced BOQ', {
+    views: [{ rightToLeft: isRTL }]
+  });
 
   const headers = {
     en: ['Item No.', 'Description', 'Unit', 'Quantity', 'Unit Price', 'Total Price', 'Category'],
@@ -116,14 +124,14 @@ export const exportEnhancedBOQToExcel = async (
     { header: selectedHeaders[6], key: 'category', width: 20 },
   ];
 
-  // Style header
-  worksheet.getRow(1).font = { bold: true };
+  // Style header with Arabic-compatible font
+  worksheet.getRow(1).font = { bold: true, name: 'Arial', size: 11, color: { argb: 'FFFFFFFF' } };
   worksheet.getRow(1).fill = {
     type: 'pattern',
     pattern: 'solid',
     fgColor: { argb: 'FF4472C4' }
   };
-  worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  worksheet.getRow(1).alignment = { horizontal: isRTL ? 'right' : 'left', vertical: 'middle' };
 
   // Group by category
   const groupedItems = items.reduce((acc: Record<string, BOQItem[]>, item) => {
@@ -136,7 +144,7 @@ export const exportEnhancedBOQToExcel = async (
   // Add items with category subtotals
   Object.entries(groupedItems).forEach(([category, categoryItems]) => {
     categoryItems.forEach((item) => {
-      worksheet.addRow({
+      const row = worksheet.addRow({
         item_number: item.item_number || '',
         description: item.description || '',
         unit: item.unit || '',
@@ -145,6 +153,8 @@ export const exportEnhancedBOQToExcel = async (
         total_price: item.total_price || (item.quantity || 0) * (item.unit_price || 0),
         category: category,
       });
+      row.font = { name: 'Arial', size: 10 };
+      row.alignment = { horizontal: isRTL ? 'right' : 'left', vertical: 'middle' };
     });
 
     // Subtotal for category
@@ -160,12 +170,13 @@ export const exportEnhancedBOQToExcel = async (
       total_price: subtotal,
       category: '',
     });
-    subtotalRow.font = { bold: true, italic: true };
+    subtotalRow.font = { bold: true, italic: true, name: 'Arial', size: 10 };
     subtotalRow.fill = {
       type: 'pattern',
       pattern: 'solid',
       fgColor: { argb: 'FFF2F2F2' }
     };
+    subtotalRow.alignment = { horizontal: isRTL ? 'right' : 'left', vertical: 'middle' };
   });
 
   // Grand total
@@ -181,12 +192,13 @@ export const exportEnhancedBOQToExcel = async (
     total_price: grandTotal,
     category: '',
   });
-  totalRow.font = { bold: true, size: 12 };
+  totalRow.font = { bold: true, size: 12, name: 'Arial' };
   totalRow.fill = {
     type: 'pattern',
     pattern: 'solid',
     fgColor: { argb: 'FFE2EFDA' }
   };
+  totalRow.alignment = { horizontal: isRTL ? 'right' : 'left', vertical: 'middle' };
 
   // Generate file
   const buffer = await workbook.xlsx.writeBuffer();
@@ -247,24 +259,12 @@ export const exportTenderSummaryToExcel = async (analysisData: AnalysisData, pro
   URL.revokeObjectURL(url);
 };
 
-// Export Tender Summary to PDF
-export const exportTenderSummaryToPDF = (analysisData: AnalysisData, projectName: string) => {
-  const doc = new jsPDF();
+// Export Tender Summary to PDF using HTML-to-Print for Arabic support
+export const exportTenderSummaryToPDF = (analysisData: AnalysisData, projectName: string, isArabic = false) => {
   const items = analysisData.items || [];
   const summary = analysisData.summary || {};
-
-  // Title
-  doc.setFontSize(18);
-  doc.text(`Tender Summary`, 105, 20, { align: 'center' });
-  doc.setFontSize(14);
-  doc.text(projectName, 105, 30, { align: 'center' });
-
-  // Summary info
-  doc.setFontSize(11);
-  doc.text(`Total Items: ${items.length}`, 20, 50);
-  doc.text(`Total Value: ${new Intl.NumberFormat().format(summary.total_value || 0)} ${summary.currency || 'SAR'}`, 20, 60);
-
-  // Category breakdown table
+  
+  // Category breakdown
   const groupedItems = items.reduce((acc: Record<string, { count: number; value: number }>, item) => {
     const category = item.category || 'Uncategorized';
     const value = item.total_price || (item.quantity || 0) * (item.unit_price || 0);
@@ -274,21 +274,84 @@ export const exportTenderSummaryToPDF = (analysisData: AnalysisData, projectName
     return acc;
   }, {});
 
-  const tableData = Object.entries(groupedItems).map(([category, data]) => [
-    category,
-    data.count.toString(),
-    new Intl.NumberFormat().format(data.value),
-  ]);
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) return;
 
-  autoTable(doc, {
-    startY: 75,
-    head: [['Category', 'Items', 'Value']],
-    body: tableData,
-    theme: 'striped',
-    headStyles: { fillColor: [68, 114, 196] },
-  });
-
-  doc.save(`${projectName}_Tender_Summary.pdf`);
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html lang="${isArabic ? 'ar' : 'en'}" dir="${isArabic ? 'rtl' : 'ltr'}">
+    <head>
+      <meta charset="UTF-8">
+      <title>${projectName} - Tender Summary</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+      <style>
+        * { font-family: 'Cairo', 'Segoe UI', sans-serif; box-sizing: border-box; }
+        body { 
+          direction: ${isArabic ? 'rtl' : 'ltr'}; 
+          text-align: ${isArabic ? 'right' : 'left'}; 
+          padding: 30px;
+          color: #1e293b;
+        }
+        h1 { text-align: center; color: #3b82f6; margin-bottom: 5px; }
+        h2 { text-align: center; color: #64748b; font-weight: normal; margin-bottom: 30px; }
+        .summary-box {
+          background: #f1f5f9;
+          padding: 20px;
+          border-radius: 10px;
+          margin-bottom: 25px;
+        }
+        .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0; }
+        .summary-row:last-child { border-bottom: none; }
+        .label { color: #64748b; }
+        .value { font-weight: 600; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { background: #4472C4; color: white; padding: 12px; text-align: ${isArabic ? 'right' : 'left'}; }
+        td { border: 1px solid #e2e8f0; padding: 10px; text-align: ${isArabic ? 'right' : 'left'}; }
+        tr:nth-child(even) { background: #f8fafc; }
+      </style>
+    </head>
+    <body>
+      <h1>${isArabic ? 'ملخص العطاء' : 'Tender Summary'}</h1>
+      <h2>${projectName}</h2>
+      
+      <div class="summary-box">
+        <div class="summary-row">
+          <span class="label">${isArabic ? 'إجمالي البنود' : 'Total Items'}</span>
+          <span class="value">${items.length}</span>
+        </div>
+        <div class="summary-row">
+          <span class="label">${isArabic ? 'إجمالي القيمة' : 'Total Value'}</span>
+          <span class="value">${new Intl.NumberFormat('en-US').format(summary.total_value || 0)} ${summary.currency || 'SAR'}</span>
+        </div>
+      </div>
+      
+      <h3>${isArabic ? 'توزيع الفئات' : 'Category Breakdown'}</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>${isArabic ? 'الفئة' : 'Category'}</th>
+            <th>${isArabic ? 'عدد البنود' : 'Items'}</th>
+            <th>${isArabic ? 'القيمة' : 'Value'}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${Object.entries(groupedItems).map(([category, data]) => `
+            <tr>
+              <td>${category}</td>
+              <td>${data.count}</td>
+              <td>${new Intl.NumberFormat('en-US').format(data.value)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </body>
+    </html>
+  `);
+  
+  printWindow.document.close();
+  setTimeout(() => printWindow.print(), 500);
 };
 
 // Export Price Analysis to Excel

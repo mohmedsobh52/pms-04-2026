@@ -125,6 +125,9 @@ export function PrintableReport({
     }
 
     const printStyles = `
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
       <style>
         @page {
           size: ${paperSize} ${orientation};
@@ -136,7 +139,7 @@ export function PrintableReport({
           padding: 0;
         }
         body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          font-family: 'Cairo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
           font-size: 11pt;
           line-height: 1.5;
           color: #1e293b;
@@ -281,6 +284,7 @@ export function PrintableReport({
       <html lang="${isArabic ? 'ar' : 'en'}" dir="${isArabic ? 'rtl' : 'ltr'}">
       <head>
         <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>${customTitle} - ${isArabic ? "التقرير الشامل" : "Comprehensive Report"}</title>
         ${printStyles}
       </head>

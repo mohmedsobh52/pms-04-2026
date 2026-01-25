@@ -80,59 +80,162 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
       return;
     }
     
-    const doc = new jsPDF();
     const items = selectedProject.analysis_data.items;
-    
-    // Header
-    doc.setFillColor(59, 130, 246);
-    doc.rect(0, 0, 210, 35, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(20);
-    doc.text(isArabic ? "التقرير الشامل" : "Comprehensive Report", 14, 18);
-    doc.setFontSize(12);
-    doc.text(selectedProject.name, 14, 28);
-    
-    // Summary section
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(14);
-    let y = 50;
-    doc.text(isArabic ? "ملخص المشروع" : "Project Summary", 14, y);
-    y += 10;
-    
-    doc.setFontSize(10);
     const totalValue = items.reduce((sum: number, item: any) => sum + (parseFloat(item.total_price) || 0), 0);
-    doc.text(`${isArabic ? "إجمالي البنود:" : "Total Items:"} ${items.length}`, 14, y);
-    y += 7;
-    doc.text(`${isArabic ? "إجمالي القيمة:" : "Total Value:"} ${totalValue.toLocaleString()}`, 14, y);
-    y += 7;
-    doc.text(`${isArabic ? "تاريخ التقرير:" : "Report Date:"} ${new Date().toLocaleDateString()}`, 14, y);
-    y += 15;
     
-    // Items table
-    autoTable(doc, {
-      startY: y,
-      head: [[
-        '#',
-        isArabic ? 'الوصف' : 'Description',
-        isArabic ? 'الكمية' : 'Qty',
-        isArabic ? 'الوحدة' : 'Unit',
-        isArabic ? 'السعر' : 'Price',
-        isArabic ? 'الإجمالي' : 'Total'
-      ]],
-      body: items.slice(0, 50).map((item: any, idx: number) => [
-        idx + 1,
-        (item.description || '-').substring(0, 35),
-        item.quantity || '-',
-        item.unit || '-',
-        item.unit_price?.toLocaleString() || '-',
-        item.total_price?.toLocaleString() || '-'
-      ]),
-      headStyles: { fillColor: [59, 130, 246] },
-      styles: { fontSize: 8 },
-    });
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error(isArabic ? "يرجى السماح بالنوافذ المنبثقة" : "Please allow popups");
+      return;
+    }
     
-    doc.save(`comprehensive-report-${selectedProject.name}.pdf`);
-    toast.success(isArabic ? "تم تصدير التقرير الشامل بنجاح" : "Comprehensive report exported successfully");
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="${isArabic ? 'ar' : 'en'}" dir="${isArabic ? 'rtl' : 'ltr'}">
+      <head>
+        <meta charset="UTF-8">
+        <title>${selectedProject.name} - ${isArabic ? "التقرير الشامل" : "Comprehensive Report"}</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+        <style>
+          * { 
+            font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; 
+            box-sizing: border-box;
+          }
+          body { 
+            direction: ${isArabic ? 'rtl' : 'ltr'}; 
+            text-align: ${isArabic ? 'right' : 'left'}; 
+            padding: 20px;
+            color: #1e293b;
+            line-height: 1.6;
+          }
+          .header {
+            background: linear-gradient(135deg, #3b82f6 0%, #7c3aed 100%);
+            color: white;
+            padding: 25px 30px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+          }
+          .header h1 { margin: 0 0 8px 0; font-size: 24px; font-weight: 700; }
+          .header p { margin: 0; opacity: 0.9; font-size: 14px; }
+          .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+          }
+          .summary-card {
+            background: #f1f5f9;
+            border-radius: 10px;
+            padding: 18px;
+            text-align: center;
+          }
+          .summary-card .label { font-size: 12px; color: #64748b; margin-bottom: 5px; }
+          .summary-card .value { font-size: 20px; font-weight: 700; color: #1e293b; }
+          table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 20px;
+            font-size: 11px;
+          }
+          th { 
+            background: #3b82f6; 
+            color: white; 
+            padding: 12px 10px;
+            font-weight: 600;
+            text-align: ${isArabic ? 'right' : 'left'};
+          }
+          td { 
+            border: 1px solid #e2e8f0; 
+            padding: 10px;
+            text-align: ${isArabic ? 'right' : 'left'};
+          }
+          tr:nth-child(even) { background: #f8fafc; }
+          .total-row { 
+            font-weight: 700; 
+            background: #e2e8f0 !important;
+            font-size: 13px;
+          }
+          .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #e2e8f0;
+            color: #64748b;
+            font-size: 11px;
+            text-align: center;
+          }
+          @media print {
+            body { padding: 0; }
+            .header { break-after: avoid; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${selectedProject.name}</h1>
+          <p>${isArabic ? "التقرير الشامل - تحليل جدول الكميات" : "Comprehensive Report - BOQ Analysis"}</p>
+        </div>
+        
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="label">${isArabic ? "إجمالي البنود" : "Total Items"}</div>
+            <div class="value">${items.length}</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">${isArabic ? "إجمالي القيمة" : "Total Value"}</div>
+            <div class="value">${totalValue.toLocaleString('en-US')}</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">${isArabic ? "تاريخ التقرير" : "Report Date"}</div>
+            <div class="value">${new Date().toLocaleDateString('en-US')}</div>
+          </div>
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>${isArabic ? "الوصف" : "Description"}</th>
+              <th>${isArabic ? "الكمية" : "Qty"}</th>
+              <th>${isArabic ? "الوحدة" : "Unit"}</th>
+              <th>${isArabic ? "السعر" : "Price"}</th>
+              <th>${isArabic ? "الإجمالي" : "Total"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map((item: any, idx: number) => `
+              <tr>
+                <td>${idx + 1}</td>
+                <td>${item.description || '-'}</td>
+                <td>${item.quantity?.toLocaleString('en-US') || '-'}</td>
+                <td>${item.unit || '-'}</td>
+                <td>${item.unit_price?.toLocaleString('en-US') || '-'}</td>
+                <td>${item.total_price?.toLocaleString('en-US') || '-'}</td>
+              </tr>
+            `).join('')}
+            <tr class="total-row">
+              <td colspan="5">${isArabic ? "الإجمالي" : "Total"}</td>
+              <td>${totalValue.toLocaleString('en-US')}</td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <div class="footer">
+          ${isArabic ? "تم إنشاء هذا التقرير بواسطة PMS" : "Generated by PMS"} - ${new Date().toLocaleString('en-US')}
+        </div>
+      </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    
+    // Wait for fonts to load then print
+    setTimeout(() => {
+      printWindow.print();
+    }, 500);
+    
+    toast.success(isArabic ? "تم فتح نافذة الطباعة - اختر 'حفظ كـ PDF' للتصدير" : "Print window opened - Select 'Save as PDF' to export");
   };
 
   const handlePrintReport = () => {
@@ -145,64 +248,112 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
     const totalValue = items.reduce((sum: number, item: any) => sum + (parseFloat(item.total_price) || 0), 0);
     
     const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    if (!printWindow) {
+      toast.error(isArabic ? "يرجى السماح بالنوافذ المنبثقة" : "Please allow popups");
+      return;
+    }
     
     printWindow.document.write(`
-      <html>
-        <head>
-          <title>${selectedProject.name} - Report</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { color: #3b82f6; margin-bottom: 5px; }
-            .summary { margin: 20px 0; padding: 15px; background: #f1f5f9; border-radius: 8px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; }
-            th { background: #3b82f6; color: white; }
-            tr:nth-child(even) { background: #f8fafc; }
-            .total-row { font-weight: bold; background: #e2e8f0; }
-          </style>
-        </head>
-        <body>
-          <h1>${selectedProject.name}</h1>
-          <p style="color: #64748b;">${isArabic ? "التقرير الشامل" : "Comprehensive Report"}</p>
-          <div class="summary">
-            <strong>${isArabic ? "إجمالي البنود:" : "Total Items:"}</strong> ${items.length}<br>
-            <strong>${isArabic ? "إجمالي القيمة:" : "Total Value:"}</strong> ${totalValue.toLocaleString()}<br>
-            <strong>${isArabic ? "التاريخ:" : "Date:"}</strong> ${new Date().toLocaleDateString()}
+      <!DOCTYPE html>
+      <html lang="${isArabic ? 'ar' : 'en'}" dir="${isArabic ? 'rtl' : 'ltr'}">
+      <head>
+        <meta charset="UTF-8">
+        <title>${selectedProject.name} - ${isArabic ? "تقرير" : "Report"}</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+        <style>
+          * { 
+            font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; 
+            box-sizing: border-box;
+          }
+          body { 
+            direction: ${isArabic ? 'rtl' : 'ltr'}; 
+            text-align: ${isArabic ? 'right' : 'left'}; 
+            padding: 20px;
+            color: #1e293b;
+          }
+          h1 { color: #3b82f6; margin-bottom: 5px; font-size: 22px; }
+          .subtitle { color: #64748b; margin-bottom: 20px; font-size: 13px; }
+          .summary { 
+            margin: 20px 0; 
+            padding: 18px; 
+            background: #f1f5f9; 
+            border-radius: 10px;
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+          }
+          .summary-item { }
+          .summary-label { font-size: 12px; color: #64748b; }
+          .summary-value { font-size: 16px; font-weight: 600; color: #1e293b; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11px; }
+          th, td { 
+            border: 1px solid #e2e8f0; 
+            padding: 10px;
+            text-align: ${isArabic ? 'right' : 'left'};
+          }
+          th { background: #3b82f6; color: white; font-weight: 600; }
+          tr:nth-child(even) { background: #f8fafc; }
+          .total-row { font-weight: bold; background: #e2e8f0 !important; }
+        </style>
+      </head>
+      <body>
+        <h1>${selectedProject.name}</h1>
+        <p class="subtitle">${isArabic ? "تقرير جدول الكميات" : "Bill of Quantities Report"}</p>
+        
+        <div class="summary">
+          <div class="summary-item">
+            <div class="summary-label">${isArabic ? "إجمالي البنود" : "Total Items"}</div>
+            <div class="summary-value">${items.length}</div>
           </div>
-          <table>
-            <thead>
+          <div class="summary-item">
+            <div class="summary-label">${isArabic ? "إجمالي القيمة" : "Total Value"}</div>
+            <div class="summary-value">${totalValue.toLocaleString('en-US')}</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">${isArabic ? "التاريخ" : "Date"}</div>
+            <div class="summary-value">${new Date().toLocaleDateString('en-US')}</div>
+          </div>
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>${isArabic ? "الوصف" : "Description"}</th>
+              <th>${isArabic ? "الكمية" : "Qty"}</th>
+              <th>${isArabic ? "الوحدة" : "Unit"}</th>
+              <th>${isArabic ? "السعر" : "Price"}</th>
+              <th>${isArabic ? "الإجمالي" : "Total"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map((item: any, idx: number) => `
               <tr>
-                <th>#</th>
-                <th>${isArabic ? "الوصف" : "Description"}</th>
-                <th>${isArabic ? "الكمية" : "Qty"}</th>
-                <th>${isArabic ? "الوحدة" : "Unit"}</th>
-                <th>${isArabic ? "السعر" : "Price"}</th>
-                <th>${isArabic ? "الإجمالي" : "Total"}</th>
+                <td>${idx + 1}</td>
+                <td>${item.description || '-'}</td>
+                <td>${item.quantity?.toLocaleString('en-US') || '-'}</td>
+                <td>${item.unit || '-'}</td>
+                <td>${item.unit_price?.toLocaleString('en-US') || '-'}</td>
+                <td>${item.total_price?.toLocaleString('en-US') || '-'}</td>
               </tr>
-            </thead>
-            <tbody>
-              ${items.map((item: any, idx: number) => `
-                <tr>
-                  <td>${idx + 1}</td>
-                  <td>${item.description || '-'}</td>
-                  <td>${item.quantity || '-'}</td>
-                  <td>${item.unit || '-'}</td>
-                  <td>${item.unit_price?.toLocaleString() || '-'}</td>
-                  <td>${item.total_price?.toLocaleString() || '-'}</td>
-                </tr>
-              `).join('')}
-              <tr class="total-row">
-                <td colspan="5">${isArabic ? "الإجمالي" : "Total"}</td>
-                <td>${totalValue.toLocaleString()}</td>
-              </tr>
-            </tbody>
-          </table>
-        </body>
+            `).join('')}
+            <tr class="total-row">
+              <td colspan="5">${isArabic ? "الإجمالي" : "Total"}</td>
+              <td>${totalValue.toLocaleString('en-US')}</td>
+            </tr>
+          </tbody>
+        </table>
+      </body>
       </html>
     `);
+    
     printWindow.document.close();
-    printWindow.print();
+    
+    setTimeout(() => {
+      printWindow.print();
+    }, 500);
     
     toast.success(isArabic ? "جاري الطباعة..." : "Printing...");
   };
