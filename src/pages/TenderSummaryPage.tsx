@@ -93,6 +93,7 @@ export default function TenderSummaryPage() {
   const [project, setProject] = useState<ProjectData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [isRefreshingCosts, setIsRefreshingCosts] = useState(false);
   
   // Centralized state for all data
   const [totals, setTotals] = useState<Totals>({
@@ -367,6 +368,97 @@ export default function TenderSummaryPage() {
     setTotals(prev => ({ ...prev, subcontractorsCosts: total }));
   };
 
+  // Refresh direct costs from BOQ items
+  const refreshDirectCosts = async () => {
+    if (!projectId) return;
+    
+    setIsRefreshingCosts(true);
+    try {
+      const { data: projectItems } = await supabase
+        .from("project_items")
+        .select("id, total_price, overhead_percentage, profit_percentage")
+        .eq("project_id", projectId);
+
+      if (projectItems && projectItems.length > 0) {
+        const totalBoq = projectItems.reduce((sum, item) => sum + (Number(item.total_price) || 0), 0);
+        const avgOverhead = projectItems.reduce((sum, item) => sum + (Number(item.overhead_percentage) || 10), 0) / projectItems.length;
+        const avgProfit = projectItems.reduce((sum, item) => sum + (Number(item.profit_percentage) || 15), 0) / projectItems.length;
+
+        // Get pricing details breakdown
+        const projectItemIds = projectItems.map(item => item.id);
+        const { data: pricingDetails } = await supabase
+          .from("item_pricing_details")
+          .select("pricing_type, total_cost")
+          .in("project_item_id", projectItemIds);
+
+        let materialsCost = 0;
+        let laborCost = 0;
+        let equipmentCost = 0;
+
+        if (pricingDetails) {
+          pricingDetails.forEach(detail => {
+            const cost = Number(detail.total_cost) || 0;
+            if (detail.pricing_type === 'material') {
+              materialsCost += cost;
+            } else if (detail.pricing_type === 'labor') {
+              laborCost += cost;
+            } else if (detail.pricing_type === 'equipment') {
+              equipmentCost += cost;
+            }
+          });
+        }
+
+        setDirectCosts({
+          materials: materialsCost,
+          labor: laborCost,
+          equipment: equipmentCost,
+          totalBoq,
+          overhead: totalBoq * (avgOverhead / 100),
+          profit: totalBoq * (avgProfit / 100),
+        });
+
+        toast({
+          title: isArabic ? "تم التحديث" : "Updated",
+          description: isArabic 
+            ? `تم تحديث التكاليف المباشرة من ${projectItems.length} بند BOQ` 
+            : `Direct costs updated from ${projectItems.length} BOQ items`,
+        });
+      } else {
+        toast({
+          title: isArabic ? "لا توجد بيانات" : "No Data",
+          description: isArabic 
+            ? "لا توجد بنود BOQ لهذا المشروع" 
+            : "No BOQ items found for this project",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error refreshing direct costs:", error);
+      toast({
+        title: isArabic ? "خطأ" : "Error",
+        description: isArabic ? "فشل في تحديث التكاليف المباشرة" : "Failed to refresh direct costs",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshingCosts(false);
+    }
+  };
+
+  // Handle pricing change from scenarios
+  const handlePricingScenarioChange = (profit: number, contingency: number) => {
+    setPricingSettings(prev => ({
+      ...prev,
+      profitMargin: profit,
+      contingency: contingency,
+    }));
+    toast({
+      title: isArabic ? "تم التطبيق" : "Applied",
+      description: isArabic 
+        ? `تم تطبيق الربح ${profit}% والاحتياطي ${contingency}%` 
+        : `Applied profit ${profit}% and contingency ${contingency}%`,
+    });
+  };
+
   const handleCalculate = async () => {
     setIsCalculating(true);
     try {
@@ -485,6 +577,8 @@ export default function TenderSummaryPage() {
                 guaranteesData={guaranteesData}
                 indirectCostsData={indirectCostsData}
                 subcontractorsData={subcontractorsData}
+                directCosts={directCosts}
+                projectArea={projectArea}
               />
               <Button
                 onClick={handleCalculate}
@@ -556,7 +650,9 @@ export default function TenderSummaryPage() {
                   totalIndirectCosts: totals.indirectCosts,
                   totalSubcontractorsCosts: totals.subcontractorsCosts,
                 }}
+                directCosts={directCosts.totalBoq}
                 currency={pricingSettings.currency}
+                onPricingChange={handlePricingScenarioChange}
               />
 
               {/* Direct Costs & Price per Square Meter */}
@@ -626,6 +722,21 @@ export default function TenderSummaryPage() {
                               </span>
                             </div>
                           </div>
+                          {/* Refresh from BOQ Button */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full mt-3 gap-2"
+                            onClick={refreshDirectCosts}
+                            disabled={isRefreshingCosts}
+                          >
+                            {isRefreshingCosts ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="w-4 h-4" />
+                            )}
+                            {isArabic ? "تحديث من بنود BOQ" : "Refresh from BOQ Items"}
+                          </Button>
                         </div>
                       </CollapsibleContent>
                     </Collapsible>
