@@ -15,76 +15,90 @@ interface TenderChartsProps {
   directCosts?: number;
 }
 
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
+const COLORS = ["#22c55e", "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
 
 export function TenderCharts({ isArabic, totals, directCosts = 0 }: TenderChartsProps) {
-  const pieData = [
+  // Build pie data with direct costs first if available
+  const basePieData = [
+    ...(directCosts > 0 ? [{ 
+      name: isArabic ? "التكاليف المباشرة (BOQ)" : "Direct Costs (BOQ)", 
+      value: directCosts,
+      color: COLORS[0] // Green for direct costs
+    }] : []),
     { 
       name: isArabic ? "طاقم الموقع" : "Site Staff", 
       value: totals.staffCosts || 0,
-      color: COLORS[0]
+      color: COLORS[1]
     },
     { 
       name: isArabic ? "المرافق" : "Facilities", 
       value: totals.facilitiesCosts || 0,
-      color: COLORS[1]
+      color: COLORS[2]
     },
     { 
       name: isArabic ? "التأمين" : "Insurance", 
       value: totals.insuranceCosts || 0,
-      color: COLORS[2]
+      color: COLORS[3]
     },
     { 
       name: isArabic ? "الضمانات" : "Guarantees", 
       value: totals.guaranteesCosts || 0,
-      color: COLORS[3]
+      color: COLORS[4]
     },
     { 
       name: isArabic ? "تكاليف غير مباشرة" : "Indirect Costs", 
       value: totals.indirectCosts || 0,
-      color: COLORS[4]
+      color: COLORS[5]
     },
     { 
       name: isArabic ? "مقاولي الباطن" : "Subcontractors", 
       value: totals.subcontractorsCosts || 0,
-      color: COLORS[5]
+      color: COLORS[6]
     },
   ].filter(item => item.value > 0);
 
+  const pieData = basePieData;
+
   const barData = [
+    ...(directCosts > 0 ? [{ 
+      name: isArabic ? "مباشرة" : "Direct", 
+      value: directCosts,
+      fill: COLORS[0]
+    }] : []),
     { 
       name: isArabic ? "طاقم الموقع" : "Staff", 
       value: totals.staffCosts || 0,
-      fill: COLORS[0]
+      fill: COLORS[1]
     },
     { 
       name: isArabic ? "المرافق" : "Facilities", 
       value: totals.facilitiesCosts || 0,
-      fill: COLORS[1]
+      fill: COLORS[2]
     },
     { 
       name: isArabic ? "التأمين" : "Insurance", 
       value: totals.insuranceCosts || 0,
-      fill: COLORS[2]
+      fill: COLORS[3]
     },
     { 
       name: isArabic ? "الضمانات" : "Guarantees", 
       value: totals.guaranteesCosts || 0,
-      fill: COLORS[3]
+      fill: COLORS[4]
     },
     { 
       name: isArabic ? "غير مباشرة" : "Indirect", 
       value: totals.indirectCosts || 0,
-      fill: COLORS[4]
+      fill: COLORS[5]
     },
     { 
       name: isArabic ? "مقاولين" : "Subcontractors", 
       value: totals.subcontractorsCosts || 0,
-      fill: COLORS[5]
+      fill: COLORS[6]
     },
   ];
 
   const totalIndirect = totals.staffCosts + totals.facilitiesCosts + totals.insuranceCosts + totals.guaranteesCosts + totals.indirectCosts + (totals.subcontractorsCosts || 0);
+  const grandTotal = directCosts + totalIndirect;
 
   const formatCurrency = (value: number) => {
     if (value >= 1000000) {
@@ -130,7 +144,7 @@ export function TenderCharts({ isArabic, totals, directCosts = 0 }: TenderCharts
     );
   };
 
-  if (totalIndirect === 0) {
+  if (grandTotal === 0) {
     return (
       <Card>
         <CardContent className="py-12">

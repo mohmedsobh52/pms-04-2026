@@ -3,8 +3,11 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft, Home, ChevronRight, RefreshCw, Calculator,
   Users, Building2, Shield, FileCheck, Settings, FileText,
-  Table as TableIcon, Loader2, HardHat
+  Table as TableIcon, Loader2, HardHat, ChevronDown, Package, Hammer, Wrench, Ruler
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -57,6 +60,15 @@ interface Totals {
   subcontractorsCosts: number;
 }
 
+interface DirectCosts {
+  materials: number;
+  labor: number;
+  equipment: number;
+  totalBoq: number;
+  overhead: number;
+  profit: number;
+}
+
 interface TenderSubcontractor {
   id: string;
   subcontractorId: string;
@@ -107,6 +119,19 @@ export default function TenderSummaryPage() {
   const [guaranteesData, setGuaranteesData] = useState<any[]>([]);
   const [indirectCostsData, setIndirectCostsData] = useState<any[]>([]);
   const [subcontractorsData, setSubcontractorsData] = useState<TenderSubcontractor[]>([]);
+
+  // Direct costs from BOQ
+  const [directCosts, setDirectCosts] = useState<DirectCosts>({
+    materials: 0,
+    labor: 0,
+    equipment: 0,
+    totalBoq: 0,
+    overhead: 0,
+    profit: 0,
+  });
+
+  // Project area for price per sqm calculation
+  const [projectArea, setProjectArea] = useState<number>(0);
 
   // Save status
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved" | "error">("saved");
@@ -179,7 +204,65 @@ export default function TenderSummaryPage() {
         setIndirectCostsData(Array.isArray(pricingData.indirect_costs_data) ? pricingData.indirect_costs_data as any[] : []);
         setSubcontractorsData(Array.isArray((pricingData as any).subcontractors_data) ? (pricingData as any).subcontractors_data : []);
         
+        // Load project area
+        setProjectArea(Number((pricingData as any).project_area) || 0);
+        
+        // Load direct costs from stored values
+        setDirectCosts({
+          materials: Number((pricingData as any).total_materials_cost) || 0,
+          labor: Number((pricingData as any).total_labor_cost) || 0,
+          equipment: Number((pricingData as any).total_equipment_cost) || 0,
+          totalBoq: Number((pricingData as any).total_direct_costs) || 0,
+          overhead: 0,
+          profit: 0,
+        });
+        
         setLastSaved(new Date(pricingData.updated_at));
+      }
+
+      // Load direct costs from project_items and item_pricing_details
+      const { data: projectItems } = await supabase
+        .from("project_items")
+        .select("id, total_price, overhead_percentage, profit_percentage")
+        .eq("project_id", projectId);
+
+      if (projectItems && projectItems.length > 0) {
+        const totalBoq = projectItems.reduce((sum, item) => sum + (Number(item.total_price) || 0), 0);
+        const avgOverhead = projectItems.reduce((sum, item) => sum + (Number(item.overhead_percentage) || 10), 0) / projectItems.length;
+        const avgProfit = projectItems.reduce((sum, item) => sum + (Number(item.profit_percentage) || 15), 0) / projectItems.length;
+
+        // Get pricing details breakdown
+        const projectItemIds = projectItems.map(item => item.id);
+        const { data: pricingDetails } = await supabase
+          .from("item_pricing_details")
+          .select("pricing_type, total_cost")
+          .in("project_item_id", projectItemIds);
+
+        let materialsCost = 0;
+        let laborCost = 0;
+        let equipmentCost = 0;
+
+        if (pricingDetails) {
+          pricingDetails.forEach(detail => {
+            const cost = Number(detail.total_cost) || 0;
+            if (detail.pricing_type === 'material') {
+              materialsCost += cost;
+            } else if (detail.pricing_type === 'labor') {
+              laborCost += cost;
+            } else if (detail.pricing_type === 'equipment') {
+              equipmentCost += cost;
+            }
+          });
+        }
+
+        setDirectCosts({
+          materials: materialsCost,
+          labor: laborCost,
+          equipment: equipmentCost,
+          totalBoq,
+          overhead: totalBoq * (avgOverhead / 100),
+          profit: totalBoq * (avgProfit / 100),
+        });
       }
       
       setHasLoadedData(true);
@@ -226,6 +309,11 @@ export default function TenderSummaryPage() {
           total_guarantees_costs: totals.guaranteesCosts,
           total_indirect_costs: totals.indirectCosts,
           total_subcontractors_costs: totals.subcontractorsCosts,
+          project_area: projectArea,
+          total_materials_cost: directCosts.materials,
+          total_labor_cost: directCosts.labor,
+          total_equipment_cost: directCosts.equipment,
+          total_direct_costs: directCosts.totalBoq,
           total_value: calculateTotalValue(),
           updated_at: new Date().toISOString(),
         } as any, {
@@ -240,7 +328,7 @@ export default function TenderSummaryPage() {
       console.error("Error saving data:", error);
       setSaveStatus("error");
     }
-  }, [projectId, user, hasLoadedData, pricingSettings, staffData, facilitiesData, insuranceData, guaranteesData, indirectCostsData, subcontractorsData, totals]);
+  }, [projectId, user, hasLoadedData, pricingSettings, staffData, facilitiesData, insuranceData, guaranteesData, indirectCostsData, subcontractorsData, totals, projectArea, directCosts]);
 
   // Auto-save with debounce
   useEffect(() => {
@@ -252,13 +340,14 @@ export default function TenderSummaryPage() {
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [pricingSettings, staffData, facilitiesData, insuranceData, guaranteesData, indirectCostsData, subcontractorsData, totals]);
+  }, [pricingSettings, staffData, facilitiesData, insuranceData, guaranteesData, indirectCostsData, subcontractorsData, totals, projectArea]);
 
   const calculateTotalValue = () => {
     const totalIndirect = totals.staffCosts + totals.facilitiesCosts + totals.insuranceCosts + totals.guaranteesCosts + totals.indirectCosts + totals.subcontractorsCosts;
-    const profit = totalIndirect * (pricingSettings.profitMargin / 100);
-    const contingency = totalIndirect * (pricingSettings.contingency / 100);
-    return totalIndirect + profit + contingency;
+    const allCosts = directCosts.totalBoq + totalIndirect;
+    const profit = allCosts * (pricingSettings.profitMargin / 100);
+    const contingency = allCosts * (pricingSettings.contingency / 100);
+    return allCosts + profit + contingency;
   };
 
   // Extract project items from analysis_data for subcontractor linking
@@ -317,9 +406,11 @@ export default function TenderSummaryPage() {
   };
 
   const totalIndirect = totals.staffCosts + totals.facilitiesCosts + totals.insuranceCosts + totals.guaranteesCosts + totals.indirectCosts + totals.subcontractorsCosts;
-  const profit = totalIndirect * (pricingSettings.profitMargin / 100);
-  const contingency = totalIndirect * (pricingSettings.contingency / 100);
-  const grandTotal = totalIndirect + profit + contingency;
+  const allCosts = directCosts.totalBoq + totalIndirect;
+  const profit = allCosts * (pricingSettings.profitMargin / 100);
+  const contingency = allCosts * (pricingSettings.contingency / 100);
+  const grandTotal = allCosts + profit + contingency;
+  const pricePerSqm = projectArea > 0 ? grandTotal / projectArea : 0;
 
   if (isLoading) {
     return (
@@ -452,7 +543,7 @@ export default function TenderSummaryPage() {
               />
 
               {/* Charts */}
-              <TenderCharts isArabic={isArabic} totals={totals} />
+              <TenderCharts isArabic={isArabic} totals={totals} directCosts={directCosts.totalBoq} />
 
               {/* Pricing Scenarios */}
               <PricingScenarios 
@@ -468,6 +559,129 @@ export default function TenderSummaryPage() {
                 currency={pricingSettings.currency}
               />
 
+              {/* Direct Costs & Price per Square Meter */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Direct Costs Breakdown */}
+                <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+                  <CardHeader className="pb-3">
+                    <Collapsible defaultOpen>
+                      <CollapsibleTrigger className="flex items-center justify-between w-full group">
+                        <CardTitle className="flex items-center gap-2 text-base">
+                          <Package className="w-5 h-5 text-primary" />
+                          {isArabic ? "التكاليف المباشرة (BOQ)" : "Direct Costs (BOQ)"}
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-bold text-primary">
+                            {pricingSettings.currency} {formatCurrency(directCosts.totalBoq)}
+                          </span>
+                          <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="pt-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between py-2 hover:bg-muted/50 rounded px-2 -mx-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-chart-1/20 flex items-center justify-center">
+                                <Package className="w-4 h-4 text-chart-1" />
+                              </div>
+                              <span className="text-sm text-muted-foreground">
+                                {isArabic ? "المواد" : "Materials"}
+                              </span>
+                            </div>
+                            <span className="font-medium">
+                              {pricingSettings.currency} {formatCurrency(directCosts.materials)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between py-2 hover:bg-muted/50 rounded px-2 -mx-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-chart-2/20 flex items-center justify-center">
+                                <Hammer className="w-4 h-4 text-chart-2" />
+                              </div>
+                              <span className="text-sm text-muted-foreground">
+                                {isArabic ? "العمالة" : "Labor"}
+                              </span>
+                            </div>
+                            <span className="font-medium">
+                              {pricingSettings.currency} {formatCurrency(directCosts.labor)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between py-2 hover:bg-muted/50 rounded px-2 -mx-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-chart-3/20 flex items-center justify-center">
+                                <Wrench className="w-4 h-4 text-chart-3" />
+                              </div>
+                              <span className="text-sm text-muted-foreground">
+                                {isArabic ? "المعدات" : "Equipment"}
+                              </span>
+                            </div>
+                            <span className="font-medium">
+                              {pricingSettings.currency} {formatCurrency(directCosts.equipment)}
+                            </span>
+                          </div>
+                          <div className="border-t pt-3 mt-3">
+                            <div className="flex items-center justify-between font-bold">
+                              <span>{isArabic ? "إجمالي BOQ" : "Total BOQ"}</span>
+                              <span className="text-primary text-lg">
+                                {pricingSettings.currency} {formatCurrency(directCosts.totalBoq)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </CardHeader>
+                </Card>
+
+                {/* Price per Square Meter */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Ruler className="w-5 h-5 text-primary" />
+                      {isArabic ? "سعر المتر المربع" : "Price per Square Meter"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1">
+                          <Label htmlFor="project-area">
+                            {isArabic ? "المساحة المبنية (م²)" : "Built Area (m²)"}
+                          </Label>
+                          <Input
+                            id="project-area"
+                            type="number"
+                            value={projectArea || ""}
+                            onChange={(e) => setProjectArea(Number(e.target.value) || 0)}
+                            placeholder={isArabic ? "أدخل المساحة" : "Enter area"}
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                      {projectArea > 0 && (
+                        <div className="p-4 bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg text-center border border-primary/20">
+                          <p className="text-sm text-muted-foreground mb-1">
+                            {isArabic ? "سعر المتر المربع" : "Price per m²"}
+                          </p>
+                          <p className="text-3xl font-bold text-primary">
+                            {pricingSettings.currency} {formatCurrency(pricePerSqm)}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {isArabic ? `بناءً على ${formatCurrency(projectArea)} م²` : `Based on ${formatCurrency(projectArea)} m²`}
+                          </p>
+                        </div>
+                      )}
+                      {!projectArea && (
+                        <div className="p-4 bg-muted/50 rounded-lg text-center">
+                          <p className="text-sm text-muted-foreground">
+                            {isArabic ? "أدخل المساحة لحساب سعر المتر المربع" : "Enter area to calculate price per m²"}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
               {/* Financial Summary */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Indirect Costs Breakdown */}
@@ -480,11 +694,12 @@ export default function TenderSummaryPage() {
                   <CardContent>
                     <div className="space-y-3">
                       {[
-                        { labelAr: "طاقم الموقع", labelEn: "Site Staff", value: totals.staffCosts, color: "bg-blue-500" },
-                        { labelAr: "المرافق", labelEn: "Facilities", value: totals.facilitiesCosts, color: "bg-emerald-500" },
-                        { labelAr: "التأمين", labelEn: "Insurance", value: totals.insuranceCosts, color: "bg-amber-500" },
-                        { labelAr: "الضمانات", labelEn: "Guarantees", value: totals.guaranteesCosts, color: "bg-red-500" },
-                        { labelAr: "تكاليف أخرى", labelEn: "Other Indirect", value: totals.indirectCosts, color: "bg-violet-500" },
+                        { labelAr: "طاقم الموقع", labelEn: "Site Staff", value: totals.staffCosts, color: "bg-chart-1" },
+                        { labelAr: "المرافق", labelEn: "Facilities", value: totals.facilitiesCosts, color: "bg-chart-2" },
+                        { labelAr: "التأمين", labelEn: "Insurance", value: totals.insuranceCosts, color: "bg-chart-3" },
+                        { labelAr: "الضمانات", labelEn: "Guarantees", value: totals.guaranteesCosts, color: "bg-chart-4" },
+                        { labelAr: "تكاليف أخرى", labelEn: "Other Indirect", value: totals.indirectCosts, color: "bg-chart-5" },
+                        { labelAr: "مقاولي الباطن", labelEn: "Subcontractors", value: totals.subcontractorsCosts, color: "bg-primary" },
                       ].map((item, index) => (
                         <div key={index} className="flex items-center justify-between py-2">
                           <div className="flex items-center gap-2">
@@ -519,17 +734,33 @@ export default function TenderSummaryPage() {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between py-2">
                         <span className="text-muted-foreground">
-                          {isArabic ? "إجمالي التكاليف غير المباشرة" : "Total Indirect Costs"}
+                          {isArabic ? "التكاليف المباشرة (BOQ)" : "Direct Costs (BOQ)"}
+                        </span>
+                        <span className="font-medium">
+                          {pricingSettings.currency} {formatCurrency(directCosts.totalBoq)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-2">
+                        <span className="text-muted-foreground">
+                          {isArabic ? "التكاليف غير المباشرة" : "Indirect Costs"}
                         </span>
                         <span className="font-medium">
                           {pricingSettings.currency} {formatCurrency(totalIndirect)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-t">
+                        <span className="text-muted-foreground font-medium">
+                          {isArabic ? "إجمالي التكاليف" : "Total Costs"}
+                        </span>
+                        <span className="font-bold">
+                          {pricingSettings.currency} {formatCurrency(allCosts)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between py-2">
                         <span className="text-muted-foreground">
                           {isArabic ? `الربح (${pricingSettings.profitMargin}%)` : `Profit (${pricingSettings.profitMargin}%)`}
                         </span>
-                        <span className="font-medium text-emerald-600">
+                        <span className="font-medium text-chart-2">
                           + {pricingSettings.currency} {formatCurrency(profit)}
                         </span>
                       </div>
@@ -537,7 +768,7 @@ export default function TenderSummaryPage() {
                         <span className="text-muted-foreground">
                           {isArabic ? `الاحتياطي (${pricingSettings.contingency}%)` : `Contingency (${pricingSettings.contingency}%)`}
                         </span>
-                        <span className="font-medium text-amber-600">
+                        <span className="font-medium text-chart-3">
                           + {pricingSettings.currency} {formatCurrency(contingency)}
                         </span>
                       </div>

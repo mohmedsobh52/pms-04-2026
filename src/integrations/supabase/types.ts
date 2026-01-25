@@ -1907,15 +1907,20 @@ export type Database = {
           indirect_costs_data: Json | null
           insurance_data: Json | null
           profit_margin: number | null
+          project_area: number | null
           project_duration: number | null
           project_id: string
           staff_data: Json | null
           start_date: string | null
           subcontractors_data: Json | null
+          total_direct_costs: number | null
+          total_equipment_cost: number | null
           total_facilities_costs: number | null
           total_guarantees_costs: number | null
           total_indirect_costs: number | null
           total_insurance_costs: number | null
+          total_labor_cost: number | null
+          total_materials_cost: number | null
           total_staff_costs: number | null
           total_subcontractors_costs: number | null
           total_value: number | null
@@ -1934,15 +1939,20 @@ export type Database = {
           indirect_costs_data?: Json | null
           insurance_data?: Json | null
           profit_margin?: number | null
+          project_area?: number | null
           project_duration?: number | null
           project_id: string
           staff_data?: Json | null
           start_date?: string | null
           subcontractors_data?: Json | null
+          total_direct_costs?: number | null
+          total_equipment_cost?: number | null
           total_facilities_costs?: number | null
           total_guarantees_costs?: number | null
           total_indirect_costs?: number | null
           total_insurance_costs?: number | null
+          total_labor_cost?: number | null
+          total_materials_cost?: number | null
           total_staff_costs?: number | null
           total_subcontractors_costs?: number | null
           total_value?: number | null
@@ -1961,15 +1971,20 @@ export type Database = {
           indirect_costs_data?: Json | null
           insurance_data?: Json | null
           profit_margin?: number | null
+          project_area?: number | null
           project_duration?: number | null
           project_id?: string
           staff_data?: Json | null
           start_date?: string | null
           subcontractors_data?: Json | null
+          total_direct_costs?: number | null
+          total_equipment_cost?: number | null
           total_facilities_costs?: number | null
           total_guarantees_costs?: number | null
           total_indirect_costs?: number | null
           total_insurance_costs?: number | null
+          total_labor_cost?: number | null
+          total_materials_cost?: number | null
           total_staff_costs?: number | null
           total_subcontractors_costs?: number | null
           total_value?: number | null
