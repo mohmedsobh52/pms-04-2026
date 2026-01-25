@@ -64,7 +64,7 @@ export default function TenderSummaryPage() {
   const fetchProjectData = async () => {
     try {
       const { data, error } = await supabase
-        .from("saved_projects")
+        .from("project_data")
         .select("*")
         .eq("id", projectId)
         .single();
