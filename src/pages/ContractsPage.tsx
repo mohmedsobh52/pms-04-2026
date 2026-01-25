@@ -5,6 +5,8 @@ import { ContractMilestones } from "@/components/contracts/ContractMilestones";
 import { ContractPayments } from "@/components/contracts/ContractPayments";
 import { ContractTimeline } from "@/components/contracts/ContractTimeline";
 import { SmartContractAlerts } from "@/components/contracts/SmartContractAlerts";
+import { ContractWarranties } from "@/components/contracts/ContractWarranties";
+import { MaintenanceTracker } from "@/components/contracts/MaintenanceTracker";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLayout } from "@/components/PageLayout";
@@ -20,7 +22,9 @@ import {
   Clock,
   BarChart3,
   Target,
-  Calendar
+  Calendar,
+  Shield,
+  Wrench
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
@@ -218,6 +222,14 @@ const ContractsPage = () => {
               <Calendar className="w-4 h-4" />
               <span className="hidden sm:inline">{isArabic ? "الجدول الزمني" : "Timeline"}</span>
             </TabsTrigger>
+            <TabsTrigger value="warranties" className="gap-2">
+              <Shield className="w-4 h-4" />
+              <span className="hidden sm:inline">{isArabic ? "الضمانات" : "Warranties"}</span>
+            </TabsTrigger>
+            <TabsTrigger value="maintenance" className="gap-2">
+              <Wrench className="w-4 h-4" />
+              <span className="hidden sm:inline">{isArabic ? "الصيانة" : "Maintenance"}</span>
+            </TabsTrigger>
             <TabsTrigger value="fidic" className="gap-2">
               <BookOpen className="w-4 h-4" />
               <span className="hidden sm:inline">{isArabic ? "FIDIC" : "FIDIC"}</span>
@@ -246,6 +258,14 @@ const ContractsPage = () => {
 
           <TabsContent value="timeline" className="mt-4">
             <ContractTimeline />
+          </TabsContent>
+
+          <TabsContent value="warranties" className="mt-4">
+            <ContractWarranties />
+          </TabsContent>
+
+          <TabsContent value="maintenance" className="mt-4">
+            <MaintenanceTracker />
           </TabsContent>
 
           <TabsContent value="fidic" className="mt-4">

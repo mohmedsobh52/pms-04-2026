@@ -463,6 +463,71 @@ export type Database = {
           },
         ]
       }
+      contract_warranties: {
+        Row: {
+          bond_type: string | null
+          bond_value: number | null
+          contract_id: string
+          created_at: string | null
+          description: string | null
+          duration_months: number
+          end_date: string
+          id: string
+          notes: string | null
+          release_date: string | null
+          responsible_party: string | null
+          start_date: string
+          status: string | null
+          updated_at: string | null
+          user_id: string
+          warranty_type: string
+        }
+        Insert: {
+          bond_type?: string | null
+          bond_value?: number | null
+          contract_id: string
+          created_at?: string | null
+          description?: string | null
+          duration_months?: number
+          end_date: string
+          id?: string
+          notes?: string | null
+          release_date?: string | null
+          responsible_party?: string | null
+          start_date: string
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+          warranty_type: string
+        }
+        Update: {
+          bond_type?: string | null
+          bond_value?: number | null
+          contract_id?: string
+          created_at?: string | null
+          description?: string | null
+          duration_months?: number
+          end_date?: string
+          id?: string
+          notes?: string | null
+          release_date?: string | null
+          responsible_party?: string | null
+          start_date?: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+          warranty_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_warranties_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contracts: {
         Row: {
           contract_number: string
@@ -1111,6 +1176,69 @@ export type Database = {
           working_hours_per_day?: number | null
         }
         Relationships: []
+      }
+      maintenance_schedules: {
+        Row: {
+          assigned_to: string | null
+          completed_date: string | null
+          contract_id: string
+          cost: number | null
+          created_at: string | null
+          description: string | null
+          id: string
+          maintenance_type: string
+          notes: string | null
+          scheduled_date: string
+          status: string | null
+          user_id: string
+          warranty_id: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          completed_date?: string | null
+          contract_id: string
+          cost?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          maintenance_type: string
+          notes?: string | null
+          scheduled_date: string
+          status?: string | null
+          user_id: string
+          warranty_id?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          completed_date?: string | null
+          contract_id?: string
+          cost?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          maintenance_type?: string
+          notes?: string | null
+          scheduled_date?: string
+          status?: string | null
+          user_id?: string
+          warranty_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_schedules_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_schedules_warranty_id_fkey"
+            columns: ["warranty_id"]
+            isOneToOne: false
+            referencedRelation: "contract_warranties"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       material_prices: {
         Row: {

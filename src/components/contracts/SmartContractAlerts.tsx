@@ -26,7 +26,7 @@ import { ar, enUS } from "date-fns/locale";
 
 interface Alert {
   id: string;
-  type: "expiry" | "payment" | "milestone";
+  type: "expiry" | "payment" | "milestone" | "warranty" | "maintenance";
   severity: "urgent" | "warning" | "reminder" | "info";
   title: string;
   description: string;
@@ -97,7 +97,7 @@ export const SmartContractAlerts = () => {
 
   const generateAlerts = async () => {
     try {
-      const [contractsRes, milestonesRes, paymentsRes] = await Promise.all([
+      const [contractsRes, milestonesRes, paymentsRes, warrantiesRes, maintenanceRes] = await Promise.all([
         supabase
           .from("contracts")
           .select("*")
@@ -113,6 +113,16 @@ export const SmartContractAlerts = () => {
           .select("*, contracts(contract_title)")
           .eq("user_id", user?.id)
           .not("status", "in", '("paid","cancelled")'),
+        supabase
+          .from("contract_warranties")
+          .select("*, contracts(contract_title)")
+          .eq("user_id", user?.id)
+          .eq("status", "active"),
+        supabase
+          .from("maintenance_schedules")
+          .select("*, contracts(contract_title)")
+          .eq("user_id", user?.id)
+          .not("status", "in", '("completed","cancelled")'),
       ]);
 
       const generatedAlerts: Alert[] = [];
@@ -172,6 +182,44 @@ export const SmartContractAlerts = () => {
             daysRemaining,
             contractId: payment.contract_id,
             contractTitle: payment.contracts?.contract_title || "",
+          });
+        }
+      });
+
+      // Warranty expiry alerts
+      (warrantiesRes.data || []).forEach((warranty: any) => {
+        const daysRemaining = differenceInDays(new Date(warranty.end_date), now);
+
+        if (daysRemaining <= 60) {
+          generatedAlerts.push({
+            id: `warranty-${warranty.id}`,
+            type: "warranty",
+            severity: getSeverity(daysRemaining),
+            title: isArabic ? "انتهاء الضمان" : "Warranty Expiry",
+            description: warranty.warranty_type,
+            dueDate: warranty.end_date,
+            daysRemaining,
+            contractId: warranty.contract_id,
+            contractTitle: warranty.contracts?.contract_title || "",
+          });
+        }
+      });
+
+      // Maintenance schedule alerts
+      (maintenanceRes.data || []).forEach((schedule: any) => {
+        const daysRemaining = differenceInDays(new Date(schedule.scheduled_date), now);
+
+        if (daysRemaining <= 14) {
+          generatedAlerts.push({
+            id: `maintenance-${schedule.id}`,
+            type: "maintenance",
+            severity: getSeverity(daysRemaining),
+            title: isArabic ? "موعد صيانة" : "Maintenance Due",
+            description: schedule.maintenance_type,
+            dueDate: schedule.scheduled_date,
+            daysRemaining,
+            contractId: schedule.contract_id,
+            contractTitle: schedule.contracts?.contract_title || "",
           });
         }
       });
@@ -239,10 +287,12 @@ export const SmartContractAlerts = () => {
   };
 
   const getTypeIcon = (type: Alert["type"]) => {
-    const icons = {
+    const icons: Record<Alert["type"], typeof Calendar> = {
       expiry: Calendar,
       payment: DollarSign,
       milestone: Target,
+      warranty: Clock,
+      maintenance: Clock,
     };
     return icons[type];
   };
@@ -360,14 +410,16 @@ export const SmartContractAlerts = () => {
 
       {/* Alerts Tabs */}
       <Tabs defaultValue="all">
-        <TabsList>
+        <TabsList className="flex flex-wrap h-auto gap-1">
           <TabsTrigger value="all">{isArabic ? "الكل" : "All"}</TabsTrigger>
           <TabsTrigger value="expiry">{isArabic ? "انتهاء" : "Expiry"}</TabsTrigger>
           <TabsTrigger value="payment">{isArabic ? "دفعات" : "Payments"}</TabsTrigger>
           <TabsTrigger value="milestone">{isArabic ? "معالم" : "Milestones"}</TabsTrigger>
+          <TabsTrigger value="warranty">{isArabic ? "ضمانات" : "Warranties"}</TabsTrigger>
+          <TabsTrigger value="maintenance">{isArabic ? "صيانة" : "Maintenance"}</TabsTrigger>
         </TabsList>
 
-        {["all", "expiry", "payment", "milestone"].map((tab) => (
+        {["all", "expiry", "payment", "milestone", "warranty", "maintenance"].map((tab) => (
           <TabsContent key={tab} value={tab} className="space-y-3 mt-4">
             {(tab === "all" ? alerts : alerts.filter((a) => a.type === tab)).length === 0 ? (
               <Card>
