@@ -42,21 +42,34 @@ export interface Facility {
   id: string;
   name: string;
   nameEn: string;
+  facilityType: string;
   type: "rent" | "purchase";
+  description: string;
+  descriptionAr: string;
   unitCost: number;
   quantity: number;
   duration: number;
   total: number;
+  notes: string;
 }
 
+const FACILITY_TYPES = [
+  { value: "office", labelAr: "مكاتب", labelEn: "Offices" },
+  { value: "accommodation", labelAr: "سكن", labelEn: "Accommodation" },
+  { value: "storage", labelAr: "مخازن", labelEn: "Storage" },
+  { value: "equipment", labelAr: "معدات", labelEn: "Equipment" },
+  { value: "utilities", labelAr: "مرافق عامة", labelEn: "Utilities" },
+  { value: "other", labelAr: "أخرى", labelEn: "Other" },
+];
+
 const defaultFacilities: Facility[] = [
-  { id: "1", name: "مكتب الموقع", nameEn: "Site Office", type: "rent", unitCost: 5000, quantity: 1, duration: 12, total: 60000 },
-  { id: "2", name: "مخيم العمال", nameEn: "Workers Camp", type: "rent", unitCost: 10000, quantity: 1, duration: 12, total: 120000 },
-  { id: "3", name: "مستودع مواد", nameEn: "Materials Store", type: "rent", unitCost: 3000, quantity: 2, duration: 12, total: 72000 },
-  { id: "4", name: "كرفان مهندسين", nameEn: "Engineers Caravan", type: "purchase", unitCost: 25000, quantity: 2, duration: 1, total: 50000 },
-  { id: "5", name: "حمامات متنقلة", nameEn: "Portable Toilets", type: "rent", unitCost: 1000, quantity: 4, duration: 12, total: 48000 },
-  { id: "6", name: "مولد كهرباء", nameEn: "Power Generator", type: "purchase", unitCost: 50000, quantity: 1, duration: 1, total: 50000 },
-  { id: "7", name: "خزان مياه", nameEn: "Water Tank", type: "purchase", unitCost: 15000, quantity: 2, duration: 1, total: 30000 },
+  { id: "1", name: "مكتب الموقع", nameEn: "Site Office", facilityType: "office", type: "rent", description: "Site Office Container", descriptionAr: "حاوية مكتب الموقع", unitCost: 5000, quantity: 1, duration: 12, total: 60000, notes: "" },
+  { id: "2", name: "مخيم العمال", nameEn: "Workers Camp", facilityType: "accommodation", type: "rent", description: "Workers accommodation", descriptionAr: "سكن عمال", unitCost: 10000, quantity: 1, duration: 12, total: 120000, notes: "" },
+  { id: "3", name: "مستودع مواد", nameEn: "Materials Store", facilityType: "storage", type: "rent", description: "Materials storage", descriptionAr: "مخزن مواد", unitCost: 3000, quantity: 2, duration: 12, total: 72000, notes: "" },
+  { id: "4", name: "كرفان مهندسين", nameEn: "Engineers Caravan", facilityType: "office", type: "purchase", description: "Engineers office", descriptionAr: "مكتب مهندسين", unitCost: 25000, quantity: 2, duration: 1, total: 50000, notes: "" },
+  { id: "5", name: "حمامات متنقلة", nameEn: "Portable Toilets", facilityType: "utilities", type: "rent", description: "Portable toilets", descriptionAr: "حمامات متنقلة", unitCost: 1000, quantity: 4, duration: 12, total: 48000, notes: "" },
+  { id: "6", name: "مولد كهرباء", nameEn: "Power Generator", facilityType: "equipment", type: "purchase", description: "Power generator", descriptionAr: "مولد كهرباء", unitCost: 50000, quantity: 1, duration: 1, total: 50000, notes: "" },
+  { id: "7", name: "خزان مياه", nameEn: "Water Tank", facilityType: "utilities", type: "purchase", description: "Water tank", descriptionAr: "خزان مياه", unitCost: 15000, quantity: 2, duration: 1, total: 30000, notes: "" },
 ];
 
 interface FacilitiesTabProps {
@@ -93,10 +106,14 @@ export function FacilitiesTab({ isArabic, initialData, onDataChange, onTotalChan
   const [formData, setFormData] = useState({
     name: "",
     nameEn: "",
+    facilityType: "other",
     type: "rent" as "rent" | "purchase",
+    description: "",
+    descriptionAr: "",
     unitCost: 0,
     quantity: 1,
     duration: 12,
+    notes: "",
   });
 
   const formatCurrency = (value: number) => {
@@ -121,7 +138,7 @@ export function FacilitiesTab({ isArabic, initialData, onDataChange, onTotalChan
 
   const handleAdd = () => {
     setEditingFacility(null);
-    setFormData({ name: "", nameEn: "", type: "rent", unitCost: 0, quantity: 1, duration: 12 });
+    setFormData({ name: "", nameEn: "", facilityType: "other", type: "rent", description: "", descriptionAr: "", unitCost: 0, quantity: 1, duration: 12, notes: "" });
     setShowDialog(true);
   };
 
@@ -130,27 +147,37 @@ export function FacilitiesTab({ isArabic, initialData, onDataChange, onTotalChan
     setFormData({
       name: facility.name,
       nameEn: facility.nameEn,
+      facilityType: facility.facilityType || "other",
       type: facility.type,
+      description: facility.description || "",
+      descriptionAr: facility.descriptionAr || "",
       unitCost: facility.unitCost,
       quantity: facility.quantity,
       duration: facility.duration,
+      notes: facility.notes || "",
     });
     setShowDialog(true);
   };
 
   const handleSave = () => {
     const total = calculateTotal(formData);
+    // Use description as name if name is not provided
+    const finalData = {
+      ...formData,
+      name: formData.name || formData.descriptionAr || formData.description,
+      nameEn: formData.nameEn || formData.description || formData.descriptionAr,
+    };
     
     if (editingFacility) {
       setFacilities(prev => prev.map(f => 
         f.id === editingFacility.id 
-          ? { ...f, ...formData, total } 
+          ? { ...f, ...finalData, total } 
           : f
       ));
     } else {
       const newFacility: Facility = {
         id: Date.now().toString(),
-        ...formData,
+        ...finalData,
         total,
       };
       setFacilities(prev => [...prev, newFacility]);
@@ -159,7 +186,6 @@ export function FacilitiesTab({ isArabic, initialData, onDataChange, onTotalChan
     setShowDialog(false);
     onTotalChange?.(totalCost);
   };
-
   const handleDelete = (id: string) => {
     setFacilities(prev => prev.filter(f => f.id !== id));
     setDeleteId(null);
@@ -263,45 +289,79 @@ export function FacilitiesTab({ isArabic, initialData, onDataChange, onTotalChan
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
+              {/* Facility Type & Cost Type */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{isArabic ? "اسم المرفق (عربي)" : "Facility Name (Arabic)"}</Label>
+                  <Label>{isArabic ? "نوع المرفق *" : "Facility Type *"}</Label>
+                  <Select
+                    value={formData.facilityType}
+                    onValueChange={(value) => setFormData({ ...formData, facilityType: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FACILITY_TYPES.map((ft) => (
+                        <SelectItem key={ft.value} value={ft.value}>
+                          {isArabic ? ft.labelAr : ft.labelEn}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{isArabic ? "نوع التكلفة" : "Cost Type"}</Label>
+                  <Select
+                    value={formData.type}
+                    onValueChange={(value: "rent" | "purchase") => setFormData({ ...formData, type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="rent">{isArabic ? "شهري" : "Monthly"}</SelectItem>
+                      <SelectItem value="purchase">{isArabic ? "شراء" : "Purchase"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{isArabic ? "الوصف *" : "Description *"}</Label>
                   <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder={isArabic ? "مثال: مكتب الموقع" : "e.g., مكتب الموقع"}
+                    value={formData.descriptionAr}
+                    onChange={(e) => setFormData({ ...formData, descriptionAr: e.target.value })}
+                    placeholder={isArabic ? "مثال: حاوية مكتب الموقع" : "e.g., حاوية مكتب الموقع"}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{isArabic ? "اسم المرفق (إنجليزي)" : "Facility Name (English)"}</Label>
+                  <Label>{isArabic ? "الوصف (عربي)" : "Description (Arabic)"}</Label>
                   <Input
-                    value={formData.nameEn}
-                    onChange={(e) => setFormData({ ...formData, nameEn: e.target.value })}
-                    placeholder={isArabic ? "مثال: Site Office" : "e.g., Site Office"}
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder={isArabic ? "مثال: Site Office Container" : "e.g., Site Office Container"}
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>{isArabic ? "نوع التكلفة" : "Cost Type"}</Label>
-                <Select
-                  value={formData.type}
-                  onValueChange={(value: "rent" | "purchase") => setFormData({ ...formData, type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="rent">{isArabic ? "إيجار شهري" : "Monthly Rent"}</SelectItem>
-                    <SelectItem value="purchase">{isArabic ? "شراء (مرة واحدة)" : "Purchase (One-time)"}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+
+              {/* Cost, Quantity, Duration */}
               <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>{isArabic ? "الكمية" : "Quantity"}</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={formData.quantity}
+                    onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label>
                     {formData.type === "rent" 
-                      ? (isArabic ? "التكلفة الشهرية" : "Monthly Cost") 
-                      : (isArabic ? "سعر الوحدة" : "Unit Price")}
+                      ? (isArabic ? "تكلفة الوحدة *" : "Unit Cost *") 
+                      : (isArabic ? "سعر الوحدة *" : "Unit Price *")}
                   </Label>
                   <Input
                     type="number"
@@ -311,31 +371,46 @@ export function FacilitiesTab({ isArabic, initialData, onDataChange, onTotalChan
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{isArabic ? "العدد" : "Quantity"}</Label>
+                  <Label>{isArabic ? "المدة (أشهر)" : "Duration (months)"}</Label>
                   <Input
                     type="number"
                     min="1"
-                    value={formData.quantity}
-                    onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
+                    value={formData.duration}
+                    onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 1 })}
                   />
                 </div>
-                {formData.type === "rent" && (
-                  <div className="space-y-2">
-                    <Label>{isArabic ? "المدة (شهر)" : "Duration (months)"}</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={formData.duration}
-                      onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 1 })}
-                    />
-                  </div>
-                )}
               </div>
-              <div className="bg-muted rounded-lg p-4">
-                <p className="text-sm text-muted-foreground">{isArabic ? "الإجمالي المتوقع" : "Expected Total"}</p>
-                <p className="text-xl font-bold">
-                  SAR {formatCurrency(calculateTotal(formData))}
-                </p>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
+                <Input
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder={isArabic ? "ملاحظات اختيارية..." : "Optional notes..."}
+                />
+              </div>
+
+              {/* Summary */}
+              <div className="bg-muted rounded-lg p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{isArabic ? "تكلفة الوحدة" : "Unit Cost"}</span>
+                  <span>{formatCurrency(formData.unitCost)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{isArabic ? "الكمية" : "Quantity"}</span>
+                  <span>{formData.quantity}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{isArabic ? "المدة" : "Duration"}</span>
+                  <span>{formData.duration} {isArabic ? "أشهر" : "months"}</span>
+                </div>
+                <div className="border-t pt-2 mt-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{isArabic ? "إجمالي التكلفة" : "Total Cost"}</span>
+                    <span className="text-xl font-bold">SAR {formatCurrency(calculateTotal(formData))}</span>
+                  </div>
+                </div>
               </div>
             </div>
             <DialogFooter>
