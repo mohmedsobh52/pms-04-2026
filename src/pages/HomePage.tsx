@@ -124,8 +124,22 @@ const quickActions = [
     icon: FileText, 
     label: { ar: "العقود", en: "Contracts" }, 
     href: "/contracts", 
-    color: "from-orange-500 to-orange-600",
+    color: "from-amber-500 to-orange-600",
     description: { ar: "إدارة العقود والاتفاقيات", en: "Manage contracts" }
+  },
+  { 
+    icon: FolderOpen, 
+    label: { ar: "المشاريع المحفوظة", en: "Saved Projects" }, 
+    href: "/projects", 
+    color: "from-indigo-500 to-indigo-600",
+    description: { ar: "عرض وإدارة المشاريع المحفوظة", en: "View and manage saved projects" }
+  },
+  { 
+    icon: BarChart3, 
+    label: { ar: "التقارير", en: "Reports" }, 
+    href: "/reports", 
+    color: "from-rose-500 to-pink-600",
+    description: { ar: "عرض وتصدير تقارير المشاريع", en: "View and export project reports" }
   },
 ];
 
