@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,42 +11,56 @@ import { AnalysisTrackingProvider } from "@/hooks/useAnalysisTracking";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import BackgroundImage from "@/components/BackgroundImage";
 import { FloatingBackButton } from "@/components/FloatingBackButton";
-import Index from "./pages/Index";
-import HomePage from "./pages/HomePage";
-import Auth from "./pages/Auth";
-import SharedView from "./pages/SharedView";
-import SavedProjectsPage from "./pages/SavedProjectsPage";
-import About from "./pages/About";
-import CostAnalysisPage from "./pages/CostAnalysisPage";
-import Changelog from "./pages/Changelog";
-import AdminVersions from "./pages/AdminVersions";
-import NotFound from "./pages/NotFound";
-import DashboardPage from "./pages/DashboardPage";
-import ProcurementPage from "./pages/ProcurementPage";
-import SubcontractorsPage from "./pages/SubcontractorsPage";
-import QuotationsPage from "./pages/QuotationsPage";
-import ContractsPage from "./pages/ContractsPage";
-import RiskPage from "./pages/RiskPage";
-import ReportsPage from "./pages/ReportsPage";
-import SettingsPage from "./pages/SettingsPage";
-import AnalysisToolsPage from "./pages/AnalysisToolsPage";
-import BOQItemsPage from "./pages/BOQItemsPage";
-import AttachmentsPage from "./pages/AttachmentsPage";
-import TemplatesPage from "./pages/TemplatesPage";
-import P6ExportPage from "./pages/P6ExportPage";
-import CompareVersionsPage from "./pages/CompareVersionsPage";
-import HistoricalPricingPage from "./pages/HistoricalPricingPage";
-import ResourcesPage from "./pages/ResourcesPage";
-import MaterialPricesPage from "./pages/MaterialPricesPage";
-import CalendarPage from "./pages/CalendarPage";
-import FastExtractionPage from "./pages/FastExtractionPage";
-import LibraryPage from "./pages/LibraryPage";
-import ProjectDetailsPage from "./pages/ProjectDetailsPage";
-import NewProjectPage from "./pages/NewProjectPage";
-import TenderSummaryPage from "./pages/TenderSummaryPage";
-import CompanySettingsPage from "./pages/CompanySettingsPage";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { Loader2 } from "lucide-react";
+
+// Lazy loaded pages for better initial load performance
+const Index = lazy(() => import("./pages/Index"));
+const HomePage = lazy(() => import("./pages/HomePage"));
+const Auth = lazy(() => import("./pages/Auth"));
+const SharedView = lazy(() => import("./pages/SharedView"));
+const SavedProjectsPage = lazy(() => import("./pages/SavedProjectsPage"));
+const About = lazy(() => import("./pages/About"));
+const CostAnalysisPage = lazy(() => import("./pages/CostAnalysisPage"));
+const Changelog = lazy(() => import("./pages/Changelog"));
+const AdminVersions = lazy(() => import("./pages/AdminVersions"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const ProcurementPage = lazy(() => import("./pages/ProcurementPage"));
+const SubcontractorsPage = lazy(() => import("./pages/SubcontractorsPage"));
+const QuotationsPage = lazy(() => import("./pages/QuotationsPage"));
+const ContractsPage = lazy(() => import("./pages/ContractsPage"));
+const RiskPage = lazy(() => import("./pages/RiskPage"));
+const ReportsPage = lazy(() => import("./pages/ReportsPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const AnalysisToolsPage = lazy(() => import("./pages/AnalysisToolsPage"));
+const BOQItemsPage = lazy(() => import("./pages/BOQItemsPage"));
+const AttachmentsPage = lazy(() => import("./pages/AttachmentsPage"));
+const TemplatesPage = lazy(() => import("./pages/TemplatesPage"));
+const P6ExportPage = lazy(() => import("./pages/P6ExportPage"));
+const CompareVersionsPage = lazy(() => import("./pages/CompareVersionsPage"));
+const HistoricalPricingPage = lazy(() => import("./pages/HistoricalPricingPage"));
+const ResourcesPage = lazy(() => import("./pages/ResourcesPage"));
+const MaterialPricesPage = lazy(() => import("./pages/MaterialPricesPage"));
+const CalendarPage = lazy(() => import("./pages/CalendarPage"));
+const FastExtractionPage = lazy(() => import("./pages/FastExtractionPage"));
+const LibraryPage = lazy(() => import("./pages/LibraryPage"));
+const ProjectDetailsPage = lazy(() => import("./pages/ProjectDetailsPage"));
+const NewProjectPage = lazy(() => import("./pages/NewProjectPage"));
+const TenderSummaryPage = lazy(() => import("./pages/TenderSummaryPage"));
+const CompanySettingsPage = lazy(() => import("./pages/CompanySettingsPage"));
 
 const queryClient = new QueryClient();
+
+// Page loading component
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="flex flex-col items-center gap-4">
+      <Loader2 className="w-10 h-10 animate-spin text-primary" />
+      <p className="text-muted-foreground text-sm">جاري التحميل...</p>
+    </div>
+  </div>
+);
 
 const App = () => (
   <LanguageProvider>
@@ -60,45 +75,49 @@ const App = () => (
               <BrowserRouter>
                 <UpdateBanner />
                 <FloatingBackButton />
-                <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/analyze" element={<Index />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/shared/:shareCode" element={<SharedView />} />
-                <Route path="/projects" element={<SavedProjectsPage />} />
-                <Route path="/projects/new" element={<NewProjectPage />} />
-                <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
-                <Route path="/projects/:projectId/pricing" element={<TenderSummaryPage />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/cost-analysis" element={<CostAnalysisPage />} />
-                <Route path="/changelog" element={<Changelog />} />
-                <Route path="/admin/versions" element={<AdminVersions />} />
-                {/* Separate pages for each section */}
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/items" element={<BOQItemsPage />} />
-                <Route path="/analysis-tools" element={<AnalysisToolsPage />} />
-                <Route path="/procurement" element={<ProcurementPage />} />
-                <Route path="/quotations" element={<QuotationsPage />} />
-                {/* Separate routes for contracts and subcontractors */}
-                <Route path="/contracts" element={<ContractsPage />} />
-                <Route path="/subcontractors" element={<SubcontractorsPage />} />
-                <Route path="/risk" element={<RiskPage />} />
-                <Route path="/reports" element={<ReportsPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/company-settings" element={<CompanySettingsPage />} />
-                <Route path="/attachments" element={<AttachmentsPage />} />
-                <Route path="/templates" element={<TemplatesPage />} />
-                <Route path="/p6-export" element={<P6ExportPage />} />
-                <Route path="/compare-versions" element={<CompareVersionsPage />} />
-                <Route path="/historical-pricing" element={<HistoricalPricingPage />} />
-                <Route path="/resources" element={<ResourcesPage />} />
-                <Route path="/material-prices" element={<MaterialPricesPage />} />
-                <Route path="/calendar" element={<CalendarPage />} />
-                <Route path="/fast-extraction" element={<FastExtractionPage />} />
-                <Route path="/library" element={<LibraryPage />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-                </Routes>
+                <ErrorBoundary>
+                  <Suspense fallback={<PageLoader />}>
+                    <Routes>
+                      <Route path="/" element={<HomePage />} />
+                      <Route path="/analyze" element={<Index />} />
+                      <Route path="/auth" element={<Auth />} />
+                      <Route path="/shared/:shareCode" element={<SharedView />} />
+                      <Route path="/projects" element={<SavedProjectsPage />} />
+                      <Route path="/projects/new" element={<NewProjectPage />} />
+                      <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
+                      <Route path="/projects/:projectId/pricing" element={<TenderSummaryPage />} />
+                      <Route path="/about" element={<About />} />
+                      <Route path="/cost-analysis" element={<CostAnalysisPage />} />
+                      <Route path="/changelog" element={<Changelog />} />
+                      <Route path="/admin/versions" element={<AdminVersions />} />
+                      {/* Separate pages for each section */}
+                      <Route path="/dashboard" element={<DashboardPage />} />
+                      <Route path="/items" element={<BOQItemsPage />} />
+                      <Route path="/analysis-tools" element={<AnalysisToolsPage />} />
+                      <Route path="/procurement" element={<ProcurementPage />} />
+                      <Route path="/quotations" element={<QuotationsPage />} />
+                      {/* Separate routes for contracts and subcontractors */}
+                      <Route path="/contracts" element={<ContractsPage />} />
+                      <Route path="/subcontractors" element={<SubcontractorsPage />} />
+                      <Route path="/risk" element={<RiskPage />} />
+                      <Route path="/reports" element={<ReportsPage />} />
+                      <Route path="/settings" element={<SettingsPage />} />
+                      <Route path="/company-settings" element={<CompanySettingsPage />} />
+                      <Route path="/attachments" element={<AttachmentsPage />} />
+                      <Route path="/templates" element={<TemplatesPage />} />
+                      <Route path="/p6-export" element={<P6ExportPage />} />
+                      <Route path="/compare-versions" element={<CompareVersionsPage />} />
+                      <Route path="/historical-pricing" element={<HistoricalPricingPage />} />
+                      <Route path="/resources" element={<ResourcesPage />} />
+                      <Route path="/material-prices" element={<MaterialPricesPage />} />
+                      <Route path="/calendar" element={<CalendarPage />} />
+                      <Route path="/fast-extraction" element={<FastExtractionPage />} />
+                      <Route path="/library" element={<LibraryPage />} />
+                      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </Suspense>
+                </ErrorBoundary>
               </BrowserRouter>
             </TooltipProvider>
           </AnalysisTrackingProvider>
