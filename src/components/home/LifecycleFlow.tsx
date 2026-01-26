@@ -139,7 +139,7 @@ export function LifecycleFlow({ activePhase, onPhaseChange, projectProgress = 0 
   }, [onPhaseChange]);
 
   return (
-    <div className="relative py-8 space-y-8">
+    <div className="relative py-4 space-y-6">
       {/* Connection Line Background */}
       <div className="absolute top-[calc(50%-60px)] left-8 right-8 h-1.5 bg-gradient-to-r from-cyan-500/20 via-green-500/20 via-orange-500/20 to-rose-500/20 transform -translate-y-1/2 rounded-full hidden md:block" />
       
@@ -286,7 +286,7 @@ export function LifecycleFlow({ activePhase, onPhaseChange, projectProgress = 0 
       </div>
 
       {/* Animated Progress Bar */}
-      <div className="mt-4 space-y-3">
+      <div className="mt-2 space-y-2">
         {/* Label */}
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
