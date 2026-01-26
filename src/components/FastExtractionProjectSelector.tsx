@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Plus, FolderOpen, Loader2, Check } from "lucide-react";
+import { Plus, FolderOpen, Loader2, Check, FileText, ExternalLink } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -16,6 +17,8 @@ interface Project {
   name: string;
   file_name: string | null;
   created_at: string;
+  files_count: number;
+  categories: string[];
 }
 
 interface FastExtractionProjectSelectorProps {
@@ -46,14 +49,38 @@ export default function FastExtractionProjectSelector({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
+      // Fetch projects
+      const { data: projectsData, error } = await supabase
         .from("saved_projects")
         .select("id, name, file_name, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setProjects(data || []);
+
+      if (!projectsData || projectsData.length === 0) {
+        setProjects([]);
+        return;
+      }
+
+      // Fetch attachment counts and categories
+      const { data: attachmentsData } = await supabase
+        .from("project_attachments")
+        .select("project_id, category")
+        .in("project_id", projectsData.map((p) => p.id));
+
+      // Build projects with stats
+      const projectsWithStats = projectsData.map((project) => {
+        const projectFiles = attachmentsData?.filter((a) => a.project_id === project.id) || [];
+        const categories = [...new Set(projectFiles.map((f) => f.category).filter(Boolean))] as string[];
+        return {
+          ...project,
+          files_count: projectFiles.length,
+          categories,
+        };
+      });
+
+      setProjects(projectsWithStats);
     } catch (error) {
       console.error("Error fetching projects:", error);
     } finally {
@@ -120,13 +147,24 @@ export default function FastExtractionProjectSelector({
       if (attachError) throw attachError;
 
       toast.success(
-        isArabic
-          ? `تم حفظ ${successFiles.length} ملفات بنجاح`
-          : `Successfully saved ${successFiles.length} files`
+        <div className="flex flex-col gap-2">
+          <span>
+            {isArabic
+              ? `تم حفظ ${successFiles.length} ملفات بنجاح`
+              : `Successfully saved ${successFiles.length} files`}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-2 w-fit"
+            onClick={() => navigate(`/attachments?project=${projectId}`)}
+          >
+            <ExternalLink className="h-3 w-3" />
+            {isArabic ? "عرض الملفات" : "View Files"}
+          </Button>
+        </div>,
+        { duration: 6000 }
       );
-
-      // Navigate to project
-      navigate(`/projects`);
     } catch (error) {
       console.error("Save error:", error);
       toast.error(isArabic ? "فشل حفظ الملفات" : "Failed to save files");
@@ -215,7 +253,15 @@ export default function FastExtractionProjectSelector({
               <SelectContent>
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
-                    {project.name}
+                    <div className="flex items-center justify-between w-full gap-3">
+                      <span className="truncate">{project.name}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge variant="secondary" className="text-xs">
+                          <FileText className="h-3 w-3 mr-1" />
+                          {project.files_count}
+                        </Badge>
+                      </div>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>

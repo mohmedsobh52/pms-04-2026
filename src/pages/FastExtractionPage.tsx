@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Home, Upload, History, Lightbulb } from "lucide-react";
+import { Home, Upload, History, Lightbulb, FolderOpen } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import FastExtractionStepper from "@/components/FastExtractionStepper";
 import FastExtractionUploader, { UploadedFile } from "@/components/FastExtractionUploader";
 import FastExtractionClassifier from "@/components/FastExtractionClassifier";
 import FastExtractionProjectSelector from "@/components/FastExtractionProjectSelector";
+import { ProjectFilesViewer } from "@/components/ProjectFilesViewer";
 
 export default function FastExtractionPage() {
   const { language } = useLanguage();
@@ -20,6 +21,7 @@ export default function FastExtractionPage() {
 
   const [currentStep, setCurrentStep] = useState(1);
   const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [showProjectFiles, setShowProjectFiles] = useState(false);
 
   const readyFilesCount = files.filter((f) => f.status === "success").length;
 
@@ -67,6 +69,17 @@ export default function FastExtractionPage() {
                 </Link>
               </div>
               <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowProjectFiles(true)}
+                  className="gap-2"
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  <span className="hidden sm:inline">
+                    {isArabic ? "ملفات المشاريع" : "Project Files"}
+                  </span>
+                </Button>
                 <Button variant="ghost" size="sm" asChild>
                   <Link to="/projects" className="gap-2">
                     <History className="h-4 w-4" />
@@ -183,6 +196,12 @@ export default function FastExtractionPage() {
             </Card>
           </div>
         </main>
+
+        {/* Project Files Viewer */}
+        <ProjectFilesViewer
+          isOpen={showProjectFiles}
+          onClose={() => setShowProjectFiles(false)}
+        />
       </div>
     </div>
   );
