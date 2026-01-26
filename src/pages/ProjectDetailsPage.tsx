@@ -47,9 +47,10 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  PieChart, Pie, Cell, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend
-} from "recharts";
+  PricingDistributionChart,
+  CategoryDistributionChart,
+  TopItemsChart,
+} from "@/components/charts/ProjectCharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -1165,27 +1166,10 @@ export default function ProjectDetailsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ResponsiveContainer width="100%" height={200}>
-                      <PieChart>
-                        <Pie
-                          data={pricingDistributionData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={40}
-                          outerRadius={70}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {pricingDistributionData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          formatter={(value: number) => [value, isArabic ? "عدد" : "Count"]}
-                        />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    <PricingDistributionChart 
+                      data={pricingDistributionData}
+                      isArabic={isArabic}
+                    />
                   </CardContent>
                 </Card>
 
@@ -1197,25 +1181,10 @@ export default function ProjectDetailsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ResponsiveContainer width="100%" height={200}>
-                      <BarChart data={categoryDistribution} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                        <XAxis type="number" />
-                        <YAxis 
-                          dataKey="name" 
-                          type="category" 
-                          width={80} 
-                          tick={{ fontSize: 11 }}
-                          tickFormatter={(value) => value.length > 10 ? `${value.slice(0, 10)}...` : value}
-                        />
-                        <Tooltip />
-                        <Bar 
-                          dataKey="value" 
-                          fill="hsl(var(--primary))" 
-                          radius={[0, 4, 4, 0]} 
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <CategoryDistributionChart 
+                      data={categoryDistribution}
+                      isArabic={isArabic}
+                    />
                   </CardContent>
                 </Card>
 
@@ -1228,30 +1197,11 @@ export default function ProjectDetailsPage() {
                   </CardHeader>
                   <CardContent>
                     {topValueItems.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={200}>
-                        <BarChart data={topValueItems}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                          <XAxis 
-                            dataKey="name" 
-                            tick={{ fontSize: 10 }}
-                            tickFormatter={(value) => value.length > 8 ? `${value.slice(0, 8)}...` : value}
-                          />
-                          <YAxis 
-                            tickFormatter={(value) => 
-                              value >= 1000000 ? `${(value / 1000000).toFixed(1)}M` :
-                              value >= 1000 ? `${(value / 1000).toFixed(0)}K` : value
-                            }
-                          />
-                          <Tooltip 
-                            formatter={(value: number) => [formatCurrency(value), isArabic ? "القيمة" : "Value"]}
-                          />
-                          <Bar 
-                            dataKey="value" 
-                            fill="#22c55e" 
-                            radius={[4, 4, 0, 0]} 
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
+                      <TopItemsChart 
+                        data={topValueItems}
+                        isArabic={isArabic}
+                        formatCurrency={formatCurrency}
+                      />
                     ) : (
                       <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
                         {isArabic ? "لا توجد بيانات" : "No data available"}
