@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { TrendingUp, TrendingDown, Minus, Sparkles, MapPin, Loader2, Check, AlertTriangle, CheckCheck, BarChart3, Bot, Globe } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Sparkles, MapPin, Loader2, Check, AlertTriangle, CheckCheck, BarChart3, Bot, Globe, BookOpen, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { ApplyRateDialog } from "./ApplyRateDialog";
+import { useAuth } from "@/hooks/useAuth";
 import { useAnalysisTracking, useTrackAnalysis } from "@/hooks/useAnalysisTracking";
 
 interface BOQItem {
@@ -79,6 +81,7 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
   const [totalItemsCount, setTotalItemsCount] = useState(0);
   const [analyzedItemsCount, setAnalyzedItemsCount] = useState(0);
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const { selectedModel } = useAnalysisTracking();
   const { startTracking, completeTracking } = useTrackAnalysis(
@@ -86,6 +89,57 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
     'Market Rate Suggestions',
     'اقتراحات أسعار السوق'
   );
+
+  // Get source icon
+  const getSourceIcon = (source?: string) => {
+    switch (source) {
+      case "library":
+        return <BookOpen className="w-3 h-3 text-green-600" />;
+      case "reference":
+        return <Database className="w-3 h-3 text-blue-600" />;
+      case "ai":
+        return <Bot className="w-3 h-3 text-purple-600" />;
+      default:
+        return <Bot className="w-3 h-3 text-muted-foreground" />;
+    }
+  };
+
+  // Get source label
+  const getSourceLabel = (source?: string) => {
+    switch (source) {
+      case "library": return "Local Library";
+      case "reference": return "Reference DB";
+      case "ai": return "AI Analysis";
+      default: return "Unknown";
+    }
+  };
+
+  // Update pricing history when rate is applied
+  const updatePricingHistory = async (itemNumber: string, finalPrice: number, suggestedPrice: number) => {
+    if (!user) return;
+
+    try {
+      // Calculate accuracy and deviation
+      const deviation = suggestedPrice > 0 ? ((finalPrice - suggestedPrice) / suggestedPrice) * 100 : 0;
+      const accuracy = Math.max(0, 100 - Math.abs(deviation));
+
+      await supabase
+        .from('pricing_history')
+        .update({
+          final_price: finalPrice,
+          is_approved: true,
+          approved_at: new Date().toISOString(),
+          deviation_percent: Math.round(deviation * 100) / 100,
+          accuracy_score: Math.round(accuracy * 100) / 100
+        })
+        .eq('item_number', itemNumber)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+    } catch (error) {
+      console.error('Error updating pricing history:', error);
+    }
+  };
 
   // Fetch library data for enhanced pricing
   const fetchLibraryData = async () => {
@@ -202,27 +256,36 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
     setConfirmDialogOpen(true);
   };
 
-  const handleConfirmApply = () => {
+  const handleConfirmApply = async () => {
     if (!selectedSuggestion || !onApplyRate) return;
     
     onApplyRate(selectedSuggestion.item_number, selectedSuggestion.suggested_avg);
     setAppliedItems(prev => new Set([...prev, selectedSuggestion.item_number]));
     setConfirmDialogOpen(false);
-    setSelectedSuggestion(null);
+    
+    // Update pricing history with the applied rate
+    await updatePricingHistory(
+      selectedSuggestion.item_number, 
+      selectedSuggestion.suggested_avg,
+      selectedSuggestion.suggested_avg
+    );
     
     toast({
       title: "Rate applied",
       description: `Updated unit price for item ${selectedSuggestion.item_number}`,
     });
+    
+    setSelectedSuggestion(null);
   };
 
-  const handleApplyAll = () => {
+  const handleApplyAll = async () => {
     if (!onApplyRate) return;
     
     const unappliedSuggestions = suggestions.filter(s => !appliedItems.has(s.item_number));
-    unappliedSuggestions.forEach(suggestion => {
+    for (const suggestion of unappliedSuggestions) {
       onApplyRate(suggestion.item_number, suggestion.suggested_avg);
-    });
+      await updatePricingHistory(suggestion.item_number, suggestion.suggested_avg, suggestion.suggested_avg);
+    }
     
     setAppliedItems(new Set(suggestions.map(s => s.item_number)));
     
@@ -423,6 +486,7 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
               <tr>
                 <th className="p-2 text-right">Item</th>
                 <th className="p-2 text-right">Description</th>
+                <th className="p-2 text-center">Source</th>
                 <th className="p-2 text-right">Current</th>
                 <th className="p-2 text-right">Suggested</th>
                 <th className="p-2 text-right">Variance</th>
@@ -439,6 +503,28 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
                   <td className="p-3 font-mono text-xs">{suggestion.item_number}</td>
                   <td className="p-3 max-w-[200px] truncate" title={suggestion.description}>
                     {suggestion.description}
+                  </td>
+                  <td className="p-3 text-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Badge 
+                            variant="outline" 
+                            className={cn(
+                              "gap-1",
+                              suggestion.source === "library" && "bg-green-500/10 border-green-500/30",
+                              suggestion.source === "reference" && "bg-blue-500/10 border-blue-500/30",
+                              suggestion.source === "ai" && "bg-purple-500/10 border-purple-500/30"
+                            )}
+                          >
+                            {getSourceIcon(suggestion.source)}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{getSourceLabel(suggestion.source)}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </td>
                   <td className="p-3 font-mono">
                     {suggestion.current_price?.toLocaleString() || "N/A"}

@@ -59,6 +59,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
 import { DetailedPriceDialog } from "@/components/pricing/DetailedPriceDialog";
 import { EditItemDialog } from "@/components/items/EditItemDialog";
+import { PricingAccuracyDashboard } from "@/components/PricingAccuracyDashboard";
 
 interface ProjectData {
   id: string;
@@ -1080,6 +1081,9 @@ export default function ProjectDetailsPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Pricing Accuracy Dashboard */}
+            <PricingAccuracyDashboard projectId={projectId} />
 
             {/* Charts Section */}
             {items.length > 0 && (
