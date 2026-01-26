@@ -94,8 +94,8 @@ export default function ProjectDetailsPage() {
     const fetchProjectData = async () => {
       setIsLoading(true);
       try {
-        // Fetch project - using maybeSingle() to handle missing projects gracefully
-        const { data: projectData, error: projectError } = await supabase
+        // 1. Search first in project_data table
+        let { data: projectData, error: projectError } = await supabase
           .from("project_data")
           .select("*")
           .eq("id", projectId)
@@ -103,7 +103,30 @@ export default function ProjectDetailsPage() {
 
         if (projectError) throw projectError;
         
-        // Handle case when project doesn't exist
+        // 2. If not found, search in saved_projects table
+        if (!projectData) {
+          const { data: savedProject, error: savedError } = await supabase
+            .from("saved_projects")
+            .select("*")
+            .eq("id", projectId)
+            .maybeSingle();
+            
+          if (savedError) throw savedError;
+          
+          if (savedProject) {
+            // Transform saved_projects data to match ProjectData interface
+            const savedAnalysisData = savedProject.analysis_data as any;
+            projectData = {
+              ...savedProject,
+              currency: "SAR",
+              total_value: savedAnalysisData?.summary?.total_value || 
+                          (savedAnalysisData?.items?.reduce?.((sum: number, item: any) => sum + (item.total_price || 0), 0)) || 0,
+              items_count: savedAnalysisData?.items?.length || 0,
+            };
+          }
+        }
+        
+        // 3. Handle case when project doesn't exist in both tables
         if (!projectData) {
           setIsLoading(false);
           setProject(null);
