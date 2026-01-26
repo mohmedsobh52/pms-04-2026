@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-// Detailed pricing dialog for BOQ items
+// Detailed pricing dialog for BOQ items - No forwardRef needed for Radix Dialog
 import { Package, Users, Truck, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,7 +41,8 @@ interface DetailedPriceDialogProps {
   onSave: () => void;
 }
 
-export function DetailedPriceDialog({ isOpen, onClose, item, currency, onSave }: DetailedPriceDialogProps) {
+// Standard function component - Radix Dialog.Root does not pass refs to children
+function DetailedPriceDialog({ isOpen, onClose, item, currency, onSave }: DetailedPriceDialogProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("materials");
   const [overheadPercentage, setOverheadPercentage] = useState(10);
@@ -313,3 +314,6 @@ export function DetailedPriceDialog({ isOpen, onClose, item, currency, onSave }:
     </Dialog>
   );
 }
+
+// Named export - no forwardRef wrapper
+export { DetailedPriceDialog };

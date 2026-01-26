@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-// Dialog component for editing BOQ items
+// Dialog component for editing BOQ items - No forwardRef needed for Radix Dialog
 import { Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,7 +79,8 @@ const categories = [
   { value: "MISCELLANEOUS", label: { en: "Miscellaneous", ar: "أعمال متنوعة" } },
 ];
 
-export function EditItemDialog({ isOpen, onClose, item, onSave }: EditItemDialogProps) {
+// Standard function component - Radix Dialog.Root does not pass refs to children
+function EditItemDialog({ isOpen, onClose, item, onSave }: EditItemDialogProps) {
   const { isArabic } = useLanguage();
   const [isSaving, setIsSaving] = useState(false);
   
@@ -138,6 +139,8 @@ export function EditItemDialog({ isOpen, onClose, item, onSave }: EditItemDialog
       setIsSaving(false);
     }
   };
+
+  if (!item) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -337,3 +340,6 @@ export function EditItemDialog({ isOpen, onClose, item, onSave }: EditItemDialog
     </Dialog>
   );
 }
+
+// Named export - no forwardRef wrapper
+export { EditItemDialog };

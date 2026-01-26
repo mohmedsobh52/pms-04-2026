@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -639,12 +639,13 @@ export default function ProjectDetailsPage() {
     }
   };
 
-  const handleStartPricing = () => {
+  // Use useCallback for stable handlers to prevent re-render issues with Radix UI
+  const handleStartPricing = useCallback(() => {
     if (!project) return;
     navigate(`/projects/${projectId}/pricing`);
-  };
+  }, [project, projectId, navigate]);
 
-  const handleEditProject = () => {
+  const handleEditProject = useCallback(() => {
     setActiveTab("settings");
     const analysisData = project?.analysis_data as any;
     setEditForm({
@@ -663,7 +664,7 @@ export default function ProjectDetailsPage() {
         ? "يمكنك الآن تعديل إعدادات المشروع"
         : "You can now edit project settings",
     });
-  };
+  }, [project, isArabic, toast]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat(isArabic ? 'ar-SA' : 'en-US', {
