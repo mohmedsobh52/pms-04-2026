@@ -760,6 +760,41 @@ serve(async (req) => {
       / allSuggestions.length * 100
     );
 
+    // Save pricing history to database
+    try {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+
+      const historyRecords = allSuggestions.map(s => ({
+        item_number: s.item_number,
+        item_description: s.description,
+        suggested_price: s.suggested_avg,
+        suggested_min: s.suggested_min,
+        suggested_max: s.suggested_max,
+        confidence: s.confidence,
+        source: s.source,
+        location: location,
+        model_used: model,
+        user_id: userId,
+        is_approved: false
+      }));
+
+      const { error: historyError } = await supabaseAdmin
+        .from('pricing_history')
+        .insert(historyRecords);
+
+      if (historyError) {
+        console.error('Error saving pricing history:', historyError);
+      } else {
+        console.log(`Saved ${historyRecords.length} pricing history records`);
+      }
+    } catch (historyErr) {
+      console.error('Failed to save pricing history:', historyErr);
+    }
+
     console.log(`Analysis complete: ${allSuggestions.length} items`);
     console.log(`Sources: Library=${totalLib}, Reference=${totalRef}, AI=${totalAI}`);
     console.log(`Estimated accuracy: ${estimatedAccuracy}%`);

@@ -1463,6 +1463,80 @@ export type Database = {
           },
         ]
       }
+      pricing_history: {
+        Row: {
+          accuracy_score: number | null
+          approved_at: string | null
+          confidence: string | null
+          created_at: string | null
+          deviation_percent: number | null
+          final_price: number | null
+          id: string
+          is_approved: boolean | null
+          item_description: string | null
+          item_number: string
+          location: string | null
+          model_used: string | null
+          project_id: string | null
+          region: string | null
+          source: string | null
+          suggested_max: number | null
+          suggested_min: number | null
+          suggested_price: number
+          user_id: string
+        }
+        Insert: {
+          accuracy_score?: number | null
+          approved_at?: string | null
+          confidence?: string | null
+          created_at?: string | null
+          deviation_percent?: number | null
+          final_price?: number | null
+          id?: string
+          is_approved?: boolean | null
+          item_description?: string | null
+          item_number: string
+          location?: string | null
+          model_used?: string | null
+          project_id?: string | null
+          region?: string | null
+          source?: string | null
+          suggested_max?: number | null
+          suggested_min?: number | null
+          suggested_price: number
+          user_id: string
+        }
+        Update: {
+          accuracy_score?: number | null
+          approved_at?: string | null
+          confidence?: string | null
+          created_at?: string | null
+          deviation_percent?: number | null
+          final_price?: number | null
+          id?: string
+          is_approved?: boolean | null
+          item_description?: string | null
+          item_number?: string
+          location?: string | null
+          model_used?: string | null
+          project_id?: string | null
+          region?: string | null
+          source?: string | null
+          suggested_max?: number | null
+          suggested_min?: number | null
+          suggested_price?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_history_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "saved_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       procurement_items: {
         Row: {
           ai_generated: boolean | null
