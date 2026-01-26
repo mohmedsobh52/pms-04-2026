@@ -50,7 +50,7 @@ import {
   PricingDistributionChart,
   CategoryDistributionChart,
   TopItemsChart,
-} from "@/components/charts/ProjectCharts";
+} from "@/components/charts/ChartJsCharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
