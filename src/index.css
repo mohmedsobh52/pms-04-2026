@@ -518,6 +518,30 @@
   100% { background-position: -200% 50%; }
 }
 
+@keyframes aurora {
+  0%, 100% {
+    transform: translate(-50%, -50%) translate(0, 0) rotate(0deg);
+    opacity: 0.6;
+  }
+  25% {
+    transform: translate(-50%, -50%) translate(-5%, 5%) rotate(2deg);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translate(-50%, -50%) translate(5%, -5%) rotate(-2deg);
+    opacity: 0.7;
+  }
+  75% {
+    transform: translate(-50%, -50%) translate(-3%, -3%) rotate(1deg);
+    opacity: 0.75;
+  }
+}
+
+@keyframes meshGradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
 .animate-bounceIn {
   animation: bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }

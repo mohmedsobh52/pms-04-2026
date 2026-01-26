@@ -368,7 +368,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6 space-y-8 relative z-10">
+      <main className="container mx-auto px-4 py-4 space-y-5 relative z-10">
         {/* Hero Section */}
         <HeroSection 
           stats={stats ? {
@@ -385,8 +385,8 @@ export default function HomePage() {
         />
 
         {/* Lifecycle Flow */}
-        <section className="py-4">
-          <Card className="bg-card/60 backdrop-blur-sm border-border/50">
+        <section>
+          <Card className="bg-card/70 backdrop-blur-md border-border/40">
             <CardHeader className="pb-2">
               <CardTitle className="text-center text-lg">
                 {isArabic ? "🏗️ دورة حياة المشروع" : "🏗️ Project Lifecycle"}

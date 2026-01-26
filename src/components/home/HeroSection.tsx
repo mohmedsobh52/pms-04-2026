@@ -2,6 +2,7 @@ import { PMSLogo } from "@/components/PMSLogo";
 import { useLanguage } from "@/hooks/useLanguage";
 import { cn } from "@/lib/utils";
 import { AreaChart, Area, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { TrendingUp, Layers, DollarSign, Users } from "lucide-react";
 
 interface ProjectDistribution {
   name: string;
@@ -53,87 +54,71 @@ export function HeroSection({ stats, recentTrend, projectDistribution }: HeroSec
   const totalDistribution = distribution.reduce((sum, d) => sum + d.value, 0);
 
   return (
-    <section className="relative py-12 md:py-16 overflow-hidden">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-64 md:w-96 h-64 md:h-96 bg-primary/5 rounded-full blur-[100px] animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-48 md:w-72 h-48 md:h-72 bg-accent/5 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 right-1/3 w-40 md:w-64 h-40 md:h-64 bg-purple-500/5 rounded-full blur-[80px] animate-pulse" style={{ animationDelay: '2s' }} />
-      </div>
-      
+    <section className="relative py-6 md:py-8 overflow-hidden">
       {/* Content */}
-      <div className="relative z-10 text-center space-y-6">
-        {/* Animated Logo */}
-        <div className="flex items-center justify-center gap-4 animate-fade-in">
-          <PMSLogo size="xl" className="drop-shadow-2xl" />
+      <div className="relative z-10 space-y-5">
+        {/* Logo & Title Row */}
+        <div className="flex flex-col items-center gap-3 animate-fade-in">
+          <PMSLogo size="lg" className="drop-shadow-xl" />
+          <div className="text-center">
+            <h1 className="text-3xl md:text-4xl font-bold">
+              <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient">
+                PMS
+              </span>
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1 max-w-xl mx-auto">
+              {isArabic 
+                ? "نظام متكامل لإدارة المشاريع الإنشائية"
+                : "Comprehensive Construction Project Management"
+              }
+            </p>
+          </div>
         </div>
         
-        {/* Title with Gradient */}
-        <h1 className="text-4xl md:text-6xl font-bold animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient">
-            PMS
-          </span>
-        </h1>
-        
-        {/* Subtitle */}
-        <p 
-          className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto px-4 animate-slide-up"
-          style={{ animationDelay: '0.3s' }}
-        >
-          {isArabic 
-            ? "نظام متكامل لإدارة المشاريع الإنشائية - من التحليل إلى التسليم"
-            : "Comprehensive Construction Project Management - From Analysis to Delivery"
-          }
-        </p>
-        
-        {/* Enhanced Stats with Progress Ring and Sparkline */}
+        {/* Enhanced Stats Grid */}
         {stats && (
-          <div 
-            className="flex flex-wrap items-center justify-center gap-6 md:gap-8 text-sm animate-fade-in pt-4"
-            style={{ animationDelay: '0.4s' }}
-          >
-            {/* Progress Ring */}
-            <div className="flex items-center gap-3 bg-card/60 backdrop-blur-sm rounded-2xl px-4 py-3 border border-border/50 shadow-lg">
-              <div className="relative w-14 h-14">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 max-w-5xl mx-auto animate-fade-in" style={{ animationDelay: '0.2s' }}>
+            {/* Progress Ring - Projects */}
+            <div className="flex items-center gap-3 bg-card/70 backdrop-blur-md rounded-xl px-3 py-3 border border-border/40 shadow-lg hover:bg-card/80 transition-all group">
+              <div className="relative w-12 h-12 shrink-0">
                 <svg className="w-full h-full transform -rotate-90">
                   <circle 
-                    cx="28" cy="28" r="24" 
-                    className="fill-none stroke-muted/30 stroke-[4]" 
+                    cx="24" cy="24" r="20" 
+                    className="fill-none stroke-muted/30 stroke-[3]" 
                   />
                   <circle 
-                    cx="28" cy="28" r="24" 
-                    className="fill-none stroke-primary stroke-[4] transition-all duration-1000 ease-out"
+                    cx="24" cy="24" r="20" 
+                    className="fill-none stroke-primary stroke-[3] transition-all duration-1000 ease-out"
                     strokeLinecap="round"
-                    strokeDasharray="151"
-                    strokeDashoffset={progressOffset}
-                    style={{ animation: 'progressRing 1.5s ease-out forwards' }}
+                    strokeDasharray="126"
+                    strokeDashoffset={126 - (projectsProgress * 1.26)}
                   />
                 </svg>
                 <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-primary">
                   {stats.totalProjects}
                 </span>
               </div>
-              <div className="text-start">
-                <span className="block text-xs text-muted-foreground">{isArabic ? "المشاريع" : "Projects"}</span>
+              <div className="min-w-0">
+                <span className="block text-[10px] text-muted-foreground truncate">{isArabic ? "المشاريع" : "Projects"}</span>
                 <span className="block text-sm font-semibold text-foreground">{isArabic ? "نشط" : "Active"}</span>
               </div>
             </div>
 
-            {/* Mini Pie Chart - Project Distribution */}
-            <div className="flex items-center gap-3 bg-card/60 backdrop-blur-sm rounded-2xl px-4 py-3 border border-border/50 shadow-lg">
-              <div className="w-14 h-14">
+            {/* Mini Pie Chart - Distribution */}
+            <div className="flex items-center gap-3 bg-card/70 backdrop-blur-md rounded-xl px-3 py-3 border border-border/40 shadow-lg hover:bg-card/80 transition-all group">
+              <div className="w-12 h-12 shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={distribution}
                       cx="50%"
                       cy="50%"
-                      innerRadius={14}
-                      outerRadius={26}
+                      innerRadius={12}
+                      outerRadius={22}
                       dataKey="value"
                       strokeWidth={0}
                       animationBegin={0}
-                      animationDuration={1000}
+                      animationDuration={800}
                     >
                       {distribution.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
@@ -142,18 +127,15 @@ export function HeroSection({ stats, recentTrend, projectDistribution }: HeroSec
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              <div className="text-start">
-                <span className="block text-xs text-muted-foreground mb-1">
-                  {isArabic ? "توزيع المشاريع" : "Distribution"}
+              <div className="min-w-0">
+                <span className="block text-[10px] text-muted-foreground truncate mb-0.5">
+                  {isArabic ? "التوزيع" : "Status"}
                 </span>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {distribution.map((item, i) => (
-                    <div key={i} className="flex items-center gap-1">
-                      <div 
-                        className="w-2 h-2 rounded-full" 
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <span className="text-[10px] text-muted-foreground">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {distribution.slice(0, 3).map((item, i) => (
+                    <div key={i} className="flex items-center gap-0.5">
+                      <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="text-[9px] text-muted-foreground">
                         {totalDistribution > 0 ? Math.round((item.value / totalDistribution) * 100) : 0}%
                       </span>
                     </div>
@@ -163,12 +145,12 @@ export function HeroSection({ stats, recentTrend, projectDistribution }: HeroSec
             </div>
 
             {/* Sparkline Trend */}
-            <div className="flex items-center gap-3 bg-card/60 backdrop-blur-sm rounded-2xl px-4 py-3 border border-border/50 shadow-lg">
-              <div className="w-20 h-10">
+            <div className="flex items-center gap-3 bg-card/70 backdrop-blur-md rounded-xl px-3 py-3 border border-border/40 shadow-lg hover:bg-card/80 transition-all group">
+              <div className="w-16 h-10 shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={sparklineData}>
                     <defs>
-                      <linearGradient id="sparklineGradient" x1="0" y1="0" x2="0" y2="1">
+                      <linearGradient id="heroSparkline" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.4}/>
                         <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
                       </linearGradient>
@@ -176,30 +158,42 @@ export function HeroSection({ stats, recentTrend, projectDistribution }: HeroSec
                     <Area 
                       type="monotone" 
                       dataKey="value" 
-                      fill="url(#sparklineGradient)" 
+                      fill="url(#heroSparkline)" 
                       stroke="hsl(var(--primary))" 
-                      strokeWidth={2}
+                      strokeWidth={1.5}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
-              <div className="text-start">
-                <span className="block text-xs text-muted-foreground">{isArabic ? "الاتجاه" : "Trend"}</span>
-                <span className="block text-sm font-semibold text-green-500">↑ 12%</span>
+              <div className="min-w-0">
+                <span className="block text-[10px] text-muted-foreground truncate">{isArabic ? "الاتجاه" : "Trend"}</span>
+                <span className="flex items-center gap-1 text-sm font-semibold text-green-500">
+                  <TrendingUp className="w-3 h-3" />
+                  12%
+                </span>
               </div>
             </div>
 
-            {/* Quick Stats with Enhanced Styling */}
-            <div className="flex items-center gap-2 bg-card/60 backdrop-blur-sm rounded-2xl px-4 py-3 border border-border/50 shadow-lg">
-              <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse shadow-lg shadow-blue-500/50" />
-              <span className="font-medium">{stats.totalItems.toLocaleString()}</span>
-              <span className="text-muted-foreground">{isArabic ? "بند" : "Items"}</span>
+            {/* Items Count */}
+            <div className="flex items-center gap-3 bg-card/70 backdrop-blur-md rounded-xl px-3 py-3 border border-border/40 shadow-lg hover:bg-card/80 transition-all group">
+              <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                <Layers className="w-5 h-5 text-blue-500" />
+              </div>
+              <div className="min-w-0">
+                <span className="block text-[10px] text-muted-foreground truncate">{isArabic ? "البنود" : "Items"}</span>
+                <span className="block text-lg font-bold">{stats.totalItems.toLocaleString()}</span>
+              </div>
             </div>
             
-            <div className="flex items-center gap-2 bg-card/60 backdrop-blur-sm rounded-2xl px-4 py-3 border border-border/50 shadow-lg">
-              <div className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse shadow-lg shadow-purple-500/50" style={{ animationDelay: '0.5s' }} />
-              <span className="font-medium">{formatCurrency(stats.totalValue)}</span>
-              <span className="text-muted-foreground">SAR</span>
+            {/* Total Value */}
+            <div className="flex items-center gap-3 bg-card/70 backdrop-blur-md rounded-xl px-3 py-3 border border-border/40 shadow-lg hover:bg-card/80 transition-all group col-span-2 md:col-span-1">
+              <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
+                <DollarSign className="w-5 h-5 text-green-500" />
+              </div>
+              <div className="min-w-0">
+                <span className="block text-[10px] text-muted-foreground truncate">{isArabic ? "القيمة" : "Value"}</span>
+                <span className="block text-lg font-bold">{formatCurrency(stats.totalValue)} <span className="text-xs text-muted-foreground">SAR</span></span>
+              </div>
             </div>
           </div>
         )}
