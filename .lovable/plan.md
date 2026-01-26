@@ -1,43 +1,63 @@
 
 
-# خطة إصلاح تبويب "Analyze BOQ"
+# خطة إصلاح منطقة "Upload File"
 
 ## تشخيص المشكلة
 
 ### السبب الجذري
-تبويب "Analyze BOQ" في صفحة Projects يعاني من **نفس مشكلة z-index** التي أصلحناها في الصفحات السابقة:
+منطقة رفع الملفات في تبويب "Analyze BOQ" تعاني من **نفس مشكلة z-index** التي أصلحناها سابقاً:
 
 ```text
 ترتيب الطبقات الحالي:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Header:                    z-50   
-TabsList:                  z-auto ❌ (غير محمي!)
-Dialog Overlay:            z-50   (قد يحجب الـ tabs)
+Tabs Navigation:           z-55   ✅ (محمي)
+Dialog Overlay:            z-50   
+Upload Zone:               z-auto ❌ (غير محمي!)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-**TabsList** في `SavedProjectsPage.tsx` (السطر 291) لا يحتوي على class `tabs-navigation-safe` الذي يحمي التبويبات من مشاكل z-index.
+منطقة الرفع في `BOQAnalyzerPanel.tsx` (السطور 559-586) ليس لها `z-index` عالي أو `pointer-events` صريح، لذلك قد تُحجب بواسطة Dialog Overlay بعد إغلاقه.
 
 ---
 
 ## الحل المقترح
 
-### إضافة class للـ TabsList في SavedProjectsPage
+### 1. إضافة class حماية لمنطقة الرفع
 
-**في ملف `src/pages/SavedProjectsPage.tsx` - السطر 291:**
+**في ملف `src/components/BOQAnalyzerPanel.tsx` - السطر 558:**
+
+تغيير CardContent لإضافة class حماية:
 
 ```typescript
 // قبل
-<TabsList className="grid w-full sm:w-auto grid-cols-2">
+<CardContent>
 
-// بعد
-<TabsList className="grid w-full sm:w-auto grid-cols-2 tabs-navigation-safe">
+// بعد  
+<CardContent className="relative z-[55]">
 ```
 
-هذا يطبق نفس CSS المحمي الذي أضفناه سابقاً:
-- `z-index: 55`
-- `pointer-events: auto`
-- `cursor: pointer`
+### 2. إضافة CSS لمنطقة الرفع في dialog-custom.css
+
+```css
+/* Upload zone protection */
+.upload-zone,
+[class*="border-dashed"] {
+  position: relative;
+  z-index: 55;
+  pointer-events: auto !important;
+}
+
+.upload-zone label,
+[class*="border-dashed"] label {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.upload-zone input[type="file"],
+[class*="border-dashed"] input[type="file"] {
+  pointer-events: auto !important;
+}
+```
 
 ---
 
@@ -45,14 +65,16 @@ Dialog Overlay:            z-50   (قد يحجب الـ tabs)
 
 | الملف | السطر | التغيير | الأثر |
 |-------|-------|---------|-------|
-| `SavedProjectsPage.tsx` | 291 | إضافة `tabs-navigation-safe` class | يحمي tabs من z-index conflicts |
+| `BOQAnalyzerPanel.tsx` | 558 | إضافة `relative z-[55]` للـ CardContent | يحمي منطقة الرفع |
+| `dialog-custom.css` | جديد | CSS rules لـ upload zone | يضمن pointer-events |
 
 ---
 
-## التبويبات المحمية بعد الإصلاح
+## العناصر المحمية بعد الإصلاح
 
-1. **Saved Projects** - سيعمل بشكل صحيح
-2. **Analyze BOQ** - سيعمل بشكل صحيح
+1. **منطقة السحب والإفلات** - ستعمل بشكل صحيح
+2. **النقر للرفع** - سيعمل بشكل صحيح  
+3. **اختيار الملف** - سيعمل بشكل صحيح
 
 ---
 
@@ -63,8 +85,8 @@ Dialog Overlay:            z-50   (قد يحجب الـ tabs)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Select Dropdowns:          z-[70] ✅
 Project Actions:           z-[60] ✅
-Tabs Navigation:           z-55   ✅ (مع class tabs-navigation-safe)
-Header:                    z-50
+Tabs Navigation:           z-55   ✅
+Upload Zone:               z-55   ✅ (سيُضاف)
 Dialog Overlay:            z-50
 Normal Content:            z-auto
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -76,17 +98,13 @@ Normal Content:            z-auto
 
 بعد تطبيق التغييرات:
 
-1. **اختبار Analyze BOQ tab:**
-   - النقر على "Analyze BOQ" → يجب أن يظهر قسم رفع الملفات
-   - التأكد من عمل منطقة السحب والإفلات
+1. **اختبار النقر على منطقة الرفع:**
+   - النقر على المنطقة المنقطة → يجب أن يفتح نافذة اختيار الملف
+   
+2. **اختبار السحب والإفلات:**
+   - سحب ملف PDF أو Excel → يجب أن تتغير لون الحدود
+   - إفلات الملف → يجب أن يبدأ الرفع
 
-2. **اختبار Saved Projects tab:**
-   - النقر على "Saved Projects" → يجب أن تظهر قائمة المشاريع
-   - التأكد من عمل البحث والفلترة
-
-3. **اختبار التبديل السريع:**
-   - التبديل المتكرر بين التبويبين → يجب أن يعمل بسلاسة
-
-4. **اختبار بعد إغلاق Dialog:**
-   - فتح أي dialog → إغلاقه → النقر على تبويب → يجب أن يعمل فوراً
+3. **اختبار بعد إغلاق Dialog:**
+   - فتح أي dialog في الصفحة → إغلاقه → النقر على منطقة الرفع → يجب أن يعمل فوراً
 
