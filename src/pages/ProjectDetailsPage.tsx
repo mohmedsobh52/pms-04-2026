@@ -46,6 +46,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  PricingDistributionChart,
+  CategoryDistributionChart,
+  TopItemsChart,
+} from "@/components/charts/ProjectCharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -1036,6 +1041,60 @@ export default function ProjectDetailsPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Charts Section - Outside Tabs to avoid ref conflicts with recharts */}
+        {activeTab === "overview" && items.length > 0 && (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">
+                  {isArabic ? "توزيع التسعير" : "Pricing Distribution"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PricingDistributionChart 
+                  data={pricingDistributionData}
+                  isArabic={isArabic}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">
+                  {isArabic ? "توزيع الفئات" : "Category Distribution"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CategoryDistributionChart 
+                  data={categoryDistribution}
+                  isArabic={isArabic}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">
+                  {isArabic ? "أعلى البنود قيمة" : "Top Items by Value"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {topValueItems.length > 0 ? (
+                  <TopItemsChart 
+                    data={topValueItems}
+                    isArabic={isArabic}
+                    formatCurrency={formatCurrency}
+                  />
+                ) : (
+                  <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+                    {isArabic ? "لا توجد بيانات" : "No data available"}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
