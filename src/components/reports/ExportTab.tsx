@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,7 +20,8 @@ interface ExportTabProps {
   isLoading: boolean;
 }
 
-export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
+export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
+  ({ projects, isLoading }, ref) => {
   const { isArabic } = useLanguage();
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
 
@@ -503,7 +504,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div ref={ref} className="space-y-6">
       {/* Project Selector */}
       <Card>
         <CardContent className="p-4">
@@ -560,4 +561,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
       )}
     </div>
   );
-};
+  }
+);
+
+ExportTab.displayName = "ExportTab";

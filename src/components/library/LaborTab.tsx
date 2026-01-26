@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,8 @@ interface LaborTabProps {
   validityFilter?: string | null;
 }
 
-export const LaborTab = ({ validityFilter }: LaborTabProps) => {
+export const LaborTab = React.forwardRef<HTMLDivElement, LaborTabProps>(
+  ({ validityFilter }, ref) => {
   const { isArabic } = useLanguage();
   const { laborRates, loading, addLaborRate, deleteLaborRate, importFromExcel, calculateHourlyRate } = useLaborRates();
   const [search, setSearch] = useState("");
@@ -143,7 +144,7 @@ export const LaborTab = ({ validityFilter }: LaborTabProps) => {
 
   if (loading) {
     return (
-      <div className="space-y-4">
+      <div ref={ref} className="space-y-4">
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -151,7 +152,7 @@ export const LaborTab = ({ validityFilter }: LaborTabProps) => {
   }
 
   return (
-    <div className="space-y-4">
+    <div ref={ref} className="space-y-4">
       {/* Header Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="relative flex-1 min-w-[200px] max-w-md">
@@ -422,4 +423,7 @@ export const LaborTab = ({ validityFilter }: LaborTabProps) => {
       )}
     </div>
   );
-};
+  }
+);
+
+LaborTab.displayName = "LaborTab";

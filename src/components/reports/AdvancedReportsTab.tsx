@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -119,7 +119,8 @@ const reportTypes: ReportType[] = [
   },
 ];
 
-export const AdvancedReportsTab = ({ projects }: AdvancedReportsTabProps) => {
+export const AdvancedReportsTab = React.forwardRef<HTMLDivElement, AdvancedReportsTabProps>(
+  ({ projects }, ref) => {
   const { isArabic } = useLanguage();
   const { user } = useAuth();
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
@@ -519,7 +520,7 @@ export const AdvancedReportsTab = ({ projects }: AdvancedReportsTabProps) => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div ref={ref} className="space-y-6">
       {/* Header with filters */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -896,4 +897,7 @@ export const AdvancedReportsTab = ({ projects }: AdvancedReportsTabProps) => {
       </Dialog>
     </div>
   );
-};
+  }
+);
+
+AdvancedReportsTab.displayName = "AdvancedReportsTab";
