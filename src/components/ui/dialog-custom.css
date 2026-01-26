@@ -1,12 +1,15 @@
 /* Dialog Overlay - Instant pointer-events removal on close */
-[data-radix-dialog-overlay][data-state="closed"] {
-  animation-duration: 50ms !important;
+[data-radix-dialog-overlay][data-state="closed"],
+[data-radix-dialog-overlay]:not([data-state="open"]) {
+  animation-duration: 0ms !important;
   pointer-events: none !important;
+  opacity: 0 !important;
 }
 
 /* Dialog Content - Fast exit animation */
-[data-radix-dialog-content][data-state="closed"] {
-  animation-duration: 100ms !important;
+[data-radix-dialog-content][data-state="closed"],
+[data-radix-dialog-content]:not([data-state="open"]) {
+  animation-duration: 0ms !important;
   pointer-events: none !important;
 }
 
@@ -14,4 +17,17 @@
 .tabs-navigation-safe {
   position: relative;
   z-index: 55;
+}
+
+/* Ensure TabsList has higher z-index than Dialog Overlay */
+[data-radix-tabs-list] {
+  position: relative;
+  z-index: 55;
+}
+
+/* Ensure TabsTrigger is always clickable */
+[data-radix-tabs-trigger] {
+  position: relative;
+  z-index: 56;
+  cursor: pointer;
 }

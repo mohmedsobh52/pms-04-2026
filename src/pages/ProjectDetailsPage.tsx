@@ -642,9 +642,9 @@ export default function ProjectDetailsPage() {
   // Handle tab change - close any open dialogs first with delay to prevent overlay conflicts
   const handleTabChange = useCallback((newTab: string) => {
     // Check if any dialog is open
-    const hadOpenDialog = showDetailedPriceDialog || showEditItemDialog;
+    const hadOpenDialog = showDetailedPriceDialog || showEditItemDialog || showQuickPriceDialog || showAddItemDialog;
     
-    // Close any open dialogs before changing tabs
+    // Close all open dialogs before changing tabs
     if (showDetailedPriceDialog) {
       setShowDetailedPriceDialog(false);
       setSelectedItemForPricing(null);
@@ -653,16 +653,22 @@ export default function ProjectDetailsPage() {
       setShowEditItemDialog(false);
       setSelectedItemForEdit(null);
     }
+    if (showQuickPriceDialog) {
+      setShowQuickPriceDialog(null);
+    }
+    if (showAddItemDialog) {
+      setShowAddItemDialog(false);
+    }
     
     // If a dialog was open, wait for it to close completely before changing tab
     if (hadOpenDialog) {
       setTimeout(() => {
         setActiveTab(newTab);
-      }, 50);
+      }, 100);
     } else {
       setActiveTab(newTab);
     }
-  }, [showDetailedPriceDialog, showEditItemDialog]);
+  }, [showDetailedPriceDialog, showEditItemDialog, showQuickPriceDialog, showAddItemDialog]);
 
   // Use useCallback for stable handlers to prevent re-render issues with Radix UI
   const handleStartPricing = useCallback(() => {
@@ -880,122 +886,142 @@ export default function ProjectDetailsPage() {
         </Tabs>
       </main>
 
-      {/* Quick Price Dialog */}
-      <Dialog open={!!showQuickPriceDialog} onOpenChange={() => setShowQuickPriceDialog(null)}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>{isArabic ? "تسعير سريع" : "Quick Price"}</DialogTitle>
-            <DialogDescription>
-              {isArabic 
-                ? "أدخل سعر الوحدة لهذا البند" 
-                : "Enter the unit price for this item"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="unitPrice">{isArabic ? "سعر الوحدة" : "Unit Price"}</Label>
-              <Input 
-                id="unitPrice"
-                type="number" 
-                step="0.01"
-                placeholder={isArabic ? "أدخل السعر" : "Enter price"}
-                value={quickPriceValue}
-                onChange={(e) => setQuickPriceValue(e.target.value)}
-              />
-            </div>
-            {showQuickPriceDialog && (() => {
-              const item = items.find(i => i.id === showQuickPriceDialog);
-              const price = parseFloat(quickPriceValue) || 0;
-              const total = (item?.quantity || 0) * price;
-              return item ? (
-                <div className="p-3 bg-muted/50 rounded-lg space-y-1 text-sm">
-                  <p><span className="text-muted-foreground">{isArabic ? "البند:" : "Item:"}</span> {item.item_number}</p>
-                  <p><span className="text-muted-foreground">{isArabic ? "الكمية:" : "Qty:"}</span> {item.quantity?.toLocaleString()}</p>
-                  <p><span className="text-muted-foreground">{isArabic ? "الإجمالي:" : "Total:"}</span> <span className="font-bold">{formatCurrency(total)}</span></p>
-                </div>
-              ) : null;
-            })()}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowQuickPriceDialog(null)}>
-              {isArabic ? "إلغاء" : "Cancel"}
-            </Button>
-            <Button onClick={handleQuickPrice} disabled={!quickPriceValue}>
-              {isArabic ? "تطبيق السعر" : "Apply Price"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Item Dialog */}
-      <Dialog open={showAddItemDialog} onOpenChange={setShowAddItemDialog}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>{isArabic ? "إضافة بند جديد" : "Add New Item"}</DialogTitle>
-            <DialogDescription>
-              {isArabic 
-                ? "أدخل بيانات البند الجديد" 
-                : "Enter the details for the new item"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="itemNumber">{isArabic ? "رقم البند" : "Item Number"} *</Label>
-              <Input 
-                id="itemNumber"
-                placeholder={isArabic ? "مثال: 1.2.3" : "e.g., 1.2.3"}
-                value={newItem.item_number}
-                onChange={(e) => setNewItem(prev => ({ ...prev, item_number: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">{isArabic ? "الوصف" : "Description"}</Label>
-              <Textarea 
-                id="description"
-                placeholder={isArabic ? "وصف البند" : "Item description"}
-                value={newItem.description}
-                onChange={(e) => setNewItem(prev => ({ ...prev, description: e.target.value }))}
-                rows={3}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+      {/* Quick Price Dialog - Conditional Rendering */}
+      {showQuickPriceDialog && (
+        <Dialog 
+          key={`quick-price-${showQuickPriceDialog}`}
+          open={true} 
+          onOpenChange={() => setShowQuickPriceDialog(null)}
+        >
+          <DialogContent 
+            className="sm:max-w-[425px]"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+            onCloseAutoFocus={(e) => e.preventDefault()}
+          >
+            <DialogHeader>
+              <DialogTitle>{isArabic ? "تسعير سريع" : "Quick Price"}</DialogTitle>
+              <DialogDescription>
+                {isArabic 
+                  ? "أدخل سعر الوحدة لهذا البند" 
+                  : "Enter the unit price for this item"}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="unit">{isArabic ? "الوحدة" : "Unit"}</Label>
+                <Label htmlFor="unitPrice">{isArabic ? "سعر الوحدة" : "Unit Price"}</Label>
                 <Input 
-                  id="unit"
-                  placeholder={isArabic ? "مثال: م³" : "e.g., m³"}
-                  value={newItem.unit}
-                  onChange={(e) => setNewItem(prev => ({ ...prev, unit: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="quantity">{isArabic ? "الكمية" : "Quantity"}</Label>
-                <Input 
-                  id="quantity"
-                  type="number"
+                  id="unitPrice"
+                  type="number" 
                   step="0.01"
-                  placeholder="0"
-                  value={newItem.quantity}
-                  onChange={(e) => setNewItem(prev => ({ ...prev, quantity: e.target.value }))}
+                  placeholder={isArabic ? "أدخل السعر" : "Enter price"}
+                  value={quickPriceValue}
+                  onChange={(e) => setQuickPriceValue(e.target.value)}
                 />
               </div>
+              {(() => {
+                const item = items.find(i => i.id === showQuickPriceDialog);
+                const price = parseFloat(quickPriceValue) || 0;
+                const total = (item?.quantity || 0) * price;
+                return item ? (
+                  <div className="p-3 bg-muted/50 rounded-lg space-y-1 text-sm">
+                    <p><span className="text-muted-foreground">{isArabic ? "البند:" : "Item:"}</span> {item.item_number}</p>
+                    <p><span className="text-muted-foreground">{isArabic ? "الكمية:" : "Qty:"}</span> {item.quantity?.toLocaleString()}</p>
+                    <p><span className="text-muted-foreground">{isArabic ? "الإجمالي:" : "Total:"}</span> <span className="font-bold">{formatCurrency(total)}</span></p>
+                  </div>
+                ) : null;
+              })()}
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddItemDialog(false)}>
-              {isArabic ? "إلغاء" : "Cancel"}
-            </Button>
-            <Button 
-              onClick={handleAddItem} 
-              disabled={!newItem.item_number || isAddingItem}
-              className="gap-2"
-            >
-              {isAddingItem && <Loader2 className="w-4 h-4 animate-spin" />}
-              {isArabic ? "إضافة" : "Add Item"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowQuickPriceDialog(null)}>
+                {isArabic ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button onClick={handleQuickPrice} disabled={!quickPriceValue}>
+                {isArabic ? "تطبيق السعر" : "Apply Price"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Add Item Dialog - Conditional Rendering */}
+      {showAddItemDialog && (
+        <Dialog 
+          key="add-item-dialog"
+          open={true} 
+          onOpenChange={setShowAddItemDialog}
+        >
+          <DialogContent 
+            className="sm:max-w-[500px]"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+            onCloseAutoFocus={(e) => e.preventDefault()}
+          >
+            <DialogHeader>
+              <DialogTitle>{isArabic ? "إضافة بند جديد" : "Add New Item"}</DialogTitle>
+              <DialogDescription>
+                {isArabic 
+                  ? "أدخل بيانات البند الجديد" 
+                  : "Enter the details for the new item"}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="itemNumber">{isArabic ? "رقم البند" : "Item Number"} *</Label>
+                <Input 
+                  id="itemNumber"
+                  placeholder={isArabic ? "مثال: 1.2.3" : "e.g., 1.2.3"}
+                  value={newItem.item_number}
+                  onChange={(e) => setNewItem(prev => ({ ...prev, item_number: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">{isArabic ? "الوصف" : "Description"}</Label>
+                <Textarea 
+                  id="description"
+                  placeholder={isArabic ? "وصف البند" : "Item description"}
+                  value={newItem.description}
+                  onChange={(e) => setNewItem(prev => ({ ...prev, description: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="unit">{isArabic ? "الوحدة" : "Unit"}</Label>
+                  <Input 
+                    id="unit"
+                    placeholder={isArabic ? "مثال: م³" : "e.g., m³"}
+                    value={newItem.unit}
+                    onChange={(e) => setNewItem(prev => ({ ...prev, unit: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="quantity">{isArabic ? "الكمية" : "Quantity"}</Label>
+                  <Input 
+                    id="quantity"
+                    type="number"
+                    step="0.01"
+                    placeholder="0"
+                    value={newItem.quantity}
+                    onChange={(e) => setNewItem(prev => ({ ...prev, quantity: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAddItemDialog(false)}>
+                {isArabic ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button 
+                onClick={handleAddItem} 
+                disabled={!newItem.item_number || isAddingItem}
+                className="gap-2"
+              >
+                {isAddingItem && <Loader2 className="w-4 h-4 animate-spin" />}
+                {isArabic ? "إضافة" : "Add Item"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Detailed Price Dialog - Conditional rendering with controlled state */}
       {showDetailedPriceDialog && selectedItemForPricing && (
