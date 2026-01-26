@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -68,8 +68,7 @@ interface PriceAnalysisTabProps {
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
-export const PriceAnalysisTab = React.forwardRef<HTMLDivElement, PriceAnalysisTabProps>(
-  ({ projects }, ref) => {
+export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
   const { isArabic } = useLanguage();
   const { user } = useAuth();
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
@@ -386,7 +385,7 @@ export const PriceAnalysisTab = React.forwardRef<HTMLDivElement, PriceAnalysisTa
   ];
 
   return (
-    <div ref={ref} className="space-y-6">
+    <div className="space-y-6">
       {/* Project Selector */}
       <Card>
         <CardContent className="p-4">
@@ -668,7 +667,4 @@ export const PriceAnalysisTab = React.forwardRef<HTMLDivElement, PriceAnalysisTa
       </Dialog>
     </div>
   );
-  }
-);
-
-PriceAnalysisTab.displayName = "PriceAnalysisTab";
+}
