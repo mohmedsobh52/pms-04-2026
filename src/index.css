@@ -482,6 +482,55 @@
   to { stroke-dashoffset: var(--progress-offset, 0); }
 }
 
+@keyframes bounceIn {
+  0% { 
+    transform: scale(0.8); 
+    opacity: 0.5; 
+  }
+  50% { 
+    transform: scale(1.15); 
+    opacity: 0.9;
+  }
+  100% { 
+    transform: scale(1); 
+    opacity: 1; 
+  }
+}
+
+@keyframes particle {
+  0% { 
+    transform: scale(0) translate(0, 0); 
+    opacity: 1; 
+  }
+  100% { 
+    transform: scale(1.5) translate(var(--tx, 30px), var(--ty, -30px)); 
+    opacity: 0; 
+  }
+}
+
+@keyframes flowLine {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+@keyframes progressShimmer {
+  0% { background-position: 200% 50%; }
+  100% { background-position: -200% 50%; }
+}
+
+.animate-bounceIn {
+  animation: bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.animate-particle {
+  animation: particle 0.7s ease-out forwards;
+}
+
+.animate-flowLine {
+  background-size: 200% 100%;
+  animation: flowLine 3s linear infinite;
+}
+
 /* Print styles */
 @media print {
   .no-print {
