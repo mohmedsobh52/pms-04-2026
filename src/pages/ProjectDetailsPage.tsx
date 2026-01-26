@@ -5,7 +5,7 @@ import {
   Package, Percent, DollarSign, FileText, Building2, Calendar,
   File, Settings, LayoutList, FolderOpen, Loader2, Search,
   Filter, Download, Trash2, CheckCircle, XCircle, Upload, Save, X,
-  Plus, Wand2, RefreshCw
+  Plus, Wand2, RefreshCw, ArrowUpDown, Hash
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -149,6 +149,10 @@ export default function ProjectDetailsPage() {
   const [itemsPerPage, setItemsPerPage] = useState<number>(() => {
     const saved = localStorage.getItem("boq_items_per_page");
     return saved ? parseInt(saved, 10) : 100;
+  });
+  const [sortMode, setSortMode] = useState<'file_order' | 'item_number'>(() => {
+    const saved = localStorage.getItem("boq_sort_mode");
+    return (saved as 'file_order' | 'item_number') || 'file_order';
   });
 
   // Document upload state
@@ -294,16 +298,41 @@ export default function ProjectDetailsPage() {
       }));
   }, [items]);
 
-  // Filter items for BOQ tab
+  // Filter and sort items for BOQ tab
   const filteredItems = useMemo(() => {
-    if (!itemsSearch) return items;
-    const query = itemsSearch.toLowerCase();
-    return items.filter(item => 
-      item.item_number.toLowerCase().includes(query) ||
-      item.description?.toLowerCase().includes(query) ||
-      item.category?.toLowerCase().includes(query)
-    );
-  }, [items, itemsSearch]);
+    let result = items;
+    
+    // Apply search filter
+    if (itemsSearch) {
+      const query = itemsSearch.toLowerCase();
+      result = result.filter(item => 
+        item.item_number.toLowerCase().includes(query) ||
+        item.description?.toLowerCase().includes(query) ||
+        item.category?.toLowerCase().includes(query)
+      );
+    }
+    
+    // Apply sorting
+    if (sortMode === 'item_number') {
+      result = [...result].sort((a, b) => {
+        // Natural sort for item numbers (1.1, 1.2, 1.10, 2.1, etc.)
+        return a.item_number.localeCompare(b.item_number, undefined, {
+          numeric: true,
+          sensitivity: 'base'
+        });
+      });
+    }
+    // For 'file_order' - data is already sorted by sort_order from database
+    
+    return result;
+  }, [items, itemsSearch, sortMode]);
+
+  // Handler for changing sort mode
+  const handleSortModeChange = (mode: 'file_order' | 'item_number') => {
+    setSortMode(mode);
+    localStorage.setItem("boq_sort_mode", mode);
+    setCurrentPage(1);
+  };
 
   // Pagination with configurable items per page
   const effectiveItemsPerPage = itemsPerPage >= filteredItems.length ? filteredItems.length : itemsPerPage;
@@ -1233,6 +1262,36 @@ export default function ProjectDetailsPage() {
                         className="pl-9 w-48 md:w-64"
                       />
                     </div>
+                    {/* Sort Mode Toggle */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="gap-2">
+                          <ArrowUpDown className="w-4 h-4" />
+                          {sortMode === 'file_order' 
+                            ? (isArabic ? "ترتيب الملف" : "File Order")
+                            : (isArabic ? "ترتيب رقمي" : "Numeric Order")
+                          }
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align={isArabic ? "start" : "end"} className="bg-popover">
+                        <DropdownMenuItem 
+                          onClick={() => handleSortModeChange('file_order')}
+                          className="gap-2"
+                        >
+                          <FileText className="w-4 h-4" />
+                          {isArabic ? "ترتيب الملف الأصلي" : "Original File Order"}
+                          {sortMode === 'file_order' && <CheckCircle className="w-4 h-4 text-green-500 ml-auto" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => handleSortModeChange('item_number')}
+                          className="gap-2"
+                        >
+                          <Hash className="w-4 h-4" />
+                          {isArabic ? "ترتيب حسب رقم البند" : "Sort by Item Number"}
+                          {sortMode === 'item_number' && <CheckCircle className="w-4 h-4 text-green-500 ml-auto" />}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <Button variant="outline" size="icon">
                       <Filter className="w-4 h-4" />
                     </Button>
