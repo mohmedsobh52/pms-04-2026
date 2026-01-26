@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+// Detailed pricing dialog for BOQ items
 import { Package, Users, Truck, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
