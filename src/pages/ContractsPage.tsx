@@ -201,7 +201,7 @@ const ContractsPage = () => {
 
         {/* Main Tabs */}
         <Tabs defaultValue="contracts" className="space-y-4">
-          <TabsList className="flex flex-wrap h-auto gap-1">
+          <TabsList className="flex flex-wrap h-auto gap-1 tabs-navigation-safe">
             <TabsTrigger value="contracts" className="gap-2">
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">{isArabic ? "العقود" : "Contracts"}</span>

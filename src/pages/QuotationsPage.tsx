@@ -10,7 +10,7 @@ const QuotationsPage = () => {
   return (
     <PageLayout>
       <Tabs defaultValue="upload" className="space-y-4">
-        <TabsList>
+        <TabsList className="tabs-navigation-safe">
           <TabsTrigger value="upload">
             {isArabic ? "رفع عروض الأسعار" : "Upload Quotations"}
           </TabsTrigger>

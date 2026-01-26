@@ -35,7 +35,7 @@ const AnalysisToolsPage = () => {
   return (
     <PageLayout>
       <Tabs defaultValue="cost-analysis" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-4 tabs-navigation-safe">
           <TabsTrigger value="cost-analysis" className="flex items-center gap-2">
             <DollarSign className="h-4 w-4" />
             {isArabic ? "تحليل التكاليف" : "Cost Analysis"}

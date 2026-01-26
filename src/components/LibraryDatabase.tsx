@@ -131,7 +131,7 @@ export const LibraryDatabase = () => {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} dir={isArabic ? "rtl" : "ltr"}>
-        <TabsList className="grid w-full grid-cols-3 h-12">
+        <TabsList className="grid w-full grid-cols-3 h-12 tabs-navigation-safe">
           <TabsTrigger value="materials" className="gap-2 text-sm">
             <Package className="h-4 w-4" />
             {isArabic ? "المواد" : "Materials"}

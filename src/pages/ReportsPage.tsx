@@ -278,7 +278,7 @@ const ReportsPage = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="export" className="mt-6">
-          <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1">
+          <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1 tabs-navigation-safe">
             {tabs.map((tab) => (
               <TabsTrigger 
                 key={tab.value} 

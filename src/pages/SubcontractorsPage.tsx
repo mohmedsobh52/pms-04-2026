@@ -190,7 +190,7 @@ const SubcontractorsPage = () => {
 
         {/* Main Tabs - FIDIC removed */}
         <Tabs defaultValue="dashboard" className="space-y-4">
-          <TabsList className="grid grid-cols-3 w-full md:w-auto">
+          <TabsList className="grid grid-cols-3 w-full md:w-auto tabs-navigation-safe">
             <TabsTrigger value="dashboard" className="gap-2">
               <LayoutDashboard className="w-4 h-4" />
               <span className="hidden md:inline">{isArabic ? "لوحة التحكم" : "Dashboard"}</span>
