@@ -299,7 +299,7 @@ export default function HomePage() {
   if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <BackgroundImage />
+        <BackgroundImage activePhase={1} />
         <div className="text-center space-y-4 relative z-10">
           <PMSLogo size="xl" className="mx-auto" />
           <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
@@ -312,9 +312,16 @@ export default function HomePage() {
   const cpiStatus = getPerformanceStatus(stats?.avgCPI || 1);
   const spiStatus = getPerformanceStatus(stats?.avgSPI || 1);
 
+  // Recent actions based on most common user flows
+  const recentActions = [
+    { icon: FileUp, label: { ar: "تحليل BOQ", en: "Analyze BOQ" }, href: "/projects?tab=analyze" },
+    { icon: Receipt, label: { ar: "عروض الأسعار", en: "Quotations" }, href: "/quotations" },
+    { icon: Briefcase, label: { ar: "العقود", en: "Contracts" }, href: "/contracts" },
+  ];
+
   return (
     <div className="min-h-screen bg-transparent relative" dir={isArabic ? 'rtl' : 'ltr'}>
-      <BackgroundImage />
+      <BackgroundImage activePhase={activePhase} />
       
       {/* Header */}
       <header className="border-b border-border/50 bg-card/60 backdrop-blur-xl sticky top-0 z-50">
@@ -369,6 +376,7 @@ export default function HomePage() {
             totalItems: stats.totalItems,
             totalValue: stats.totalValue
           } : undefined}
+          recentTrend={projectTrends.map(t => ({ value: t.projects * 10 }))}
         />
 
         {/* Lifecycle Flow */}
@@ -387,6 +395,23 @@ export default function HomePage() {
             </CardContent>
           </Card>
         </section>
+
+        {/* Recent Actions Shortcuts */}
+        {user && (
+          <section className="flex items-center justify-center gap-2 flex-wrap animate-fade-in">
+            <span className="text-xs text-muted-foreground px-2">
+              {isArabic ? "اختصارات سريعة:" : "Quick shortcuts:"}
+            </span>
+            {recentActions.map((action) => (
+              <Link key={action.href} to={action.href}>
+                <Button variant="outline" size="sm" className="gap-2 bg-card/60 backdrop-blur-sm hover:bg-primary/10 transition-all">
+                  <action.icon className="w-3.5 h-3.5" />
+                  <span className="text-xs">{isArabic ? action.label.ar : action.label.en}</span>
+                </Button>
+              </Link>
+            ))}
+          </section>
+        )}
 
         {/* Phase Actions Grid */}
         <section>
