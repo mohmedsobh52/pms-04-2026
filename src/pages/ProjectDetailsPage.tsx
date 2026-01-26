@@ -162,7 +162,15 @@ export default function ProjectDetailsPage() {
 
   // Settings edit state
   const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ name: "", currency: "SAR" });
+  const [editForm, setEditForm] = useState({ 
+    name: "", 
+    currency: "SAR",
+    description: "",
+    project_type: "construction",
+    location: "",
+    client_name: "",
+    status: "draft"
+  });
   const [isSaving, setIsSaving] = useState(false);
 
   // BOQ pricing state
@@ -194,9 +202,15 @@ export default function ProjectDetailsPage() {
 
         if (projectError) throw projectError;
         setProject(projectData);
+        const analysisData = projectData.analysis_data as any;
         setEditForm({
           name: projectData.name || "",
           currency: projectData.currency || "SAR",
+          description: analysisData?.project_info?.description || "",
+          project_type: analysisData?.project_info?.type || "construction",
+          location: analysisData?.project_info?.location || "",
+          client_name: analysisData?.project_info?.client_name || "",
+          status: analysisData?.project_info?.status || "draft",
         });
 
         // Fetch items
@@ -485,11 +499,25 @@ export default function ProjectDetailsPage() {
 
     setIsSaving(true);
     try {
+      // Update analysis_data with additional fields
+      const updatedAnalysisData = {
+        ...project?.analysis_data,
+        project_info: {
+          ...(project?.analysis_data as any)?.project_info,
+          type: editForm.project_type,
+          description: editForm.description,
+          location: editForm.location,
+          client_name: editForm.client_name,
+          status: editForm.status,
+        }
+      };
+
       const { error } = await supabase
         .from("project_data")
         .update({
           name: editForm.name.trim(),
           currency: editForm.currency,
+          analysis_data: updatedAnalysisData,
           updated_at: new Date().toISOString()
         })
         .eq("id", projectId);
@@ -500,6 +528,7 @@ export default function ProjectDetailsPage() {
         ...prev,
         name: editForm.name.trim(),
         currency: editForm.currency,
+        analysis_data: updatedAnalysisData,
         updated_at: new Date().toISOString()
       } : null);
 
@@ -745,7 +774,25 @@ export default function ProjectDetailsPage() {
   };
 
   const handleEditProject = () => {
-    navigate(`/projects/${projectId}/edit`);
+    // Navigate to settings tab and enable editing mode
+    setActiveTab("settings");
+    const analysisData = project?.analysis_data as any;
+    setEditForm({
+      name: project?.name || "",
+      currency: project?.currency || "SAR",
+      description: analysisData?.project_info?.description || "",
+      project_type: analysisData?.project_info?.type || "construction",
+      location: analysisData?.project_info?.location || "",
+      client_name: analysisData?.project_info?.client_name || "",
+      status: analysisData?.project_info?.status || "draft",
+    });
+    setIsEditing(true);
+    toast({
+      title: isArabic ? "وضع التعديل" : "Edit Mode",
+      description: isArabic 
+        ? "يمكنك الآن تعديل إعدادات المشروع"
+        : "You can now edit project settings",
+    });
   };
 
   const formatCurrency = (value: number) => {
@@ -1690,9 +1737,15 @@ export default function ProjectDetailsPage() {
                     <Button 
                       variant="outline" 
                       onClick={() => {
+                        const analysisData = project.analysis_data as any;
                         setEditForm({
                           name: project.name || "",
                           currency: project.currency || "SAR",
+                          description: analysisData?.project_info?.description || "",
+                          project_type: analysisData?.project_info?.type || "construction",
+                          location: analysisData?.project_info?.location || "",
+                          client_name: analysisData?.project_info?.client_name || "",
+                          status: analysisData?.project_info?.status || "draft",
                         });
                         setIsEditing(true);
                       }}
@@ -1730,9 +1783,10 @@ export default function ProjectDetailsPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* Project Name */}
                 <div className="space-y-2">
                   <Label htmlFor="projectName">
-                    {isArabic ? "اسم المشروع" : "Project Name"}
+                    {isArabic ? "اسم المشروع" : "Project Name"} *
                   </Label>
                   {isEditing ? (
                     <Input 
@@ -1745,32 +1799,198 @@ export default function ProjectDetailsPage() {
                     <Input value={project.name} readOnly className="bg-muted/50" />
                   )}
                 </div>
-                
+
+                {/* Currency and Project Type */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="currency">
+                      {isArabic ? "العملة" : "Currency"}
+                    </Label>
+                    {isEditing ? (
+                      <Select
+                        value={editForm.currency}
+                        onValueChange={(val) => setEditForm(prev => ({ ...prev, currency: val }))}
+                      >
+                        <SelectTrigger id="currency">
+                          <SelectValue placeholder={isArabic ? "اختر العملة" : "Select currency"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currencies.map((c) => (
+                            <SelectItem key={c.value} value={c.value}>
+                              {c.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input value={project.currency || 'SAR'} readOnly className="bg-muted/50" />
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="projectType">
+                      {isArabic ? "نوع المشروع" : "Project Type"}
+                    </Label>
+                    {isEditing ? (
+                      <Select
+                        value={editForm.project_type}
+                        onValueChange={(val) => setEditForm(prev => ({ ...prev, project_type: val }))}
+                      >
+                        <SelectTrigger id="projectType">
+                          <SelectValue placeholder={isArabic ? "اختر النوع" : "Select type"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="construction">{isArabic ? "بناء" : "Construction"}</SelectItem>
+                          <SelectItem value="infrastructure">{isArabic ? "بنية تحتية" : "Infrastructure"}</SelectItem>
+                          <SelectItem value="renovation">{isArabic ? "تجديد" : "Renovation"}</SelectItem>
+                          <SelectItem value="maintenance">{isArabic ? "صيانة" : "Maintenance"}</SelectItem>
+                          <SelectItem value="other">{isArabic ? "أخرى" : "Other"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input 
+                        value={(() => {
+                          const types: Record<string, string> = {
+                            construction: isArabic ? "بناء" : "Construction",
+                            infrastructure: isArabic ? "بنية تحتية" : "Infrastructure",
+                            renovation: isArabic ? "تجديد" : "Renovation",
+                            maintenance: isArabic ? "صيانة" : "Maintenance",
+                            other: isArabic ? "أخرى" : "Other"
+                          };
+                          return types[editForm.project_type] || editForm.project_type;
+                        })()} 
+                        readOnly 
+                        className="bg-muted/50" 
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Project Status */}
                 <div className="space-y-2">
-                  <Label htmlFor="currency">
-                    {isArabic ? "العملة" : "Currency"}
+                  <Label htmlFor="status">
+                    {isArabic ? "حالة المشروع" : "Project Status"}
                   </Label>
                   {isEditing ? (
                     <Select
-                      value={editForm.currency}
-                      onValueChange={(val) => setEditForm(prev => ({ ...prev, currency: val }))}
+                      value={editForm.status}
+                      onValueChange={(val) => setEditForm(prev => ({ ...prev, status: val }))}
                     >
-                      <SelectTrigger id="currency">
-                        <SelectValue placeholder={isArabic ? "اختر العملة" : "Select currency"} />
+                      <SelectTrigger id="status">
+                        <SelectValue placeholder={isArabic ? "اختر الحالة" : "Select status"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {currencies.map((c) => (
-                          <SelectItem key={c.value} value={c.value}>
-                            {c.label}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="draft">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-gray-500" />
+                            {isArabic ? "مسودة" : "Draft"}
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="in_progress">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-blue-500" />
+                            {isArabic ? "قيد التنفيذ" : "In Progress"}
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="completed">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-green-500" />
+                            {isArabic ? "مكتمل" : "Completed"}
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="suspended">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                            {isArabic ? "معلق" : "Suspended"}
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   ) : (
-                    <Input value={project.currency || 'SAR'} readOnly className="bg-muted/50" />
+                    <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-input bg-muted/50">
+                      <span className={`w-2 h-2 rounded-full ${
+                        editForm.status === 'draft' ? 'bg-gray-500' :
+                        editForm.status === 'in_progress' ? 'bg-blue-500' :
+                        editForm.status === 'completed' ? 'bg-green-500' :
+                        'bg-yellow-500'
+                      }`} />
+                      <span>
+                        {editForm.status === 'draft' ? (isArabic ? "مسودة" : "Draft") :
+                         editForm.status === 'in_progress' ? (isArabic ? "قيد التنفيذ" : "In Progress") :
+                         editForm.status === 'completed' ? (isArabic ? "مكتمل" : "Completed") :
+                         (isArabic ? "معلق" : "Suspended")}
+                      </span>
+                    </div>
                   )}
                 </div>
+
+                {/* Description */}
+                <div className="space-y-2">
+                  <Label htmlFor="description">
+                    {isArabic ? "وصف المشروع" : "Project Description"}
+                  </Label>
+                  {isEditing ? (
+                    <Textarea 
+                      id="description"
+                      value={editForm.description} 
+                      onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder={isArabic ? "أدخل وصف المشروع" : "Enter project description"}
+                      rows={3}
+                    />
+                  ) : (
+                    <Textarea 
+                      value={editForm.description || (isArabic ? "لا يوجد وصف" : "No description")} 
+                      readOnly 
+                      className="bg-muted/50 resize-none" 
+                      rows={3}
+                    />
+                  )}
+                </div>
+
+                {/* Location and Client */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="location">
+                      {isArabic ? "موقع المشروع" : "Project Location"}
+                    </Label>
+                    {isEditing ? (
+                      <Input 
+                        id="location"
+                        value={editForm.location} 
+                        onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
+                        placeholder={isArabic ? "أدخل موقع المشروع" : "Enter project location"}
+                      />
+                    ) : (
+                      <Input 
+                        value={editForm.location || (isArabic ? "غير محدد" : "Not specified")} 
+                        readOnly 
+                        className="bg-muted/50" 
+                      />
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="clientName">
+                      {isArabic ? "اسم العميل" : "Client Name"}
+                    </Label>
+                    {isEditing ? (
+                      <Input 
+                        id="clientName"
+                        value={editForm.client_name} 
+                        onChange={(e) => setEditForm(prev => ({ ...prev, client_name: e.target.value }))}
+                        placeholder={isArabic ? "أدخل اسم العميل" : "Enter client name"}
+                      />
+                    ) : (
+                      <Input 
+                        value={editForm.client_name || (isArabic ? "غير محدد" : "Not specified")} 
+                        readOnly 
+                        className="bg-muted/50" 
+                      />
+                    )}
+                  </div>
+                </div>
                 
+                {/* Last Updated - Read Only */}
                 <div className="space-y-2">
                   <Label>
                     {isArabic ? "آخر تحديث" : "Last Updated"}
@@ -1778,6 +1998,7 @@ export default function ProjectDetailsPage() {
                   <Input value={formatDate(project.updated_at)} readOnly className="bg-muted/50" />
                 </div>
                 
+                {/* Delete Project */}
                 <div className="pt-4 border-t">
                   <Button variant="destructive" className="gap-2">
                     <Trash2 className="w-4 h-4" />
