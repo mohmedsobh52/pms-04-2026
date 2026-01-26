@@ -1,7 +1,13 @@
 import { PMSLogo } from "@/components/PMSLogo";
 import { useLanguage } from "@/hooks/useLanguage";
 import { cn } from "@/lib/utils";
-import { AreaChart, Area, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+
+interface ProjectDistribution {
+  name: string;
+  value: number;
+  color: string;
+}
 
 interface HeroSectionProps {
   stats?: {
@@ -10,9 +16,10 @@ interface HeroSectionProps {
     totalValue: number;
   };
   recentTrend?: { value: number }[];
+  projectDistribution?: ProjectDistribution[];
 }
 
-export function HeroSection({ stats, recentTrend }: HeroSectionProps) {
+export function HeroSection({ stats, recentTrend, projectDistribution }: HeroSectionProps) {
   const { isArabic } = useLanguage();
 
   const formatCurrency = (value: number) => {
@@ -34,6 +41,16 @@ export function HeroSection({ stats, recentTrend }: HeroSectionProps) {
     { value: 30 }, { value: 45 }, { value: 35 }, { value: 50 }, 
     { value: 40 }, { value: 60 }, { value: 55 }
   ];
+
+  // Default project distribution if not provided
+  const defaultDistribution: ProjectDistribution[] = [
+    { name: isArabic ? "نشط" : "Active", value: 45, color: "#22c55e" },
+    { name: isArabic ? "معلق" : "Pending", value: 25, color: "#f59e0b" },
+    { name: isArabic ? "مكتمل" : "Completed", value: 30, color: "#3b82f6" }
+  ];
+
+  const distribution = projectDistribution?.length ? projectDistribution : defaultDistribution;
+  const totalDistribution = distribution.reduce((sum, d) => sum + d.value, 0);
 
   return (
     <section className="relative py-12 md:py-16 overflow-hidden">
@@ -99,6 +116,49 @@ export function HeroSection({ stats, recentTrend }: HeroSectionProps) {
               <div className="text-start">
                 <span className="block text-xs text-muted-foreground">{isArabic ? "المشاريع" : "Projects"}</span>
                 <span className="block text-sm font-semibold text-foreground">{isArabic ? "نشط" : "Active"}</span>
+              </div>
+            </div>
+
+            {/* Mini Pie Chart - Project Distribution */}
+            <div className="flex items-center gap-3 bg-card/60 backdrop-blur-sm rounded-2xl px-4 py-3 border border-border/50 shadow-lg">
+              <div className="w-14 h-14">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={distribution}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={14}
+                      outerRadius={26}
+                      dataKey="value"
+                      strokeWidth={0}
+                      animationBegin={0}
+                      animationDuration={1000}
+                    >
+                      {distribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="text-start">
+                <span className="block text-xs text-muted-foreground mb-1">
+                  {isArabic ? "توزيع المشاريع" : "Distribution"}
+                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {distribution.map((item, i) => (
+                    <div key={i} className="flex items-center gap-1">
+                      <div 
+                        className="w-2 h-2 rounded-full" 
+                        style={{ backgroundColor: item.color }}
+                      />
+                      <span className="text-[10px] text-muted-foreground">
+                        {totalDistribution > 0 ? Math.round((item.value / totalDistribution) * 100) : 0}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 

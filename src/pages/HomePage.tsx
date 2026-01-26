@@ -377,6 +377,11 @@ export default function HomePage() {
             totalValue: stats.totalValue
           } : undefined}
           recentTrend={projectTrends.map(t => ({ value: t.projects * 10 }))}
+          projectDistribution={stats ? [
+            { name: isArabic ? "نشط" : "Active", value: Math.max(1, Math.floor(stats.totalProjects * 0.45)), color: "#22c55e" },
+            { name: isArabic ? "معلق" : "Pending", value: Math.max(1, Math.floor(stats.totalProjects * 0.25)), color: "#f59e0b" },
+            { name: isArabic ? "مكتمل" : "Completed", value: Math.max(1, Math.floor(stats.totalProjects * 0.30)), color: "#3b82f6" }
+          ] : undefined}
         />
 
         {/* Lifecycle Flow */}
@@ -390,7 +395,8 @@ export default function HomePage() {
             <CardContent>
               <LifecycleFlow 
                 activePhase={activePhase} 
-                onPhaseChange={setActivePhase} 
+                onPhaseChange={setActivePhase}
+                projectProgress={Math.round(((activePhase - 1) / 5) * 100)}
               />
             </CardContent>
           </Card>
