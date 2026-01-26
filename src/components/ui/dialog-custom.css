@@ -43,3 +43,18 @@
   pointer-events: auto !important;
   cursor: pointer !important;
 }
+
+/* Select dropdown - ensure it appears above everything */
+[data-radix-select-content] {
+  z-index: 70 !important;
+}
+
+[data-radix-select-viewport] {
+  pointer-events: auto !important;
+}
+
+/* Ensure select items are clickable */
+[data-radix-select-item] {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
