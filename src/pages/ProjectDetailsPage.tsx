@@ -639,8 +639,11 @@ export default function ProjectDetailsPage() {
     }
   };
 
-  // Handle tab change - close any open dialogs first to prevent ref conflicts
+  // Handle tab change - close any open dialogs first with delay to prevent overlay conflicts
   const handleTabChange = useCallback((newTab: string) => {
+    // Check if any dialog is open
+    const hadOpenDialog = showDetailedPriceDialog || showEditItemDialog;
+    
     // Close any open dialogs before changing tabs
     if (showDetailedPriceDialog) {
       setShowDetailedPriceDialog(false);
@@ -650,7 +653,15 @@ export default function ProjectDetailsPage() {
       setShowEditItemDialog(false);
       setSelectedItemForEdit(null);
     }
-    setActiveTab(newTab);
+    
+    // If a dialog was open, wait for it to close completely before changing tab
+    if (hadOpenDialog) {
+      setTimeout(() => {
+        setActiveTab(newTab);
+      }, 50);
+    } else {
+      setActiveTab(newTab);
+    }
   }, [showDetailedPriceDialog, showEditItemDialog]);
 
   // Use useCallback for stable handlers to prevent re-render issues with Radix UI
@@ -765,7 +776,7 @@ export default function ProjectDetailsPage() {
       />
 
       <main className="container mx-auto px-4 py-6">
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="tabs-navigation-safe">
           <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="overview">
               {isArabic ? "نظرة عامة" : "Overview"}
@@ -986,10 +997,10 @@ export default function ProjectDetailsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Detailed Price Dialog - Conditional rendering to prevent ref conflicts */}
+      {/* Detailed Price Dialog - Conditional rendering with controlled state */}
       {showDetailedPriceDialog && selectedItemForPricing && (
         <DetailedPriceDialog
-          isOpen={true}
+          isOpen={showDetailedPriceDialog}
           onClose={() => {
             setShowDetailedPriceDialog(false);
             setSelectedItemForPricing(null);
@@ -1008,10 +1019,10 @@ export default function ProjectDetailsPage() {
         />
       )}
 
-      {/* Edit Item Dialog - Conditional rendering to prevent ref conflicts */}
+      {/* Edit Item Dialog - Conditional rendering with controlled state */}
       {showEditItemDialog && selectedItemForEdit && (
         <EditItemDialog
-          isOpen={true}
+          isOpen={showEditItemDialog}
           onClose={() => {
             setShowEditItemDialog(false);
             setSelectedItemForEdit(null);

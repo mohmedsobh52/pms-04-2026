@@ -1,0 +1,17 @@
+/* Dialog Overlay - Instant pointer-events removal on close */
+[data-radix-dialog-overlay][data-state="closed"] {
+  animation-duration: 50ms !important;
+  pointer-events: none !important;
+}
+
+/* Dialog Content - Fast exit animation */
+[data-radix-dialog-content][data-state="closed"] {
+  animation-duration: 100ms !important;
+  pointer-events: none !important;
+}
+
+/* Safe z-index for tabs navigation - above dialog overlay */
+.tabs-navigation-safe {
+  position: relative;
+  z-index: 55;
+}
