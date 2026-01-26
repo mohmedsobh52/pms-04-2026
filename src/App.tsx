@@ -9,6 +9,7 @@ import { AnalysisProvider } from "@/hooks/useAnalysisData";
 import { AnalysisTrackingProvider } from "@/hooks/useAnalysisTracking";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import BackgroundImage from "@/components/BackgroundImage";
+import { FloatingBackButton } from "@/components/FloatingBackButton";
 import Index from "./pages/Index";
 import HomePage from "./pages/HomePage";
 import Auth from "./pages/Auth";
@@ -58,6 +59,7 @@ const App = () => (
               <Sonner />
               <BrowserRouter>
                 <UpdateBanner />
+                <FloatingBackButton />
                 <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/analyze" element={<Index />} />

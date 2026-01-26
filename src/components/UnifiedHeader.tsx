@@ -5,6 +5,7 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
 import { MobileNavDrawer } from "@/components/MobileNavDrawer";
+import { NavigationHistorySidebar } from "@/components/NavigationHistorySidebar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -159,6 +160,7 @@ export function UnifiedHeader({ showQuickNav = true }: UnifiedHeaderProps) {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1 md:gap-2">
+          <NavigationHistorySidebar />
           <ThemeToggle />
           <LanguageToggle />
           
