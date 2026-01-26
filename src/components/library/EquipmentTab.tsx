@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,8 +19,7 @@ interface EquipmentTabProps {
   validityFilter?: string | null;
 }
 
-export const EquipmentTab = React.forwardRef<HTMLDivElement, EquipmentTabProps>(
-  ({ validityFilter }, ref) => {
+export function EquipmentTab({ validityFilter }: EquipmentTabProps) {
   const { isArabic } = useLanguage();
   const { equipmentRates, loading, addEquipmentRate, deleteEquipmentRate, importFromExcel } = useEquipmentRates();
   const { suppliers } = useMaterialPrices();
@@ -129,7 +128,7 @@ export const EquipmentTab = React.forwardRef<HTMLDivElement, EquipmentTabProps>(
 
   if (loading) {
     return (
-      <div ref={ref} className="space-y-4">
+      <div className="space-y-4">
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -137,7 +136,7 @@ export const EquipmentTab = React.forwardRef<HTMLDivElement, EquipmentTabProps>(
   }
 
   return (
-    <div ref={ref} className="space-y-4">
+    <div className="space-y-4">
       {/* Header Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="relative flex-1 min-w-[200px] max-w-md">
@@ -429,7 +428,4 @@ export const EquipmentTab = React.forwardRef<HTMLDivElement, EquipmentTabProps>(
       )}
     </div>
   );
-  }
-);
-
-EquipmentTab.displayName = "EquipmentTab";
+}

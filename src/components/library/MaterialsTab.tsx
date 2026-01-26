@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,8 +16,7 @@ interface MaterialsTabProps {
   validityFilter?: string | null;
 }
 
-export const MaterialsTab = React.forwardRef<HTMLDivElement, MaterialsTabProps>(
-  ({ validityFilter }, ref) => {
+export function MaterialsTab({ validityFilter }: MaterialsTabProps) {
   const { isArabic } = useLanguage();
   const { materials, suppliers, loading, addMaterial, deleteMaterial, importFromExcel } = useMaterialPrices();
   const [search, setSearch] = useState("");
@@ -117,7 +116,7 @@ export const MaterialsTab = React.forwardRef<HTMLDivElement, MaterialsTabProps>(
 
   if (loading) {
     return (
-      <div ref={ref} className="space-y-4">
+      <div className="space-y-4">
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -125,7 +124,7 @@ export const MaterialsTab = React.forwardRef<HTMLDivElement, MaterialsTabProps>(
   }
 
   return (
-    <div ref={ref} className="space-y-4">
+    <div className="space-y-4">
       {/* Header Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="relative flex-1 min-w-[200px] max-w-md">
@@ -390,7 +389,4 @@ export const MaterialsTab = React.forwardRef<HTMLDivElement, MaterialsTabProps>(
       )}
     </div>
   );
-  }
-);
-
-MaterialsTab.displayName = "MaterialsTab";
+}
