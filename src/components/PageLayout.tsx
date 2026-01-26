@@ -123,9 +123,15 @@ export function PageLayout({ children }: PageLayoutProps) {
       )}
 
       {/* Footer */}
-      <footer className="border-t border-border py-4 md:py-6">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>{isArabic ? "مدعوم بالذكاء الاصطناعي" : "Powered by AI"}</p>
+      <footer className="border-t border-border py-4 md:py-6 bg-muted/10">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>© 2024 PMS - {isArabic ? "مدعوم بالذكاء الاصطناعي" : "Powered by AI"}</span>
+            <div className="flex items-center gap-1">
+              <span>{isArabic ? "تطوير:" : "Developed by:"}</span>
+              <span className="font-medium text-foreground">Dr.Eng. Mohamed Sobh</span>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

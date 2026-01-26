@@ -1,11 +1,24 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Target, Lightbulb, Users, Shield, Rocket, Award } from "lucide-react";
+import { ArrowRight, Target, Lightbulb, Users, Shield, Rocket, Award, Phone, Mail, MapPin, User } from "lucide-react";
 import { PMSLogo } from "@/components/PMSLogo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLanguage } from "@/hooks/useLanguage";
+
+const developer = {
+  name: "Dr.Eng. Mohamed Sobh",
+  titleAr: "مدير المشاريع",
+  titleEn: "Projects Director",
+  company: "AL IMTYAZ ALWATANIYA CONT.",
+  phone: "+966 54 800 0243",
+  email: "moh.sobh@imtyaz.sa",
+  address: {
+    ar: "جدة، المملكة العربية السعودية",
+    en: "Jeddah, Saudi Arabia"
+  }
+};
 
 const About = () => {
   const { isArabic } = useLanguage();
@@ -196,6 +209,61 @@ const About = () => {
         </div>
       </section>
 
+      {/* Developer Section */}
+      <section className="py-16 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold mb-4">
+                {isArabic ? "مصمم ومطور البرنامج" : "Program Designer & Developer"}
+              </h2>
+            </div>
+            
+            <Card className="p-6 md:p-8 overflow-hidden">
+              <div className="flex flex-col md:flex-row items-center gap-6">
+                {/* Company Logo */}
+                <div className="w-24 h-24 md:w-32 md:h-32 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 
+                  flex items-center justify-center flex-shrink-0 shadow-lg">
+                  <User className="w-12 h-12 md:w-16 md:h-16 text-white" />
+                </div>
+                
+                <div className="flex-1 text-center md:text-start">
+                  <h3 className="text-2xl font-bold mb-1">{developer.name}</h3>
+                  <p className="text-lg text-orange-600 dark:text-orange-400 mb-2">
+                    {isArabic ? developer.titleAr : developer.titleEn}
+                  </p>
+                  <p className="text-muted-foreground mb-4">
+                    {developer.company}
+                  </p>
+                  
+                  {/* Contact Info */}
+                  <div className="flex flex-wrap gap-4 justify-center md:justify-start">
+                    <a 
+                      href={`tel:${developer.phone.replace(/\s/g, '')}`} 
+                      className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
+                    >
+                      <Phone className="w-4 h-4" />
+                      {developer.phone}
+                    </a>
+                    <a 
+                      href={`mailto:${developer.email}`} 
+                      className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
+                    >
+                      <Mail className="w-4 h-4" />
+                      {developer.email}
+                    </a>
+                    <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="w-4 h-4" />
+                      {isArabic ? developer.address.ar : developer.address.en}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-t from-primary/5 to-background">
         <div className="container mx-auto px-4 text-center">
@@ -217,9 +285,17 @@ const About = () => {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border py-8">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>© 2024 PMS. {isArabic ? "جميع الحقوق محفوظة" : "All rights reserved."}</p>
+      <footer className="border-t border-border py-8 bg-muted/20">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground">
+              © 2024 PMS. {isArabic ? "جميع الحقوق محفوظة" : "All rights reserved."}
+            </p>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <span>{isArabic ? "تصميم وتطوير:" : "Designed & Developed by:"}</span>
+              <span className="font-medium text-foreground">{developer.name}</span>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
