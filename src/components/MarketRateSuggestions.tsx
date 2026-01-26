@@ -32,6 +32,7 @@ interface MarketRateSuggestion {
   trend: "Increasing" | "Stable" | "Decreasing";
   variance_percent: number;
   notes: string;
+  source?: "library" | "reference" | "ai";
 }
 
 interface MarketRateSuggestionsProps {
@@ -86,6 +87,26 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
     'اقتراحات أسعار السوق'
   );
 
+  // Fetch library data for enhanced pricing
+  const fetchLibraryData = async () => {
+    try {
+      const [materialsRes, laborRes, equipmentRes] = await Promise.all([
+        supabase.from('material_prices').select('name, name_ar, unit_price, unit, category, is_verified, price_date'),
+        supabase.from('labor_rates').select('name, name_ar, unit_rate, unit, category'),
+        supabase.from('equipment_rates').select('name, name_ar, rental_rate, unit, category')
+      ]);
+      
+      return {
+        materials: materialsRes.data || [],
+        labor: laborRes.data || [],
+        equipment: equipmentRes.data || []
+      };
+    } catch (error) {
+      console.error('Error fetching library data:', error);
+      return undefined;
+    }
+  };
+
   const handleSuggestRates = async () => {
     if (!items || items.length === 0) {
       toast({
@@ -116,13 +137,18 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
     setAnalysisProgress(0);
 
     try {
+      // Fetch library data for enhanced accuracy
+      const libraryData = await fetchLibraryData();
+      console.log(`Library data loaded: ${libraryData?.materials?.length || 0} materials, ${libraryData?.labor?.length || 0} labor, ${libraryData?.equipment?.length || 0} equipment`);
+      
       const regionInfo = REGIONS.find(r => r.value === region);
       const { data, error } = await supabase.functions.invoke("suggest-market-rates", {
         body: { 
           items: validItems, 
           location, 
           region: regionInfo?.label || "Saudi Arabia",
-          model: selectedModel
+          model: selectedModel,
+          libraryData
         },
       });
 
@@ -149,9 +175,12 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
         onApplyAIRates(rates);
       }
       
+      // Show accuracy in toast
+      const accuracy = data.accuracy_metrics?.estimated_accuracy || 0;
+      const sourceInfo = data.data_source;
       toast({
-        title: "Market rates analyzed",
-        description: `${data.analyzed_items} of ${data.total_items} items analyzed for ${location}`,
+        title: `تم التحليل بدقة ${accuracy}%`,
+        description: `${data.analyzed_items} بند: مكتبة(${sourceInfo?.library_count || 0}) + مرجعي(${sourceInfo?.reference_count || 0}) + AI(${sourceInfo?.ai_count || 0})`,
       });
     } catch (error: any) {
       console.error("Error getting market rates:", error);
