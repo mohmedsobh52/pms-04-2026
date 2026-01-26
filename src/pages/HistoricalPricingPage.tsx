@@ -667,7 +667,7 @@ export default function HistoricalPricingPage() {
 
         {/* Tabs for Files and Statistics */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
+          <TabsList className="tabs-navigation-safe">
             <TabsTrigger value="files" className="gap-2">
               <Database className="w-4 h-4" />
               الملفات ({files.length})
