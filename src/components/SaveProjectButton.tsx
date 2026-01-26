@@ -115,8 +115,8 @@ export function SaveProjectButton({
 
       const projectId = (projectData as any).id as string;
 
-      // 2. Insert all project items
-      const itemsToInsert = items.map(item => {
+      // 2. Insert all project items with sort_order to preserve original file sequence
+      const itemsToInsert = items.map((item, index) => {
         const calcCosts = getItemCalculatedCosts(item.item_number);
         const effectivePrice = calcCosts.calculatedUnitPrice > 0 
           ? calcCosts.calculatedUnitPrice 
@@ -132,6 +132,7 @@ export function SaveProjectButton({
           total_price: effectivePrice * item.quantity,
           category: item.category,
           notes: item.notes,
+          sort_order: index, // Preserve original file sequence
         };
       });
 
