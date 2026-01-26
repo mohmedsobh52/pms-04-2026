@@ -299,6 +299,7 @@ export function FloatingToolbar({
     "settings": "/settings",
     "preferences": "/settings",
     "notifications": "/settings",
+    "company-settings": "/company-settings",
     "help": "/about",
   };
 
@@ -609,6 +610,12 @@ export function FloatingToolbar({
   }, []);
 
   const settingsItems: MenuItem[] = [
+    {
+      id: "company-settings",
+      icon: <Building2 className="w-4 h-4" />,
+      label: "Company Settings",
+      labelAr: "إعدادات الشركة",
+    },
     {
       id: "notifications",
       icon: <Bell className="w-4 h-4" />,

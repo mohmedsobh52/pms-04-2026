@@ -42,6 +42,7 @@ import LibraryPage from "./pages/LibraryPage";
 import ProjectDetailsPage from "./pages/ProjectDetailsPage";
 import NewProjectPage from "./pages/NewProjectPage";
 import TenderSummaryPage from "./pages/TenderSummaryPage";
+import CompanySettingsPage from "./pages/CompanySettingsPage";
 
 const queryClient = new QueryClient();
 
@@ -82,6 +83,7 @@ const App = () => (
                 <Route path="/risk" element={<RiskPage />} />
                 <Route path="/reports" element={<ReportsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/company-settings" element={<CompanySettingsPage />} />
                 <Route path="/attachments" element={<AttachmentsPage />} />
                 <Route path="/templates" element={<TemplatesPage />} />
                 <Route path="/p6-export" element={<P6ExportPage />} />

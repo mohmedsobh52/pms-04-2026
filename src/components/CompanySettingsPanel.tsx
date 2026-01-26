@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CompanyLogoUpload } from "./CompanyLogoUpload";
-import { Building2, Settings2, Percent, DollarSign, Phone, Mail, Globe, MapPin, Save } from "lucide-react";
+import { Building2, Settings2, Percent, DollarSign, Phone, Mail, Globe, MapPin, Save, FileText, Hash } from "lucide-react";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
 
@@ -34,141 +34,6 @@ export const CompanySettingsPanel = () => {
 
       {/* Main Grid - Two columns */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Right Column - Company Data (RTL first) */}
-        <Card className="order-1 lg:order-2">
-          <CardHeader className="pb-4">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-primary" />
-              <CardTitle className="text-lg">
-                {isArabic ? "بيانات الشركة" : "Company Data"}
-              </CardTitle>
-            </div>
-            <CardDescription>
-              {isArabic 
-                ? "أدخل بيانات شركتك لتظهر في التقارير والفواتير"
-                : "Enter your company details to appear in reports and invoices"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Company Names - Side by side */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="companyNameAr">
-                  {isArabic ? "اسم الشركة (عربي)" : "Company Name (Arabic)"}
-                </Label>
-                <Input
-                  id="companyNameAr"
-                  value={settings.companyNameAr}
-                  onChange={(e) => updateSettings({ companyNameAr: e.target.value })}
-                  placeholder={isArabic ? "شركة المقاولات" : "Construction Company"}
-                  dir="rtl"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="companyNameEn">
-                  {isArabic ? "اسم الشركة (إنجليزي)" : "Company Name (English)"}
-                </Label>
-                <Input
-                  id="companyNameEn"
-                  value={settings.companyNameEn}
-                  onChange={(e) => updateSettings({ companyNameEn: e.target.value })}
-                  placeholder="Construction Co."
-                  dir="ltr"
-                />
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="space-y-2">
-              <Label htmlFor="description">
-                {isArabic ? "الوصف" : "Description"}
-              </Label>
-              <Textarea
-                id="description"
-                value={settings.description}
-                onChange={(e) => updateSettings({ description: e.target.value })}
-                placeholder={isArabic ? "وصف مختصر للشركة..." : "Brief company description..."}
-                rows={2}
-              />
-            </div>
-
-            {/* Phone & Email */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="phone" className="flex items-center gap-2">
-                  <Phone className="h-3.5 w-3.5" />
-                  {isArabic ? "الهاتف" : "Phone"}
-                </Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={settings.phone}
-                  onChange={(e) => updateSettings({ phone: e.target.value })}
-                  placeholder="+966 5X XXX XXXX"
-                  dir="ltr"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email" className="flex items-center gap-2">
-                  <Mail className="h-3.5 w-3.5" />
-                  {isArabic ? "البريد الإلكتروني" : "Email"}
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={settings.email}
-                  onChange={(e) => updateSettings({ email: e.target.value })}
-                  placeholder="info@company.com"
-                  dir="ltr"
-                />
-              </div>
-            </div>
-
-            {/* Website */}
-            <div className="space-y-2">
-              <Label htmlFor="website" className="flex items-center gap-2">
-                <Globe className="h-3.5 w-3.5" />
-                {isArabic ? "الموقع الإلكتروني" : "Website"}
-              </Label>
-              <Input
-                id="website"
-                type="url"
-                value={settings.website}
-                onChange={(e) => updateSettings({ website: e.target.value })}
-                placeholder="https://www.company.com"
-                dir="ltr"
-              />
-            </div>
-
-            {/* City & Country */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="city" className="flex items-center gap-2">
-                  <MapPin className="h-3.5 w-3.5" />
-                  {isArabic ? "المدينة" : "City"}
-                </Label>
-                <Input
-                  id="city"
-                  value={settings.city}
-                  onChange={(e) => updateSettings({ city: e.target.value })}
-                  placeholder={isArabic ? "الرياض" : "Riyadh"}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="country">
-                  {isArabic ? "الدولة" : "Country"}
-                </Label>
-                <Input
-                  id="country"
-                  value={settings.country}
-                  onChange={(e) => updateSettings({ country: e.target.value })}
-                  placeholder={isArabic ? "السعودية" : "Saudi Arabia"}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Left Column - Default Pricing Settings */}
         <Card className="order-2 lg:order-1">
           <CardHeader className="pb-4">
@@ -357,9 +222,188 @@ export const CompanySettingsPanel = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Right Column - Company Data (RTL first) */}
+        <Card className="order-1 lg:order-2">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">
+                {isArabic ? "بيانات الشركة" : "Company Data"}
+              </CardTitle>
+            </div>
+            <CardDescription>
+              {isArabic 
+                ? "أدخل بيانات شركتك لتظهر في التقارير والفواتير"
+                : "Enter your company details to appear in reports and invoices"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Company Names - Side by side */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="companyNameAr">
+                  {isArabic ? "اسم الشركة (عربي) *" : "Company Name (Arabic) *"}
+                </Label>
+                <Input
+                  id="companyNameAr"
+                  value={settings.companyNameAr}
+                  onChange={(e) => updateSettings({ companyNameAr: e.target.value })}
+                  placeholder={isArabic ? "شركة المقاولات" : "Construction Company"}
+                  dir="rtl"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="companyNameEn">
+                  {isArabic ? "اسم الشركة (إنجليزي) *" : "Company Name (English) *"}
+                </Label>
+                <Input
+                  id="companyNameEn"
+                  value={settings.companyNameEn}
+                  onChange={(e) => updateSettings({ companyNameEn: e.target.value })}
+                  placeholder="Construction Co."
+                  dir="ltr"
+                />
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label htmlFor="description">
+                {isArabic ? "الوصف" : "Description"}
+              </Label>
+              <Textarea
+                id="description"
+                value={settings.description}
+                onChange={(e) => updateSettings({ description: e.target.value })}
+                placeholder={isArabic ? "وصف مختصر للشركة..." : "Brief company description..."}
+                rows={2}
+              />
+            </div>
+
+            {/* Phone & Email */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="flex items-center gap-2">
+                  <Phone className="h-3.5 w-3.5" />
+                  {isArabic ? "الهاتف" : "Phone"}
+                </Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={settings.phone}
+                  onChange={(e) => updateSettings({ phone: e.target.value })}
+                  placeholder="+966 5X XXX XXXX"
+                  dir="ltr"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email" className="flex items-center gap-2">
+                  <Mail className="h-3.5 w-3.5" />
+                  {isArabic ? "البريد الإلكتروني" : "Email"}
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={settings.email}
+                  onChange={(e) => updateSettings({ email: e.target.value })}
+                  placeholder="info@company.com"
+                  dir="ltr"
+                />
+              </div>
+            </div>
+
+            {/* Website */}
+            <div className="space-y-2">
+              <Label htmlFor="website" className="flex items-center gap-2">
+                <Globe className="h-3.5 w-3.5" />
+                {isArabic ? "الموقع الإلكتروني" : "Website"}
+              </Label>
+              <Input
+                id="website"
+                type="url"
+                value={settings.website}
+                onChange={(e) => updateSettings({ website: e.target.value })}
+                placeholder="https://www.company.com"
+                dir="ltr"
+              />
+            </div>
+
+            {/* City & Country */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="city" className="flex items-center gap-2">
+                  <MapPin className="h-3.5 w-3.5" />
+                  {isArabic ? "المدينة" : "City"}
+                </Label>
+                <Input
+                  id="city"
+                  value={settings.city}
+                  onChange={(e) => updateSettings({ city: e.target.value })}
+                  placeholder={isArabic ? "الرياض" : "Riyadh"}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="country">
+                  {isArabic ? "الدولة" : "Country"}
+                </Label>
+                <Input
+                  id="country"
+                  value={settings.country}
+                  onChange={(e) => updateSettings({ country: e.target.value })}
+                  placeholder={isArabic ? "السعودية" : "Saudi Arabia"}
+                />
+              </div>
+            </div>
+
+            {/* Detailed Address */}
+            <div className="space-y-2">
+              <Label htmlFor="address" className="flex items-center gap-2">
+                <MapPin className="h-3.5 w-3.5" />
+                {isArabic ? "العنوان التفصيلي" : "Detailed Address"}
+              </Label>
+              <Input
+                id="address"
+                value={settings.address}
+                onChange={(e) => updateSettings({ address: e.target.value })}
+                placeholder={isArabic ? "123 شارع الرياض، حي العليا" : "123 Riyadh Street, Olaya District"}
+              />
+            </div>
+
+            {/* Tax Number & CR Number */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="taxNumber" className="flex items-center gap-2">
+                  <FileText className="h-3.5 w-3.5" />
+                  {isArabic ? "الرقم الضريبي" : "Tax Number"}
+                </Label>
+                <Input
+                  id="taxNumber"
+                  value={settings.taxNumber}
+                  onChange={(e) => updateSettings({ taxNumber: e.target.value })}
+                  placeholder="300000000000003"
+                  dir="ltr"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="crNumber" className="flex items-center gap-2">
+                  <Hash className="h-3.5 w-3.5" />
+                  {isArabic ? "السجل التجاري" : "Commercial Registration"}
+                </Label>
+                <Input
+                  id="crNumber"
+                  value={settings.crNumber}
+                  onChange={(e) => updateSettings({ crNumber: e.target.value })}
+                  placeholder="1010000000"
+                  dir="ltr"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Company Logo Section */}
+      {/* Company Logo Section - Full Width */}
       <CompanyLogoUpload />
     </div>
   );

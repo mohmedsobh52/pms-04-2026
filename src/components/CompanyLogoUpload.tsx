@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from "react";
-import { Upload, X, Image as ImageIcon } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Upload, X, Image as ImageIcon, Cloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/useLanguage";
+import { cn } from "@/lib/utils";
 
 const LOGO_STORAGE_KEY = 'boq_company_logo';
 
@@ -23,16 +24,14 @@ export function CompanyLogoUpload({ onLogoChange }: CompanyLogoUploadProps) {
   const { isArabic } = useLanguage();
   const { toast } = useToast();
   const [logo, setLogo] = useState<string | null>(() => getStoredLogo());
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     onLogoChange?.(logo);
   }, [logo, onLogoChange]);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processFile = useCallback((file: File) => {
     // Validate file type
     if (!file.type.startsWith('image/')) {
       toast({
@@ -101,6 +100,33 @@ export function CompanyLogoUpload({ onLogoChange }: CompanyLogoUploadProps) {
       img.src = dataUrl;
     };
     reader.readAsDataURL(file);
+  }, [isArabic, toast]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processFile(file);
+    }
   };
 
   const removeLogo = () => {
@@ -120,59 +146,117 @@ export function CompanyLogoUpload({ onLogoChange }: CompanyLogoUploadProps) {
   };
 
   return (
-    <Card className="border-dashed">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-4">
-          {logo ? (
+    <Card>
+      <CardHeader className="pb-4">
+        <div className="flex items-center gap-2">
+          <ImageIcon className="h-5 w-5 text-primary" />
+          <CardTitle className="text-lg">
+            {isArabic ? "شعار الشركة" : "Company Logo"}
+          </CardTitle>
+        </div>
+        <CardDescription>
+          {isArabic 
+            ? "يظهر الشعار في التقارير والفواتير"
+            : "The logo will appear in reports and invoices"}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {logo ? (
+          <div className="flex items-center gap-6">
+            {/* Logo Preview */}
             <div className="relative">
-              <img 
-                src={logo} 
-                alt="Company Logo" 
-                className="w-16 h-16 object-contain rounded-lg border border-border bg-white"
-              />
+              <div className="w-32 h-32 rounded-lg border-2 border-border bg-white p-2 flex items-center justify-center">
+                <img 
+                  src={logo} 
+                  alt="Company Logo" 
+                  className="max-w-full max-h-full object-contain"
+                />
+              </div>
               <Button
                 variant="destructive"
                 size="icon"
-                className="absolute -top-2 -right-2 w-6 h-6"
+                className="absolute -top-2 -right-2 w-7 h-7"
                 onClick={removeLogo}
               >
-                <X className="w-3 h-3" />
+                <X className="w-4 h-4" />
               </Button>
             </div>
-          ) : (
-            <div className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center bg-muted/30">
-              <ImageIcon className="w-6 h-6 text-muted-foreground" />
-            </div>
-          )}
 
-          <div className="flex-1">
-            <p className="font-medium text-sm mb-1">
-              {isArabic ? "لوجو الشركة" : "Company Logo"}
-            </p>
-            <p className="text-xs text-muted-foreground mb-2">
-              {isArabic ? "سيظهر في تقارير PDF" : "Will appear in PDF reports"}
-            </p>
+            {/* Logo Info & Change Button */}
+            <div className="flex-1 space-y-3">
+              <div className="text-sm text-muted-foreground">
+                {isArabic 
+                  ? "الشعار محفوظ محلياً وسيظهر في جميع التقارير"
+                  : "Logo is saved locally and will appear in all reports"}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="gap-2"
+              >
+                <Upload className="w-4 h-4" />
+                {isArabic ? "تغيير الشعار" : "Change Logo"}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={cn(
+              "border-2 border-dashed rounded-xl p-8 transition-all cursor-pointer",
+              "flex flex-col items-center justify-center text-center gap-4",
+              isDragging 
+                ? "border-primary bg-primary/5" 
+                : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30"
+            )}
+          >
+            <div className={cn(
+              "w-16 h-16 rounded-full flex items-center justify-center transition-colors",
+              isDragging ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+            )}>
+              <Cloud className="w-8 h-8" />
+            </div>
+
+            <div className="space-y-1">
+              <p className="font-medium text-foreground">
+                {isArabic ? "اسحب الشعار هنا أو اضغط للتصفح" : "Drag logo here or click to browse"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                PNG, JPG {isArabic ? "حتى" : "up to"} 2MB
+              </p>
+            </div>
+
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/png,image/jpeg,image/jpg"
               onChange={handleFileSelect}
               className="hidden"
             />
             <Button
               variant="outline"
               size="sm"
-              onClick={() => fileInputRef.current?.click()}
               className="gap-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                fileInputRef.current?.click();
+              }}
             >
               <Upload className="w-4 h-4" />
-              {logo 
-                ? (isArabic ? "تغيير اللوجو" : "Change Logo")
-                : (isArabic ? "رفع لوجو" : "Upload Logo")
-              }
+              {isArabic ? "رفع شعار" : "Upload Logo"}
             </Button>
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );

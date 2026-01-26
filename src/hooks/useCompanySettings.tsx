@@ -10,6 +10,9 @@ export interface CompanySettings {
   website: string;
   city: string;
   country: string;
+  address: string;        // العنوان التفصيلي
+  taxNumber: string;      // الرقم الضريبي
+  crNumber: string;       // رقم السجل التجاري
   
   // إعدادات التسعير الافتراضية
   defaultCurrency: string;
@@ -31,6 +34,9 @@ const defaultSettings: CompanySettings = {
   website: '',
   city: '',
   country: '',
+  address: '',
+  taxNumber: '',
+  crNumber: '',
   defaultCurrency: 'SAR',
   defaultProfitMargin: 15,
   defaultOverhead: 10,
