@@ -1,69 +1,41 @@
 
-# خطة إصلاح تبويب Project Status و Project Type
+
+# خطة إصلاح زر "Auto Price"
 
 ## تشخيص المشكلة
 
-### الأعراض
-- القوائم المنسدلة لـ **Project Type** و **Project Status** لا تفتح عند النقر
-- Console يُظهر تحذير ref warning من Select داخل ProjectSettingsTab
-
 ### السبب الجذري
-
-**تعارض z-index بين SelectContent و TabsList:**
+زر "Auto Price" يعاني من **نفس مشكلة z-index** التي أصلحناها سابقاً لأزرار "Start Pricing" و "Edit Project":
 
 ```text
 ترتيب الطبقات الحالي:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Project Actions:  z-[60]  ✅
-Tabs Trigger:     z-56    ✅
-Tabs List:        z-55    ⚠️ (يحجب Select dropdown)
-Select Content:   z-50    ❌ (أقل من Tabs!)
-Dialog Overlay:   z-50
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ProjectHeader Actions:     z-[60] ✅ (محمي - تم إصلاحه)
+Tabs Navigation:           z-55   ✅ (محمي)
+BOQ Card Header Buttons:   z-auto ❌ (غير محمي!)
+Dialog Overlay:            z-50   (قد يحجب الأزرار)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-**المشكلة**: عندما يفتح Select dropdown، يظهر في Portal مع `z-50`، لكنه يُحجب تحت TabsList الذي له `z-55`.
+الأزرار في `CardHeader` داخل `ProjectBOQTab.tsx` (Auto Price, Add Item, Delete Zero Qty, File Order, Filter, etc.) ليس لها `z-index` عالي، لذلك تُحجب بواسطة Dialog Overlay بعد إغلاقه.
 
 ---
 
 ## الحل المقترح
 
-### 1. رفع z-index للـ SelectContent
+### 1. إضافة z-index لقسم أزرار BOQ
 
-**في ملف `src/components/ui/select.tsx` - السطر 69:**
+**في ملف `src/components/project-details/ProjectBOQTab.tsx` - السطر 164:**
 
 ```typescript
 // قبل
-"relative z-50 max-h-96..."
+<div className="flex items-center gap-2 flex-wrap">
 
 // بعد
-"relative z-[70] max-h-96..."
+<div className="flex items-center gap-2 flex-wrap project-actions-section">
 ```
 
-هذا يضمن أن القائمة المنسدلة **دائماً فوق** أي عنصر آخر.
-
----
-
-### 2. إضافة CSS لضمان أن Select popups فوق كل شيء
-
-**في ملف `src/components/ui/dialog-custom.css`:**
-
-```css
-/* Select dropdown - ensure it appears above everything */
-[data-radix-select-content] {
-  z-index: 70 !important;
-}
-
-[data-radix-select-viewport] {
-  pointer-events: auto !important;
-}
-
-/* Ensure select items are clickable */
-[data-radix-select-item] {
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-```
+هذا يطبق نفس CSS المحمي الذي أضفناه سابقاً (`z-index: 60` و `pointer-events: auto`).
 
 ---
 
@@ -71,39 +43,44 @@ Dialog Overlay:   z-50
 
 | الملف | السطر | التغيير | الأثر |
 |-------|-------|---------|-------|
-| `select.tsx` | 69 | تغيير `z-50` إلى `z-[70]` | يرفع Select dropdown فوق Tabs |
-| `dialog-custom.css` | جديد | CSS rules للـ Select | يضمن pointer-events للخيارات |
+| `ProjectBOQTab.tsx` | 164 | إضافة `project-actions-section` class | يحمي جميع أزرار BOQ من z-index conflicts |
 
 ---
 
-## ترتيب الطبقات الجديد
+## الأزرار المحمية بعد الإصلاح
+
+1. ✅ **Auto Price** - سيعمل بشكل صحيح
+2. ✅ **Add Item** - سيعمل بشكل صحيح
+3. ✅ **Delete Zero Qty** - سيعمل بشكل صحيح
+4. ✅ **File Order dropdown** - سيعمل بشكل صحيح
+5. ✅ **Filter button** - سيعمل بشكل صحيح
+6. ✅ **Refresh button** - سيعمل بشكل صحيح
+7. ✅ **Download button** - سيعمل بشكل صحيح
+
+---
+
+## ترتيب الطبقات بعد الإصلاح
 
 ```text
-ترتيب الطبقات بعد الإصلاح:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Select Content:   z-[70]  ✅ (الأعلى - يظهر فوق كل شيء)
-Project Actions:  z-[60]  ✅
-Tabs Trigger:     z-56    ✅
-Tabs List:        z-55    ✅
-Dialog Overlay:   z-50
-Normal Content:   z-auto
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ترتيب الطبقات الجديد:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Select Dropdowns:          z-[70] ✅
+ProjectHeader Actions:     z-[60] ✅
+BOQ Card Header Buttons:   z-[60] ✅ (سيُضاف)
+Tabs Navigation:           z-55   ✅
+Dialog Overlay:            z-50
+Normal Content:            z-auto
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 ---
 
-## الفوائد المتوقعة
+## ملاحظة مهمة
 
-### 1. إصلاح Project Type dropdown
-- النقر على "Project Type" → تظهر قائمة بالخيارات
-- اختيار Construction/Infrastructure/Renovation/Maintenance/Other → يُحدث القيمة
-
-### 2. إصلاح Project Status dropdown
-- النقر على "Project Status" → تظهر قائمة بالحالات
-- اختيار Draft/In Progress/Completed/Suspended → يُحدث الحالة
-
-### 3. إصلاح Currency dropdown
-- نفس السلوك المتوقع لقائمة العملات
+**سلوك زر Auto Price الطبيعي:**
+- الزر يكون **معطلاً (disabled)** عندما جميع البنود مسعرة بالفعل
+- من البيانات الحالية، يبدو أن جميع الـ 485 بند لها أسعار
+- بعد الإصلاح، إذا كانت هناك بنود غير مسعرة، سيعمل الزر
 
 ---
 
@@ -111,29 +88,16 @@ Normal Content:   z-auto
 
 بعد تطبيق التغييرات:
 
-1. **اختبار Project Type:**
-   - الانتقال لـ Settings tab
-   - النقر على "Edit"
-   - النقر على Project Type dropdown → يجب أن تظهر القائمة
-   - اختيار نوع مختلف → يجب أن تتغير القيمة
+1. **اختبار Auto Price:**
+   - إذا كانت هناك بنود غير مسعرة → النقر على الزر → يبدأ التسعير التلقائي
+   - إذا كانت جميع البنود مسعرة → الزر يكون معطلاً (وهذا سلوك صحيح)
 
-2. **اختبار Project Status:**
-   - النقر على Project Status dropdown → يجب أن تظهر القائمة
-   - اختيار حالة مختلفة → يجب أن تتغير القيمة مع الدائرة الملونة
+2. **اختبار بعد إغلاق Dialog:**
+   - فتح Quick Price أو Edit Item Dialog → إغلاقه → النقر على Auto Price → يجب أن يستجيب
 
-3. **اختبار الحفظ:**
-   - النقر على "Save" → يجب أن تُحفظ التغييرات
-   - إعادة تحميل الصفحة → يجب أن تظهر القيم المحفوظة
+3. **اختبار Add Item:**
+   - النقر على "Add Item" → يجب أن يفتح dialog الإضافة
 
-4. **اختبار Console:**
-   - لا أخطاء جديدة
-   - اختفاء تحذير ref warning
+4. **اختبار File Order dropdown:**
+   - النقر على "File Order" → يجب أن تظهر القائمة المنسدلة
 
----
-
-## ملاحظة فنية
-
-هذا الحل يتبع نمط **z-index hierarchy** المُنشأ سابقاً:
-- يحافظ على حماية الأزرار والـ tabs
-- يضيف طبقة أعلى للـ Select dropdowns
-- لا يؤثر على Dialog Overlays
