@@ -84,3 +84,21 @@
 [class*="border-dashed"] input[type="file"] {
   pointer-events: auto !important;
 }
+
+/* DropdownMenu - ensure it appears above everything */
+[data-radix-dropdown-menu-content] {
+  z-index: 70 !important;
+  pointer-events: auto !important;
+}
+
+/* Ensure dropdown items are clickable */
+[data-radix-dropdown-menu-item] {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* DropdownMenu trigger in table rows */
+[data-radix-dropdown-menu-trigger] {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
