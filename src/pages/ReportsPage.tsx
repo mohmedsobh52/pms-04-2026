@@ -6,6 +6,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { PageLayout } from "@/components/PageLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -28,7 +29,8 @@ import {
   GitCompare, 
   FileText, 
   Clock,
-  Settings2
+  Settings2,
+  Search
 } from "lucide-react";
 import { PROJECT_STATUSES } from "@/lib/project-constants";
 
@@ -38,8 +40,20 @@ interface Project {
   file_name?: string;
   analysis_data: any;
   status?: string;
+  project_type?: string;
   created_at: string;
   updated_at: string;
+  items_count?: number;
+  total_value?: number;
+  currency?: string;
+}
+
+interface TenderPricing {
+  project_id: string;
+  contract_value?: number;
+  total_direct_costs?: number;
+  total_indirect_costs?: number;
+  profit_margin?: number;
 }
 
 const ReportsPage = () => {
@@ -47,22 +61,63 @@ const ReportsPage = () => {
   const { user } = useAuth();
   const { isArabic } = useLanguage();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [tenderData, setTenderData] = useState<TenderPricing[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchProjects = async () => {
     if (!user) return;
     
     setLoading(true);
-    const { data, error } = await supabase
-      .from("saved_projects")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("updated_at", { ascending: false });
+    
+    // Fetch saved_projects and project_data in parallel
+    const [savedProjectsRes, projectDataRes, tenderPricingRes] = await Promise.all([
+      supabase
+        .from("saved_projects")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("project_data")
+        .select("*")
+        .eq("user_id", user.id),
+      supabase
+        .from("tender_pricing")
+        .select("project_id, contract_value, total_direct_costs, total_indirect_costs, profit_margin")
+        .eq("user_id", user.id)
+    ]);
 
-    if (!error && data) {
-      setProjects(data);
-    }
+    const savedProjects = savedProjectsRes.data || [];
+    const projectData = projectDataRes.data || [];
+    const tenderPricing = (tenderPricingRes.data || []) as TenderPricing[];
+
+    // Merge project data - prioritize saved_projects but include project_data
+    const projectMap = new Map<string, Project>();
+    
+    // Add saved_projects first
+    savedProjects.forEach(p => {
+      const analysisData = p.analysis_data as any;
+      projectMap.set(p.id, {
+        ...p,
+        items_count: analysisData?.items?.length || 0,
+        total_value: analysisData?.summary?.total_value || 0,
+      });
+    });
+
+    // Add project_data if not already in map
+    projectData.forEach(p => {
+      if (!projectMap.has(p.id)) {
+        projectMap.set(p.id, {
+          ...p,
+          analysis_data: p.analysis_data || { items: [], summary: {} },
+          status: 'draft',
+        });
+      }
+    });
+
+    setProjects(Array.from(projectMap.values()));
+    setTenderData(tenderPricing);
     setLoading(false);
   };
 
@@ -82,24 +137,53 @@ const ReportsPage = () => {
   };
 
   const filteredProjects = useMemo(() => {
-    if (statusFilter === "all") return projects;
-    return projects.filter(p => (p.status || "draft") === statusFilter);
-  }, [projects, statusFilter]);
+    let result = projects;
+    
+    // Filter by status
+    if (statusFilter !== "all") {
+      result = result.filter(p => (p.status || "draft") === statusFilter);
+    }
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(p => 
+        p.name.toLowerCase().includes(query) ||
+        p.file_name?.toLowerCase().includes(query)
+      );
+    }
+    
+    return result;
+  }, [projects, statusFilter, searchQuery]);
 
-  // Calculate stats from all projects (not filtered)
-  const stats = {
-    totalProjects: projects.length,
-    inProgressProjects: projects.filter(p => p.status === "in_progress").length,
-    completedProjects: projects.filter(p => p.status === "completed").length,
-    draftProjects: projects.filter(p => !p.status || p.status === "draft").length,
-    pendingProjects: projects.filter(p => p.status === "suspended").length,
-    totalBOQValue: projects.reduce((sum, p) => {
-      const value = p.analysis_data?.summary?.total_value || 
-                   p.analysis_data?.totalValue || 
+  // Calculate stats from all projects with tender data
+  const stats = useMemo(() => {
+    const totalBOQValue = projects.reduce((sum, p) => {
+      // Check tender_pricing first for accurate values
+      const tender = tenderData.find(t => t.project_id === p.id);
+      if (tender?.contract_value) {
+        return sum + tender.contract_value;
+      }
+      const analysisData = p.analysis_data as any;
+      const value = p.total_value || 
+                   analysisData?.summary?.total_value ||
+                   analysisData?.totalValue || 
                    0;
       return sum + value;
-    }, 0),
-  };
+    }, 0);
+
+    const totalTenderValue = tenderData.reduce((sum, t) => sum + (t.contract_value || 0), 0);
+
+    return {
+      totalProjects: projects.length,
+      inProgressProjects: projects.filter(p => p.status === "in_progress").length,
+      completedProjects: projects.filter(p => p.status === "completed").length,
+      draftProjects: projects.filter(p => !p.status || p.status === "draft").length,
+      pendingProjects: projects.filter(p => p.status === "suspended").length,
+      totalBOQValue,
+      totalTenderValue,
+    };
+  }, [projects, tenderData]);
 
   const tabs = [
     { 
@@ -149,7 +233,16 @@ const ReportsPage = () => {
                 : "View and export project and pricing reports"}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={isArabic ? "بحث..." : "Search..."}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 w-40"
+              />
+            </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-36">
                 <Filter className="h-4 w-4 mr-2" />
@@ -214,7 +307,7 @@ const ReportsPage = () => {
           </TabsContent>
 
           <TabsContent value="summary" className="mt-4">
-            <ProjectSummaryTab projects={filteredProjects} />
+            <ProjectSummaryTab projects={filteredProjects} tenderData={tenderData} />
           </TabsContent>
 
           <TabsContent value="recent" className="mt-4">

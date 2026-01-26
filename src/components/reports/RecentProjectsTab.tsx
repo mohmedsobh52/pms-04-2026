@@ -1,16 +1,19 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/hooks/useLanguage";
-import { Eye, Download, Trash2, FolderOpen, Calendar, FileSpreadsheet } from "lucide-react";
+import { Eye, Download, Trash2, FolderOpen, Calendar, FileSpreadsheet, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { PROJECT_STATUSES } from "@/lib/project-constants";
 
 interface Project {
   id: string;
   name: string;
   analysis_data: any;
   file_name?: string;
+  status?: string;
   created_at: string;
   updated_at: string;
 }
@@ -36,16 +39,28 @@ export const RecentProjectsTab = ({ projects, onDeleteProject }: RecentProjectsT
     });
   };
 
+  const getStatusInfo = (status?: string) => {
+    const statusObj = PROJECT_STATUSES.find(s => s.value === (status || 'draft'));
+    return statusObj || PROJECT_STATUSES[0];
+  };
+
+  const getPricingProgress = (items: any[]) => {
+    if (!items || items.length === 0) return 0;
+    const pricedItems = items.filter((item: any) => 
+      item.unit_price && parseFloat(item.unit_price) > 0
+    ).length;
+    return Math.round((pricedItems / items.length) * 100);
+  };
+
   const handleViewProject = (project: Project) => {
-    // Store project data and navigate to analysis page
-    localStorage.setItem('analysisData', JSON.stringify(project.analysis_data));
-    navigate('/');
-    toast.success(isArabic ? "تم تحميل المشروع" : "Project loaded");
+    // Navigate to project details page
+    navigate(`/projects/${project.id}`);
   };
 
   const handleDeleteProject = (id: string) => {
     if (onDeleteProject) {
       onDeleteProject(id);
+      toast.success(isArabic ? "تم حذف المشروع" : "Project deleted");
     }
   };
 
@@ -56,6 +71,13 @@ export const RecentProjectsTab = ({ projects, onDeleteProject }: RecentProjectsT
         <p className="text-muted-foreground">
           {isArabic ? "لا توجد مشاريع محفوظة" : "No saved projects"}
         </p>
+        <Button 
+          variant="outline" 
+          className="mt-4"
+          onClick={() => navigate('/new-project')}
+        >
+          {isArabic ? "إنشاء مشروع جديد" : "Create New Project"}
+        </Button>
       </div>
     );
   }
@@ -64,8 +86,11 @@ export const RecentProjectsTab = ({ projects, onDeleteProject }: RecentProjectsT
     <div className="space-y-4">
       {projects.map((project) => {
         const summary = project.analysis_data?.summary || {};
-        const itemsCount = project.analysis_data?.items?.length || 0;
+        const items = project.analysis_data?.items || [];
+        const itemsCount = items.length;
         const totalValue = summary.total_value || 0;
+        const statusInfo = getStatusInfo(project.status);
+        const pricingProgress = getPricingProgress(items);
 
         return (
           <Card key={project.id} className="border-border hover:border-primary/50 transition-colors">
@@ -75,12 +100,16 @@ export const RecentProjectsTab = ({ projects, onDeleteProject }: RecentProjectsT
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-2">
                     <h3 className="font-semibold truncate">{project.name}</h3>
-                    <Badge variant="secondary" className="text-xs">
-                      {isArabic ? "مسودة" : "Draft"}
+                    <Badge 
+                      variant="secondary" 
+                      className={`text-xs ${statusInfo.color}`}
+                    >
+                      <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${statusInfo.dotColor}`} />
+                      {isArabic ? statusInfo.label : statusInfo.label_en}
                     </Badge>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-3">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <FileSpreadsheet className="h-4 w-4" />
                       <span className="truncate">{project.file_name || "-"}</span>
@@ -104,17 +133,28 @@ export const RecentProjectsTab = ({ projects, onDeleteProject }: RecentProjectsT
                       <span>{formatDate(project.updated_at)}</span>
                     </div>
                   </div>
+
+                  {/* Pricing Progress */}
+                  {itemsCount > 0 && (
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground">
+                        {isArabic ? "نسبة التسعير:" : "Pricing:"}
+                      </span>
+                      <Progress value={pricingProgress} className="h-2 flex-1 max-w-40" />
+                      <span className="text-xs font-medium">{pricingProgress}%</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions */}
                 <div className="flex items-center gap-2">
                   <Button
-                    variant="outline"
+                    variant="default"
                     size="sm"
                     onClick={() => handleViewProject(project)}
                   >
-                    <Eye className="h-4 w-4 mr-1" />
-                    {isArabic ? "عرض" : "View"}
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    {isArabic ? "فتح" : "Open"}
                   </Button>
                   <Button
                     variant="outline"

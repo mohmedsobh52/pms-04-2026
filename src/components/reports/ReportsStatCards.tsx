@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { FolderOpen, DollarSign, CheckCircle, Clock } from "lucide-react";
+import { FolderOpen, DollarSign, CheckCircle, Clock, TrendingUp, FileText } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 
 interface ReportsStatCardsProps {
@@ -22,6 +22,12 @@ export const ReportsStatCards = ({
   const { isArabic } = useLanguage();
 
   const formatCurrency = (value: number) => {
+    if (value >= 1000000) {
+      return `${(value / 1000000).toFixed(1)}M`;
+    }
+    if (value >= 1000) {
+      return `${(value / 1000).toFixed(1)}K`;
+    }
     return new Intl.NumberFormat(isArabic ? 'ar-SA' : 'en-US').format(value);
   };
 
@@ -67,7 +73,7 @@ export const ReportsStatCards = ({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {stats.map((stat, index) => (
-        <Card key={index} className="border-border">
+        <Card key={index} className="border-border hover:shadow-md transition-shadow">
           <CardContent className="p-4">
             <div className="flex items-start justify-between">
               <div className="space-y-1">
@@ -75,7 +81,7 @@ export const ReportsStatCards = ({
                 <p className="text-2xl font-bold">{stat.value}</p>
                 <p className="text-xs text-muted-foreground">{stat.subtitle}</p>
               </div>
-              <div className={`p-2 rounded-lg ${stat.iconBg}`}>
+              <div className={`p-2.5 rounded-lg ${stat.iconBg}`}>
                 <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
               </div>
             </div>
