@@ -27,21 +27,42 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
 
+  // Helper function to get items from different data structures
+  const getProjectItems = () => {
+    if (!selectedProject?.analysis_data) return [];
+    
+    const data = selectedProject.analysis_data;
+    
+    // Support different data structures
+    if (Array.isArray(data.items)) return data.items;
+    if (Array.isArray(data.boq_items)) return data.boq_items;
+    if (data.analysisData && Array.isArray(data.analysisData.items)) {
+      return data.analysisData.items;
+    }
+    
+    return [];
+  };
+
+  const projectItems = getProjectItems();
+  const hasData = projectItems.length > 0;
+
   const handleExportBOQ = () => {
-    if (!selectedProject?.analysis_data?.items) {
+    const items = getProjectItems();
+    if (items.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
     }
-    exportBOQToExcel(selectedProject.analysis_data.items, selectedProject.name);
+    exportBOQToExcel(items, selectedProject?.name || "Project");
     toast.success(isArabic ? "تم تصدير جدول الكميات بنجاح" : "BOQ exported successfully");
   };
 
   const handleExportEnhancedBOQ = (language: 'en' | 'ar' | 'both') => {
-    if (!selectedProject?.analysis_data?.items) {
+    const items = getProjectItems();
+    if (items.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
     }
-    exportEnhancedBOQToExcel(selectedProject.analysis_data.items, selectedProject.name, language);
+    exportEnhancedBOQToExcel(items, selectedProject?.name || "Project", language);
     toast.success(isArabic ? "تم تصدير جدول الكميات المحسن بنجاح" : "Enhanced BOQ exported successfully");
   };
 
@@ -59,11 +80,12 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
   };
 
   const handleExportPriceAnalysis = () => {
-    if (!selectedProject?.analysis_data?.items) {
+    const items = getProjectItems();
+    if (items.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
     }
-    exportPriceAnalysisToExcel(selectedProject.analysis_data.items, selectedProject.name);
+    exportPriceAnalysisToExcel(items, selectedProject?.name || "Project");
     toast.success(isArabic ? "تم تصدير تحليل الأسعار بنجاح" : "Price analysis exported successfully");
   };
 
@@ -76,12 +98,11 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
   };
 
   const handleExportComprehensivePDF = () => {
-    if (!selectedProject?.analysis_data?.items) {
+    const items = getProjectItems();
+    if (items.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
     }
-    
-    const items = selectedProject.analysis_data.items;
     const totalValue = items.reduce((sum: number, item: any) => sum + (parseFloat(item.total_price) || 0), 0);
     
     const printWindow = window.open('', '_blank');
@@ -240,12 +261,11 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
   };
 
   const handlePrintReport = () => {
-    if (!selectedProject?.analysis_data?.items) {
+    const items = getProjectItems();
+    if (items.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للطباعة" : "No data to print");
       return;
     }
-    
-    const items = selectedProject.analysis_data.items;
     const totalValue = items.reduce((sum: number, item: any) => sum + (parseFloat(item.total_price) || 0), 0);
     
     const printWindow = window.open('', '_blank');
@@ -369,7 +389,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
       actions: (
         <Button 
           onClick={handleExportComprehensivePDF}
-          disabled={!selectedProjectId}
+          disabled={!selectedProjectId || !hasData}
           className="bg-primary hover:bg-primary/90"
         >
           <FileDown className="h-4 w-4 mr-2" />
@@ -386,7 +406,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
       actions: (
         <Button 
           onClick={handlePrintReport}
-          disabled={!selectedProjectId}
+          disabled={!selectedProjectId || !hasData}
           variant="outline"
         >
           <Printer className="h-4 w-4 mr-2" />
@@ -403,7 +423,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
       actions: (
         <Button 
           onClick={handleExportBOQ}
-          disabled={!selectedProjectId}
+          disabled={!selectedProjectId || !hasData}
           className="bg-success hover:bg-success/90"
         >
           <Download className="h-4 w-4 mr-2" />
@@ -421,7 +441,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
         <div className="flex gap-2">
           <Button 
             onClick={() => handleExportEnhancedBOQ('en')}
-            disabled={!selectedProjectId}
+            disabled={!selectedProjectId || !hasData}
             variant="outline"
             size="sm"
           >
@@ -429,7 +449,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
           </Button>
           <Button 
             onClick={() => handleExportEnhancedBOQ('ar')}
-            disabled={!selectedProjectId}
+            disabled={!selectedProjectId || !hasData}
             variant="outline"
             size="sm"
           >
@@ -437,7 +457,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
           </Button>
           <Button 
             onClick={() => handleExportEnhancedBOQ('both')}
-            disabled={!selectedProjectId}
+            disabled={!selectedProjectId || !hasData}
             className="bg-success hover:bg-success/90"
             size="sm"
           >
@@ -456,7 +476,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
         <div className="flex gap-2">
           <Button 
             onClick={() => handleExportTenderSummary('pdf')}
-            disabled={!selectedProjectId}
+            disabled={!selectedProjectId || !hasData}
             className="bg-primary hover:bg-primary/90"
             size="sm"
           >
@@ -464,7 +484,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
           </Button>
           <Button 
             onClick={() => handleExportTenderSummary('excel')}
-            disabled={!selectedProjectId}
+            disabled={!selectedProjectId || !hasData}
             variant="outline"
             size="sm"
           >
@@ -483,7 +503,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
         <div className="flex gap-2">
           <Button 
             onClick={handleViewPriceAnalysis}
-            disabled={!selectedProjectId}
+            disabled={!selectedProjectId || !hasData}
             variant="outline"
             size="sm"
           >
@@ -492,7 +512,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
           </Button>
           <Button 
             onClick={handleExportPriceAnalysis}
-            disabled={!selectedProjectId}
+            disabled={!selectedProjectId || !hasData}
             className="bg-success hover:bg-success/90"
             size="sm"
           >
