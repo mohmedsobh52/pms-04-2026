@@ -1,116 +1,228 @@
 
-# خطة إصلاح ارتجاف الفورم عند ملء البيانات
 
-## تشخيص المشكلة
+# خطة تحسين تحليل الأسعار المتقدم وإصلاح ثبات الأزرار
 
-### السبب الجذري
-المكون `PageTransition.tsx` يُسبب الارتجاف لأنه:
+## ملخص المشكلات المكتشفة
 
-1. يستمع لتغييرات `children` في `useEffect` (السطر 25)
-2. عند كل ضغطة مفتاح في أي حقل، يتغير state الفورم
-3. هذا يُحدث `children` ويُعيد تشغيل animation
-4. النتيجة: رسوم متحركة مستمرة (opacity + translate-y) تسبب الارتجاف
+### 1. مشكلة ثبات الأزرار في Dropdown Menu
+عند وضع `MarketRateSuggestions` و `EnhancedPricingAnalysis` داخل `DropdownMenuItem`، تحدث مشاكل في التفاعل لأن:
+- الـ Dialog يُفتح داخل Dropdown
+- عند إغلاق Dropdown، يتأثر Dialog
+- الأزرار قد لا تستجيب بشكل صحيح
+
+### 2. تحسينات مطلوبة لتحليل الأسعار المتقدم
+- تحسين واجهة المستخدم
+- إضافة مؤشرات تقدم أفضل
+- تحسين عرض النتائج
+
+---
+
+## الحل المقترح
+
+### 1. إصلاح ثبات الأزرار في AnalysisResults.tsx
+
+**الملف:** `src/components/AnalysisResults.tsx`
+
+**المشكلة:** الـ `DropdownMenuItem` مع `onSelect={(e) => e.preventDefault()}` لا يمنع بشكل كامل مشاكل التفاعل.
+
+**الحل:** تحويل الأزرار من داخل Dropdown إلى أزرار مستقلة مع Dropdown للخيارات الفرعية فقط.
 
 ```typescript
-// المشكلة في السطور 14-25
-useEffect(() => {
-  setIsVisible(false);  // يخفي المحتوى
-  const timer = setTimeout(() => {
-    setDisplayChildren(children);  // يُحدث المحتوى
-    setIsVisible(true);  // يُظهر المحتوى
-  }, 150);
-  return () => clearTimeout(timer);
-}, [location.pathname, children]);  // ← children يسبب المشكلة!
+// قبل (داخل DropdownMenu):
+<DropdownMenuItem className="p-0" onSelect={(e) => e.preventDefault()}>
+  <MarketRateSuggestions ... triggerOnly={true} />
+</DropdownMenuItem>
+
+// بعد (أزرار مستقلة):
+<div className="flex items-center gap-2">
+  <MarketRateSuggestions 
+    items={data.items || []} 
+    ... 
+    triggerOnly={false}  // استخدام الوضع الكامل
+  />
+  <EnhancedPricingAnalysis 
+    items={data.items || []}
+    ...
+    triggerOnly={false}  // استخدام الوضع الكامل
+  />
+</div>
+```
+
+### 2. تحسين MarketRateSuggestions.tsx
+
+**الملف:** `src/components/MarketRateSuggestions.tsx`
+
+**التحسينات:**
+1. إضافة مؤشر تقدم محسن
+2. تحسين الأداء باستخدام `useCallback`
+3. إضافة حالة فارغة أفضل
+
+```typescript
+// تحسين زر التحليل
+<Button 
+  onClick={handleSuggestRates} 
+  disabled={isLoading || !items?.length}
+  className="gap-2 min-w-[200px]"
+  size="default"
+>
+  {isLoading ? (
+    <>
+      <Loader2 className="w-4 h-4 animate-spin" />
+      جاري التحليل... ({analysisProgress}%)
+    </>
+  ) : (
+    <>
+      <Sparkles className="w-4 h-4" />
+      تحليل الأسعار ({items?.length || 0} بند)
+    </>
+  )}
+</Button>
+```
+
+### 3. تحسين EnhancedPricingAnalysis.tsx
+
+**الملف:** `src/components/EnhancedPricingAnalysis.tsx`
+
+**التحسينات:**
+1. تحسين استجابة الأزرار
+2. إضافة تأثيرات بصرية للتفاعل
+3. تحسين عرض المحللين
+
+```typescript
+// تحسين أزرار المحللين
+<div
+  key={analyzer.id}
+  className={cn(
+    "p-3 rounded-lg border cursor-pointer transition-all duration-100",
+    "hover:scale-[1.02] active:scale-[0.98]",  // تأثير لمسي
+    isActive 
+      ? "bg-primary/10 border-primary shadow-sm" 
+      : "bg-background hover:bg-muted/50 hover:border-muted-foreground/30"
+  )}
+  onClick={() => toggleAnalyzer(analyzer.id)}
+>
+```
+
+### 4. تحسين CSS للأداء
+
+**الملف:** `src/components/ui/dialog-custom.css`
+
+**إضافات:**
+```css
+/* تحسين أداء أزرار التحليل */
+.analysis-action-btn {
+  position: relative;
+  z-index: 60;
+  pointer-events: auto !important;
+}
+
+.analysis-action-btn:active {
+  transform: scale(0.98);
+  transition: transform 50ms ease-out;
+}
+
+/* حماية Dialog Content من التداخل */
+[data-radix-dialog-content] {
+  z-index: 100 !important;
+}
+
+[data-radix-dialog-overlay] {
+  z-index: 99 !important;
+}
 ```
 
 ---
 
-## الحل
-
-### تعديل PageTransition.tsx لتجاهل تغييرات children
-
-**الملف:** `src/components/PageTransition.tsx`
-
-**التغييرات:**
-1. إزالة `children` من dependencies الـ useEffect
-2. تشغيل animation فقط عند تغيير المسار (route)
-3. عرض `children` مباشرة بدون تخزينها في state
-
-**الكود الجديد:**
-```typescript
-import { ReactNode, useEffect, useState, useRef } from "react";
-import { useLocation } from "react-router-dom";
-import { cn } from "@/lib/utils";
-
-interface PageTransitionProps {
-  children: ReactNode;
-}
-
-export function PageTransition({ children }: PageTransitionProps) {
-  const location = useLocation();
-  const [isVisible, setIsVisible] = useState(true);
-  const previousPathname = useRef(location.pathname);
-
-  useEffect(() => {
-    // Only trigger animation when pathname changes
-    if (previousPathname.current !== location.pathname) {
-      setIsVisible(false);
-      const timer = setTimeout(() => {
-        setIsVisible(true);
-        previousPathname.current = location.pathname;
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [location.pathname]);
-
-  return (
-    <div
-      className={cn(
-        "transition-opacity duration-150 ease-out",
-        isVisible ? "opacity-100" : "opacity-0"
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-```
-
----
-
-## ملخص التغييرات
+## ملخص الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/PageTransition.tsx` | إصلاح useEffect لتجاهل تغييرات children وتشغيل animation فقط عند تغيير route |
+| `src/components/AnalysisResults.tsx` | إخراج أزرار التحليل من Dropdown وجعلها مستقلة |
+| `src/components/MarketRateSuggestions.tsx` | تحسين UI ومؤشرات التقدم |
+| `src/components/EnhancedPricingAnalysis.tsx` | تحسين استجابة الأزرار وUX |
+| `src/components/ui/dialog-custom.css` | إضافة قواعد CSS لحماية التفاعل |
 
 ---
 
-## التغييرات التقنية
+## التغييرات التقنية التفصيلية
 
-1. **إزالة `displayChildren` state** - لم يعد ضرورياً
-2. **إضافة `previousPathname` ref** - لتتبع تغيير المسار فقط
-3. **إزالة `translate-y-2`** - لمنع أي حركة عمودية
-4. **تقليل duration من 300ms إلى 150ms** - لتسريع الانتقال
-5. **تغيير className من `transition-all` إلى `transition-opacity`** - لمنع أي تأثيرات جانبية
+### AnalysisResults.tsx (السطور 1484-1513)
+
+```typescript
+// استبدال قسم Price Analysis Dropdown بأزرار مستقلة:
+
+{/* Price Analysis Buttons - مستقلة */}
+<div className="flex items-center gap-2 project-actions-section">
+  <MarketRateSuggestions 
+    items={data.items || []} 
+    projectId={savedProjectId}
+    onApplyRate={onApplyRate} 
+    onApplyAIRates={handleApplyAIRates}
+    onApplyAIRatesToCalcPrice={handleApplyAIRatesToCalcPrice}
+  />
+  <EnhancedPricingAnalysis 
+    items={data.items || []}
+    onApplyRates={handleApplyAIRates}
+  />
+</div>
+```
+
+### MarketRateSuggestions.tsx
+
+```typescript
+// تحسين الزر الرئيسي ليكون أكثر وضوحاً:
+<Dialog open={isOpen} onOpenChange={handleOpenChange}>
+  <DialogTrigger asChild>
+    <Button 
+      variant="outline" 
+      size="sm"
+      className="gap-2 analysis-action-btn"
+    >
+      <Sparkles className="w-4 h-4" />
+      {isArabic ? "اقتراح الأسعار" : "Suggest Rates"}
+    </Button>
+  </DialogTrigger>
+  ...
+</Dialog>
+```
+
+### EnhancedPricingAnalysis.tsx
+
+```typescript
+// تحسين الزر الرئيسي:
+<Dialog open={isOpen} onOpenChange={handleOpenChange}>
+  <DialogTrigger asChild>
+    <Button 
+      variant="outline" 
+      size="sm"
+      className="gap-2 border-primary/50 hover:bg-primary/10 analysis-action-btn"
+    >
+      <Brain className="w-4 h-4 text-primary" />
+      {isArabic ? "تحليل متقدم" : "Advanced Analysis"}
+    </Button>
+  </DialogTrigger>
+  ...
+</Dialog>
+```
 
 ---
 
 ## النتيجة المتوقعة
 
 ```text
-قبل الإصلاح:
+قبل التحسين:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• الكتابة في أي حقل → الصفحة ترتجف
-• كل ضغطة مفتاح → animation جديد
-• تجربة مستخدم سيئة
+• أزرار التحليل داخل Dropdown → تداخل مع Dialog
+• استجابة بطيئة أحياناً
+• مشاكل في إغلاق/فتح النوافذ
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-بعد الإصلاح:
+بعد التحسين:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• الكتابة في أي حقل → لا ارتجاف
-• Animation فقط عند الانتقال بين الصفحات
-• تجربة مستخدم سلسة
+• أزرار مستقلة → استجابة فورية 100%
+• Dialog يعمل بشكل منفصل تماماً
+• تجربة مستخدم سلسة ومتسقة
+• z-index محمي من التداخل
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -118,8 +230,9 @@ export function PageTransition({ children }: PageTransitionProps) {
 
 ## الاختبار المطلوب بعد التنفيذ
 
-1. **فتح صفحة إنشاء مشروع جديد** ✓
-2. **الكتابة في حقل اسم المشروع** → لا ارتجاف ✓
-3. **الكتابة في حقل الموقع** → لا ارتجاف ✓
-4. **تغيير العملة أو نوع المشروع** → لا ارتجاف ✓
-5. **الانتقال بين الصفحات** → animation سلس ✓
+1. **النقر على "Suggest Rates"** → يفتح Dialog مباشرة ✓
+2. **النقر على "تحليل متقدم للأسعار"** → يفتح Dialog مباشرة ✓
+3. **بدء التحليل** → مؤشر التقدم يعمل ✓
+4. **إغلاق Dialog** → يغلق فوراً بدون تأثير على باقي الواجهة ✓
+5. **تطبيق الأسعار** → يتم بنجاح ✓
+
