@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -7,9 +7,8 @@ import { FileSpreadsheet, FileText, Download, Eye, Languages, Printer, FileDown,
 import { useLanguage } from "@/hooks/useLanguage";
 import { toast } from "sonner";
 import { exportBOQToExcel, exportEnhancedBOQToExcel, exportTenderSummaryToExcel, exportPriceAnalysisToExcel, exportTenderSummaryToPDF } from "@/lib/reports-export-utils";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
+
 interface Project {
   id: string;
   name: string;
@@ -127,6 +126,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   console.log("🎯 ExportTab State: projectItems:", projectItems.length, "hasData:", hasData, "isLoadingItems:", isLoadingItems);
 
   const handleExportBOQ = () => {
+    console.log("🎯 handleExportBOQ called");
     if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
@@ -136,6 +136,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   };
 
   const handleExportEnhancedBOQ = (language: 'en' | 'ar' | 'both') => {
+    console.log("🎯 handleExportEnhancedBOQ called with language:", language);
     if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
@@ -145,6 +146,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   };
 
   const handleExportTenderSummary = (format: 'pdf' | 'excel') => {
+    console.log("🎯 handleExportTenderSummary called with format:", format);
     if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
@@ -172,6 +174,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   };
 
   const handleExportPriceAnalysis = () => {
+    console.log("🎯 handleExportPriceAnalysis called");
     if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
@@ -181,6 +184,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   };
 
   const handleViewPriceAnalysis = () => {
+    console.log("🎯 handleViewPriceAnalysis called");
     if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للعرض" : "No data to view");
       return;
@@ -192,7 +196,12 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      toast.error(isArabic ? "يرجى السماح بالنوافذ المنبثقة" : "Please allow popups");
+      toast.error(
+        isArabic 
+          ? "⚠️ يرجى السماح بالنوافذ المنبثقة في إعدادات المتصفح" 
+          : "⚠️ Please allow popups in your browser settings",
+        { duration: 5000 }
+      );
       return;
     }
     
@@ -325,6 +334,10 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   };
 
   const handleExportComprehensivePDF = () => {
+    console.log("🎯 handleExportComprehensivePDF called");
+    console.log("🎯 selectedProject:", selectedProject?.name);
+    console.log("🎯 projectItems.length:", projectItems.length);
+    
     if (!selectedProject) {
       toast.error(isArabic ? "الرجاء اختيار مشروع أولاً" : "Please select a project first");
       return;
@@ -338,7 +351,12 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      toast.error(isArabic ? "يرجى السماح بالنوافذ المنبثقة" : "Please allow popups");
+      toast.error(
+        isArabic 
+          ? "⚠️ يرجى السماح بالنوافذ المنبثقة في إعدادات المتصفح" 
+          : "⚠️ Please allow popups in your browser settings",
+        { duration: 5000 }
+      );
       return;
     }
     
@@ -492,6 +510,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   };
 
   const handlePrintReport = () => {
+    console.log("🎯 handlePrintReport called");
     if (!selectedProject) {
       toast.error(isArabic ? "الرجاء اختيار مشروع أولاً" : "Please select a project first");
       return;
@@ -505,7 +524,12 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      toast.error(isArabic ? "يرجى السماح بالنوافذ المنبثقة" : "Please allow popups");
+      toast.error(
+        isArabic 
+          ? "⚠️ يرجى السماح بالنوافذ المنبثقة في إعدادات المتصفح" 
+          : "⚠️ Please allow popups in your browser settings",
+        { duration: 5000 }
+      );
       return;
     }
     
@@ -614,6 +638,8 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
     toast.success(isArabic ? "جاري الطباعة..." : "Printing...");
   };
 
+  const isButtonDisabled = !selectedProjectId || !hasData || isLoadingItems;
+
   const exportCards = [
     {
       title: isArabic ? "التقرير الشامل" : "Comprehensive Report",
@@ -624,15 +650,9 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
       actions: (
         <Button 
           type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log("🎯 PDF Button onClick handler fired!");
-            handleExportComprehensivePDF();
-          }}
-          disabled={!selectedProjectId || !hasData || isLoadingItems}
-          className="bg-primary hover:bg-primary/90"
-          data-testid="export-comprehensive-pdf"
+          onClick={() => handleExportComprehensivePDF()}
+          disabled={isButtonDisabled}
+          className="bg-primary hover:bg-primary/90 relative z-10 pointer-events-auto"
         >
           <FileDown className={`h-4 w-4 ${isArabic ? 'ml-2' : 'mr-2'}`} />
           PDF
@@ -648,15 +668,10 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
       actions: (
         <Button 
           type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log("🎯 Print Button onClick handler fired!");
-            handlePrintReport();
-          }}
-          disabled={!selectedProjectId || !hasData || isLoadingItems}
+          onClick={() => handlePrintReport()}
+          disabled={isButtonDisabled}
           variant="outline"
-          data-testid="print-report"
+          className="relative z-10 pointer-events-auto"
         >
           <Printer className={`h-4 w-4 ${isArabic ? 'ml-2' : 'mr-2'}`} />
           {isArabic ? "طباعة" : "Print"}
@@ -672,13 +687,9 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
       actions: (
         <Button 
           type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            handleExportBOQ();
-          }}
-          disabled={!selectedProjectId || !hasData || isLoadingItems}
-          className="bg-success hover:bg-success/90"
+          onClick={() => handleExportBOQ()}
+          disabled={isButtonDisabled}
+          className="bg-success hover:bg-success/90 relative z-10 pointer-events-auto"
         >
           <Download className={`h-4 w-4 ${isArabic ? 'ml-2' : 'mr-2'}`} />
           Excel
@@ -692,15 +703,11 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
         : "Enhanced export with subtotals and bilingual support",
       icon: Languages,
       actions: (
-        <div className="flex gap-2">
+        <div className="flex gap-2 relative z-10 pointer-events-auto">
           <Button 
             type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleExportEnhancedBOQ('en');
-            }}
-            disabled={!selectedProjectId || !hasData || isLoadingItems}
+            onClick={() => handleExportEnhancedBOQ('en')}
+            disabled={isButtonDisabled}
             variant="outline"
             size="sm"
           >
@@ -708,12 +715,8 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
           </Button>
           <Button 
             type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleExportEnhancedBOQ('ar');
-            }}
-            disabled={!selectedProjectId || !hasData || isLoadingItems}
+            onClick={() => handleExportEnhancedBOQ('ar')}
+            disabled={isButtonDisabled}
             variant="outline"
             size="sm"
           >
@@ -721,12 +724,8 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
           </Button>
           <Button 
             type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleExportEnhancedBOQ('both');
-            }}
-            disabled={!selectedProjectId || !hasData || isLoadingItems}
+            onClick={() => handleExportEnhancedBOQ('both')}
+            disabled={isButtonDisabled}
             className="bg-success hover:bg-success/90"
             size="sm"
           >
@@ -742,15 +741,11 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
         : "Export full pricing summary",
       icon: FileText,
       actions: (
-        <div className="flex gap-2">
+        <div className="flex gap-2 relative z-10 pointer-events-auto">
           <Button 
             type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleExportTenderSummary('pdf');
-            }}
-            disabled={!selectedProjectId || !hasData || isLoadingItems}
+            onClick={() => handleExportTenderSummary('pdf')}
+            disabled={isButtonDisabled}
             className="bg-primary hover:bg-primary/90"
             size="sm"
           >
@@ -758,12 +753,8 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
           </Button>
           <Button 
             type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleExportTenderSummary('excel');
-            }}
-            disabled={!selectedProjectId || !hasData || isLoadingItems}
+            onClick={() => handleExportTenderSummary('excel')}
+            disabled={isButtonDisabled}
             variant="outline"
             size="sm"
           >
@@ -779,15 +770,11 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
         : "Export detailed price analysis to Excel",
       icon: FileSpreadsheet,
       actions: (
-        <div className="flex gap-2">
+        <div className="flex gap-2 relative z-10 pointer-events-auto">
           <Button 
             type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleViewPriceAnalysis();
-            }}
-            disabled={!selectedProjectId || !hasData || isLoadingItems}
+            onClick={() => handleViewPriceAnalysis()}
+            disabled={isButtonDisabled}
             variant="outline"
             size="sm"
           >
@@ -796,12 +783,8 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
           </Button>
           <Button 
             type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleExportPriceAnalysis();
-            }}
-            disabled={!selectedProjectId || !hasData || isLoadingItems}
+            onClick={() => handleExportPriceAnalysis()}
+            disabled={isButtonDisabled}
             className="bg-success hover:bg-success/90"
             size="sm"
           >
@@ -855,7 +838,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
               </div>
             </CardHeader>
             <CardContent className="pt-2">
-              <div className="flex justify-end">
+              <div className="flex justify-end relative z-10">
                 {card.actions}
               </div>
             </CardContent>
