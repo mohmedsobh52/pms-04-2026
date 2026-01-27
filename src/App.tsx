@@ -12,6 +12,7 @@ import { UpdateBanner } from "@/components/UpdateBanner";
 import BackgroundImage from "@/components/BackgroundImage";
 import { FloatingBackButton } from "@/components/FloatingBackButton";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { Loader2 } from "lucide-react";
 
 // Lazy loaded pages for better initial load performance
@@ -75,6 +76,7 @@ const App = () => (
               <Toaster />
               <Sonner />
               <BrowserRouter>
+                <GlobalSearch />
                 <UpdateBanner />
                 <FloatingBackButton />
                 <ErrorBoundary>

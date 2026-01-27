@@ -24,9 +24,11 @@ import {
   Database,
   Zap,
   Loader2,
-  FileBarChart
+  FileBarChart,
+  Search
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useGlobalSearch } from "@/hooks/useGlobalSearch";
 
 interface QuickNavItem {
   label: string;
@@ -80,6 +82,7 @@ export function UnifiedHeader({ showQuickNav = true }: UnifiedHeaderProps) {
   const { isArabic } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
+  const { setIsOpen: setSearchOpen } = useGlobalSearch();
 
   const isActive = (href: string) => location.pathname === href;
 
@@ -160,6 +163,18 @@ export function UnifiedHeader({ showQuickNav = true }: UnifiedHeaderProps) {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1 md:gap-2">
+          {/* Global Search Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSearchOpen(true)}
+            className="gap-1.5 h-9 px-2 sm:px-3"
+            title={isArabic ? "بحث (⌘K)" : "Search (⌘K)"}
+          >
+            <Search className="h-4 w-4" />
+            <span className="hidden sm:inline text-xs text-muted-foreground">⌘K</span>
+          </Button>
+          
           <NavigationHistorySidebar />
           <ThemeToggle />
           <LanguageToggle />
