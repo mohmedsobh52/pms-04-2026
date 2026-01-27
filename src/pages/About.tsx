@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Target, Lightbulb, Users, Shield, Rocket, Award, Phone, Mail, MapPin, User } from "lucide-react";
+import { ArrowRight, Target, Lightbulb, Users, Shield, Rocket, Award, Phone, Mail, MapPin, Linkedin } from "lucide-react";
 import { PMSLogo } from "@/components/PMSLogo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLanguage } from "@/hooks/useLanguage";
+import developerPhoto from "@/assets/developer/mohamed-sobh.jpg";
 
 const developer = {
   name: "Dr.Eng. Mohamed Sobh",
@@ -14,6 +15,7 @@ const developer = {
   company: "AL IMTYAZ ALWATANIYA CONT.",
   phone: "+966 54 800 0243",
   email: "moh.sobh@imtyaz.sa",
+  linkedin: "https://www.linkedin.com/in/mohamed-sobh-ab2083ba/",
   address: {
     ar: "جدة، المملكة العربية السعودية",
     en: "Jeddah, Saudi Arabia"
@@ -221,10 +223,13 @@ const About = () => {
             
             <Card className="p-6 md:p-8 overflow-hidden">
               <div className="flex flex-col md:flex-row items-center gap-6">
-                {/* Company Logo */}
-                <div className="w-24 h-24 md:w-32 md:h-32 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 
-                  flex items-center justify-center flex-shrink-0 shadow-lg">
-                  <User className="w-12 h-12 md:w-16 md:h-16 text-white" />
+                {/* Developer Photo */}
+                <div className="w-24 h-24 md:w-32 md:h-32 rounded-xl overflow-hidden flex-shrink-0 shadow-lg border-4 border-orange-500/30">
+                  <img 
+                    src={developerPhoto} 
+                    alt={developer.name}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 
                 <div className="flex-1 text-center md:text-start">
@@ -251,6 +256,15 @@ const About = () => {
                     >
                       <Mail className="w-4 h-4" />
                       {developer.email}
+                    </a>
+                    <a 
+                      href={developer.linkedin}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
+                    >
+                      <Linkedin className="w-4 h-4" />
+                      LinkedIn
                     </a>
                     <span className="flex items-center gap-2 text-sm text-muted-foreground">
                       <MapPin className="w-4 h-4" />
