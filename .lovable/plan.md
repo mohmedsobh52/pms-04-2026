@@ -1,274 +1,268 @@
 
-# خطة تحسين شاشة تقرير مراقبة التكاليف (Cost Control Report)
+# خطة ربط تقرير مراقبة التكاليف (Cost Control Report) مع البرنامج وجدول الكميات
 
 ## نظرة عامة
 
-تحسين شامل لصفحة Cost Control Report لتطابق التصميم المرجعي من Google Sheets مع:
-- ربط البيانات الحقيقية من قاعدة البيانات (project_items)
-- تحسين الشكل والأداء
-- إضافة جدول بيانات تفصيلي
-- دعم التصفية الديناميكية
-- تصدير Excel
+ربط شاشة Cost Control Report بقاعدة البيانات لجلب البيانات الحقيقية من المشاريع المحفوظة وبنود الكميات (project_items)، مع إمكانية تحديث بيانات التقدم وحساب مؤشرات EVM تلقائياً.
 
 ---
 
 ## التغييرات المطلوبة
 
-### 1. إعادة هيكلة الصفحة
+### 1. إضافة Project Selector ودمج Supabase
 
 **الملف:** `src/pages/CostControlReportPage.tsx`
 
-#### أ. بيانات الـ EVM الكاملة من الـ Spreadsheet:
+سيتم إضافة:
+- Dropdown لاختيار المشروع من `project_data`
+- جلب بنود المشروع من `project_items` 
+- تحويل البنود إلى Activities بناءً على الـ `category` و `subcategory`
+- حساب EVM metrics من البيانات الحقيقية
+
 ```typescript
-interface EVMActivity {
-  sn: number;
-  controlPoint: string;
-  activity: string;
-  discipline: string;
-  activityCode: string;
-  pv: number;
-  progress: number;
-  ev: number;
-  ac: number;
-  cv: number;
-  sv: number;
-  cpi: number;
-  spi: number;
-  eac1: number;
-  eac2: number;
-  eac3: number;
-  eacByPert: number;
-  etc: number;
-  tcpi: number;
-}
-```
+// State جديد
+const [projects, setProjects] = useState<ProjectData[]>([]);
+const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
+const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+const [isLoadingItems, setIsLoadingItems] = useState(false);
+const [useRealData, setUseRealData] = useState(false);
 
-#### ب. الـ Disciplines الكاملة:
-- GENERAL
-- CIVIL
-- MECHANICAL
-- ELECTRICAL
-- ARCHITECTURAL
-
-#### ج. الـ Activities (82+ نشاط) من البيانات:
-- Staff Salaries, Site overhead, Safety and Environmental
-- Excavation, Backfilling, Plain/Lean Concrete
-- Water Supply System, HVAC, Fire Fighting
-- Lighting Fixtures, Wiring Devices, Distribution Panels
-- Wooden Doors, Metal Doors, Aluminum Windows
-- ... وغيرها
-
----
-
-### 2. تحسين واجهة المستخدم
-
-#### أ. Header Banner محسن:
-```tsx
-<div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 text-white shadow-2xl">
-  <div className="absolute inset-0 bg-[url('/patterns/grid.svg')] opacity-10" />
-  <div className="relative">
-    <h1 className="text-4xl font-bold tracking-tight">
-      Cost Control Report
-    </h1>
-    <p className="mt-2 text-blue-100">
-      Comprehensive earned value and cost performance analysis
-    </p>
-  </div>
-</div>
-```
-
-#### ب. KPI Cards محسنة مع ألوان متدرجة:
-
-| المؤشر | اللون | القيمة |
-|--------|-------|--------|
-| PV | أزرق | 168.5M |
-| EV | أخضر | 105.3M |
-| AC | برتقالي/أصفر | 107.0M |
-| EAC BY PERT | بنفسجي | 164.0M |
-| ETC | أحمر | 57.1M |
-| SPI | أصفر (تحذير) | 0.60 |
-| CPI | أخضر | 0.98 |
-| TCPI | أزرق | 0.90 |
-| Progress | رمادي | 60% |
-
-#### ج. Sidebar محسن:
-- Progress bars ملونة بجانب كل discipline/activity
-- ألوان ديناميكية حسب النسبة:
-  - أخضر: >= 75%
-  - أصفر: >= 50%
-  - أحمر: < 50%
-
----
-
-### 3. جدول البيانات التفصيلي (Data Table)
-
-إضافة جدول محترف أسفل الـ Chart يعرض:
-
-| العمود | الوصف |
-|--------|-------|
-| # | رقم تسلسلي |
-| Activity | اسم النشاط |
-| Progress % | نسبة الإنجاز (مع progress bar) |
-| PV | Planned Value |
-| EV | Earned Value |
-| AC | Actual Cost |
-| EAC BY PERT | التقدير عند الإنتهاء |
-| ETC | التقدير للإنتهاء |
-
-**مميزات الجدول:**
-- Pagination (عرض 10-15 صف في الصفحة)
-- Sorting (ترتيب حسب أي عمود)
-- Sticky header
-- تلوين الخلايا حسب القيم (أحمر للسلبي، أخضر للإيجابي)
-- تنسيق الأرقام (M للملايين، K للآلاف)
-
----
-
-### 4. تحسين الـ Chart
-
-#### أ. ألوان محدثة تطابق التصميم:
-```typescript
-const chartColors = {
-  eacByPert: 'hsl(45, 93%, 47%)',    // ذهبي/بيج
-  pv: 'hsl(32, 36%, 44%)',           // بني
-  ev: 'hsl(35, 30%, 58%)',           // بيج فاتح
-  ac: 'hsl(38, 25%, 65%)'            // رمادي بيج
-};
-```
-
-#### ب. تحسين Tooltip:
-- عرض جميع القيم
-- تنسيق الأرقام بالملايين
-- ألوان واضحة
-
-#### ج. تحسين Legend:
-- موضع أعلى الـ Chart
-- نقاط ملونة
-
----
-
-### 5. ربط البيانات مع قاعدة البيانات
-
-#### أ. جلب البيانات من project_items:
-```typescript
-const fetchProjectData = async () => {
-  const { data } = await supabase
-    .from('project_items')
-    .select('*')
-    .eq('project_id', selectedProjectId);
-  
-  // حساب مؤشرات EVM
-  const evmData = calculateEVMMetrics(data);
-  setActivityData(evmData);
-};
-```
-
-#### ب. حسابات EVM:
-```typescript
-const calculateEVMMetrics = (items) => {
-  const totalPV = items.reduce((sum, item) => sum + (item.total_price || 0), 0);
-  const avgProgress = items.reduce((sum, item) => sum + (item.progress || 0), 0) / items.length;
-  const totalEV = totalPV * (avgProgress / 100);
-  const totalAC = totalEV * 1.015; // 1.5% cost variance assumed
-  
-  return {
-    pv: totalPV,
-    ev: totalEV,
-    ac: totalAC,
-    cv: totalEV - totalAC,
-    sv: totalEV - totalPV,
-    cpi: totalEV / totalAC,
-    spi: totalEV / totalPV,
-    eacByPert: calculateEACByPERT(totalAC, totalPV, avgProgress),
-    etc: calculateETC(totalPV, totalAC, avgProgress)
+// جلب المشاريع
+useEffect(() => {
+  const fetchProjects = async () => {
+    const { data } = await supabase
+      .from('project_data')
+      .select('id, name, currency, total_value, items_count, created_at')
+      .order('created_at', { ascending: false });
+    setProjects(data || []);
   };
+  fetchProjects();
+}, []);
+
+// جلب بنود المشروع المختار
+useEffect(() => {
+  if (!selectedProjectId) return;
+  const fetchItems = async () => {
+    const { data } = await supabase
+      .from('project_items')
+      .select('*')
+      .eq('project_id', selectedProjectId)
+      .order('sort_order');
+    setProjectItems(data || []);
+  };
+  fetchItems();
+}, [selectedProjectId]);
+```
+
+---
+
+### 2. تحويل BOQ Items إلى EVM Activities
+
+سيتم إنشاء دالة `convertItemsToActivities` لتحويل بنود الكميات:
+
+```typescript
+const convertItemsToActivities = (items: ProjectItem[]): EVMActivity[] => {
+  // تجميع البنود حسب category
+  const groupedByCategory = items.reduce((acc, item) => {
+    const category = mapCategoryToDiscipline(item.category);
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(item);
+    return acc;
+  }, {} as Record<string, ProjectItem[]>);
+
+  // تحويل كل مجموعة إلى activity
+  return Object.entries(groupedByCategory).flatMap(([discipline, categoryItems], index) => {
+    const pv = categoryItems.reduce((sum, i) => sum + (i.total_price || 0), 0);
+    const progress = calculateProgress(categoryItems); // من progress_history أو افتراضي
+    const ev = pv * (progress / 100);
+    const ac = calculateActualCost(categoryItems);
+    
+    return {
+      sn: index + 1,
+      activity: getCategoryLabel(categoryItems[0].category),
+      activityAr: getCategoryLabelAr(categoryItems[0].category),
+      discipline,
+      pv, ev, ac,
+      // ... باقي حسابات EVM
+    };
+  });
 };
 ```
 
 ---
 
-### 6. التصفية الديناميكية
-
-#### أ. تصفية حسب Discipline:
-```typescript
-const filteredActivities = useMemo(() => {
-  let filtered = allActivities;
-  
-  if (selectedDisciplines.length > 0) {
-    filtered = filtered.filter(a => 
-      selectedDisciplines.includes(a.discipline)
-    );
-  }
-  
-  if (selectedActivities.length > 0) {
-    filtered = filtered.filter(a => 
-      selectedActivities.includes(a.id)
-    );
-  }
-  
-  return filtered;
-}, [allActivities, selectedDisciplines, selectedActivities]);
-```
-
-#### ب. تحديث الـ KPIs والـ Chart تلقائياً:
-- عند تغيير الفلتر، يتم إعادة حساب جميع المؤشرات
-- الـ Chart يعكس البيانات المفلترة فقط
-
----
-
-### 7. تصدير Excel
+### 3. Mapping Categories إلى Disciplines
 
 ```typescript
-const exportToExcel = async () => {
-  const workbook = createWorkbook();
+const CATEGORY_TO_DISCIPLINE: Record<string, string> = {
+  // CIVIL
+  'excavation': 'CIVIL',
+  'concrete': 'CIVIL',
+  'reinforcement': 'CIVIL',
+  'foundations': 'CIVIL',
+  'structural': 'CIVIL',
   
-  // Sheet 1: Summary KPIs
-  addJsonSheet(workbook, [
-    { Metric: 'PV', Value: totals.pv },
-    { Metric: 'EV', Value: totals.ev },
-    { Metric: 'AC', Value: totals.ac },
-    // ...
-  ], 'Summary');
+  // MECHANICAL
+  'plumbing': 'MECHANICAL',
+  'hvac': 'MECHANICAL',
+  'firefighting': 'MECHANICAL',
+  'drainage': 'MECHANICAL',
   
-  // Sheet 2: Detailed Activities
-  addJsonSheet(workbook, filteredActivities.map(a => ({
-    'SN': a.sn,
-    'Activity': a.activity,
-    'Discipline': a.discipline,
-    'Progress %': a.progress,
-    'PV': a.pv,
-    'EV': a.ev,
-    'AC': a.ac,
-    'EAC BY PERT': a.eacByPert,
-    'ETC': a.etc
-  })), 'Activities');
+  // ELECTRICAL
+  'electrical': 'ELECTRICAL',
+  'lighting': 'ELECTRICAL',
+  'low_current': 'ELECTRICAL',
   
-  const buffer = await workbook.xlsx.writeBuffer();
-  saveAs(new Blob([buffer]), 'Cost_Control_Report.xlsx');
+  // ARCHITECTURAL
+  'finishing': 'ARCHITECTURAL',
+  'doors': 'ARCHITECTURAL',
+  'windows': 'ARCHITECTURAL',
+  'cladding': 'ARCHITECTURAL',
+  
+  // GENERAL
+  'general': 'GENERAL',
+  'preliminaries': 'GENERAL',
+};
+
+const mapCategoryToDiscipline = (category: string | null): string => {
+  if (!category) return 'GENERAL';
+  const normalized = category.toLowerCase().replace(/[\s-_]/g, '');
+  for (const [key, discipline] of Object.entries(CATEGORY_TO_DISCIPLINE)) {
+    if (normalized.includes(key)) return discipline;
+  }
+  return 'GENERAL';
 };
 ```
 
 ---
 
-### 8. التحسينات الإضافية
+### 4. إضافة Progress Tracking
 
-#### أ. Project Selector:
-- إضافة dropdown لاختيار المشروع
-- جلب المشاريع من project_data
+سيتم ربط بيانات التقدم من `project_progress_history`:
 
-#### ب. Grand Total Row:
-- صف إجمالي أسفل الجدول
-- خلفية مميزة
+```typescript
+// جلب تاريخ التقدم
+const fetchProgressHistory = async (projectId: string) => {
+  const { data } = await supabase
+    .from('project_progress_history')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('record_date', { ascending: false })
+    .limit(1);
+  
+  return data?.[0] || null;
+};
 
-#### ج. Pagination للجدول:
+// حساب التقدم
+const calculateProgress = (items: ProjectItem[], progressData?: any) => {
+  if (progressData?.actual_progress) return progressData.actual_progress;
+  
+  // حساب افتراضي من البنود المسعرة
+  const pricedItems = items.filter(i => i.unit_price && i.unit_price > 0);
+  return (pricedItems.length / items.length) * 100 * 0.6; // افتراضي 60% من نسبة التسعير
+};
+```
+
+---
+
+### 5. تحديث واجهة المستخدم
+
+#### أ. إضافة Project Selector في الـ Header:
+
 ```tsx
-<div className="flex items-center justify-between">
-  <span>1 - 82 / 82</span>
-  <div className="flex gap-1">
-    <Button size="sm" variant="outline">◀</Button>
-    <Button size="sm" variant="outline">▶</Button>
+<div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600...">
+  {/* ... existing header content ... */}
+  
+  {/* Project Selector - NEW */}
+  <div className="mt-4 flex items-center gap-4">
+    <Select value={selectedProjectId || ''} onValueChange={setSelectedProjectId}>
+      <SelectTrigger className="w-[300px] bg-white/10 border-white/20 text-white">
+        <SelectValue placeholder={isArabic ? "اختر مشروع..." : "Select Project..."} />
+      </SelectTrigger>
+      <SelectContent>
+        {projects.map(p => (
+          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+    
+    {/* Toggle للتبديل بين البيانات النموذجية والحقيقية */}
+    <div className="flex items-center gap-2">
+      <Switch checked={useRealData} onCheckedChange={setUseRealData} />
+      <span className="text-white/80 text-sm">
+        {isArabic ? "بيانات حقيقية" : "Real Data"}
+      </span>
+    </div>
   </div>
 </div>
+```
+
+#### ب. تحديث الجدول لعرض بيانات BOQ:
+
+```tsx
+// عمود إضافي لعدد البنود
+<TableHead>{isArabic ? "عدد البنود" : "Items Count"}</TableHead>
+
+// في الصف
+<TableCell className="text-center">
+  <Badge variant="outline">{activity.itemsCount || '-'}</Badge>
+</TableCell>
+```
+
+---
+
+### 6. إضافة Edit Progress Dialog
+
+لتحديث نسبة التقدم:
+
+```tsx
+const [editProgressDialog, setEditProgressDialog] = useState<{
+  open: boolean;
+  activity: EVMActivity | null;
+}>({ open: false, activity: null });
+
+const handleUpdateProgress = async (activityCode: string, newProgress: number) => {
+  // تحديث في project_progress_history
+  await supabase.from('project_progress_history').upsert({
+    project_id: selectedProjectId,
+    actual_progress: newProgress,
+    record_date: new Date().toISOString(),
+    user_id: user.id,
+  });
+  
+  // إعادة جلب البيانات
+  refetchItems();
+};
+```
+
+---
+
+### 7. حفظ التقرير وتصديره
+
+إضافة زر لحفظ التقرير:
+
+```typescript
+const handleSaveReport = async () => {
+  if (!selectedProjectId) return;
+  
+  // حفظ في جدول جديد أو تحديث project_data.analysis_data
+  await supabase
+    .from('project_data')
+    .update({
+      analysis_data: {
+        ...existingData,
+        evm_report: {
+          generated_at: new Date().toISOString(),
+          totals,
+          activities: filteredActivities,
+        }
+      }
+    })
+    .eq('id', selectedProjectId);
+    
+  toast.success(isArabic ? 'تم حفظ التقرير' : 'Report saved');
+};
 ```
 
 ---
@@ -277,44 +271,80 @@ const exportToExcel = async () => {
 
 | الملف | التغيير |
 |-------|---------|
-| `src/pages/CostControlReportPage.tsx` | إعادة كتابة كاملة مع بيانات حقيقية وجدول |
-| `src/hooks/useLanguage.tsx` | لا تغيير (موجود) |
-| `src/lib/exceljs-utils.ts` | لا تغيير (استخدام) |
+| `src/pages/CostControlReportPage.tsx` | إضافة Supabase integration, project selector, real data conversion |
+| `src/hooks/useAuth.tsx` | استخدام (موجود) |
+| `src/integrations/supabase/client.ts` | استخدام (موجود) |
 
 ---
 
 ## البنية الجديدة للصفحة
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│                     Header Banner                           │
-│              Cost Control Report (Gradient)                 │
-├──────────────┬──────────────────────────────────────────────┤
-│              │                                              │
-│  Discipline  │    ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐
-│  ☑ GENERAL   │    │  PV  │ │  EV  │ │  AC  │ │ EAC  │ │ ETC  │
-│  ☑ CIVIL     │    │168.5M│ │105.3M│ │107.0M│ │164.0M│ │57.1M │
-│  ☐ MECH      │    └──────┘ └──────┘ └──────┘ └──────┘ └──────┘
-│  ☐ ELEC      │                                              │
-│  ☐ ARCH      │    ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐
-│              │    │ SPI  │ │Prog %│ │ CPI  │ │ TCPI │ │Export│
-│  Activity    │    │ 0.60 │ │ 60%  │ │ 0.98 │ │ 0.90 │ │ [xl] │
-│  ☑ Staff     │    └──────┘ └──────┘ └──────┘ └──────┘ └──────┘
-│  ☑ Site      │                                              │
-│  ☐ Lighting  │         ┌───────────────────────┐            │
-│  ☐ Doors     │         │      COMBO CHART      │            │
-│              │         │   (Bar + Line)        │            │
-│              │         └───────────────────────┘            │
-│              │                                              │
-│              │    ┌───────────────────────────────────────┐ │
-│              │    │        DATA TABLE                     │ │
-│              │    │ # │ Activity │ Prog% │ PV │ EV │ AC  │ │
-│              │    │ 1 │ Staff    │ 80%   │ 1.7│1.4 │1.4  │ │
-│              │    │ 2 │ Site     │ 100%  │ 8.4│8.4 │8.5  │ │
-│              │    │...│ ...      │ ...   │ ...│... │...  │ │
-│              │    │   │ TOTAL    │ 60%   │168M│105M│107M │ │
-│              │    └───────────────────────────────────────┘ │
-└──────────────┴──────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                     Header Banner                               │
+│   Cost Control Report          [Project Selector ▼] [⚡ Real]  │
+├──────────────┬──────────────────────────────────────────────────┤
+│              │                                                  │
+│  Discipline  │   🔹 Loading from project_items...              │
+│  ☑ GENERAL   │   OR                                            │
+│  ☑ CIVIL     │   🔹 82 Activities (Sample Data)                │
+│  ☐ MECH      │                                                  │
+│              │    ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐  │
+│  Activity    │    │  PV  │ │  EV  │ │  AC  │ │ EAC  │ │ ETC  │  │
+│  (from BOQ)  │    │ Real │ │ Data │ │ From │ │  DB  │ │      │  │
+│              │    └──────┘ └──────┘ └──────┘ └──────┘ └──────┘  │
+│              │                                                  │
+│              │    ┌───────────────────────────────────────────┐ │
+│              │    │        CHART (Real Project Data)          │ │
+│              │    └───────────────────────────────────────────┘ │
+│              │                                                  │
+│              │    ┌───────────────────────────────────────────┐ │
+│              │    │   TABLE (Linked to project_items)         │ │
+│              │    │   + Edit Progress ✏️ button                │ │
+│              │    │   + Items Count column                     │ │
+│              │    └───────────────────────────────────────────┘ │
+└──────────────┴──────────────────────────────────────────────────┘
+```
+
+---
+
+## تدفق البيانات
+
+```text
+project_data                  project_items               project_progress_history
+    │                              │                              │
+    │ (1) Select Project          │                              │
+    ▼                              │                              │
+┌───────────┐                      │                              │
+│  Project  │◄─────────────────────┤ (2) Fetch Items             │
+│  Selector │                      │                              │
+└─────┬─────┘                      ▼                              │
+      │                    ┌──────────────┐                       │
+      │                    │  BOQ Items   │◄──────────────────────┤
+      │                    │ (category,   │  (3) Get Progress %   │
+      │                    │  unit_price, │                       │
+      │                    │  quantity)   │                       │
+      │                    └──────┬───────┘                       │
+      │                           │                               │
+      │                           ▼                               │
+      │                    ┌──────────────┐                       │
+      │                    │   Convert    │                       │
+      │                    │  to EVM      │                       │
+      │                    │  Activities  │                       │
+      │                    └──────┬───────┘                       │
+      │                           │                               │
+      │                           ▼                               │
+      │                    ┌──────────────┐                       │
+      └───────────────────►│  Calculate   │                       │
+                           │  EVM Metrics │                       │
+                           │  (PV,EV,AC)  │                       │
+                           └──────┬───────┘                       │
+                                  │                               │
+                                  ▼                               │
+                           ┌──────────────┐                       │
+                           │   Display    │──────────────────────►│
+                           │   Report     │  (4) Save Progress    │
+                           └──────────────┘                       │
 ```
 
 ---
@@ -322,29 +352,75 @@ const exportToExcel = async () => {
 ## النتيجة المتوقعة
 
 ```text
-✅ واجهة احترافية تطابق التصميم المرجعي
-✅ بيانات حقيقية من قاعدة البيانات
-✅ تصفية ديناميكية للـ Disciplines والـ Activities
-✅ جدول بيانات تفصيلي مع pagination
-✅ تصدير Excel كامل
-✅ مؤشرات EVM محسوبة بدقة
-✅ دعم ثنائي اللغة (AR/EN)
-✅ أداء سريع ومستجيب
+✅ اختيار أي مشروع محفوظ من الـ Dropdown
+✅ تحميل بنود BOQ تلقائياً وتجميعها حسب Category
+✅ حساب مؤشرات EVM من البيانات الحقيقية
+✅ إمكانية التبديل بين البيانات النموذجية والحقيقية
+✅ تحديث نسبة التقدم وحفظها في قاعدة البيانات
+✅ ربط الجدول مباشرة ببنود الكميات
+✅ تصدير Excel مع البيانات الحقيقية
+✅ دعم ثنائي اللغة
 ```
 
 ---
 
-## الـ Sample Data المضمنة (82 نشاط)
+## القسم التقني
 
-سيتم تضمين البيانات الكاملة من Google Sheets:
-- 12 نشاط GENERAL
-- 25 نشاط CIVIL  
-- 16 نشاط MECHANICAL
-- 15 نشاط ELECTRICAL
-- 14 نشاط ARCHITECTURAL
+### Interface Updates:
 
-مع جميع مؤشرات EVM لكل نشاط:
-- PV, EV, AC, CV, SV
-- CPI, SPI, TCPI
-- EAC1, EAC2, EAC3, EAC BY PERT
-- ETC, Progress %
+```typescript
+interface ProjectData {
+  id: string;
+  name: string;
+  currency: string | null;
+  total_value: number | null;
+  items_count: number | null;
+  created_at: string;
+}
+
+interface ProjectItem {
+  id: string;
+  project_id: string;
+  item_number: string;
+  description: string | null;
+  category: string | null;
+  subcategory: string | null;
+  unit: string | null;
+  quantity: number | null;
+  unit_price: number | null;
+  total_price: number | null;
+}
+
+// Extended EVMActivity for real data
+interface EVMActivityExtended extends EVMActivity {
+  itemsCount?: number;
+  items?: ProjectItem[];
+  isEditable?: boolean;
+}
+```
+
+### EVM Calculations:
+
+```typescript
+const calculateEVMFromItems = (items: ProjectItem[], progressPercent: number) => {
+  const pv = items.reduce((sum, i) => sum + (i.total_price || 0), 0);
+  const ev = pv * (progressPercent / 100);
+  const costVarianceFactor = 1.015; // افتراضي 1.5% تجاوز
+  const ac = ev * costVarianceFactor;
+  
+  const cv = ev - ac;
+  const sv = ev - pv;
+  const cpi = ac > 0 ? ev / ac : 1;
+  const spi = pv > 0 ? ev / pv : 0;
+  
+  const bac = pv;
+  const eac1 = cpi > 0 ? bac / cpi : bac;
+  const eac2 = ac + (bac - ev);
+  const eac3 = cpi > 0 && spi > 0 ? ac + ((bac - ev) / (cpi * spi)) : bac;
+  const eacByPert = (eac1 + 4 * eac2 + eac3) / 6;
+  const etc = eacByPert - ac;
+  const tcpi = (bac - ev) > 0 ? (bac - ev) / (bac - ac) : 0;
+  
+  return { pv, ev, ac, cv, sv, cpi, spi, eacByPert, etc, tcpi };
+};
+```
