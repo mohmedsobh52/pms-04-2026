@@ -46,10 +46,22 @@ export default function FastExtractionUploader({ files, onFilesChange, onUploadC
   const isArabic = language === "ar";
   const [isDragging, setIsDragging] = useState(false);
 
+  const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
+
   const uploadFile = async (file: File, tempId: string) => {
     try {
+      // Check file size before upload
+      if (file.size > MAX_FILE_SIZE) {
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        throw new Error(
+          isArabic 
+            ? `حجم الملف (${sizeMB} ميجا) يتجاوز الحد الأقصى المسموح (500 ميجا)`
+            : `File size (${sizeMB}MB) exceeds maximum allowed size (500MB)`
+        );
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!user) throw new Error(isArabic ? "يجب تسجيل الدخول أولاً" : "Not authenticated");
 
       const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -61,7 +73,17 @@ export default function FastExtractionUploader({ files, onFilesChange, onUploadC
           upsert: false,
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        // Handle specific storage errors
+        if (uploadError.message?.includes("exceeded the maximum allowed size")) {
+          throw new Error(
+            isArabic 
+              ? "حجم الملف يتجاوز الحد الأقصى المسموح"
+              : "File size exceeds maximum allowed size"
+          );
+        }
+        throw uploadError;
+      }
 
       return fileName;
     } catch (error) {
