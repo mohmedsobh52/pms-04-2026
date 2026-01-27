@@ -1,29 +1,27 @@
 
-# خطة نقل تتبع دقة التسعير إلى التبويب الرئيسي للتسعير
+
+# خطة نقل شاشة التقارير إلى شاشة المشاريع
 
 ## نظرة عامة
 
-نقل محتوى صفحة `PricingAccuracyPage` (تتبع دقة التسعير) إلى تبويب جديد داخل صفحة التسعير الرئيسية `TenderSummaryPage` بدلاً من وجودها كصفحة منفصلة.
+نقل كامل محتوى صفحة التقارير (`ReportsPage`) إلى صفحة المشاريع (`SavedProjectsPage`) كتبويب جديد "التقارير"، مع تحديد المسارات الفرعية لكل شاشة.
 
 ---
 
 ## الوضع الحالي
 
 ```text
-/projects/:projectId/pricing  →  TenderSummaryPage.tsx
-├── Summary (ملخص العطاء)
-├── Staff (طاقم الموقع)
-├── Facilities (المرافق)
-├── Insurance (التأمين)
-├── Guarantees (الضمانات)
-├── Indirect Costs (التكاليف غير المباشرة)
-├── Subcontractors (مقاولو الباطن)
-└── Settings (الإعدادات)
+/projects                    → SavedProjectsPage.tsx
+├── Tab: المشاريع المحفوظة (projects)
+└── Tab: تحليل BOQ (analyze)
 
-/pricing-accuracy  →  PricingAccuracyPage.tsx (صفحة منفصلة)
-├── Price Comparison
-├── Import Reference
-└── PDF Report
+/reports                     → ReportsPage.tsx (صفحة منفصلة)
+├── Tab: التصدير (export)
+├── Tab: تحليل الأسعار (price-analysis)
+├── Tab: مقارنة المشاريع (comparison)
+├── Tab: ملخص (summary)
+├── Tab: الأخيرة (recent)
+└── Tab: متقدم (advanced)
 ```
 
 ---
@@ -31,121 +29,134 @@
 ## الهيكل الجديد
 
 ```text
-/projects/:projectId/pricing  →  TenderSummaryPage.tsx
-├── Summary (ملخص العطاء)
-├── Staff (طاقم الموقع)
-├── Facilities (المرافق)
-├── Insurance (التأمين)
-├── Guarantees (الضمانات)
-├── Indirect Costs (التكاليف غير المباشرة)
-├── Subcontractors (مقاولو الباطن)
-├── Accuracy (دقة التسعير)  ← تبويب جديد
-│   ├── Price Comparison (مقارنة الأسعار)
-│   ├── Import Reference (استيراد المرجعية)
-│   └── PDF Report (تقرير PDF)
-└── Settings (الإعدادات)
+/projects                    → SavedProjectsPage.tsx (الشاشة الرئيسية)
+├── Tab: المشاريع المحفوظة (projects)
+├── Tab: تحليل BOQ (analyze)
+└── Tab: التقارير (reports)         ← تبويب جديد
+    ├── Sub-Tab: التصدير
+    ├── Sub-Tab: تحليل الأسعار
+    ├── Sub-Tab: مقارنة المشاريع
+    ├── Sub-Tab: ملخص
+    ├── Sub-Tab: الأخيرة
+    └── Sub-Tab: متقدم
+
+/reports → Redirect to /projects?tab=reports
 ```
+
+---
+
+## خريطة المسارات
+
+| المسار | الوصف | الشاشة |
+|--------|-------|--------|
+| `/` | الصفحة الرئيسية | HomePage |
+| `/projects` | إدارة المشاريع والتقارير | SavedProjectsPage |
+| `/projects?tab=projects` | المشاريع المحفوظة | SavedProjectsPage → Tab projects |
+| `/projects?tab=analyze` | تحليل BOQ | SavedProjectsPage → Tab analyze |
+| `/projects?tab=reports` | التقارير | SavedProjectsPage → Tab reports |
+| `/projects/new` | مشروع جديد | NewProjectPage |
+| `/projects/:id` | تفاصيل المشروع | ProjectDetailsPage |
+| `/projects/:id/pricing` | التسعير | TenderSummaryPage |
+| `/dashboard` | لوحة التحكم | DashboardPage |
+| `/fast-extraction` | الاستخراج السريع | FastExtractionPage |
+| `/library` | المكتبة | LibraryPage |
+| `/contracts` | العقود | ContractsPage |
+| `/settings` | الإعدادات | SettingsPage |
 
 ---
 
 ## التعديلات المطلوبة
 
-### 1. إنشاء مكون PricingAccuracyTab
+### 1. إنشاء مكون ReportsTab
 
-**الملف الجديد:** `src/components/tender/PricingAccuracyTab.tsx`
+**الملف الجديد:** `src/components/projects/ReportsTab.tsx`
 
-مكون يجمع كل محتوى تتبع دقة التسعير:
+مكون يجمع كل محتوى صفحة التقارير في تبويب واحد:
 
 ```typescript
-// استيراد المكونات الموجودة
-import PriceComparisonTracker from '@/components/PriceComparisonTracker';
-import ReferencePriceImporter from '@/components/ReferencePriceImporter';
-import PricingAccuracyPDFReport from '@/components/PricingAccuracyPDFReport';
+// استيراد كل مكونات التقارير
+import { ExportTab } from "@/components/reports/ExportTab";
+import { PriceAnalysisTab } from "@/components/reports/PriceAnalysisTab";
+import { ProjectSummaryTab } from "@/components/reports/ProjectSummaryTab";
+import { RecentProjectsTab } from "@/components/reports/RecentProjectsTab";
+import { ProjectsComparisonExport } from "@/components/reports/ProjectsComparisonExport";
+import { AdvancedReportsTab } from "@/components/reports/AdvancedReportsTab";
+import { ReportsStatCards } from "@/components/reports/ReportsStatCards";
 
-export function PricingAccuracyTab({ isArabic }: { isArabic: boolean }) {
-  const [activeSubTab, setActiveSubTab] = useState('comparison');
+interface ReportsTabProps {
+  isArabic: boolean;
+}
+
+export function ReportsTab({ isArabic }: ReportsTabProps) {
+  // State للتبويبات الفرعية
+  const [subTab, setSubTab] = useState("export");
   
-  return (
-    <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
-      <TabsList>
-        <TabsTrigger value="comparison">مقارنة الأسعار</TabsTrigger>
-        <TabsTrigger value="import">استيراد المرجعية</TabsTrigger>
-        <TabsTrigger value="report">تقرير PDF</TabsTrigger>
-      </TabsList>
-      
-      <TabsContent value="comparison">
-        <PriceComparisonTracker />
-      </TabsContent>
-      {/* ... */}
-    </Tabs>
-  );
+  // جلب المشاريع والإحصائيات
+  // ...
 }
 ```
 
 ---
 
-### 2. تعديل TenderSummaryPage.tsx
+### 2. تعديل SavedProjectsPage.tsx
 
-إضافة التبويب الجديد:
+إضافة تبويب التقارير:
 
 ```typescript
-// إضافة في الـ imports
-import { PricingAccuracyTab } from "@/components/tender/PricingAccuracyTab";
-import { Target } from "lucide-react";
+// إضافة تبويب ثالث
+<TabsList className="grid w-full sm:w-auto grid-cols-3">
+  <TabsTrigger value="projects">
+    <FolderOpen className="w-4 h-4" />
+    {isArabic ? "المشاريع" : "Projects"}
+  </TabsTrigger>
+  <TabsTrigger value="analyze">
+    <FileUp className="w-4 h-4" />
+    {isArabic ? "تحليل BOQ" : "Analyze BOQ"}
+  </TabsTrigger>
+  <TabsTrigger value="reports">
+    <BarChart3 className="w-4 h-4" />
+    {isArabic ? "التقارير" : "Reports"}
+  </TabsTrigger>
+</TabsList>
 
-// إضافة في مصفوفة tabs (سطر 509)
-const tabs = [
-  { id: "summary", labelAr: "ملخص العطاء", labelEn: "Tender Summary", icon: FileText },
-  { id: "staff", labelAr: "طاقم الموقع", labelEn: "Site Staff", icon: Users },
-  { id: "facilities", labelAr: "المرافق", labelEn: "Facilities", icon: Building2 },
-  { id: "insurance", labelAr: "التأمين", labelEn: "Insurance", icon: Shield },
-  { id: "guarantees", labelAr: "الضمانات", labelEn: "Guarantees", icon: FileCheck },
-  { id: "indirect", labelAr: "التكاليف غير المباشرة", labelEn: "Indirect Costs", icon: Calculator },
-  { id: "subcontractors", labelAr: "مقاولو الباطن", labelEn: "Subcontractors", icon: HardHat },
-  { id: "accuracy", labelAr: "دقة التسعير", labelEn: "Accuracy", icon: Target }, // جديد
-  { id: "settings", labelAr: "الإعدادات", labelEn: "Settings", icon: Settings },
-];
-
-// إضافة TabsContent للتبويب الجديد
-<TabsContent value="accuracy">
-  <PricingAccuracyTab isArabic={isArabic} />
+<TabsContent value="reports">
+  <ReportsTab isArabic={isArabic} />
 </TabsContent>
 ```
 
 ---
 
-### 3. تحديث التوجيه (اختياري)
-
-حذف أو إعادة توجيه المسار القديم `/pricing-accuracy`:
+### 3. تحديث التوجيه في App.tsx
 
 ```typescript
-// في App.tsx - إما حذف أو إعادة توجيه
-// الخيار 1: حذف المسار تماماً
-// حذف: <Route path="/pricing-accuracy" element={<PricingAccuracyPage />} />
-
-// الخيار 2: إعادة توجيه (للتوافق مع الروابط القديمة)
-<Route path="/pricing-accuracy" element={<Navigate to="/projects" replace />} />
+// تغيير مسار التقارير لإعادة التوجيه
+<Route path="/reports" element={<Navigate to="/projects?tab=reports" replace />} />
 ```
 
 ---
 
 ### 4. تحديث البحث الشامل
 
-تعديل `useGlobalSearch.tsx` لتحديث رابط "Pricing Accuracy":
+تعديل `useGlobalSearch.tsx`:
 
 ```typescript
-// تغيير الرابط من صفحة منفصلة إلى تبويب
+// تحديث رابط التقارير
 {
-  id: 'pricing-accuracy',
-  type: 'page',
-  label: 'Pricing Accuracy',
-  labelAr: 'دقة التسعير',
-  icon: 'Target',
-  // إما حذفه أو توجيهه للمشاريع
-  href: '/projects', 
-  keywords: ['accuracy', 'pricing', 'دقة', 'تسعير']
+  id: 'reports',
+  label: 'Reports',
+  labelAr: 'التقارير',
+  href: '/projects?tab=reports',
+  icon: 'BarChart3',
 }
 ```
+
+---
+
+### 5. تحديث Navigation وHeader
+
+تعديل روابط التقارير في:
+- `UnifiedHeader.tsx` → تغيير `/reports` إلى `/projects?tab=reports`
+- `MainDashboard.tsx` → تغيير زر التقارير
 
 ---
 
@@ -153,21 +164,24 @@ const tabs = [
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/tender/PricingAccuracyTab.tsx` | **جديد** - مكون التبويب الداخلي |
-| `src/pages/TenderSummaryPage.tsx` | إضافة تبويب "Accuracy" |
-| `src/App.tsx` | حذف أو إعادة توجيه `/pricing-accuracy` |
-| `src/hooks/useGlobalSearch.tsx` | تحديث رابط البحث |
+| `src/components/projects/ReportsTab.tsx` | **جديد** - مكون تبويب التقارير |
+| `src/pages/SavedProjectsPage.tsx` | إضافة تبويب Reports |
+| `src/App.tsx` | إعادة توجيه `/reports` |
+| `src/hooks/useGlobalSearch.tsx` | تحديث رابط التقارير |
+| `src/components/UnifiedHeader.tsx` | تحديث رابط Reports |
+| `src/components/MainDashboard.tsx` | تحديث زر Reports |
 
 ---
 
 ## النتيجة المتوقعة
 
 ```text
-✅ تبويب "دقة التسعير" داخل صفحة التسعير الرئيسية
-✅ تبويبات فرعية للمقارنة والاستيراد والتقرير
-✅ وصول سهل من نفس واجهة التسعير
-✅ حذف/إعادة توجيه المسار المنفصل القديم
-✅ تحديث البحث الشامل
+✅ تبويب "التقارير" داخل صفحة المشاريع
+✅ جميع تبويبات التقارير الفرعية (6 تبويبات)
+✅ إحصائيات المشاريع والقيم
+✅ إعادة توجيه المسار القديم /reports
+✅ تحديث كل روابط التقارير في التطبيق
+✅ دعم URL parameter للوصول المباشر
 ```
 
 ---
@@ -177,79 +191,148 @@ const tabs = [
 ### هيكل المكون الجديد
 
 ```typescript
-// src/components/tender/PricingAccuracyTab.tsx
+// src/components/projects/ReportsTab.tsx
 
-interface PricingAccuracyTabProps {
+interface ReportsTabProps {
   isArabic: boolean;
-  projectId?: string; // للربط مع المشروع الحالي
+  projects: ProjectData[];
+  tenderData: TenderPricing[];
+  loading: boolean;
+  onRefresh: () => void;
 }
 
-export function PricingAccuracyTab({ isArabic, projectId }: PricingAccuracyTabProps) {
-  const [activeSubTab, setActiveSubTab] = useState('comparison');
+export function ReportsTab({ 
+  isArabic, 
+  projects, 
+  tenderData, 
+  loading, 
+  onRefresh 
+}: ReportsTabProps) {
+  const [subTab, setSubTab] = useState("export");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // تصفية المشاريع
+  const filteredProjects = useMemo(() => { ... }, [projects, statusFilter, searchQuery]);
+
+  // حساب الإحصائيات
+  const stats = useMemo(() => { ... }, [projects, tenderData]);
+
+  // التبويبات الفرعية
+  const subTabs = [
+    { value: "export", label: isArabic ? "التصدير" : "Export", icon: FileDown },
+    { value: "price-analysis", label: isArabic ? "تحليل الأسعار" : "Price Analysis", icon: BarChart3 },
+    { value: "comparison", label: isArabic ? "مقارنة المشاريع" : "Compare", icon: GitCompare },
+    { value: "summary", label: isArabic ? "ملخص" : "Summary", icon: FileText },
+    { value: "recent", label: isArabic ? "الأخيرة" : "Recent", icon: Clock },
+    { value: "advanced", label: isArabic ? "متقدم" : "Advanced", icon: Settings2 },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Target className="h-6 w-6 text-primary" />
+      {/* Header with filters */}
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold">
-            {isArabic ? 'تتبع دقة التسعير' : 'Pricing Accuracy Tracking'}
+            {isArabic ? "التقارير" : "Reports"}
           </h2>
-          <p className="text-sm text-muted-foreground">
-            {isArabic 
-              ? 'تتبع ومقارنة الأسعار المقترحة مع الأسعار النهائية'
-              : 'Track and compare suggested vs final prices'}
-          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Search & Filter controls */}
         </div>
       </div>
 
+      {/* Stats Cards */}
+      <ReportsStatCards {...stats} />
+
       {/* Sub-tabs */}
-      <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
-        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
-          <TabsTrigger value="comparison" className="gap-2">
-            <GitCompare className="h-4 w-4" />
-            {isArabic ? 'مقارنة الأسعار' : 'Price Comparison'}
-          </TabsTrigger>
-          <TabsTrigger value="import" className="gap-2">
-            <Upload className="h-4 w-4" />
-            {isArabic ? 'استيراد المرجعية' : 'Import Reference'}
-          </TabsTrigger>
-          <TabsTrigger value="report" className="gap-2">
-            <FileText className="h-4 w-4" />
-            {isArabic ? 'تقرير PDF' : 'PDF Report'}
-          </TabsTrigger>
+      <Tabs value={subTab} onValueChange={setSubTab}>
+        <TabsList>
+          {subTabs.map(tab => (
+            <TabsTrigger key={tab.value} value={tab.value}>
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
-        <TabsContent value="comparison" className="mt-6">
-          <PriceComparisonTracker projectId={projectId} />
+        <TabsContent value="export">
+          <ExportTab projects={filteredProjects} isLoading={loading} />
         </TabsContent>
-
-        <TabsContent value="import" className="mt-6">
-          <ReferencePriceImporter />
-        </TabsContent>
-
-        <TabsContent value="report" className="mt-6">
-          <PricingAccuracyPDFReport />
-        </TabsContent>
+        {/* ... باقي التبويبات */}
       </Tabs>
     </div>
   );
 }
 ```
 
-### تعديل TenderSummaryPage
+### تحديث SavedProjectsPage
 
 ```typescript
-// سطر 509 - إضافة التبويب الجديد
-const tabs = [
-  // ... التبويبات الموجودة
-  { id: "accuracy", labelAr: "دقة التسعير", labelEn: "Accuracy", icon: Target },
-  { id: "settings", labelAr: "الإعدادات", labelEn: "Settings", icon: Settings },
-];
+// الإضافات المطلوبة
 
-// إضافة TabsContent بعد subcontractors (حوالي سطر 990+)
-<TabsContent value="accuracy">
-  <PricingAccuracyTab isArabic={isArabic} projectId={projectId} />
+// 1. استيراد المكون الجديد
+import { ReportsTab } from "@/components/projects/ReportsTab";
+import { BarChart3 } from "lucide-react";
+
+// 2. تحديث قراءة URL parameter
+const initialTab = searchParams.get("tab") || "projects";
+
+// 3. إضافة state للبيانات المشتركة
+const [tenderData, setTenderData] = useState<TenderPricing[]>([]);
+
+// 4. جلب بيانات التسعير مع المشاريع
+const fetchTenderData = async () => {
+  const { data } = await supabase
+    .from("tender_pricing")
+    .select("project_id, contract_value, total_direct_costs, total_indirect_costs, profit_margin")
+    .eq("user_id", user.id);
+  setTenderData(data || []);
+};
+
+// 5. إضافة التبويب الثالث
+<TabsTrigger value="reports" className="gap-2">
+  <BarChart3 className="w-4 h-4" />
+  {isArabic ? "التقارير" : "Reports"}
+</TabsTrigger>
+
+<TabsContent value="reports">
+  <ReportsTab 
+    isArabic={isArabic} 
+    projects={projects}
+    tenderData={tenderData}
+    loading={isLoading}
+    onRefresh={fetchProjects}
+  />
 </TabsContent>
 ```
+
+### تحديث App.tsx
+
+```typescript
+// تغيير السطر 107
+<Route path="/reports" element={<Navigate to="/projects?tab=reports" replace />} />
+```
+
+### تحديث UnifiedHeader.tsx
+
+```typescript
+// تغيير رابط التقارير (السطر المضاف سابقاً)
+<Link to="/projects?tab=reports">
+  <Button variant={...} size="sm" className="...">
+    <FileBarChart className="w-4 h-4" />
+    {isArabic ? "التقارير" : "Reports"}
+  </Button>
+</Link>
+```
+
+### تحديث MainDashboard.tsx
+
+```typescript
+// تغيير زر التقارير
+<Button onClick={() => navigate("/projects?tab=reports")} className="...">
+  <BarChart3 className="w-4 h-4" />
+  {isArabic ? "التقارير" : "Reports"}
+</Button>
+```
+
