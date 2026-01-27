@@ -19,7 +19,7 @@ const SettingsPage = () => {
         </h2>
         
         <Tabs defaultValue="company" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-5 tabs-navigation-safe">
             <TabsTrigger value="company" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               <span className="hidden sm:inline">{isArabic ? "الشركة" : "Company"}</span>
