@@ -33,51 +33,67 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   // Helper function to get items from different data structures with JSON parsing support
   const getProjectItems = (project: Project | undefined): any[] => {
     if (!project?.analysis_data) {
+      console.log("❌ getProjectItems: No analysis_data for project:", project?.name);
       return [];
     }
     
     let data = project.analysis_data;
+    console.log("📊 getProjectItems: Raw analysis_data type:", typeof data);
     
     // Handle if data is a string (JSON not parsed)
     if (typeof data === 'string') {
       try {
         data = JSON.parse(data);
+        console.log("✅ getProjectItems: Parsed JSON string successfully");
       } catch (e) {
-        console.error("Failed to parse analysis_data:", e);
+        console.error("❌ getProjectItems: Failed to parse analysis_data:", e);
         return [];
       }
     }
     
     // Support different data structures
-    if (Array.isArray(data.items)) {
+    if (Array.isArray(data.items) && data.items.length > 0) {
+      console.log("✅ getProjectItems: Found data.items:", data.items.length);
       return data.items;
     }
-    if (Array.isArray(data.boq_items)) {
+    if (Array.isArray(data.boq_items) && data.boq_items.length > 0) {
+      console.log("✅ getProjectItems: Found data.boq_items:", data.boq_items.length);
       return data.boq_items;
     }
-    if (data.analysisData && Array.isArray(data.analysisData.items)) {
+    if (data.analysisData && Array.isArray(data.analysisData.items) && data.analysisData.items.length > 0) {
+      console.log("✅ getProjectItems: Found data.analysisData.items:", data.analysisData.items.length);
       return data.analysisData.items;
     }
     
+    console.log("❌ getProjectItems: No items found in any structure. Keys:", Object.keys(data || {}));
     return [];
   };
 
   // Fetch items dynamically when project changes
   useEffect(() => {
     const fetchItems = async () => {
+      console.log("📊 ExportTab: Fetching items for project:", selectedProject?.name);
+      console.log("📊 ExportTab: selectedProjectId:", selectedProjectId);
+      console.log("📊 ExportTab: analysis_data exists?", !!selectedProject?.analysis_data);
+      
       if (!selectedProject) {
+        console.log("⚠️ ExportTab: No project selected, clearing items");
         setDynamicItems([]);
         return;
       }
       
       // First check analysis_data
       const items = getProjectItems(selectedProject);
+      console.log("📊 ExportTab: Items from getProjectItems:", items.length);
+      
       if (items.length > 0) {
+        console.log("✅ ExportTab: Found items in analysis_data, using them");
         setDynamicItems(items);
         return;
       }
       
       // If no items in analysis_data, fetch from project_items table
+      console.log("⚠️ ExportTab: No items in analysis_data, fetching from DB...");
       setIsLoadingItems(true);
       try {
         const { data, error } = await supabase
@@ -87,13 +103,14 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
           .order("item_number");
         
         if (error) {
-          console.error("Error fetching project items:", error);
+          console.error("❌ ExportTab: Error fetching project items:", error);
           setDynamicItems([]);
         } else {
+          console.log("✅ ExportTab: Fetched from DB:", data?.length || 0, "items");
           setDynamicItems(data || []);
         }
       } catch (err) {
-        console.error("Failed to fetch project items:", err);
+        console.error("❌ ExportTab: Failed to fetch project items:", err);
         setDynamicItems([]);
       } finally {
         setIsLoadingItems(false);
@@ -101,11 +118,13 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
     };
     
     fetchItems();
-  }, [selectedProject]);
+  }, [selectedProjectId, selectedProject?.analysis_data]);
 
   // Use dynamicItems for all operations
   const projectItems = dynamicItems;
-  const hasData = projectItems.length > 0 && !isLoadingItems;
+  const hasData = projectItems.length > 0;
+  
+  console.log("🎯 ExportTab State: projectItems:", projectItems.length, "hasData:", hasData, "isLoadingItems:", isLoadingItems);
 
   const handleExportBOQ = () => {
     if (projectItems.length === 0) {
@@ -611,7 +630,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
             console.log("🎯 PDF Button onClick handler fired!");
             handleExportComprehensivePDF();
           }}
-          disabled={!selectedProjectId || !hasData}
+          disabled={!selectedProjectId || !hasData || isLoadingItems}
           className="bg-primary hover:bg-primary/90"
           data-testid="export-comprehensive-pdf"
         >
@@ -635,7 +654,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
             console.log("🎯 Print Button onClick handler fired!");
             handlePrintReport();
           }}
-          disabled={!selectedProjectId || !hasData}
+          disabled={!selectedProjectId || !hasData || isLoadingItems}
           variant="outline"
           data-testid="print-report"
         >
@@ -658,7 +677,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
             e.stopPropagation();
             handleExportBOQ();
           }}
-          disabled={!selectedProjectId || !hasData}
+          disabled={!selectedProjectId || !hasData || isLoadingItems}
           className="bg-success hover:bg-success/90"
         >
           <Download className={`h-4 w-4 ${isArabic ? 'ml-2' : 'mr-2'}`} />
@@ -681,7 +700,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
               e.stopPropagation();
               handleExportEnhancedBOQ('en');
             }}
-            disabled={!selectedProjectId || !hasData}
+            disabled={!selectedProjectId || !hasData || isLoadingItems}
             variant="outline"
             size="sm"
           >
@@ -694,7 +713,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
               e.stopPropagation();
               handleExportEnhancedBOQ('ar');
             }}
-            disabled={!selectedProjectId || !hasData}
+            disabled={!selectedProjectId || !hasData || isLoadingItems}
             variant="outline"
             size="sm"
           >
@@ -707,7 +726,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
               e.stopPropagation();
               handleExportEnhancedBOQ('both');
             }}
-            disabled={!selectedProjectId || !hasData}
+            disabled={!selectedProjectId || !hasData || isLoadingItems}
             className="bg-success hover:bg-success/90"
             size="sm"
           >
@@ -731,7 +750,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
               e.stopPropagation();
               handleExportTenderSummary('pdf');
             }}
-            disabled={!selectedProjectId || !hasData}
+            disabled={!selectedProjectId || !hasData || isLoadingItems}
             className="bg-primary hover:bg-primary/90"
             size="sm"
           >
@@ -744,7 +763,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
               e.stopPropagation();
               handleExportTenderSummary('excel');
             }}
-            disabled={!selectedProjectId || !hasData}
+            disabled={!selectedProjectId || !hasData || isLoadingItems}
             variant="outline"
             size="sm"
           >
@@ -768,7 +787,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
               e.stopPropagation();
               handleViewPriceAnalysis();
             }}
-            disabled={!selectedProjectId || !hasData}
+            disabled={!selectedProjectId || !hasData || isLoadingItems}
             variant="outline"
             size="sm"
           >
@@ -782,7 +801,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
               e.stopPropagation();
               handleExportPriceAnalysis();
             }}
-            disabled={!selectedProjectId || !hasData}
+            disabled={!selectedProjectId || !hasData || isLoadingItems}
             className="bg-success hover:bg-success/90"
             size="sm"
           >
