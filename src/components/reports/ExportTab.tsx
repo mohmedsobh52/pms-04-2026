@@ -21,8 +21,7 @@ interface ExportTabProps {
   isLoading: boolean;
 }
 
-export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
-  ({ projects, isLoading }, ref) => {
+export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   const { isArabic } = useLanguage();
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
 
@@ -133,6 +132,12 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
 
   const handleExportComprehensivePDF = () => {
     console.log("handleExportComprehensivePDF called, projectItems:", projectItems.length);
+    
+    if (!selectedProject) {
+      toast.error(isArabic ? "الرجاء اختيار مشروع أولاً" : "Please select a project first");
+      return;
+    }
+    
     if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
@@ -150,7 +155,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
       <html lang="${isArabic ? 'ar' : 'en'}" dir="${isArabic ? 'rtl' : 'ltr'}">
       <head>
         <meta charset="UTF-8">
-        <title>${selectedProject.name} - ${isArabic ? "التقرير الشامل" : "Comprehensive Report"}</title>
+        <title>${selectedProject?.name || 'Project'} - ${isArabic ? "التقرير الشامل" : "Comprehensive Report"}</title>
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
@@ -229,7 +234,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
       </head>
       <body>
         <div class="header">
-          <h1>${selectedProject.name}</h1>
+          <h1>${selectedProject?.name || 'Project'}</h1>
           <p>${isArabic ? "التقرير الشامل - تحليل جدول الكميات" : "Comprehensive Report - BOQ Analysis"}</p>
         </div>
         
@@ -296,6 +301,12 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
 
   const handlePrintReport = () => {
     console.log("handlePrintReport called, projectItems:", projectItems.length);
+    
+    if (!selectedProject) {
+      toast.error(isArabic ? "الرجاء اختيار مشروع أولاً" : "Please select a project first");
+      return;
+    }
+    
     if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للطباعة" : "No data to print");
       return;
@@ -313,7 +324,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
       <html lang="${isArabic ? 'ar' : 'en'}" dir="${isArabic ? 'rtl' : 'ltr'}">
       <head>
         <meta charset="UTF-8">
-        <title>${selectedProject.name} - ${isArabic ? "تقرير" : "Report"}</title>
+        <title>${selectedProject?.name || 'Project'} - ${isArabic ? "تقرير" : "Report"}</title>
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
@@ -354,7 +365,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
         </style>
       </head>
       <body>
-        <h1>${selectedProject.name}</h1>
+        <h1>${selectedProject?.name || 'Project'}</h1>
         <p class="subtitle">${isArabic ? "تقرير جدول الكميات" : "Bill of Quantities Report"}</p>
         
         <div class="summary">
@@ -558,7 +569,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
   ];
 
   return (
-    <div ref={ref} className="space-y-6">
+    <div className="space-y-6">
       {/* Project Selector */}
       <Card>
         <CardContent className="p-4">
@@ -626,7 +637,4 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
       )}
     </div>
   );
-  }
-);
-
-ExportTab.displayName = "ExportTab";
+};
