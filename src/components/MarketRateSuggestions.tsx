@@ -43,8 +43,6 @@ interface MarketRateSuggestionsProps {
   onApplyRate?: (itemNumber: string, newRate: number) => void;
   onApplyAIRates?: (rates: Array<{ itemId: string; rate: number }>) => void;
   onApplyAIRatesToCalcPrice?: (rates: Array<{ itemId: string; rate: number }>) => void;
-  triggerOnly?: boolean;
-  onOpenChange?: (open: boolean) => void;
 }
 
 const SAUDI_CITIES = [
@@ -68,7 +66,7 @@ const REGIONS = [
   { value: "oman", label: "Oman", emoji: "🇴🇲" },
 ];
 
-export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAIRates, onApplyAIRatesToCalcPrice, triggerOnly, onOpenChange }: MarketRateSuggestionsProps) {
+export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAIRates, onApplyAIRatesToCalcPrice }: MarketRateSuggestionsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [location, setLocation] = useState("Riyadh");
@@ -335,9 +333,8 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
 
   const highVarianceCount = suggestions.filter(s => Math.abs(s.variance_percent) > 20).length;
 
-  const handleOpenChange = (open: boolean) => {
+  const handleDialogOpenChange = (open: boolean) => {
     setIsOpen(open);
-    onOpenChange?.(open);
   };
 
   const dialogContent = (
@@ -582,56 +579,32 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
     </div>
   );
 
-  // If triggerOnly mode, render just a clickable element that opens the dialog
-  if (triggerOnly) {
-    return (
-      <>
-        <div 
-          className="flex items-center gap-2 w-full px-2 py-1.5 cursor-pointer hover:bg-accent rounded-sm"
-          onClick={() => handleOpenChange(true)}
-        >
-          <Sparkles className="w-4 h-4" />
-          <span>Suggest Rates</span>
-        </div>
-        <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-          <DialogContent className="max-w-4xl max-h-[85vh] overflow-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-primary" />
-                AI Market Rate Suggestions
-              </DialogTitle>
-            </DialogHeader>
-            {dialogContent}
-          </DialogContent>
-        </Dialog>
-        <ApplyRateDialog
-          open={confirmDialogOpen}
-          onOpenChange={setConfirmDialogOpen}
-          item={getSelectedItem()}
-          suggestedRate={selectedSuggestion?.suggested_avg || 0}
-          onConfirm={handleConfirmApply}
-        />
-      </>
-    );
-  }
-
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2">
-          <Sparkles className="w-4 h-4" />
-          Suggest Rates
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[85vh] overflow-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            AI Market Rate Suggestions
-          </DialogTitle>
-        </DialogHeader>
-        {dialogContent}
-      </DialogContent>
+    <>
+      <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
+        <DialogTrigger asChild>
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="gap-2 analysis-action-btn hover:bg-primary/10 hover:border-primary/50 transition-all duration-100"
+          >
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            <span className="hidden sm:inline">Suggest Rates</span>
+            <Badge variant="secondary" className="ml-1 text-xs">
+              {items?.length || 0}
+            </Badge>
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              AI Market Rate Suggestions
+            </DialogTitle>
+          </DialogHeader>
+          {dialogContent}
+        </DialogContent>
+      </Dialog>
       <ApplyRateDialog
         open={confirmDialogOpen}
         onOpenChange={setConfirmDialogOpen}
@@ -639,6 +612,6 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
         suggestedRate={selectedSuggestion?.suggested_avg || 0}
         onConfirm={handleConfirmApply}
       />
-    </Dialog>
+    </>
   );
 }
