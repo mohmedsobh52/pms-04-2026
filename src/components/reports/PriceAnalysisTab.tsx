@@ -77,7 +77,32 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
-  const items = selectedProject?.analysis_data?.items || [];
+  
+  // Helper function to get items from different data structures with JSON parsing support
+  const getProjectItems = (project: Project | undefined): any[] => {
+    if (!project?.analysis_data) return [];
+    
+    let data = project.analysis_data;
+    
+    // Handle if data is a string (JSON not parsed)
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+      } catch (e) {
+        console.error("Failed to parse analysis_data:", e);
+        return [];
+      }
+    }
+    
+    // Support different data structures
+    if (Array.isArray(data.items)) return data.items;
+    if (Array.isArray(data.boq_items)) return data.boq_items;
+    if (data.analysisData && Array.isArray(data.analysisData.items)) return data.analysisData.items;
+    
+    return [];
+  };
+  
+  const items = useMemo(() => getProjectItems(selectedProject), [selectedProject]);
 
   // Fetch pricing history when project changes
   useEffect(() => {
@@ -199,7 +224,7 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
   }, [items, isArabic]);
 
   const handleExportPriceComparison = (format: 'pdf' | 'excel') => {
-    if (!selectedProject?.analysis_data?.items) {
+    if (items.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
     }
@@ -258,7 +283,7 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
   };
 
   const handleExportBalanceReport = () => {
-    if (!priceStats) {
+    if (!priceStats || items.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
     }

@@ -100,14 +100,29 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   };
 
   const handleExportTenderSummary = (format: 'pdf' | 'excel') => {
-    if (!selectedProject?.analysis_data) {
+    console.log("handleExportTenderSummary called, projectItems:", projectItems.length);
+    if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
     }
+    
+    // Create analysis data structure from project items
+    const totalValue = projectItems.reduce((sum: number, item: any) => 
+      sum + (parseFloat(item.total_price) || 0), 0);
+    
+    const analysisData = {
+      items: projectItems,
+      summary: {
+        total_value: totalValue,
+        currency: selectedProject?.analysis_data?.summary?.currency || "SAR",
+        total_items: projectItems.length
+      }
+    };
+    
     if (format === 'pdf') {
-      exportTenderSummaryToPDF(selectedProject.analysis_data, selectedProject.name);
+      exportTenderSummaryToPDF(analysisData, selectedProject?.name || "Project", isArabic);
     } else {
-      exportTenderSummaryToExcel(selectedProject.analysis_data, selectedProject.name);
+      exportTenderSummaryToExcel(analysisData, selectedProject?.name || "Project");
     }
     toast.success(isArabic ? "تم تصدير ملخص العطاء بنجاح" : "Tender summary exported successfully");
   };
@@ -123,11 +138,148 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   };
 
   const handleViewPriceAnalysis = () => {
-    if (!selectedProject?.analysis_data) {
+    console.log("handleViewPriceAnalysis called, projectItems:", projectItems.length);
+    if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للعرض" : "No data to view");
       return;
     }
-    toast.info(isArabic ? "جاري فتح تحليل الأسعار..." : "Opening price analysis...");
+    
+    // Open price analysis in a new print window
+    const totalValue = projectItems.reduce((sum: number, item: any) => 
+      sum + (parseFloat(item.total_price) || 0), 0);
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error(isArabic ? "يرجى السماح بالنوافذ المنبثقة" : "Please allow popups");
+      return;
+    }
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="${isArabic ? 'ar' : 'en'}" dir="${isArabic ? 'rtl' : 'ltr'}">
+      <head>
+        <meta charset="UTF-8">
+        <title>${selectedProject?.name || 'Project'} - ${isArabic ? "تحليل الأسعار" : "Price Analysis"}</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+        <style>
+          * { font-family: 'Cairo', 'Segoe UI', sans-serif; box-sizing: border-box; }
+          body { 
+            direction: ${isArabic ? 'rtl' : 'ltr'}; 
+            text-align: ${isArabic ? 'right' : 'left'}; 
+            padding: 30px;
+            color: #1e293b;
+          }
+          .header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 25px 30px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+          }
+          .header h1 { margin: 0 0 8px 0; font-size: 24px; }
+          .header p { margin: 0; opacity: 0.9; font-size: 14px; }
+          .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+          }
+          .stat-card {
+            background: #f1f5f9;
+            border-radius: 10px;
+            padding: 18px;
+            text-align: center;
+          }
+          .stat-card .label { font-size: 12px; color: #64748b; margin-bottom: 5px; }
+          .stat-card .value { font-size: 20px; font-weight: 700; color: #1e293b; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11px; }
+          th { background: #10b981; color: white; padding: 12px 10px; font-weight: 600; text-align: ${isArabic ? 'right' : 'left'}; }
+          td { border: 1px solid #e2e8f0; padding: 10px; text-align: ${isArabic ? 'right' : 'left'}; }
+          tr:nth-child(even) { background: #f8fafc; }
+          .percentage-bar { 
+            background: #e2e8f0; 
+            border-radius: 4px; 
+            height: 8px; 
+            overflow: hidden; 
+          }
+          .percentage-fill { 
+            background: #10b981; 
+            height: 100%; 
+            transition: width 0.3s; 
+          }
+          .total-row { font-weight: 700; background: #d1fae5 !important; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${selectedProject?.name || 'Project'}</h1>
+          <p>${isArabic ? "تقرير تحليل الأسعار التفصيلي" : "Detailed Price Analysis Report"}</p>
+        </div>
+        
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="label">${isArabic ? "إجمالي البنود" : "Total Items"}</div>
+            <div class="value">${projectItems.length}</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">${isArabic ? "إجمالي القيمة" : "Total Value"}</div>
+            <div class="value">${totalValue.toLocaleString('en-US')}</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">${isArabic ? "متوسط سعر البند" : "Avg Item Price"}</div>
+            <div class="value">${(totalValue / projectItems.length).toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
+          </div>
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>${isArabic ? "الوصف" : "Description"}</th>
+              <th>${isArabic ? "الكمية" : "Qty"}</th>
+              <th>${isArabic ? "السعر" : "Price"}</th>
+              <th>${isArabic ? "الإجمالي" : "Total"}</th>
+              <th>${isArabic ? "النسبة" : "%"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${projectItems.map((item: any, idx: number) => {
+              const itemTotal = parseFloat(item.total_price) || 0;
+              const percentage = totalValue > 0 ? ((itemTotal / totalValue) * 100) : 0;
+              return `
+                <tr>
+                  <td>${idx + 1}</td>
+                  <td>${item.description || '-'}</td>
+                  <td>${item.quantity?.toLocaleString('en-US') || '-'}</td>
+                  <td>${item.unit_price?.toLocaleString('en-US') || '-'}</td>
+                  <td>${itemTotal.toLocaleString('en-US')}</td>
+                  <td>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <div class="percentage-bar" style="width: 60px;">
+                        <div class="percentage-fill" style="width: ${Math.min(percentage, 100)}%;"></div>
+                      </div>
+                      <span>${percentage.toFixed(1)}%</span>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+            <tr class="total-row">
+              <td colspan="4">${isArabic ? "الإجمالي" : "Total"}</td>
+              <td>${totalValue.toLocaleString('en-US')}</td>
+              <td>100%</td>
+            </tr>
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    toast.success(isArabic ? "تم فتح تحليل الأسعار" : "Price analysis opened");
   };
 
   const handleExportComprehensivePDF = () => {
