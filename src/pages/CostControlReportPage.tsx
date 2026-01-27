@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { PageLayout } from "@/components/PageLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { createWorkbook, addJsonSheet, downloadWorkbook } from "@/lib/exceljs-utils";
@@ -15,7 +18,7 @@ import { toast } from "sonner";
 import { 
   Search, FileSpreadsheet, TrendingUp, TrendingDown, DollarSign, Target, 
   BarChart3, Activity, ChevronLeft, ChevronRight, ArrowUpDown, Download,
-  Building2, Zap, Wrench, PaintBucket, HardHat
+  Building2, Zap, Wrench, PaintBucket, HardHat, Database, Loader2, Edit, Save, RefreshCw
 } from "lucide-react";
 import {
   Chart as ChartJS,
@@ -41,7 +44,7 @@ ChartJS.register(
   Legend
 );
 
-// ============= EVM Activity Interface =============
+// ============= INTERFACES =============
 interface EVMActivity {
   sn: number;
   controlPoint: string;
@@ -63,6 +66,40 @@ interface EVMActivity {
   eacByPert: number;
   etc: number;
   tcpi: number;
+  itemsCount?: number;
+  isFromDB?: boolean;
+}
+
+interface ProjectData {
+  id: string;
+  name: string;
+  currency: string | null;
+  total_value: number | null;
+  items_count: number | null;
+  created_at: string;
+}
+
+interface ProjectItem {
+  id: string;
+  project_id: string;
+  item_number: string;
+  description: string | null;
+  description_ar: string | null;
+  category: string | null;
+  subcategory: string | null;
+  unit: string | null;
+  quantity: number | null;
+  unit_price: number | null;
+  total_price: number | null;
+}
+
+interface ProgressHistory {
+  id: string;
+  project_id: string | null;
+  actual_progress: number | null;
+  planned_progress: number | null;
+  actual_cost: number | null;
+  record_date: string;
 }
 
 // ============= DISCIPLINES =============
@@ -74,8 +111,91 @@ const disciplines = [
   { id: "ARCHITECTURAL", label: "ARCHITECTURAL", labelAr: "معماري", icon: PaintBucket, color: "text-purple-600" },
 ];
 
-// ============= COMPLETE 82 ACTIVITIES DATA FROM SPREADSHEET =============
-const allActivities: EVMActivity[] = [
+// ============= CATEGORY TO DISCIPLINE MAPPING =============
+const CATEGORY_TO_DISCIPLINE: Record<string, string> = {
+  // CIVIL
+  'excavation': 'CIVIL', 'حفر': 'CIVIL',
+  'concrete': 'CIVIL', 'خرسانة': 'CIVIL',
+  'reinforcement': 'CIVIL', 'تسليح': 'CIVIL',
+  'foundations': 'CIVIL', 'أساسات': 'CIVIL',
+  'structural': 'CIVIL', 'إنشائي': 'CIVIL',
+  'masonry': 'CIVIL', 'بناء': 'CIVIL',
+  'waterproofing': 'CIVIL', 'عزل': 'CIVIL',
+  'earthwork': 'CIVIL', 'أعمال ترابية': 'CIVIL',
+  'piling': 'CIVIL', 'خوازيق': 'CIVIL',
+  'shoring': 'CIVIL', 'سند': 'CIVIL',
+  
+  // MECHANICAL
+  'plumbing': 'MECHANICAL', 'سباكة': 'MECHANICAL',
+  'hvac': 'MECHANICAL', 'تكييف': 'MECHANICAL',
+  'firefighting': 'MECHANICAL', 'إطفاء': 'MECHANICAL',
+  'drainage': 'MECHANICAL', 'صرف': 'MECHANICAL',
+  'mechanical': 'MECHANICAL', 'ميكانيكي': 'MECHANICAL',
+  'elevator': 'MECHANICAL', 'مصاعد': 'MECHANICAL',
+  'pumps': 'MECHANICAL', 'مضخات': 'MECHANICAL',
+  
+  // ELECTRICAL
+  'electrical': 'ELECTRICAL', 'كهرباء': 'ELECTRICAL',
+  'lighting': 'ELECTRICAL', 'إضاءة': 'ELECTRICAL',
+  'low_current': 'ELECTRICAL', 'تيار خفيف': 'ELECTRICAL',
+  'power': 'ELECTRICAL', 'طاقة': 'ELECTRICAL',
+  'cables': 'ELECTRICAL', 'كابلات': 'ELECTRICAL',
+  'generator': 'ELECTRICAL', 'مولد': 'ELECTRICAL',
+  
+  // ARCHITECTURAL
+  'finishing': 'ARCHITECTURAL', 'تشطيبات': 'ARCHITECTURAL',
+  'doors': 'ARCHITECTURAL', 'أبواب': 'ARCHITECTURAL',
+  'windows': 'ARCHITECTURAL', 'نوافذ': 'ARCHITECTURAL',
+  'cladding': 'ARCHITECTURAL', 'تكسية': 'ARCHITECTURAL',
+  'flooring': 'ARCHITECTURAL', 'أرضيات': 'ARCHITECTURAL',
+  'painting': 'ARCHITECTURAL', 'دهانات': 'ARCHITECTURAL',
+  'ceiling': 'ARCHITECTURAL', 'أسقف': 'ARCHITECTURAL',
+  'tiles': 'ARCHITECTURAL', 'بلاط': 'ARCHITECTURAL',
+  'marble': 'ARCHITECTURAL', 'رخام': 'ARCHITECTURAL',
+  'aluminum': 'ARCHITECTURAL', 'ألومنيوم': 'ARCHITECTURAL',
+  
+  // GENERAL
+  'general': 'GENERAL', 'عام': 'GENERAL',
+  'preliminaries': 'GENERAL', 'تمهيدي': 'GENERAL',
+  'mobilization': 'GENERAL', 'تجهيزات': 'GENERAL',
+  'temporary': 'GENERAL', 'مؤقت': 'GENERAL',
+  'insurance': 'GENERAL', 'تأمين': 'GENERAL',
+  'safety': 'GENERAL', 'سلامة': 'GENERAL',
+};
+
+const mapCategoryToDiscipline = (category: string | null): string => {
+  if (!category) return 'GENERAL';
+  const normalized = category.toLowerCase().replace(/[\s-_]/g, '');
+  for (const [key, discipline] of Object.entries(CATEGORY_TO_DISCIPLINE)) {
+    if (normalized.includes(key.toLowerCase().replace(/[\s-_]/g, ''))) {
+      return discipline;
+    }
+  }
+  return 'GENERAL';
+};
+
+const getCategoryLabel = (category: string | null): string => {
+  if (!category) return 'General Items';
+  return category.charAt(0).toUpperCase() + category.slice(1).replace(/[_-]/g, ' ');
+};
+
+const getCategoryLabelAr = (category: string | null): string => {
+  if (!category) return 'بنود عامة';
+  const categoryMap: Record<string, string> = {
+    'excavation': 'الحفر',
+    'concrete': 'الخرسانة',
+    'reinforcement': 'التسليح',
+    'plumbing': 'السباكة',
+    'electrical': 'الكهرباء',
+    'finishing': 'التشطيبات',
+    'hvac': 'التكييف',
+    'general': 'عام',
+  };
+  return categoryMap[category.toLowerCase()] || category;
+};
+
+// ============= SAMPLE DATA (82 Activities) =============
+const sampleActivities: EVMActivity[] = [
   // GENERAL (12 activities)
   { sn: 1, controlPoint: "CP01", activity: "Staff Salaries", activityAr: "رواتب الموظفين", discipline: "GENERAL", activityCode: "GEN-001", pv: 1700000, progress: 80, ev: 1360000, ac: 1380000, cv: -20000, sv: -340000, cpi: 0.99, spi: 0.80, eac1: 1720000, eac2: 1750000, eac3: 1710000, eacByPert: 1726667, etc: 346667, tcpi: 0.95 },
   { sn: 2, controlPoint: "CP02", activity: "Site Overhead", activityAr: "مصاريف الموقع العامة", discipline: "GENERAL", activityCode: "GEN-002", pv: 8400000, progress: 100, ev: 8400000, ac: 8500000, cv: -100000, sv: 0, cpi: 0.99, spi: 1.00, eac1: 8585859, eac2: 8600000, eac3: 8570000, eacByPert: 8585286, etc: 85286, tcpi: 0.00 },
@@ -235,10 +355,6 @@ const formatValue = (value: number): string => {
   return value.toFixed(0);
 };
 
-const formatNumber = (value: number): string => {
-  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
-};
-
 const getProgressColor = (progress: number) => {
   if (progress >= 75) return "bg-emerald-500";
   if (progress >= 50) return "bg-amber-500";
@@ -266,8 +382,107 @@ const getIndexStatus = (value: number) => {
   return "danger";
 };
 
+// ============= EVM CALCULATION FUNCTION =============
+const calculateEVMFromItems = (items: ProjectItem[], progressPercent: number) => {
+  const pv = items.reduce((sum, i) => sum + (i.total_price || 0), 0);
+  const ev = pv * (progressPercent / 100);
+  const costVarianceFactor = 1.015; // 1.5% cost overrun assumption
+  const ac = ev * costVarianceFactor;
+  
+  const cv = ev - ac;
+  const sv = ev - pv;
+  const cpi = ac > 0 ? ev / ac : 1;
+  const spi = pv > 0 ? ev / pv : 0;
+  
+  const bac = pv;
+  const eac1 = cpi > 0 ? bac / cpi : bac;
+  const eac2 = ac + (bac - ev);
+  const eac3 = cpi > 0 && spi > 0 ? ac + ((bac - ev) / (cpi * spi)) : bac;
+  const eacByPert = (eac1 + 4 * eac2 + eac3) / 6;
+  const etc = eacByPert - ac;
+  const tcpi = (bac - ev) > 0 ? (bac - ev) / (bac - ac) : 0;
+  
+  return { pv, ev, ac, cv, sv, cpi, spi, eac1, eac2, eac3, eacByPert, etc, tcpi };
+};
+
+// ============= CONVERT PROJECT ITEMS TO EVM ACTIVITIES =============
+const convertItemsToActivities = (items: ProjectItem[], progressData: ProgressHistory | null): EVMActivity[] => {
+  // Group items by category
+  const groupedByCategory: Record<string, ProjectItem[]> = {};
+  
+  items.forEach(item => {
+    const category = item.category || 'general';
+    if (!groupedByCategory[category]) {
+      groupedByCategory[category] = [];
+    }
+    groupedByCategory[category].push(item);
+  });
+  
+  // Convert each category group to an EVM activity
+  const activities: EVMActivity[] = [];
+  let sn = 1;
+  
+  Object.entries(groupedByCategory).forEach(([category, categoryItems]) => {
+    const discipline = mapCategoryToDiscipline(category);
+    
+    // Calculate progress based on priced items or use progress history
+    let progressPercent = 60; // Default progress
+    if (progressData?.actual_progress) {
+      progressPercent = progressData.actual_progress;
+    } else {
+      // Estimate progress based on priced items
+      const pricedItems = categoryItems.filter(i => i.unit_price && i.unit_price > 0);
+      progressPercent = categoryItems.length > 0 
+        ? (pricedItems.length / categoryItems.length) * 100 * 0.6 
+        : 60;
+    }
+    
+    const evmMetrics = calculateEVMFromItems(categoryItems, progressPercent);
+    
+    activities.push({
+      sn,
+      controlPoint: `CP${String(sn).padStart(2, '0')}`,
+      activity: getCategoryLabel(category),
+      activityAr: getCategoryLabelAr(category),
+      discipline,
+      activityCode: `${discipline.substring(0, 3)}-${String(sn).padStart(3, '0')}`,
+      pv: evmMetrics.pv,
+      progress: Math.round(progressPercent),
+      ev: evmMetrics.ev,
+      ac: evmMetrics.ac,
+      cv: evmMetrics.cv,
+      sv: evmMetrics.sv,
+      cpi: evmMetrics.cpi,
+      spi: evmMetrics.spi,
+      eac1: evmMetrics.eac1,
+      eac2: evmMetrics.eac2,
+      eac3: evmMetrics.eac3,
+      eacByPert: evmMetrics.eacByPert,
+      etc: evmMetrics.etc,
+      tcpi: evmMetrics.tcpi,
+      itemsCount: categoryItems.length,
+      isFromDB: true,
+    });
+    
+    sn++;
+  });
+  
+  return activities;
+};
+
 export default function CostControlReportPage() {
   const { isArabic } = useLanguage();
+  
+  // Project and data state
+  const [projects, setProjects] = useState<ProjectData[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
+  const [progressHistory, setProgressHistory] = useState<ProgressHistory | null>(null);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
+  const [useRealData, setUseRealData] = useState(false);
+  
+  // UI state
   const [disciplineSearch, setDisciplineSearch] = useState("");
   const [activitySearch, setActivitySearch] = useState("");
   const [selectedDisciplines, setSelectedDisciplines] = useState<string[]>([]);
@@ -276,7 +491,89 @@ export default function CostControlReportPage() {
   const [sortField, setSortField] = useState<keyof EVMActivity>("sn");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [isExporting, setIsExporting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const itemsPerPage = 15;
+
+  // Edit progress dialog
+  const [editProgressDialog, setEditProgressDialog] = useState<{
+    open: boolean;
+    progress: number;
+  }>({ open: false, progress: 60 });
+
+  // Fetch projects on mount
+  useEffect(() => {
+    const fetchProjects = async () => {
+      setIsLoadingProjects(true);
+      try {
+        const { data, error } = await supabase
+          .from('project_data')
+          .select('id, name, currency, total_value, items_count, created_at')
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        setProjects(data || []);
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+        toast.error(isArabic ? 'فشل في تحميل المشاريع' : 'Failed to load projects');
+      } finally {
+        setIsLoadingProjects(false);
+      }
+    };
+    
+    fetchProjects();
+  }, [isArabic]);
+
+  // Fetch project items when project is selected
+  useEffect(() => {
+    if (!selectedProjectId || !useRealData) return;
+    
+    const fetchProjectData = async () => {
+      setIsLoadingItems(true);
+      try {
+        // Fetch project items
+        const { data: items, error: itemsError } = await supabase
+          .from('project_items')
+          .select('*')
+          .eq('project_id', selectedProjectId)
+          .order('sort_order');
+        
+        if (itemsError) throw itemsError;
+        setProjectItems(items || []);
+        
+        // Fetch latest progress history
+        const { data: progress, error: progressError } = await supabase
+          .from('project_progress_history')
+          .select('*')
+          .eq('project_id', selectedProjectId)
+          .order('record_date', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (progressError) throw progressError;
+        setProgressHistory(progress);
+        
+        toast.success(isArabic 
+          ? `تم تحميل ${items?.length || 0} بند من المشروع` 
+          : `Loaded ${items?.length || 0} items from project`
+        );
+      } catch (error) {
+        console.error('Error fetching project data:', error);
+        toast.error(isArabic ? 'فشل في تحميل بيانات المشروع' : 'Failed to load project data');
+      } finally {
+        setIsLoadingItems(false);
+      }
+    };
+    
+    fetchProjectData();
+  }, [selectedProjectId, useRealData, isArabic]);
+
+  // Get activities based on data source
+  const allActivities = useMemo(() => {
+    if (useRealData && projectItems.length > 0) {
+      return convertItemsToActivities(projectItems, progressHistory);
+    }
+    return sampleActivities;
+  }, [useRealData, projectItems, progressHistory]);
 
   // Filter activities based on selections
   const filteredActivities = useMemo(() => {
@@ -291,7 +588,7 @@ export default function CostControlReportPage() {
     }
     
     return filtered;
-  }, [selectedDisciplines, selectedActivities]);
+  }, [allActivities, selectedDisciplines, selectedActivities]);
 
   // Calculate totals from filtered activities
   const totals = useMemo(() => {
@@ -318,10 +615,12 @@ export default function CostControlReportPage() {
   const disciplineProgress = useMemo(() => {
     return disciplines.map(d => {
       const discActivities = allActivities.filter(a => a.discipline === d.id);
-      const avgProgress = discActivities.reduce((sum, a) => sum + a.progress, 0) / discActivities.length;
+      const avgProgress = discActivities.length > 0 
+        ? discActivities.reduce((sum, a) => sum + a.progress, 0) / discActivities.length 
+        : 0;
       return { ...d, progress: Math.round(avgProgress) };
     });
-  }, []);
+  }, [allActivities]);
 
   // Sort and paginate activities
   const sortedActivities = useMemo(() => {
@@ -346,7 +645,6 @@ export default function CostControlReportPage() {
 
   // Chart data preparation
   const chartData = useMemo(() => {
-    // Group by discipline for chart
     const disciplineData = disciplines.map(d => {
       const discActivities = filteredActivities.filter(a => a.discipline === d.id);
       return {
@@ -356,46 +654,57 @@ export default function CostControlReportPage() {
         ac: discActivities.reduce((sum, a) => sum + a.ac, 0) / 1000000,
         eacByPert: discActivities.reduce((sum, a) => sum + a.eacByPert, 0) / 1000000,
       };
-    }).filter(d => d.pv > 0);
+    });
 
     return {
       labels: disciplineData.map(d => d.label),
       datasets: [
         {
-          type: 'line' as const,
-          label: 'EAC BY PERT',
-          data: disciplineData.map(d => d.eacByPert),
-          borderColor: 'hsl(45, 93%, 47%)',
-          backgroundColor: 'hsl(45, 93%, 47%)',
-          borderWidth: 3,
-          pointRadius: 6,
-          pointBackgroundColor: 'hsl(45, 93%, 47%)',
-          tension: 0.3,
-          yAxisID: 'y',
-        },
-        {
           type: 'bar' as const,
           label: 'PV',
           data: disciplineData.map(d => d.pv),
           backgroundColor: 'hsl(32, 36%, 44%)',
+          borderColor: 'hsl(32, 36%, 34%)',
+          borderWidth: 1,
           borderRadius: 4,
-          yAxisID: 'y',
+          barPercentage: 0.7,
+          categoryPercentage: 0.8,
         },
         {
           type: 'bar' as const,
           label: 'EV',
           data: disciplineData.map(d => d.ev),
           backgroundColor: 'hsl(35, 30%, 58%)',
+          borderColor: 'hsl(35, 30%, 48%)',
+          borderWidth: 1,
           borderRadius: 4,
-          yAxisID: 'y',
+          barPercentage: 0.7,
+          categoryPercentage: 0.8,
         },
         {
           type: 'bar' as const,
           label: 'AC',
           data: disciplineData.map(d => d.ac),
           backgroundColor: 'hsl(38, 25%, 65%)',
+          borderColor: 'hsl(38, 25%, 55%)',
+          borderWidth: 1,
           borderRadius: 4,
-          yAxisID: 'y',
+          barPercentage: 0.7,
+          categoryPercentage: 0.8,
+        },
+        {
+          type: 'line' as const,
+          label: 'EAC BY PERT',
+          data: disciplineData.map(d => d.eacByPert),
+          borderColor: 'hsl(45, 93%, 47%)',
+          backgroundColor: 'hsla(45, 93%, 47%, 0.1)',
+          borderWidth: 3,
+          pointRadius: 5,
+          pointBackgroundColor: 'hsl(45, 93%, 47%)',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          tension: 0.3,
+          fill: false,
         },
       ],
     };
@@ -422,6 +731,100 @@ export default function CostControlReportPage() {
     } else {
       setSortField(field);
       setSortDirection('asc');
+    }
+  };
+
+  const handleUpdateProgress = async () => {
+    if (!selectedProjectId) {
+      toast.error(isArabic ? 'اختر مشروع أولاً' : 'Select a project first');
+      return;
+    }
+    
+    try {
+      const { error } = await supabase.from('project_progress_history').insert({
+        project_id: selectedProjectId,
+        actual_progress: editProgressDialog.progress,
+        record_date: new Date().toISOString(),
+        user_id: (await supabase.auth.getUser()).data.user?.id || 'anonymous',
+      });
+      
+      if (error) throw error;
+      
+      setProgressHistory({
+        id: 'new',
+        project_id: selectedProjectId,
+        actual_progress: editProgressDialog.progress,
+        planned_progress: null,
+        actual_cost: null,
+        record_date: new Date().toISOString(),
+      });
+      
+      setEditProgressDialog({ open: false, progress: 60 });
+      toast.success(isArabic ? 'تم تحديث التقدم' : 'Progress updated');
+    } catch (error) {
+      console.error('Error updating progress:', error);
+      toast.error(isArabic ? 'فشل في تحديث التقدم' : 'Failed to update progress');
+    }
+  };
+
+  const handleSaveReport = async () => {
+    if (!selectedProjectId) {
+      toast.error(isArabic ? 'اختر مشروع أولاً' : 'Select a project first');
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      // Convert activities to JSON-compatible format
+      const activitiesForJson = filteredActivities.map(a => ({
+        sn: a.sn,
+        activity: a.activity,
+        activityAr: a.activityAr,
+        discipline: a.discipline,
+        activityCode: a.activityCode,
+        pv: a.pv,
+        ev: a.ev,
+        ac: a.ac,
+        progress: a.progress,
+        cpi: a.cpi,
+        spi: a.spi,
+        eacByPert: a.eacByPert,
+        etc: a.etc,
+        tcpi: a.tcpi,
+      }));
+      
+      const { error } = await supabase
+        .from('project_data')
+        .update({
+          analysis_data: JSON.parse(JSON.stringify({
+            evm_report: {
+              generated_at: new Date().toISOString(),
+              totals: {
+                pv: totals.pv,
+                ev: totals.ev,
+                ac: totals.ac,
+                cv: totals.cv,
+                sv: totals.sv,
+                cpi: totals.cpi,
+                spi: totals.spi,
+                eacByPert: totals.eacByPert,
+                etc: totals.etc,
+                tcpi: totals.tcpi,
+                progress: totals.progress,
+              },
+              activities: activitiesForJson,
+            }
+          }))
+        })
+        .eq('id', selectedProjectId);
+      
+      if (error) throw error;
+      toast.success(isArabic ? 'تم حفظ التقرير' : 'Report saved');
+    } catch (error) {
+      console.error('Error saving report:', error);
+      toast.error(isArabic ? 'فشل في حفظ التقرير' : 'Failed to save report');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -463,6 +866,7 @@ export default function CostControlReportPage() {
         'EAC BY PERT': a.eacByPert.toFixed(0),
         'ETC': a.etc.toFixed(0),
         'TCPI': a.tcpi.toFixed(2),
+        'Items Count': a.itemsCount || '-',
       })), 'Activities');
       
       await downloadWorkbook(workbook, 'Cost_Control_Report.xlsx');
@@ -493,7 +897,7 @@ export default function CostControlReportPage() {
       a.label.toLowerCase().includes(activitySearch.toLowerCase()) ||
       a.labelAr.includes(activitySearch)
     );
-  }, [activitySearch]);
+  }, [allActivities, activitySearch]);
 
   // KPI Cards data
   const kpiRow1 = [
@@ -510,6 +914,8 @@ export default function CostControlReportPage() {
     { label: "CPI", labelAr: "مؤشر التكلفة", value: totals.cpi.toFixed(2), status: getIndexStatus(totals.cpi) },
     { label: "TCPI", labelAr: "مؤشر الأداء", value: totals.tcpi.toFixed(2), status: totals.tcpi <= 1.0 ? "success" : "warning" },
   ];
+
+  const selectedProject = projects.find(p => p.id === selectedProjectId);
 
   return (
     <PageLayout>
@@ -612,25 +1018,91 @@ export default function CostControlReportPage() {
 
         {/* Main Content */}
         <main className="flex-1 space-y-5">
-          {/* Header Banner */}
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 text-white shadow-2xl">
+          {/* Header Banner with Project Selector */}
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 text-white shadow-2xl">
             <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[size:20px_20px]" />
             <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-            <div className="relative flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight">
-                  {isArabic ? "تقرير مراقبة التكاليف" : "Cost Control Report"}
-                </h1>
-                <p className="mt-2 text-blue-100/90">
-                  {isArabic 
-                    ? "تحليل شامل للقيمة المكتسبة وأداء التكلفة"
-                    : "Comprehensive earned value and cost performance analysis"
-                  }
-                </p>
+            <div className="relative">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight">
+                    {isArabic ? "تقرير مراقبة التكاليف" : "Cost Control Report"}
+                  </h1>
+                  <p className="mt-1 text-blue-100/90 text-sm">
+                    {isArabic 
+                      ? "تحليل شامل للقيمة المكتسبة وأداء التكلفة"
+                      : "Comprehensive earned value and cost performance analysis"
+                    }
+                  </p>
+                </div>
+                <Badge className="bg-white/20 text-white border-white/30 text-sm py-1.5 px-4">
+                  {filteredActivities.length} {isArabic ? "نشاط" : "Activities"}
+                </Badge>
               </div>
-              <Badge className="bg-white/20 text-white border-white/30 text-sm py-1.5 px-4">
-                {filteredActivities.length} {isArabic ? "نشاط" : "Activities"}
-              </Badge>
+              
+              {/* Project Selector Row */}
+              <div className="mt-4 flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Database className="h-4 w-4" />
+                  <Select value={selectedProjectId || ''} onValueChange={setSelectedProjectId}>
+                    <SelectTrigger className="w-[280px] bg-white/10 border-white/20 text-white">
+                      <SelectValue placeholder={isArabic ? "اختر مشروع..." : "Select Project..."} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {isLoadingProjects ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        </div>
+                      ) : projects.length > 0 ? (
+                        projects.map(p => (
+                          <SelectItem key={p.id} value={p.id}>
+                            <div className="flex items-center gap-2">
+                              <span>{p.name}</span>
+                              {p.items_count && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {p.items_count} {isArabic ? "بند" : "items"}
+                                </Badge>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="py-2 px-3 text-sm text-muted-foreground">
+                          {isArabic ? "لا توجد مشاريع" : "No projects found"}
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Real Data Toggle */}
+                <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-1.5">
+                  <Switch 
+                    checked={useRealData} 
+                    onCheckedChange={setUseRealData}
+                    disabled={!selectedProjectId}
+                  />
+                  <span className="text-white/90 text-sm">
+                    {isArabic ? "بيانات حقيقية" : "Real Data"}
+                  </span>
+                </div>
+                
+                {/* Loading indicator */}
+                {isLoadingItems && (
+                  <div className="flex items-center gap-2 text-white/80">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">{isArabic ? "جاري التحميل..." : "Loading..."}</span>
+                  </div>
+                )}
+                
+                {/* Data source indicator */}
+                {useRealData && projectItems.length > 0 && (
+                  <Badge className="bg-emerald-500/20 text-white border-emerald-400/30">
+                    <Database className="h-3 w-3 mr-1" />
+                    {projectItems.length} {isArabic ? "بند من المشروع" : "BOQ Items"}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
 
@@ -671,20 +1143,44 @@ export default function CostControlReportPage() {
               </Card>
             ))}
             <Card className="bg-card/95 backdrop-blur border-border/50 flex items-center justify-center hover:shadow-lg transition-shadow">
-              <CardContent className="p-4 w-full">
+              <CardContent className="p-4 w-full space-y-2">
                 <Button 
                   className="w-full gap-2" 
                   variant="default"
                   onClick={handleExportExcel}
                   disabled={isExporting}
+                  size="sm"
                 >
                   {isExporting ? (
-                    <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Download className="h-4 w-4" />
                   )}
                   {isArabic ? "تصدير Excel" : "Export Excel"}
                 </Button>
+                {useRealData && selectedProjectId && (
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 gap-1"
+                      onClick={() => setEditProgressDialog({ open: true, progress: progressHistory?.actual_progress || 60 })}
+                    >
+                      <Edit className="h-3 w-3" />
+                      {isArabic ? "تحديث" : "Edit"}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 gap-1"
+                      onClick={handleSaveReport}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                      {isArabic ? "حفظ" : "Save"}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -695,6 +1191,11 @@ export default function CostControlReportPage() {
               <CardTitle className="flex items-center gap-2 text-lg">
                 <BarChart3 className="h-5 w-5 text-primary" />
                 {isArabic ? "تحليل القيمة المكتسبة حسب التخصص" : "Earned Value Analysis by Discipline"}
+                {useRealData && selectedProject && (
+                  <Badge variant="outline" className="ml-2">
+                    {selectedProject.name}
+                  </Badge>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -711,6 +1212,12 @@ export default function CostControlReportPage() {
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <FileSpreadsheet className="h-5 w-5 text-primary" />
                   {isArabic ? "جدول البيانات التفصيلي" : "Detailed Data Table"}
+                  {useRealData && (
+                    <Badge variant="outline" className="ml-2 text-xs">
+                      <Database className="h-3 w-3 mr-1" />
+                      {isArabic ? "من قاعدة البيانات" : "From Database"}
+                    </Badge>
+                  )}
                 </CardTitle>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>
@@ -733,6 +1240,11 @@ export default function CostControlReportPage() {
                       <TableHead className="w-24 text-center cursor-pointer hover:bg-muted/80" onClick={() => handleSort('discipline')}>
                         {isArabic ? "التخصص" : "Discipline"}
                       </TableHead>
+                      {useRealData && (
+                        <TableHead className="w-20 text-center">
+                          {isArabic ? "البنود" : "Items"}
+                        </TableHead>
+                      )}
                       <TableHead className="w-28 text-center cursor-pointer hover:bg-muted/80" onClick={() => handleSort('progress')}>
                         {isArabic ? "الإنجاز %" : "Progress %"} <ArrowUpDown className="inline h-3 w-3 ml-1" />
                       </TableHead>
@@ -770,6 +1282,13 @@ export default function CostControlReportPage() {
                             {activity.discipline}
                           </Badge>
                         </TableCell>
+                        {useRealData && (
+                          <TableCell className="text-center">
+                            <Badge variant="secondary" className="text-xs">
+                              {activity.itemsCount || '-'}
+                            </Badge>
+                          </TableCell>
+                        )}
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <div className="flex-1">
@@ -804,6 +1323,11 @@ export default function CostControlReportPage() {
                         <span className="text-primary">{isArabic ? "الإجمالي" : "GRAND TOTAL"}</span>
                       </TableCell>
                       <TableCell className="text-center">-</TableCell>
+                      {useRealData && (
+                        <TableCell className="text-center">
+                          <Badge variant="secondary">{projectItems.length}</Badge>
+                        </TableCell>
+                      )}
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div className="flex-1">
@@ -869,6 +1393,46 @@ export default function CostControlReportPage() {
           </Card>
         </main>
       </div>
+
+      {/* Edit Progress Dialog */}
+      <Dialog open={editProgressDialog.open} onOpenChange={(open) => setEditProgressDialog(prev => ({ ...prev, open }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isArabic ? "تحديث نسبة الإنجاز" : "Update Progress"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{isArabic ? "نسبة الإنجاز (%)" : "Progress (%)"}</Label>
+              <div className="flex items-center gap-4">
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={editProgressDialog.progress}
+                  onChange={(e) => setEditProgressDialog(prev => ({ 
+                    ...prev, 
+                    progress: Math.min(100, Math.max(0, Number(e.target.value))) 
+                  }))}
+                  className="w-24"
+                />
+                <div className="flex-1">
+                  <Progress value={editProgressDialog.progress} className="h-3" />
+                </div>
+                <span className="font-bold">{editProgressDialog.progress}%</span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditProgressDialog({ open: false, progress: 60 })}>
+              {isArabic ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button onClick={handleUpdateProgress}>
+              <Save className="h-4 w-4 mr-2" />
+              {isArabic ? "حفظ" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageLayout>
   );
 }
