@@ -2,75 +2,84 @@
 
 # خطة إصلاح أزرار التصدير في تبويب Export
 
-## المشكلة
+## المشكلة المُكتشفة
 
-أزرار التصدير (PDF, Print, Excel) داخل تبويب Export لا تعمل عند الضغط عليها.
+بعد التحقيق في قاعدة البيانات وكود التطبيق:
 
-## تحليل السبب
+1. **المشروع "الدلم" يحتوي على 834 عنصر** في `analysis_data.items`
+2. **البيانات موجودة بشكل صحيح** في قاعدة البيانات
+3. **المشكلة**: عند اختيار المشروع، قد تكون دالة `getProjectItems()` لا تعمل بسبب:
+   - عدم تحديث `hasData` عند تغيير المشروع المختار
+   - عدم وجود logging للتصحيح
 
-بعد مراجعة الكود، تبين أن:
+## الحل المقترح
 
-1. **جميع الأزرار تحتوي على `disabled={!selectedProjectId}`** - يعني أنها تتطلب اختيار مشروع أولاً
-2. **الدوال تتحقق من وجود البيانات**:
+### 1. إضافة console.log للتصحيح
+
 ```typescript
-if (!selectedProject?.analysis_data?.items) {
-  toast.error("لا توجد بيانات للتصدير");
-  return;
-}
+const selectedProject = projects.find(p => p.id === selectedProjectId);
+
+// Debug logging
+console.log("Selected Project ID:", selectedProjectId);
+console.log("Selected Project:", selectedProject);
+console.log("Analysis Data:", selectedProject?.analysis_data);
 ```
 
-3. **مصدر البيانات**: المشاريع تأتي من `ReportsTab` الذي يجلب البيانات من `saved_projects` و `project_data`، لكن بنية `analysis_data` قد تختلف
-
-## الحلول المقترحة
-
-### 1. تحسين التحقق من البيانات
-
-تعديل `ExportTab.tsx` للتعامل مع بنيات البيانات المختلفة:
+### 2. تحسين دالة getProjectItems
 
 ```typescript
-// التحقق من البيانات بشكل أفضل
 const getProjectItems = () => {
-  const data = selectedProject?.analysis_data;
-  if (!data) return null;
+  console.log("Getting items for:", selectedProject?.name);
   
-  // دعم بنيات البيانات المختلفة
-  return data.items || data.boq_items || data.analysisData?.items || [];
-};
-
-const handleExportComprehensivePDF = () => {
-  const items = getProjectItems();
-  if (!items || items.length === 0) {
-    toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
-    return;
+  if (!selectedProject?.analysis_data) {
+    console.log("No analysis_data found");
+    return [];
   }
-  // ... باقي الكود
+  
+  const data = selectedProject.analysis_data;
+  console.log("Analysis data type:", typeof data);
+  console.log("Analysis data keys:", Object.keys(data));
+  
+  // Handle string data (if JSON wasn't parsed)
+  let parsedData = data;
+  if (typeof data === 'string') {
+    try {
+      parsedData = JSON.parse(data);
+    } catch (e) {
+      console.error("Failed to parse analysis_data:", e);
+      return [];
+    }
+  }
+  
+  // Support different data structures
+  const items = parsedData.items || 
+                parsedData.boq_items || 
+                parsedData.analysisData?.items || 
+                [];
+  
+  console.log("Found items count:", items.length);
+  return items;
 };
 ```
 
-### 2. إضافة تسجيل للتصحيح
-
-إضافة console.log لتتبع المشكلة:
+### 3. إضافة useMemo للتحسين
 
 ```typescript
-const handleExportComprehensivePDF = () => {
-  console.log("Selected Project:", selectedProject);
-  console.log("Analysis Data:", selectedProject?.analysis_data);
-  console.log("Items:", selectedProject?.analysis_data?.items);
-  // ...
-};
+const projectItems = useMemo(() => getProjectItems(), [selectedProject]);
+const hasData = projectItems.length > 0;
 ```
 
-### 3. تحسين رسائل الخطأ
+### 4. إضافة تنبيه مرئي
 
-عرض رسالة توضيحية للمستخدم عند عدم وجود بيانات:
+عند عدم وجود بيانات بعد اختيار مشروع، إظهار رسالة توضيحية:
 
 ```typescript
-{selectedProjectId && !selectedProject?.analysis_data?.items && (
-  <Alert variant="warning">
+{selectedProjectId && !hasData && (
+  <Alert variant="warning" className="mt-4">
     <AlertDescription>
       {isArabic 
-        ? "هذا المشروع لا يحتوي على بيانات BOQ للتصدير" 
-        : "This project has no BOQ data to export"}
+        ? "هذا المشروع لا يحتوي على بيانات BOQ للتصدير. تأكد من تحليل الملف أولاً." 
+        : "This project has no BOQ data to export. Make sure to analyze the file first."}
     </AlertDescription>
   </Alert>
 )}
@@ -82,53 +91,81 @@ const handleExportComprehensivePDF = () => {
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/reports/ExportTab.tsx` | تحسين التحقق من البيانات + إضافة دالة `getProjectItems` |
+| `src/components/reports/ExportTab.tsx` | إضافة logging + تحسين getProjectItems + useMemo |
 
 ---
 
 ## التغييرات التفصيلية
 
-### ExportTab.tsx
-
 ```typescript
-// إضافة دالة للحصول على العناصر بشكل موحد
-const getProjectItems = () => {
-  if (!selectedProject?.analysis_data) return [];
-  
-  const data = selectedProject.analysis_data;
-  
-  // دعم بنيات البيانات المختلفة
-  if (Array.isArray(data.items)) return data.items;
-  if (Array.isArray(data.boq_items)) return data.boq_items;
-  if (data.analysisData && Array.isArray(data.analysisData.items)) {
-    return data.analysisData.items;
+// src/components/reports/ExportTab.tsx
+
+import React, { useState, useMemo } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+// ... existing code ...
+
+export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
+  ({ projects, isLoading }, ref) => {
+    const { isArabic } = useLanguage();
+    const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+
+    const selectedProject = projects.find(p => p.id === selectedProjectId);
+
+    // Debug: log when project changes
+    console.log("ExportTab - selectedProjectId:", selectedProjectId);
+    console.log("ExportTab - selectedProject:", selectedProject?.name);
+    console.log("ExportTab - analysis_data keys:", 
+      selectedProject?.analysis_data ? Object.keys(selectedProject.analysis_data) : null
+    );
+
+    // Helper function with improved parsing
+    const getProjectItems = () => {
+      if (!selectedProject?.analysis_data) return [];
+      
+      let data = selectedProject.analysis_data;
+      
+      // Handle if data is a string (JSON not parsed)
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data);
+        } catch (e) {
+          console.error("Failed to parse analysis_data:", e);
+          return [];
+        }
+      }
+      
+      // Support different data structures
+      if (Array.isArray(data.items)) return data.items;
+      if (Array.isArray(data.boq_items)) return data.boq_items;
+      if (data.analysisData && Array.isArray(data.analysisData.items)) {
+        return data.analysisData.items;
+      }
+      
+      return [];
+    };
+
+    // Use useMemo to recalculate when selectedProject changes
+    const projectItems = useMemo(() => getProjectItems(), [selectedProject]);
+    const hasData = projectItems.length > 0;
+
+    console.log("ExportTab - projectItems count:", projectItems.length);
+    console.log("ExportTab - hasData:", hasData);
+
+    // ... rest of handlers use projectItems instead of calling getProjectItems() ...
+
+    const handleExportBOQ = () => {
+      if (projectItems.length === 0) {
+        toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
+        return;
+      }
+      exportBOQToExcel(projectItems, selectedProject?.name || "Project");
+      toast.success(isArabic ? "تم تصدير جدول الكميات بنجاح" : "BOQ exported successfully");
+    };
+
+    // Similar updates for all other handlers...
   }
-  
-  return [];
-};
-
-const items = getProjectItems();
-const hasData = items.length > 0;
-
-// تحديث جميع الدوال لاستخدام getProjectItems
-const handleExportComprehensivePDF = () => {
-  const items = getProjectItems();
-  if (items.length === 0) {
-    toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
-    return;
-  }
-  // ... باقي الكود يستخدم items
-};
-
-// تحديث الأزرار
-<Button 
-  onClick={handleExportComprehensivePDF}
-  disabled={!selectedProjectId || !hasData}
-  className="bg-primary hover:bg-primary/90"
->
-  <FileDown className="h-4 w-4 mr-2" />
-  PDF
-</Button>
+);
 ```
 
 ---
@@ -136,9 +173,10 @@ const handleExportComprehensivePDF = () => {
 ## النتيجة المتوقعة
 
 ```text
-✅ دعم بنيات البيانات المختلفة (items, boq_items, analysisData.items)
-✅ رسائل خطأ واضحة عند عدم وجود بيانات
-✅ تعطيل الأزرار عند عدم وجود بيانات قابلة للتصدير
-✅ عمل جميع أزرار التصدير بشكل صحيح
+✅ Console logs للتصحيح عند اختيار مشروع
+✅ دعم بيانات JSON النصية (string)
+✅ استخدام useMemo لإعادة الحساب عند تغيير المشروع
+✅ رسالة تحذير واضحة عند عدم وجود بيانات
+✅ جميع أزرار التصدير تعمل بشكل صحيح
 ```
 
