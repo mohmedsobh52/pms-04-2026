@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft, Home, ChevronRight, RefreshCw, Calculator,
   Users, Building2, Shield, FileCheck, Settings, FileText,
-  Table as TableIcon, Loader2, HardHat, ChevronDown, Package, Hammer, Wrench, Ruler
+  Table as TableIcon, Loader2, HardHat, ChevronDown, Package, Hammer, Wrench, Ruler, Target
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +30,7 @@ import { SaveStatusIndicator } from "@/components/tender/SaveStatusIndicator";
 import TenderCostAlerts from "@/components/tender/TenderCostAlerts";
 import PricingScenarios from "@/components/tender/PricingScenarios";
 import TenderSubcontractorsTab from "@/components/tender/TenderSubcontractorsTab";
+import { PricingAccuracyTab } from "@/components/tender/PricingAccuracyTab";
 
 interface ProjectData {
   id: string;
@@ -514,6 +515,7 @@ export default function TenderSummaryPage() {
     { id: "guarantees", labelAr: "الضمانات", labelEn: "Guarantees", icon: FileCheck },
     { id: "indirect", labelAr: "التكاليف غير المباشرة", labelEn: "Indirect Costs", icon: Calculator },
     { id: "subcontractors", labelAr: "مقاولو الباطن", labelEn: "Subcontractors", icon: HardHat },
+    { id: "accuracy", labelAr: "دقة التسعير", labelEn: "Accuracy", icon: Target },
     { id: "settings", labelAr: "الإعدادات", labelEn: "Settings", icon: Settings },
   ];
 
@@ -1005,6 +1007,11 @@ export default function TenderSummaryPage() {
               currency={pricingSettings.currency}
               onDataChange={handleSubcontractorsChange}
             />
+          </TabsContent>
+
+          {/* Pricing Accuracy Tab */}
+          <TabsContent value="accuracy">
+            <PricingAccuracyTab isArabic={isArabic} projectId={projectId} />
           </TabsContent>
 
           {/* Settings Tab */}

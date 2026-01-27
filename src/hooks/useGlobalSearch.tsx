@@ -113,8 +113,10 @@ const staticPages: SearchItem[] = [
     type: 'page',
     label: 'Pricing Accuracy',
     labelAr: 'دقة التسعير',
+    description: 'Available in Pricing tab',
+    descriptionAr: 'متوفر في تبويب التسعير',
     icon: 'Target',
-    href: '/pricing-accuracy',
+    href: '/projects',
     keywords: ['pricing', 'accuracy', 'دقة', 'تسعير', 'comparison'],
   },
   {
