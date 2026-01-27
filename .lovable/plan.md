@@ -1,42 +1,82 @@
 
 
-# خطة حل مشكلة تفعيل الأزرار والتبويبات في صفحة الإعدادات
+# خطة حل مشكلة حقول الإدخال والقوائم المنسدلة في إعدادات الشركة
 
 ## المشكلة
 
-صفحة الإعدادات (`SettingsPage.tsx`) لا تحتوي على class `tabs-navigation-safe` في عنصر `TabsList`، مما يسبب عدم استجابة التبويبات للنقر بشكل صحيح.
+حقول الإدخال (Inputs) والقوائم المنسدلة (Select/Dropdown) والمزلقات (Sliders) في صفحة الإعدادات غير نشطة ولا تستجيب للنقر.
 
 ---
 
-## الحل
+## تحليل السبب
 
-إضافة class `tabs-navigation-safe` إلى `TabsList` في صفحة الإعدادات - نفس الحل المُطبق في الصفحات الأخرى.
+المشكلة تشبه ما تم حله سابقاً في الصفحات الأخرى - عناصر Radix UI overlay قد تُعيق pointer-events على العناصر التفاعلية.
 
 ---
 
-## التعديل المطلوب
+## الحل المقترح
 
-### ملف: `src/pages/SettingsPage.tsx`
+### 1. تحديث `src/components/CompanySettingsPanel.tsx`
 
-**التغيير:**
+إضافة classes حماية للعناصر التفاعلية داخل البطاقات:
+
+**التغييرات:**
 
 ```tsx
-// من:
-<TabsList className="grid w-full grid-cols-5">
+// إضافة class حماية للبطاقات
+<Card className="order-2 lg:order-1 relative z-10">
+  {/* محتوى البطاقة */}
+</Card>
 
-// إلى:
-<TabsList className="grid w-full grid-cols-5 tabs-navigation-safe">
+// إضافة class للـ Select trigger لضمان تفعيله
+<SelectTrigger className="relative z-20 pointer-events-auto">
+  <SelectValue />
+</SelectTrigger>
+
+// إضافة class للـ Sliders
+<Slider
+  className="cursor-pointer relative z-20 pointer-events-auto"
+/>
 ```
 
----
+### 2. تحديث `src/components/ui/dialog-custom.css`
 
-## شرح تقني
+إضافة قواعد CSS جديدة لحماية حقول الإدخال والنماذج:
 
-| الخاصية | الوظيفة |
-|---------|---------|
-| `tabs-navigation-safe` | يُعيّن `z-index: 55` للتبويبات |
-| `pointer-events: auto` | يضمن استجابة التبويبات للنقر |
-| `position: relative` | يُفعّل z-index |
+```css
+/* Form elements protection in Settings page */
+.settings-form-safe {
+  position: relative;
+  z-index: 10;
+  pointer-events: auto !important;
+}
+
+.settings-form-safe input,
+.settings-form-safe textarea,
+.settings-form-safe button,
+.settings-form-safe [data-radix-select-trigger] {
+  position: relative;
+  z-index: 20;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* Slider protection */
+[data-radix-slider-root] {
+  position: relative;
+  z-index: 20;
+  pointer-events: auto !important;
+}
+
+[data-radix-slider-thumb] {
+  pointer-events: auto !important;
+  cursor: grab !important;
+}
+
+[data-radix-slider-track] {
+  pointer-events: auto !important;
+}
+```
 
 ---
 
@@ -44,24 +84,14 @@
 
 | الملف | التغيير |
 |-------|---------|
-| `src/pages/SettingsPage.tsx` | إضافة class للـ TabsList |
-
----
-
-## المقارنة مع الصفحات الأخرى المُصلحة
-
-| الصفحة | الحالة |
-|--------|--------|
-| `ContractsPage.tsx` | ✅ مُصلح |
-| `SubcontractorsPage.tsx` | ✅ مُصلح |
-| `AnalysisToolsPage.tsx` | ✅ مُصلح |
-| `TenderSummaryPage.tsx` | ✅ مُصلح |
-| `ReportsPage.tsx` | ✅ مُصلح |
-| `SettingsPage.tsx` | ❌ يحتاج إصلاح |
+| `src/components/CompanySettingsPanel.tsx` | إضافة classes حماية |
+| `src/components/ui/dialog-custom.css` | إضافة قواعد CSS للنماذج |
 
 ---
 
 ## النتيجة المتوقعة
 
-بعد التعديل ستعمل جميع التبويبات (Company, AI Model, Tracking, Notifications, About) بشكل طبيعي وتستجيب للنقر فوراً.
+- جميع حقول الإدخال (Company Name, Phone, Email, etc.) تستجيب للنقر والكتابة
+- القائمة المنسدلة (Default Currency) تفتح عند النقر
+- المزلقات (Profit Margin, Overhead, etc.) تستجيب للسحب
 
