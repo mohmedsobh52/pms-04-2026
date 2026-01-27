@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileSpreadsheet, FileText, Download, Eye, Languages, Printer, FileDown } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FileSpreadsheet, FileText, Download, Eye, Languages, Printer, FileDown, AlertTriangle } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { toast } from "sonner";
 import { exportBOQToExcel, exportEnhancedBOQToExcel, exportTenderSummaryToExcel, exportPriceAnalysisToExcel, exportTenderSummaryToPDF } from "@/lib/reports-export-utils";
@@ -27,42 +28,75 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
 
-  // Helper function to get items from different data structures
-  const getProjectItems = () => {
-    if (!selectedProject?.analysis_data) return [];
+  // Debug logging
+  console.log("ExportTab - selectedProjectId:", selectedProjectId);
+  console.log("ExportTab - selectedProject:", selectedProject?.name);
+  console.log("ExportTab - analysis_data type:", typeof selectedProject?.analysis_data);
+
+  // Helper function to get items from different data structures with JSON parsing support
+  const getProjectItems = (project: Project | undefined): any[] => {
+    if (!project?.analysis_data) {
+      console.log("No analysis_data found");
+      return [];
+    }
     
-    const data = selectedProject.analysis_data;
+    let data = project.analysis_data;
+    
+    // Handle if data is a string (JSON not parsed)
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+        console.log("Parsed JSON string data successfully");
+      } catch (e) {
+        console.error("Failed to parse analysis_data:", e);
+        return [];
+      }
+    }
+
+    console.log("Analysis data keys:", Object.keys(data || {}));
     
     // Support different data structures
-    if (Array.isArray(data.items)) return data.items;
-    if (Array.isArray(data.boq_items)) return data.boq_items;
+    if (Array.isArray(data.items)) {
+      console.log("Found items array with", data.items.length, "items");
+      return data.items;
+    }
+    if (Array.isArray(data.boq_items)) {
+      console.log("Found boq_items array with", data.boq_items.length, "items");
+      return data.boq_items;
+    }
     if (data.analysisData && Array.isArray(data.analysisData.items)) {
+      console.log("Found analysisData.items array with", data.analysisData.items.length, "items");
       return data.analysisData.items;
     }
     
+    console.log("No items found in any expected structure");
     return [];
   };
 
-  const projectItems = getProjectItems();
+  // Use useMemo to recalculate when selectedProject changes
+  const projectItems = useMemo(() => getProjectItems(selectedProject), [selectedProject]);
   const hasData = projectItems.length > 0;
 
+  console.log("ExportTab - projectItems count:", projectItems.length);
+  console.log("ExportTab - hasData:", hasData);
+
   const handleExportBOQ = () => {
-    const items = getProjectItems();
-    if (items.length === 0) {
+    console.log("handleExportBOQ called, projectItems:", projectItems.length);
+    if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
     }
-    exportBOQToExcel(items, selectedProject?.name || "Project");
+    exportBOQToExcel(projectItems, selectedProject?.name || "Project");
     toast.success(isArabic ? "تم تصدير جدول الكميات بنجاح" : "BOQ exported successfully");
   };
 
   const handleExportEnhancedBOQ = (language: 'en' | 'ar' | 'both') => {
-    const items = getProjectItems();
-    if (items.length === 0) {
+    console.log("handleExportEnhancedBOQ called, projectItems:", projectItems.length);
+    if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
     }
-    exportEnhancedBOQToExcel(items, selectedProject?.name || "Project", language);
+    exportEnhancedBOQToExcel(projectItems, selectedProject?.name || "Project", language);
     toast.success(isArabic ? "تم تصدير جدول الكميات المحسن بنجاح" : "Enhanced BOQ exported successfully");
   };
 
@@ -80,12 +114,12 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
   };
 
   const handleExportPriceAnalysis = () => {
-    const items = getProjectItems();
-    if (items.length === 0) {
+    console.log("handleExportPriceAnalysis called, projectItems:", projectItems.length);
+    if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
     }
-    exportPriceAnalysisToExcel(items, selectedProject?.name || "Project");
+    exportPriceAnalysisToExcel(projectItems, selectedProject?.name || "Project");
     toast.success(isArabic ? "تم تصدير تحليل الأسعار بنجاح" : "Price analysis exported successfully");
   };
 
@@ -98,12 +132,12 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
   };
 
   const handleExportComprehensivePDF = () => {
-    const items = getProjectItems();
-    if (items.length === 0) {
+    console.log("handleExportComprehensivePDF called, projectItems:", projectItems.length);
+    if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
     }
-    const totalValue = items.reduce((sum: number, item: any) => sum + (parseFloat(item.total_price) || 0), 0);
+    const totalValue = projectItems.reduce((sum: number, item: any) => sum + (parseFloat(item.total_price) || 0), 0);
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -202,7 +236,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
         <div class="summary-grid">
           <div class="summary-card">
             <div class="label">${isArabic ? "إجمالي البنود" : "Total Items"}</div>
-            <div class="value">${items.length}</div>
+            <div class="value">${projectItems.length}</div>
           </div>
           <div class="summary-card">
             <div class="label">${isArabic ? "إجمالي القيمة" : "Total Value"}</div>
@@ -226,7 +260,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
             </tr>
           </thead>
           <tbody>
-            ${items.map((item: any, idx: number) => `
+            ${projectItems.map((item: any, idx: number) => `
               <tr>
                 <td>${idx + 1}</td>
                 <td>${item.description || '-'}</td>
@@ -261,12 +295,12 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
   };
 
   const handlePrintReport = () => {
-    const items = getProjectItems();
-    if (items.length === 0) {
+    console.log("handlePrintReport called, projectItems:", projectItems.length);
+    if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للطباعة" : "No data to print");
       return;
     }
-    const totalValue = items.reduce((sum: number, item: any) => sum + (parseFloat(item.total_price) || 0), 0);
+    const totalValue = projectItems.reduce((sum: number, item: any) => sum + (parseFloat(item.total_price) || 0), 0);
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -326,7 +360,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
         <div class="summary">
           <div class="summary-item">
             <div class="summary-label">${isArabic ? "إجمالي البنود" : "Total Items"}</div>
-            <div class="summary-value">${items.length}</div>
+            <div class="summary-value">${projectItems.length}</div>
           </div>
           <div class="summary-item">
             <div class="summary-label">${isArabic ? "إجمالي القيمة" : "Total Value"}</div>
@@ -350,7 +384,7 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
             </tr>
           </thead>
           <tbody>
-            ${items.map((item: any, idx: number) => `
+            ${projectItems.map((item: any, idx: number) => `
               <tr>
                 <td>${idx + 1}</td>
                 <td>${item.description || '-'}</td>
@@ -578,6 +612,17 @@ export const ExportTab = React.forwardRef<HTMLDivElement, ExportTabProps>(
         <p className="text-center text-muted-foreground text-sm">
           {isArabic ? "الرجاء اختيار مشروع للتصدير" : "Please select a project to export"}
         </p>
+      )}
+
+      {selectedProjectId && !hasData && (
+        <Alert className="border-warning/50 bg-warning/10">
+          <AlertTriangle className="h-4 w-4 text-warning" />
+          <AlertDescription className="text-warning-foreground">
+            {isArabic 
+              ? "هذا المشروع لا يحتوي على بيانات BOQ للتصدير. تأكد من تحليل الملف أولاً." 
+              : "This project has no BOQ data to export. Make sure to analyze the file first."}
+          </AlertDescription>
+        </Alert>
       )}
     </div>
   );
