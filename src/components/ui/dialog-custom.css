@@ -156,3 +156,33 @@ button:active,
 [data-radix-dropdown-menu-content] * {
   pointer-events: auto !important;
 }
+
+/* ============================================
+   ANALYSIS ACTION BUTTONS
+   Ensure analysis buttons are always responsive
+   ============================================ */
+
+.analysis-action-btn {
+  position: relative;
+  z-index: 60;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.analysis-action-btn:active {
+  transform: scale(0.98);
+  transition: transform 50ms ease-out;
+}
+
+.analysis-action-btn:hover {
+  opacity: 0.9;
+}
+
+/* Dialog Content - Higher z-index for analysis dialogs */
+[data-radix-dialog-content] {
+  z-index: 100 !important;
+}
+
+[data-radix-dialog-overlay] {
+  z-index: 99 !important;
+}

@@ -1481,36 +1481,20 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Price Analysis Dropdown - Unified */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <TrendingUp className="w-4 h-4" />
-                  {isArabic ? "تحليل الأسعار" : "Price Analysis"}
-                  <ChevronDown className="w-3 h-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64 bg-popover">
-                <DropdownMenuItem className="p-0" onSelect={(e) => e.preventDefault()}>
-                  <MarketRateSuggestions 
-                    items={data.items || []} 
-                    projectId={savedProjectId}
-                    onApplyRate={onApplyRate} 
-                    onApplyAIRates={handleApplyAIRates}
-                    onApplyAIRatesToCalcPrice={handleApplyAIRatesToCalcPrice}
-                    triggerOnly={true}
-                  />
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="p-0" onSelect={(e) => e.preventDefault()}>
-                  <EnhancedPricingAnalysis 
-                    items={data.items || []}
-                    onApplyRates={handleApplyAIRates}
-                    triggerOnly={true}
-                  />
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Price Analysis Buttons - Independent for better responsiveness */}
+            <div className="flex items-center gap-2 project-actions-section">
+              <MarketRateSuggestions 
+                items={data.items || []} 
+                projectId={savedProjectId}
+                onApplyRate={onApplyRate} 
+                onApplyAIRates={handleApplyAIRates}
+                onApplyAIRatesToCalcPrice={handleApplyAIRatesToCalcPrice}
+              />
+              <EnhancedPricingAnalysis 
+                items={data.items || []}
+                onApplyRates={handleApplyAIRates}
+              />
+            </div>
 
             {/* Tools Dropdown */}
             <DropdownMenu>
