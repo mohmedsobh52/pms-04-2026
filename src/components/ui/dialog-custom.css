@@ -186,3 +186,40 @@ button:active,
 [data-radix-dialog-overlay] {
   z-index: 99 !important;
 }
+
+/* ============================================
+   SETTINGS FORM PROTECTION
+   Ensure form elements in Settings page are clickable
+   ============================================ */
+
+.settings-form-safe {
+  position: relative;
+  z-index: 10;
+  pointer-events: auto !important;
+}
+
+.settings-form-safe input,
+.settings-form-safe textarea,
+.settings-form-safe button,
+.settings-form-safe [data-radix-select-trigger] {
+  position: relative;
+  z-index: 20;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* Slider protection */
+[data-radix-slider-root] {
+  position: relative;
+  z-index: 20;
+  pointer-events: auto !important;
+}
+
+[data-radix-slider-thumb] {
+  pointer-events: auto !important;
+  cursor: grab !important;
+}
+
+[data-radix-slider-track] {
+  pointer-events: auto !important;
+}

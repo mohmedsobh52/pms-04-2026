@@ -35,7 +35,7 @@ export const CompanySettingsPanel = () => {
       {/* Main Grid - Two columns */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column - Default Pricing Settings */}
-        <Card className="order-2 lg:order-1">
+        <Card className="order-2 lg:order-1 relative z-10 settings-form-safe">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
               <Settings2 className="h-5 w-5 text-primary" />
@@ -60,7 +60,7 @@ export const CompanySettingsPanel = () => {
                 value={settings.defaultCurrency}
                 onValueChange={(value) => updateSettings({ defaultCurrency: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="relative z-20 pointer-events-auto">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -90,7 +90,7 @@ export const CompanySettingsPanel = () => {
                 min={0}
                 max={50}
                 step={0.5}
-                className="cursor-pointer"
+                className="cursor-pointer relative z-20 pointer-events-auto"
               />
             </div>
 
@@ -111,7 +111,7 @@ export const CompanySettingsPanel = () => {
                 min={0}
                 max={30}
                 step={0.5}
-                className="cursor-pointer"
+                className="cursor-pointer relative z-20 pointer-events-auto"
               />
             </div>
 
@@ -132,7 +132,7 @@ export const CompanySettingsPanel = () => {
                 min={0}
                 max={20}
                 step={0.5}
-                className="cursor-pointer"
+                className="cursor-pointer relative z-20 pointer-events-auto"
               />
             </div>
 
@@ -153,7 +153,7 @@ export const CompanySettingsPanel = () => {
                 min={0}
                 max={10}
                 step={0.25}
-                className="cursor-pointer"
+                className="cursor-pointer relative z-20 pointer-events-auto"
               />
             </div>
 
@@ -174,7 +174,7 @@ export const CompanySettingsPanel = () => {
                 min={0}
                 max={15}
                 step={0.25}
-                className="cursor-pointer"
+                className="cursor-pointer relative z-20 pointer-events-auto"
               />
             </div>
 
@@ -224,7 +224,7 @@ export const CompanySettingsPanel = () => {
         </Card>
 
         {/* Right Column - Company Data (RTL first) */}
-        <Card className="order-1 lg:order-2">
+        <Card className="order-1 lg:order-2 relative z-10 settings-form-safe">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
               <Building2 className="h-5 w-5 text-primary" />
