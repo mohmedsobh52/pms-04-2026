@@ -1,97 +1,74 @@
 
-# خطة إصلاح مشكلة عدم عمل "Quick Price" في القائمة الجانبية
+
+# خطة تحسين سرعة استجابة الأزرار في القائمة الجانبية (⋮)
 
 ## تشخيص المشكلة
 
-### السبب الجذري
-تم تغيير `onClick` إلى `onSelect` في آخر تعديل، لكن هذا سبب مشكلة:
+بعد فحص الكود و session replay، وجدت أن بطء الاستجابة ناتج عن عدة عوامل:
 
-| المعالج | التوقيت | المشكلة |
-|---------|---------|---------|
-| `onClick` | يُنفذ فوراً عند النقر | ✅ يفتح الـ Dialog مباشرة |
-| `onSelect` | يُنفذ بعد إغلاق القائمة | ❌ قد يتأخر أو يُفقد |
+### الأسباب الرئيسية:
 
-### الكود الحالي (لا يعمل):
-```typescript
-<DropdownMenuItem 
-  onSelect={() => onQuickPrice(item.id)}
-  className="gap-2"
->
-```
-
-### الدليل على أن `onClick` يعمل:
-الملفات التالية تستخدم `onClick` وتعمل بشكل صحيح:
-- `AnalysisResults.tsx` (سطر 1401-1437)
-- `AttachmentFolders.tsx` (سطر 392)
-- `ProjectAttachments.tsx` (سطر 1010-1025)
+| السبب | التفاصيل | التأثير |
+|-------|----------|---------|
+| **الرسوم المتحركة** | `animate-in/animate-out` على DropdownMenuContent | تأخير 150-200ms |
+| **e.preventDefault()** | يُنفذ في كل نقرة قبل الإجراء الفعلي | overhead إضافي |
+| **معالجة الأحداث** | تعارض بين onClick و internal Radix handling | تأخير في التنفيذ |
 
 ---
 
 ## الحل المقترح
 
-### إعادة `onClick` بدلاً من `onSelect` مع إضافة `e.preventDefault()`
+### 1. إزالة الرسوم المتحركة من DropdownMenu (تسريع كبير)
+
+**الملف:** `src/components/ui/dropdown-menu.tsx`
+
+إزالة classes الـ animation من `DropdownMenuContent` و `DropdownMenuSubContent`:
+
+```typescript
+// قبل (سطر 63-64)
+"z-[70] min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md 
+ data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 
+ data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 
+ data-[side=bottom]:slide-in-from-top-2..."
+
+// بعد
+"z-[70] min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+```
+
+### 2. تبسيط onClick handlers في ProjectBOQTab
 
 **الملف:** `src/components/project-details/ProjectBOQTab.tsx`
 
-**التغييرات (السطور 328-365):**
+إزالة `e.preventDefault()` غير الضروري:
 
 ```typescript
-<DropdownMenuItem 
-  onClick={(e) => {
-    e.preventDefault();
-    onQuickPrice(item.id);
-  }}
-  className="gap-2"
->
-  <DollarSign className="w-4 h-4" />
-  {isArabic ? "تسعير سريع" : "Quick Price"}
-</DropdownMenuItem>
+// قبل
+onClick={(e) => {
+  e.preventDefault();
+  onQuickPrice(item.id);
+}}
 
-<DropdownMenuItem 
-  onClick={(e) => {
-    e.preventDefault();
-    onDetailedPrice(item);
-  }}
-  className="gap-2"
->
-  <FileText className="w-4 h-4" />
-  {isArabic ? "تسعير مفصل" : "Detailed Price"}
-</DropdownMenuItem>
-
-<DropdownMenuItem 
-  onClick={(e) => {
-    e.preventDefault();
-    onEditItem(item);
-  }}
-  className="gap-2"
->
-  <Edit className="w-4 h-4" />
-  {isArabic ? "تعديل" : "Edit"}
-</DropdownMenuItem>
-
-<DropdownMenuItem 
-  onClick={(e) => {
-    e.preventDefault();
-    onUnconfirmItem(item.id);
-  }}
-  className="gap-2"
-  disabled={!item.unit_price || item.unit_price === 0}
->
-  <XCircle className="w-4 h-4" />
-  {isArabic ? "إلغاء التحقق" : "Clear Price"}
-</DropdownMenuItem>
-
-<DropdownMenuItem 
-  onClick={(e) => {
-    e.preventDefault();
-    onDeleteItem(item.id);
-  }}
-  className="gap-2 text-destructive"
->
-  <Trash2 className="w-4 h-4" />
-  {isArabic ? "حذف" : "Delete"}
-</DropdownMenuItem>
+// بعد - أبسط وأسرع
+onClick={() => onQuickPrice(item.id)}
 ```
+
+### 3. إضافة modal={false} لتعطيل modal behavior (تسريع إضافي)
+
+**الملف:** `src/components/project-details/ProjectBOQTab.tsx`
+
+```typescript
+// إضافة modal={false} للـ DropdownMenu
+<DropdownMenu modal={false}>
+  <DropdownMenuTrigger asChild>
+    ...
+  </DropdownMenuTrigger>
+  <DropdownMenuContent align={isArabic ? "start" : "end"}>
+    ...
+  </DropdownMenuContent>
+</DropdownMenu>
+```
+
+هذا يمنع إنشاء focus trap ويسرع الاستجابة.
 
 ---
 
@@ -99,43 +76,37 @@
 
 | الملف | السطر | التغيير |
 |-------|-------|---------|
-| `ProjectBOQTab.tsx` | 328-365 | إعادة `onClick` بدلاً من `onSelect` مع `e.preventDefault()` |
+| `dropdown-menu.tsx` | 47, 63-64 | إزالة classes الـ animation |
+| `ProjectBOQTab.tsx` | 329-376 | إزالة `e.preventDefault()` من جميع onClick handlers |
+| `ProjectBOQTab.tsx` | 321 | إضافة `modal={false}` للـ DropdownMenu |
 
 ---
 
-## الاختبار المطلوب بعد التنفيذ
-
-1. **النقر على زر النقاط الثلاث (⋮)** → القائمة تظهر ✓
-2. **النقر على "Quick Price"** → يفتح dialog التسعير السريع فوراً
-3. **النقر على "Detailed Price"** → يفتح dialog التسعير المفصل
-4. **النقر على "Edit"** → يفتح dialog التعديل
-5. **النقر على "Clear Price"** → يمسح السعر (للبنود المسعرة فقط)
-6. **النقر على "Delete"** → يحذف البند
-
----
-
-## لماذا يعمل `onClick` بينما `onSelect` لا يعمل؟
+## النتيجة المتوقعة
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│                 سلسلة الأحداث مع onClick                     │
-├─────────────────────────────────────────────────────────────┤
-│ 1. المستخدم ينقر على العنصر                                  │
-│ 2. onClick يُنفذ فوراً → setShowQuickPriceDialog(itemId)     │
-│ 3. Dialog يظهر مباشرة                                        │
-│ 4. القائمة تُغلق                                             │
-│                                                             │
-│ النتيجة: ✅ Dialog يظهر                                      │
-└─────────────────────────────────────────────────────────────┘
+قبل الإصلاح:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• النقر على الخيار → تأخير 150-300ms
+• القائمة تغلق ببطء (animation)
+• Dialog يفتح بعد انتهاء animation
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-┌─────────────────────────────────────────────────────────────┐
-│                 سلسلة الأحداث مع onSelect                    │
-├─────────────────────────────────────────────────────────────┤
-│ 1. المستخدم ينقر على العنصر                                  │
-│ 2. القائمة تبدأ بالإغلاق                                     │
-│ 3. onSelect يُنفذ بعد الإغلاق                                │
-│ 4. قد يكون هناك تعارض مع pointer-events                     │
-│                                                             │
-│ النتيجة: ❌ Dialog قد لا يظهر                                │
-└─────────────────────────────────────────────────────────────┘
+بعد الإصلاح:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• النقر على الخيار → استجابة فورية <50ms
+• القائمة تختفي فوراً
+• Dialog يفتح مباشرة
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
+
+---
+
+## الاختبار المطلوب
+
+1. **فتح القائمة (⋮)** → يجب أن تظهر فوراً (بدون animation)
+2. **النقر على Quick Price** → يجب أن يفتح Dialog فوراً
+3. **النقر على Detailed Price** → يجب أن يفتح Dialog فوراً
+4. **النقر على Edit/Delete** → يجب أن يعمل فوراً
+5. **لا يوجد تأخير محسوس** بين النقر والاستجابة
+
