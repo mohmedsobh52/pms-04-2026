@@ -116,6 +116,53 @@ export function ReportsTab({ isArabic }: ReportsTabProps) {
       }
     });
 
+    // Fetch project_items for projects without analysis_data items
+    const allProjects = Array.from(projectMap.values());
+    const projectsNeedingItems = allProjects.filter(p => {
+      const data = p.analysis_data as any;
+      const hasItems = data?.items?.length > 0 || data?.boq_items?.length > 0;
+      return !hasItems;
+    });
+
+    // Fetch items for projects that need them
+    if (projectsNeedingItems.length > 0) {
+      const projectIds = projectsNeedingItems.map(p => p.id);
+      const { data: allItems } = await supabase
+        .from("project_items")
+        .select("*")
+        .in("project_id", projectIds)
+        .order("item_number");
+
+      // Group items by project_id
+      const itemsByProject = new Map<string, any[]>();
+      (allItems || []).forEach(item => {
+        const items = itemsByProject.get(item.project_id) || [];
+        items.push(item);
+        itemsByProject.set(item.project_id, items);
+      });
+
+      // Update projects with fetched items
+      projectsNeedingItems.forEach(p => {
+        const items = itemsByProject.get(p.id) || [];
+        if (items.length > 0) {
+          const totalValue = items.reduce((sum, item) => sum + (parseFloat(item.total_price) || 0), 0);
+          const existingProject = projectMap.get(p.id);
+          if (existingProject) {
+            existingProject.analysis_data = {
+              items,
+              summary: {
+                total_value: totalValue,
+                total_items: items.length,
+                currency: p.currency || 'SAR'
+              }
+            };
+            existingProject.items_count = items.length;
+            existingProject.total_value = totalValue;
+          }
+        }
+      });
+    }
+
     setProjects(Array.from(projectMap.values()));
     setTenderData(tenderPricing);
     setLoading(false);

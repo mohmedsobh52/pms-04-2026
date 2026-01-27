@@ -1,14 +1,15 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { FileSpreadsheet, FileText, Download, Eye, Languages, Printer, FileDown, AlertTriangle } from "lucide-react";
+import { FileSpreadsheet, FileText, Download, Eye, Languages, Printer, FileDown, AlertTriangle, Loader2 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { toast } from "sonner";
 import { exportBOQToExcel, exportEnhancedBOQToExcel, exportTenderSummaryToExcel, exportPriceAnalysisToExcel, exportTenderSummaryToPDF } from "@/lib/reports-export-utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { supabase } from "@/integrations/supabase/client";
 interface Project {
   id: string;
   name: string;
@@ -24,18 +25,14 @@ interface ExportTabProps {
 export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   const { isArabic } = useLanguage();
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [dynamicItems, setDynamicItems] = useState<any[]>([]);
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
-
-  // Debug logging
-  console.log("ExportTab - selectedProjectId:", selectedProjectId);
-  console.log("ExportTab - selectedProject:", selectedProject?.name);
-  console.log("ExportTab - analysis_data type:", typeof selectedProject?.analysis_data);
 
   // Helper function to get items from different data structures with JSON parsing support
   const getProjectItems = (project: Project | undefined): any[] => {
     if (!project?.analysis_data) {
-      console.log("No analysis_data found");
       return [];
     }
     
@@ -45,42 +42,72 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
     if (typeof data === 'string') {
       try {
         data = JSON.parse(data);
-        console.log("Parsed JSON string data successfully");
       } catch (e) {
         console.error("Failed to parse analysis_data:", e);
         return [];
       }
     }
-
-    console.log("Analysis data keys:", Object.keys(data || {}));
     
     // Support different data structures
     if (Array.isArray(data.items)) {
-      console.log("Found items array with", data.items.length, "items");
       return data.items;
     }
     if (Array.isArray(data.boq_items)) {
-      console.log("Found boq_items array with", data.boq_items.length, "items");
       return data.boq_items;
     }
     if (data.analysisData && Array.isArray(data.analysisData.items)) {
-      console.log("Found analysisData.items array with", data.analysisData.items.length, "items");
       return data.analysisData.items;
     }
     
-    console.log("No items found in any expected structure");
     return [];
   };
 
-  // Use useMemo to recalculate when selectedProject changes
-  const projectItems = useMemo(() => getProjectItems(selectedProject), [selectedProject]);
-  const hasData = projectItems.length > 0;
+  // Fetch items dynamically when project changes
+  useEffect(() => {
+    const fetchItems = async () => {
+      if (!selectedProject) {
+        setDynamicItems([]);
+        return;
+      }
+      
+      // First check analysis_data
+      const items = getProjectItems(selectedProject);
+      if (items.length > 0) {
+        setDynamicItems(items);
+        return;
+      }
+      
+      // If no items in analysis_data, fetch from project_items table
+      setIsLoadingItems(true);
+      try {
+        const { data, error } = await supabase
+          .from("project_items")
+          .select("*")
+          .eq("project_id", selectedProject.id)
+          .order("item_number");
+        
+        if (error) {
+          console.error("Error fetching project items:", error);
+          setDynamicItems([]);
+        } else {
+          setDynamicItems(data || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch project items:", err);
+        setDynamicItems([]);
+      } finally {
+        setIsLoadingItems(false);
+      }
+    };
+    
+    fetchItems();
+  }, [selectedProject]);
 
-  console.log("ExportTab - projectItems count:", projectItems.length);
-  console.log("ExportTab - hasData:", hasData);
+  // Use dynamicItems for all operations
+  const projectItems = dynamicItems;
+  const hasData = projectItems.length > 0 && !isLoadingItems;
 
   const handleExportBOQ = () => {
-    console.log("handleExportBOQ called, projectItems:", projectItems.length);
     if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
@@ -90,7 +117,6 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   };
 
   const handleExportEnhancedBOQ = (language: 'en' | 'ar' | 'both') => {
-    console.log("handleExportEnhancedBOQ called, projectItems:", projectItems.length);
     if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
@@ -100,7 +126,6 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   };
 
   const handleExportTenderSummary = (format: 'pdf' | 'excel') => {
-    console.log("handleExportTenderSummary called, projectItems:", projectItems.length);
     if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
@@ -128,7 +153,6 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   };
 
   const handleExportPriceAnalysis = () => {
-    console.log("handleExportPriceAnalysis called, projectItems:", projectItems.length);
     if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
@@ -138,7 +162,6 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   };
 
   const handleViewPriceAnalysis = () => {
-    console.log("handleViewPriceAnalysis called, projectItems:", projectItems.length);
     if (projectItems.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للعرض" : "No data to view");
       return;
@@ -283,11 +306,6 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   };
 
   const handleExportComprehensivePDF = () => {
-    console.log("🎯 PDF Export Button Clicked!");
-    console.log("handleExportComprehensivePDF called, projectItems:", projectItems.length);
-    console.log("selectedProject:", selectedProject?.name);
-    console.log("hasData:", hasData);
-    
     if (!selectedProject) {
       toast.error(isArabic ? "الرجاء اختيار مشروع أولاً" : "Please select a project first");
       return;
@@ -455,10 +473,6 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   };
 
   const handlePrintReport = () => {
-    console.log("🎯 Print Button Clicked!");
-    console.log("handlePrintReport called, projectItems:", projectItems.length);
-    console.log("selectedProject:", selectedProject?.name);
-    
     if (!selectedProject) {
       toast.error(isArabic ? "الرجاء اختيار مشروع أولاً" : "Please select a project first");
       return;
@@ -836,7 +850,14 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
         </p>
       )}
 
-      {selectedProjectId && !hasData && (
+      {selectedProjectId && isLoadingItems && (
+        <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>{isArabic ? "جاري تحميل بيانات المشروع..." : "Loading project data..."}</span>
+        </div>
+      )}
+
+      {selectedProjectId && !isLoadingItems && !hasData && (
         <Alert className="border-warning/50 bg-warning/10">
           <AlertTriangle className="h-4 w-4 text-warning" />
           <AlertDescription className="text-warning-foreground">
