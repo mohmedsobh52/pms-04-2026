@@ -1,98 +1,78 @@
 
-# خطة إصلاح زر حفظ المشروع الذي لا يعمل
+# خطة إصلاح ارتجاف الفورم عند ملء البيانات
 
 ## تشخيص المشكلة
 
 ### السبب الجذري
-في ملف `src/components/ui/dialog-custom.css` (السطور 17-21)، هناك قاعدة CSS عامة جداً تمنع النقر:
+المكون `PageTransition.tsx` يُسبب الارتجاف لأنه:
 
-```css
-/* هذه القاعدة تسبب المشكلة */
-[data-state="closed"] {
-  animation-duration: 0ms !important;
-  pointer-events: none !important;  /* ← يمنع النقر! */
-  opacity: 0 !important;            /* ← يخفي العنصر! */
-}
+1. يستمع لتغييرات `children` في `useEffect` (السطر 25)
+2. عند كل ضغطة مفتاح في أي حقل، يتغير state الفورم
+3. هذا يُحدث `children` ويُعيد تشغيل animation
+4. النتيجة: رسوم متحركة مستمرة (opacity + translate-y) تسبب الارتجاف
+
+```typescript
+// المشكلة في السطور 14-25
+useEffect(() => {
+  setIsVisible(false);  // يخفي المحتوى
+  const timer = setTimeout(() => {
+    setDisplayChildren(children);  // يُحدث المحتوى
+    setIsVisible(true);  // يُظهر المحتوى
+  }, 150);
+  return () => clearTimeout(timer);
+}, [location.pathname, children]);  // ← children يسبب المشكلة!
 ```
-
-### كيف تسبب المشكلة:
-
-| العنصر | data-state | النتيجة |
-|--------|-----------|---------|
-| زر "حفظ المشروع" (DialogTrigger) | `closed` (قبل فتح Dialog) | **pointer-events: none → لا يستجيب للنقر!** |
-| Dialog Overlay | `closed` | يختفي (هذا صحيح) |
-| Dialog Content | `closed` | يختفي (هذا صحيح) |
-
-**المشكلة**: القاعدة تؤثر على **جميع** العناصر بما فيها الأزرار التي تفتح الحوارات!
 
 ---
 
 ## الحل
 
-### تعديل CSS لاستهداف عناصر Dialog فقط (وليس الأزرار)
+### تعديل PageTransition.tsx لتجاهل تغييرات children
 
-**الملف:** `src/components/ui/dialog-custom.css`
+**الملف:** `src/components/PageTransition.tsx`
 
-**التغييرات المطلوبة:**
+**التغييرات:**
+1. إزالة `children` من dependencies الـ useEffect
+2. تشغيل animation فقط عند تغيير المسار (route)
+3. عرض `children` مباشرة بدون تخزينها في state
 
-1. **إزالة القاعدة العامة `[data-state="closed"]`** التي تؤثر على كل شيء
-2. **تحديد القواعد للعناصر المناسبة فقط** (Overlay و Content)
+**الكود الجديد:**
+```typescript
+import { ReactNode, useEffect, useState, useRef } from "react";
+import { useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
-```css
-/* قبل (يمنع النقر على الأزرار) */
-[data-state="closed"] {
-  animation-duration: 0ms !important;
-  pointer-events: none !important;
-  opacity: 0 !important;
+interface PageTransitionProps {
+  children: ReactNode;
 }
 
-/* بعد (يستهدف فقط عناصر Dialog المناسبة) */
-/* إزالة هذه القاعدة العامة نهائياً */
-```
+export function PageTransition({ children }: PageTransitionProps) {
+  const location = useLocation();
+  const [isVisible, setIsVisible] = useState(true);
+  const previousPathname = useRef(location.pathname);
 
-**الكود المحدث:**
-```css
-/* ============================================
-   GLOBAL PERFORMANCE OPTIMIZATION
-   Remove Radix UI animations for instant response
-   ============================================ */
+  useEffect(() => {
+    // Only trigger animation when pathname changes
+    if (previousPathname.current !== location.pathname) {
+      setIsVisible(false);
+      const timer = setTimeout(() => {
+        setIsVisible(true);
+        previousPathname.current = location.pathname;
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [location.pathname]);
 
-/* Force instant appearance for Radix poppers */
-[data-radix-popper-content-wrapper] {
-  animation-duration: 0ms !important;
-}
-
-/* Instant open state - only animation, no pointer-events */
-[data-state="open"] {
-  animation-duration: 0ms !important;
-}
-
-/* Dialog Overlay - hide instantly on close */
-[data-radix-dialog-overlay][data-state="closed"] {
-  animation-duration: 0ms !important;
-  pointer-events: none !important;
-  opacity: 0 !important;
-}
-
-/* Dialog Content - hide instantly on close */
-[data-radix-dialog-content][data-state="closed"] {
-  animation-duration: 0ms !important;
-  pointer-events: none !important;
-  opacity: 0 !important;
-}
-
-/* Alert Dialog Overlay */
-[data-radix-alert-dialog-overlay][data-state="closed"] {
-  animation-duration: 0ms !important;
-  pointer-events: none !important;
-  opacity: 0 !important;
-}
-
-/* Alert Dialog Content */
-[data-radix-alert-dialog-content][data-state="closed"] {
-  animation-duration: 0ms !important;
-  pointer-events: none !important;
-  opacity: 0 !important;
+  return (
+    <div
+      className={cn(
+        "transition-opacity duration-150 ease-out",
+        isVisible ? "opacity-100" : "opacity-0"
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 ```
 
@@ -100,41 +80,46 @@
 
 ## ملخص التغييرات
 
-| الملف | السطر | التغيير |
-|-------|-------|---------|
-| `src/components/ui/dialog-custom.css` | 17-21 | إزالة القاعدة العامة `[data-state="closed"]` واستبدالها بقواعد محددة |
+| الملف | التغيير |
+|-------|---------|
+| `src/components/PageTransition.tsx` | إصلاح useEffect لتجاهل تغييرات children وتشغيل animation فقط عند تغيير route |
 
 ---
 
-## لماذا كان الزر لا يعمل؟
+## التغييرات التقنية
+
+1. **إزالة `displayChildren` state** - لم يعد ضرورياً
+2. **إضافة `previousPathname` ref** - لتتبع تغيير المسار فقط
+3. **إزالة `translate-y-2`** - لمنع أي حركة عمودية
+4. **تقليل duration من 300ms إلى 150ms** - لتسريع الانتقال
+5. **تغيير className من `transition-all` إلى `transition-opacity`** - لمنع أي تأثيرات جانبية
+
+---
+
+## النتيجة المتوقعة
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│                     سلسلة الأحداث                            │
-├─────────────────────────────────────────────────────────────┤
-│ 1. المستخدم يرى زر "حفظ المشروع"                             │
-│ 2. الزر (DialogTrigger) له data-state="closed"              │
-│ 3. CSS يطبق: pointer-events: none !important               │
-│ 4. المستخدم ينقر → لا شيء يحدث!                             │
-│                                                             │
-│ النتيجة: ❌ الزر مرئي لكن لا يستجيب للنقر                    │
-└─────────────────────────────────────────────────────────────┘
+قبل الإصلاح:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• الكتابة في أي حقل → الصفحة ترتجف
+• كل ضغطة مفتاح → animation جديد
+• تجربة مستخدم سيئة
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+بعد الإصلاح:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• الكتابة في أي حقل → لا ارتجاف
+• Animation فقط عند الانتقال بين الصفحات
+• تجربة مستخدم سلسة
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
-
----
-
-## النتيجة المتوقعة بعد الإصلاح
-
-1. **زر "حفظ المشروع"** يعمل ويفتح Dialog الحفظ
-2. **جميع أزرار DialogTrigger** تستجيب للنقر بشكل صحيح
-3. **الحوارات تختفي فوراً** عند الإغلاق (بدون رسوم متحركة)
-4. **الأداء السريع** محفوظ كما كان
 
 ---
 
 ## الاختبار المطلوب بعد التنفيذ
 
-1. النقر على زر **"حفظ المشروع"** → يفتح Dialog الحفظ ✓
-2. إدخال اسم المشروع والنقر على **"حفظ"** → يحفظ بنجاح ✓
-3. التأكد من أن جميع أزرار Dialog الأخرى تعمل ✓
-4. التأكد من أن الحوارات تفتح وتغلق فوراً (بدون تأخير) ✓
+1. **فتح صفحة إنشاء مشروع جديد** ✓
+2. **الكتابة في حقل اسم المشروع** → لا ارتجاف ✓
+3. **الكتابة في حقل الموقع** → لا ارتجاف ✓
+4. **تغيير العملة أو نوع المشروع** → لا ارتجاف ✓
+5. **الانتقال بين الصفحات** → animation سلس ✓
