@@ -21,7 +21,8 @@ import {
   Target,
   AlertTriangle,
   CheckCircle,
-  ArrowUpDown
+  ArrowUpDown,
+  Loader2
 } from "lucide-react";
 import {
   BarChart,
@@ -75,6 +76,8 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
   const [pricingHistory, setPricingHistory] = useState<PricingHistoryRecord[]>([]);
   const [showVarianceDialog, setShowVarianceDialog] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [dynamicItems, setDynamicItems] = useState<any[]>([]);
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
   
@@ -102,7 +105,50 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
     return [];
   };
   
-  const items = useMemo(() => getProjectItems(selectedProject), [selectedProject]);
+  // Fetch items dynamically when project changes
+  useEffect(() => {
+    const fetchItems = async () => {
+      if (!selectedProject) {
+        setDynamicItems([]);
+        return;
+      }
+      
+      // First check analysis_data
+      const localItems = getProjectItems(selectedProject);
+      if (localItems.length > 0) {
+        setDynamicItems(localItems);
+        return;
+      }
+      
+      // If no items in analysis_data, fetch from project_items table
+      setIsLoadingItems(true);
+      try {
+        const { data, error } = await supabase
+          .from("project_items")
+          .select("*")
+          .eq("project_id", selectedProject.id)
+          .order("item_number");
+        
+        if (error) {
+          console.error("Error fetching project items:", error);
+          setDynamicItems([]);
+        } else {
+          setDynamicItems(data || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch project items:", err);
+        setDynamicItems([]);
+      } finally {
+        setIsLoadingItems(false);
+      }
+    };
+    
+    fetchItems();
+  }, [selectedProject]);
+
+  // Use dynamicItems for all operations
+  const items = dynamicItems;
+  const hasData = items.length > 0 && !isLoadingItems;
 
   // Fetch pricing history when project changes
   useEffect(() => {
@@ -331,7 +377,7 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
           <Button 
             variant="outline" 
             size="sm" 
-            disabled={!selectedProjectId}
+            disabled={!hasData || isLoadingItems}
             onClick={() => handleExportPriceComparison('pdf')}
           >
             <FileDown className="h-4 w-4 mr-1" />
@@ -340,7 +386,7 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
           <Button 
             variant="outline" 
             size="sm" 
-            disabled={!selectedProjectId}
+            disabled={!hasData || isLoadingItems}
             onClick={() => handleExportPriceComparison('excel')}
           >
             <FileSpreadsheet className="h-4 w-4 mr-1" />
@@ -362,7 +408,7 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
         <Button 
           variant="outline" 
           size="sm" 
-          disabled={!selectedProjectId}
+          disabled={!hasData || isLoadingItems}
           onClick={handleExportBalanceReport}
           className="gap-2"
         >
@@ -384,7 +430,7 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
         <Button 
           variant="outline" 
           size="sm" 
-          disabled={!selectedProjectId}
+          disabled={!hasData || isLoadingItems}
           onClick={() => setShowVarianceDialog(true)}
         >
           <Eye className="h-4 w-4 mr-1" />
@@ -430,12 +476,22 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
                 ))}
               </SelectContent>
             </Select>
+            
+            {/* Loading indicator */}
+            {isLoadingItems && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">
+                  {isArabic ? "جاري تحميل البيانات..." : "Loading data..."}
+                </span>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
       {/* Price Stats Summary */}
-      {priceStats && (
+      {priceStats && !isLoadingItems && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4 text-center">
