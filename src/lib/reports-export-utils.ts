@@ -3,6 +3,14 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { getStoredLogo } from "@/components/CompanyLogoUpload";
 import { getCompanySettings } from "@/hooks/useCompanySettings";
+import { 
+  getLetterheadConfig, 
+  addPDFLetterheadHeader, 
+  addPDFLetterheadFooter,
+  addExcelLetterhead,
+  addExcelLetterheadFooter,
+  alimtyazLogo
+} from "@/lib/letterhead-utils";
 
 interface BOQItem {
   item_number?: string;
@@ -23,62 +31,13 @@ interface AnalysisData {
   };
 }
 
-// Helper function to add company header to Excel worksheet
+// Helper function to add company header to Excel worksheet (using letterhead utils)
 const addCompanyHeaderToWorksheet = async (
   workbook: ExcelJS.Workbook,
   worksheet: ExcelJS.Worksheet,
   isArabic = false
 ): Promise<number> => {
-  const companyLogo = getStoredLogo();
-  const companySettings = getCompanySettings();
-  const companyNameEn = companySettings.companyNameEn || '';
-  const companyNameAr = companySettings.companyNameAr || '';
-  
-  // Row 1: Company header
-  worksheet.mergeCells('A1:B1');
-  worksheet.getCell('A1').value = companyNameEn;
-  worksheet.getCell('A1').font = { bold: true, italic: true, name: 'Times New Roman', size: 12, color: { argb: 'FF1E293B' } };
-  worksheet.getCell('A1').alignment = { horizontal: 'left', vertical: 'middle' };
-  
-  worksheet.mergeCells('E1:F1');
-  worksheet.getCell('E1').value = companyNameAr;
-  worksheet.getCell('E1').font = { bold: true, name: 'Arial', size: 14, color: { argb: 'FF1E293B' } };
-  worksheet.getCell('E1').alignment = { horizontal: 'right', vertical: 'middle' };
-  
-  // Add logo in center if available
-  if (companyLogo) {
-    try {
-      const base64Data = companyLogo.split(',')[1];
-      const extension = companyLogo.includes('image/png') ? 'png' : 'jpeg';
-      const imageId = workbook.addImage({
-        base64: base64Data,
-        extension: extension as 'png' | 'jpeg',
-      });
-      worksheet.addImage(imageId, {
-        tl: { col: 2.5, row: 0.2 },
-        ext: { width: 80, height: 40 }
-      });
-    } catch (e) {
-      console.error('Error adding logo to Excel:', e);
-    }
-  }
-  
-  worksheet.getRow(1).height = 45;
-  
-  // Row 2: Blue separator line
-  worksheet.getRow(2).height = 5;
-  ['A2', 'B2', 'C2', 'D2', 'E2', 'F2'].forEach(cell => {
-    worksheet.getCell(cell).fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FF1E40AF' }
-    };
-  });
-  
-  // Row 3: Empty row for spacing
-  worksheet.getRow(3).height = 15;
-  
-  return 4; // Data starts at row 4
+  return await addExcelLetterhead(workbook, worksheet);
 };
 
 // Export BOQ to Excel with RTL support and company header
@@ -162,6 +121,10 @@ export const exportBOQToExcel = async (items: BOQItem[], projectName: string, is
     fgColor: { argb: 'FFE2EFDA' }
   };
   totalRow.alignment = { horizontal: isArabic ? 'right' : 'left', vertical: 'middle' };
+
+  // Add footer
+  addExcelLetterheadFooter(worksheet, currentRow);
+
   // Generate file
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -352,20 +315,42 @@ export const exportTenderSummaryToExcel = async (analysisData: AnalysisData, pro
   URL.revokeObjectURL(url);
 };
 
-// Generate company header HTML for PDF exports
+// Generate company header HTML for PDF exports (using letterhead config)
 const getCompanyHeaderHTML = () => {
+  const config = getLetterheadConfig();
   const companyLogo = getStoredLogo();
-  const companySettings = getCompanySettings();
-  const companyNameEn = companySettings.companyNameEn || '';
-  const companyNameAr = companySettings.companyNameAr || '';
   
   return `
     <div class="company-header">
-      <div class="company-name-en">${companyNameEn}</div>
+      <div class="company-name-en">${config.companyNameEn}</div>
       <div class="company-logo">
         ${companyLogo ? `<img src="${companyLogo}" alt="Company Logo" />` : ''}
       </div>
-      <div class="company-name-ar">${companyNameAr}</div>
+      <div class="company-name-ar">${config.companyNameAr}</div>
+    </div>
+  `;
+};
+
+const getCompanyFooterHTML = () => {
+  const config = getLetterheadConfig();
+  
+  return `
+    <div class="company-footer">
+      <div class="footer-separator"></div>
+      <div class="footer-content">
+        <div class="footer-column">
+          <span>📞 ${config.contactInfo.phone}</span>
+          <span>📠 ${config.contactInfo.fax}</span>
+        </div>
+        <div class="footer-column">
+          <span>📧 ${config.contactInfo.email}</span>
+          <span>🌐 ${config.contactInfo.website}</span>
+        </div>
+        <div class="footer-column">
+          <span>📍 ${config.contactInfo.city}, ${config.contactInfo.country}</span>
+          <span>${config.contactInfo.address} J.C.C ${config.contactInfo.crNumber}</span>
+        </div>
+      </div>
     </div>
   `;
 };
@@ -405,6 +390,30 @@ const getCompanyHeaderCSS = () => `
     max-height: 50px;
     max-width: 80px;
     object-fit: contain;
+  }
+  .company-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #f8fafc;
+    padding: 10px 25px;
+    font-size: 10px;
+    color: #64748b;
+  }
+  .footer-separator {
+    height: 2px;
+    background: #1e40af;
+    margin-bottom: 8px;
+  }
+  .footer-content {
+    display: flex;
+    justify-content: space-between;
+  }
+  .footer-column {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
   }
 `;
 

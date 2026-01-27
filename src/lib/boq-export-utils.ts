@@ -1,6 +1,11 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { XLSX } from '@/lib/exceljs-utils';
+import { 
+  addPDFLetterheadHeader, 
+  addPDFLetterheadFooter,
+  getLetterheadConfig 
+} from '@/lib/letterhead-utils';
 
 interface ComparisonItem {
   itemCode: string;
@@ -91,28 +96,30 @@ export function exportBOQComparisonToPDF(result: ComparisonResult, projectName?:
   const doc = new jsPDF('l', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.width;
   const currentDate = new Date().toLocaleDateString('en-GB');
+  const config = getLetterheadConfig();
   
-  // Header
-  doc.setFillColor(37, 99, 235); // Primary blue
-  doc.rect(0, 0, pageWidth, 30, 'F');
+  // Add letterhead header
+  const startY = addPDFLetterheadHeader(doc);
   
-  doc.setTextColor(255, 255, 255);
+  // Title
+  doc.setTextColor(37, 99, 235);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('BOQ Comparison Report', 14, 15);
+  doc.text('BOQ Comparison Report', 14, startY + 5);
   
+  doc.setTextColor(100, 116, 139);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Tender vs Budget Analysis | ${currentDate}`, 14, 23);
+  doc.text(`Tender vs Budget Analysis | ${currentDate}`, 14, startY + 12);
   if (projectName) {
-    doc.text(`Project: ${projectName}`, pageWidth - 14, 15, { align: 'right' });
+    doc.text(`Project: ${projectName}`, pageWidth - 14, startY + 5, { align: 'right' });
   }
   
   // Reset text color
   doc.setTextColor(0, 0, 0);
   
   // Summary Section
-  let yPos = 40;
+  let yPos = startY + 22;
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text('Executive Summary', 14, yPos);

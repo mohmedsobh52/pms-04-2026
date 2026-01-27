@@ -6,6 +6,7 @@ export interface CompanySettings {
   companyNameEn: string;
   description: string;
   phone: string;
+  fax: string;            // رقم الفاكس
   email: string;
   website: string;
   city: string;
@@ -26,17 +27,18 @@ export interface CompanySettings {
 const STORAGE_KEY = 'company-settings';
 
 const defaultSettings: CompanySettings = {
-  companyNameAr: '',
-  companyNameEn: '',
+  companyNameAr: 'الإمتياز الوطنية للمقاولات',
+  companyNameEn: 'AL IMTYAZ ALWATANIYA CONT.',
   description: '',
-  phone: '',
-  email: '',
-  website: '',
-  city: '',
-  country: '',
-  address: '',
+  phone: '+966-12-677-3822',
+  fax: '+966-12-677-3822',
+  email: 'contact@imtyaz.sa',
+  website: 'www.imtyaz.sa',
+  city: 'Jeddah',
+  country: 'Kingdom of Saudi Arabia',
+  address: 'P.O.Box 24610 Post Code 21456',
   taxNumber: '',
-  crNumber: '',
+  crNumber: '181551',
   defaultCurrency: 'SAR',
   defaultProfitMargin: 15,
   defaultOverhead: 10,
