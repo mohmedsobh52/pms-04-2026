@@ -32,7 +32,7 @@ const SubcontractorsPage = lazy(() => import("./pages/SubcontractorsPage"));
 const QuotationsPage = lazy(() => import("./pages/QuotationsPage"));
 const ContractsPage = lazy(() => import("./pages/ContractsPage"));
 const RiskPage = lazy(() => import("./pages/RiskPage"));
-const ReportsPage = lazy(() => import("./pages/ReportsPage"));
+// ReportsPage lazy import removed - now integrated in SavedProjectsPage
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const AnalysisToolsPage = lazy(() => import("./pages/AnalysisToolsPage"));
 const BOQItemsPage = lazy(() => import("./pages/BOQItemsPage"));
@@ -104,7 +104,7 @@ const App = () => (
                       <Route path="/contracts" element={<ContractsPage />} />
                       <Route path="/subcontractors" element={<SubcontractorsPage />} />
                       <Route path="/risk" element={<RiskPage />} />
-                      <Route path="/reports" element={<ReportsPage />} />
+                      <Route path="/reports" element={<Navigate to="/projects?tab=reports" replace />} />
                       <Route path="/settings" element={<SettingsPage />} />
                       <Route path="/company-settings" element={<CompanySettingsPage />} />
                       <Route path="/attachments" element={<AttachmentsPage />} />

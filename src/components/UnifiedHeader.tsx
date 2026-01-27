@@ -160,9 +160,9 @@ export function UnifiedHeader({ showQuickNav = true }: UnifiedHeaderProps) {
             </Link>
 
             {/* Reports - Highlighted */}
-            <Link to="/reports">
+            <Link to="/projects?tab=reports">
               <Button 
-                variant={isActive("/reports") ? "secondary" : "ghost"} 
+                variant={location.pathname === "/projects" && location.search.includes("reports") ? "secondary" : "ghost"} 
                 size="sm" 
                 className="gap-1.5 h-9 px-3 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/20"
               >
@@ -191,9 +191,9 @@ export function UnifiedHeader({ showQuickNav = true }: UnifiedHeaderProps) {
           <ThemeToggle />
           <LanguageToggle />
           
-          <Link to="/reports" className="hidden sm:block">
+          <Link to="/projects?tab=reports" className="hidden sm:block">
             <Button 
-              variant={isActive("/reports") ? "secondary" : "ghost"} 
+              variant={location.search.includes("reports") ? "secondary" : "ghost"} 
               size="icon" 
               className="h-9 w-9"
               title={isArabic ? "التقارير" : "Reports"}

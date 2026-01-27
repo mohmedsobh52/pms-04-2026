@@ -709,7 +709,7 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
           {/* Reports Quick Access */}
           <Button 
             size="sm" 
-            onClick={() => navigate("/reports")}
+            onClick={() => navigate("/projects?tab=reports")}
             className="gap-2 bg-gradient-to-r from-primary to-accent hover:opacity-90"
           >
             <BarChart3 className="w-4 h-4" />

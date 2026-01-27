@@ -187,8 +187,10 @@ const staticPages: SearchItem[] = [
     type: 'page',
     label: 'Reports',
     labelAr: 'التقارير',
+    description: 'Available in Projects tab',
+    descriptionAr: 'متوفر في تبويب المشاريع',
     icon: 'FileBarChart',
-    href: '/reports',
+    href: '/projects?tab=reports',
     keywords: ['reports', 'تقارير', 'export', 'تصدير'],
   },
   {
@@ -282,7 +284,7 @@ const quickActions: SearchItem[] = [
     label: 'Export Report',
     labelAr: 'تصدير تقرير',
     icon: 'Download',
-    href: '/reports',
+    href: '/projects?tab=reports',
     keywords: ['export', 'تصدير', 'report', 'تقرير', 'pdf'],
   },
 ];

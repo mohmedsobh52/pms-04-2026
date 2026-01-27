@@ -3,12 +3,13 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { 
   FolderOpen, Trash2, Loader2, Calendar, FileText, Search, 
   ArrowLeft, Eye, Edit, DollarSign, Package, Filter, X,
-  SortAsc, SortDesc, Download, Settings2, FileUp, Plus
+  SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ReportsTab } from "@/components/projects/ReportsTab";
 import {
   Select,
   SelectContent,
@@ -83,7 +84,8 @@ export default function SavedProjectsPage() {
   const [isLoadingItems, setIsLoadingItems] = useState(false);
   
   // Tab state - check URL for initial tab
-  const initialTab = searchParams.get("tab") === "analyze" ? "analyze" : "projects";
+  const urlTab = searchParams.get("tab");
+  const initialTab = urlTab === "analyze" ? "analyze" : urlTab === "reports" ? "reports" : "projects";
   const [activeTab, setActiveTab] = useState(initialTab);
   
   // Update tab when URL changes
@@ -91,6 +93,8 @@ export default function SavedProjectsPage() {
     const tab = searchParams.get("tab");
     if (tab === "analyze") {
       setActiveTab("analyze");
+    } else if (tab === "reports") {
+      setActiveTab("reports");
     }
   }, [searchParams]);
 
@@ -288,14 +292,18 @@ export default function SavedProjectsPage() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <TabsList className="grid w-full sm:w-auto grid-cols-2 tabs-navigation-safe">
+            <TabsList className="grid w-full sm:w-auto grid-cols-3 tabs-navigation-safe">
               <TabsTrigger value="projects" className="gap-2">
                 <FolderOpen className="w-4 h-4" />
-                {isArabic ? "المشاريع المحفوظة" : "Saved Projects"}
+                {isArabic ? "المشاريع" : "Projects"}
               </TabsTrigger>
               <TabsTrigger value="analyze" className="gap-2">
                 <FileUp className="w-4 h-4" />
-                {isArabic ? "تحليل ملف BOQ" : "Analyze BOQ"}
+                {isArabic ? "تحليل BOQ" : "Analyze"}
+              </TabsTrigger>
+              <TabsTrigger value="reports" className="gap-2">
+                <BarChart3 className="w-4 h-4" />
+                {isArabic ? "التقارير" : "Reports"}
               </TabsTrigger>
             </TabsList>
             
@@ -509,6 +517,11 @@ export default function SavedProjectsPage() {
                 navigate(`/projects/${projectId}`);
               }} 
             />
+          </TabsContent>
+
+          {/* Reports Tab */}
+          <TabsContent value="reports">
+            <ReportsTab isArabic={isArabic} />
           </TabsContent>
         </Tabs>
       </main>
