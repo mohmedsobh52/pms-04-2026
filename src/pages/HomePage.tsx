@@ -24,7 +24,7 @@ import {
   Search
 } from "lucide-react";
 import developerPhoto from "@/assets/developer/mohamed-sobh.jpg";
-import { getStoredLogo } from "@/components/CompanyLogoUpload";
+import alimtyazLogo from "@/assets/company/alimtyaz-logo.jpg";
 import { useGlobalSearch } from "@/hooks/useGlobalSearch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -94,18 +94,11 @@ export default function HomePage() {
   const [projectTrends, setProjectTrends] = useState<any[]>([]);
   const [categoryDistribution, setCategoryDistribution] = useState<any[]>([]);
   const [activePhase, setActivePhase] = useState(1);
-  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
 
   const { user, loading: authLoading } = useAuth();
   const { isArabic } = useLanguage();
   const navigate = useNavigate();
   const { setIsOpen: setSearchOpen } = useGlobalSearch();
-
-  // Load company logo from localStorage
-  useEffect(() => {
-    const logo = getStoredLogo();
-    setCompanyLogo(logo);
-  }, []);
 
   const CHART_COLORS = [
     "hsl(var(--primary))",
@@ -340,25 +333,23 @@ export default function HomePage() {
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-4">
             
-            {/* Left: Company Logo */}
+            {/* Left: Company Logo - Always show Alimtyaz logo */}
             <div className="flex items-center gap-3 flex-shrink-0">
-              {companyLogo ? (
-                <div className="w-12 h-12 rounded-lg overflow-hidden border border-border/50 bg-white p-1">
+              <Link to="/" className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-lg overflow-hidden border border-border/50 bg-white p-1 shadow-sm">
                   <img 
-                    src={companyLogo} 
-                    alt="Company Logo" 
+                    src={alimtyazLogo} 
+                    alt="Alimtyaz" 
                     className="w-full h-full object-contain"
                   />
                 </div>
-              ) : (
-                <PMSLogo size="lg" />
-              )}
-              <div className="hidden md:block">
-                <h1 className="font-display text-lg font-bold gradient-text">PMS</h1>
-                <p className="text-xs text-muted-foreground">
-                  {isArabic ? "نظام إدارة المشاريع" : "Project Management"}
-                </p>
-              </div>
+                <div className="hidden md:block">
+                  <h1 className="font-display text-lg font-bold gradient-text">PMS</h1>
+                  <p className="text-xs text-muted-foreground">
+                    {isArabic ? "نظام إدارة المشاريع" : "Project Management"}
+                  </p>
+                </div>
+              </Link>
             </div>
 
             {/* Center: Advanced Search Box - Always Visible */}
