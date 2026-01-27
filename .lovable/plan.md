@@ -1,137 +1,151 @@
 
 
-# خطة إضافة الصورة الشخصية ورابط LinkedIn
+# خطة إضافة الهيدر الاحترافي للصفحة الرئيسية
 
 ## نظرة عامة
 
-سيتم تحديث ملفات البرنامج لاستبدال أيقونة المستخدم الحالية بصورتك الشخصية الاحترافية، وإضافة رابط LinkedIn، وتحديث البيانات بناءً على بطاقة العمل المرفقة.
+سيتم تعديل الصفحة الرئيسية (HomePage) لإضافة هيدر ثابت (sticky) يحتوي على:
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│  [شعار الشركة]    [───── صندوق البحث المتطور ─────]    [الصورة الشخصية]      │
+│     (يسار)                    (وسط)                        (يمين)            │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## الصور المرفقة
+## التصميم المستهدف
 
-| الصورة | الاستخدام |
-|--------|----------|
-| `Mohamed_Sobh_Picture_1.jpg` | الصورة الشخصية في قسم المطور |
-| `ID_Card_Mohamed_Sobh.png` | مرجع للتأكد من صحة البيانات |
+| الموقع | المحتوى | التفاصيل |
+|--------|---------|----------|
+| **يسار** | شعار شركة الإمتياز | من localStorage عبر `getStoredLogo()` |
+| **وسط** | صندوق بحث ديناميكي متطور | ثابت ومرئي دائماً، يفتح Command Palette |
+| **يمين** | الصورة الشخصية | من `src/assets/developer/mohamed-sobh.jpg` |
 
 ---
 
 ## التعديلات المطلوبة
 
-### 1. نسخ الصورة إلى مجلد المشروع
+### 1. تحديث `src/pages/HomePage.tsx`
 
-```
-src/assets/developer/mohamed-sobh.jpg
-```
-
-### 2. تحديث `src/components/DeveloperInfo.tsx`
-
-**التغييرات:**
-
-- استيراد الصورة الشخصية
-- إضافة رابط LinkedIn
-- استبدال أيقونة `User` بالصورة الفعلية
-
+**الاستيرادات الجديدة:**
 ```typescript
-// إضافة الاستيراد
 import developerPhoto from "@/assets/developer/mohamed-sobh.jpg";
-import { Linkedin } from "lucide-react";
-
-const developer = {
-  name: "Dr.Eng. Mohamed Sobh",
-  titleAr: "مدير المشاريع",
-  titleEn: "Projects Director",
-  company: "AL IMTYAZ ALWATANIYA CONT.",
-  phone: "+966 54 800 0243",
-  email: "moh.sobh@imtyaz.sa",
-  email2: "mohammed_sobh2020@yahoo.om",
-  linkedin: "https://www.linkedin.com/in/mohamed-sobh-ab2083ba/", // إضافة جديدة
-  photo: developerPhoto, // إضافة جديدة
-  address: {
-    ar: "شارع الأمير محمد بن عبدالعزيز، فندق WA، الدور 13، جدة 23453",
-    en: "Prince Mohammed Bin Abdulaziz St., WA Hotel, 13th Floor, Jeddah 23453"
-  }
-};
+import { getStoredLogo } from "@/components/CompanyLogoUpload";
+import { Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { useGlobalSearch } from "@/hooks/useGlobalSearch";
 ```
 
-**تحديث عرض الصورة:**
+**تحديث الهيدر - استبدال الهيدر الحالي بالتصميم الجديد:**
 
 ```tsx
-// من:
-<div className="w-16 h-16 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-  <User className="w-8 h-8" />
-</div>
+{/* Header - New Professional Design */}
+<header className="border-b border-border/50 bg-card/80 backdrop-blur-xl sticky top-0 z-50 shadow-sm">
+  <div className="container mx-auto px-4 py-3">
+    <div className="flex items-center justify-between gap-4">
+      
+      {/* Left: Company Logo */}
+      <div className="flex items-center gap-3 flex-shrink-0">
+        {companyLogo ? (
+          <div className="w-12 h-12 rounded-lg overflow-hidden border border-border/50 bg-white p-1">
+            <img 
+              src={companyLogo} 
+              alt="Company Logo" 
+              className="w-full h-full object-contain"
+            />
+          </div>
+        ) : (
+          <PMSLogo size="lg" />
+        )}
+        <div className="hidden md:block">
+          <h1 className="font-display text-lg font-bold gradient-text">PMS</h1>
+          <p className="text-xs text-muted-foreground">
+            {isArabic ? "نظام إدارة المشاريع" : "Project Management"}
+          </p>
+        </div>
+      </div>
 
-// إلى:
-<div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-white/30">
-  <img 
-    src={developer.photo} 
-    alt={developer.name}
-    className="w-full h-full object-cover"
-  />
-</div>
+      {/* Center: Advanced Search Box - Always Visible */}
+      <div 
+        onClick={() => setSearchOpen(true)}
+        className="flex-1 max-w-xl mx-4 cursor-pointer group"
+      >
+        <div className="relative flex items-center">
+          <Search className="absolute left-3 h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+          <div className="w-full h-10 pl-10 pr-16 rounded-full border border-border/60 bg-background/60 backdrop-blur-sm 
+            flex items-center text-sm text-muted-foreground
+            hover:border-primary/50 hover:bg-background/80 transition-all duration-200
+            shadow-sm hover:shadow-md group-hover:ring-2 group-hover:ring-primary/20">
+            {isArabic ? "بحث في البرنامج..." : "Search the application..."}
+          </div>
+          <div className="absolute right-3 flex items-center gap-1">
+            <kbd className="hidden sm:inline-flex h-6 items-center gap-1 rounded border border-border/60 bg-muted/50 px-2 text-xs text-muted-foreground">
+              ⌘K
+            </kbd>
+          </div>
+        </div>
+      </div>
+
+      {/* Right: Developer Photo + Actions */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Quick Actions */}
+        <div className="hidden sm:flex items-center gap-1">
+          <LanguageToggle />
+          <ThemeToggle />
+        </div>
+        
+        {/* Developer Photo */}
+        <Link to="/about" className="group">
+          <div className="w-10 h-10 md:w-11 md:h-11 rounded-full overflow-hidden border-2 border-primary/30 
+            hover:border-primary transition-all duration-200 hover:scale-105 shadow-md hover:shadow-lg">
+            <img 
+              src={developerPhoto} 
+              alt="Developer" 
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </Link>
+        
+        {/* User Menu */}
+        {user ? <UserMenu /> : (
+          <Link to="/auth">
+            <Button size="sm">{isArabic ? "دخول" : "Login"}</Button>
+          </Link>
+        )}
+      </div>
+    </div>
+  </div>
+</header>
 ```
 
-**إضافة رابط LinkedIn:**
+**إضافة State للبحث والشعار:**
+```typescript
+// داخل مكون HomePage
+const { setIsOpen: setSearchOpen } = useGlobalSearch();
+const [companyLogo, setCompanyLogo] = useState<string | null>(null);
 
-```tsx
-<ContactItem 
-  icon={Linkedin} 
-  value={isArabic ? "الملف الشخصي" : "LinkedIn Profile"} 
-  href={developer.linkedin} 
-/>
+useEffect(() => {
+  // جلب شعار الشركة من localStorage
+  const logo = getStoredLogo();
+  setCompanyLogo(logo);
+}, []);
 ```
 
 ---
 
-### 3. تحديث `src/pages/About.tsx`
+## مميزات صندوق البحث الجديد
 
-**التغييرات:**
-
-- استيراد الصورة
-- استبدال أيقونة User بالصورة الشخصية
-- إضافة رابط LinkedIn
-- تحسين التصميم
-
-```typescript
-import developerPhoto from "@/assets/developer/mohamed-sobh.jpg";
-import { Linkedin } from "lucide-react";
-```
-
-**تحديث قسم المطور:**
-
-```tsx
-// من:
-<div className="w-24 h-24 md:w-32 md:h-32 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 
-  flex items-center justify-center flex-shrink-0 shadow-lg">
-  <User className="w-12 h-12 md:w-16 md:h-16 text-white" />
-</div>
-
-// إلى:
-<div className="w-24 h-24 md:w-32 md:h-32 rounded-xl overflow-hidden 
-  flex-shrink-0 shadow-lg border-4 border-orange-500/30">
-  <img 
-    src={developerPhoto} 
-    alt={developer.name}
-    className="w-full h-full object-cover"
-  />
-</div>
-```
-
-**إضافة زر LinkedIn:**
-
-```tsx
-<a 
-  href="https://www.linkedin.com/in/mohamed-sobh-ab2083ba/"
-  target="_blank"
-  rel="noopener noreferrer"
-  className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
->
-  <Linkedin className="w-4 h-4" />
-  LinkedIn
-</a>
-```
+| الميزة | الوصف |
+|--------|-------|
+| **مرئي دائماً** | يظهر بشكل ثابت في الهيدر |
+| **تصميم متطور** | شكل دائري مع ظل وتأثيرات hover |
+| **اختصار لوحة المفاتيح** | يعرض ⌘K للوصول السريع |
+| **ديناميكي** | يفتح Command Palette عند النقر |
+| **ثنائي اللغة** | نص placeholder بالعربية والإنجليزية |
 
 ---
 
@@ -139,9 +153,7 @@ import { Linkedin } from "lucide-react";
 
 | الملف | التغيير |
 |-------|---------|
-| `src/assets/developer/mohamed-sobh.jpg` | إضافة الصورة الشخصية (نسخ) |
-| `src/components/DeveloperInfo.tsx` | استبدال الأيقونة بالصورة + إضافة LinkedIn |
-| `src/pages/About.tsx` | استبدال الأيقونة بالصورة + إضافة LinkedIn |
+| `src/pages/HomePage.tsx` | تعديل الهيدر ليشمل الشعار والصورة والبحث |
 
 ---
 
@@ -149,34 +161,38 @@ import { Linkedin } from "lucide-react";
 
 ### قبل التعديل:
 ```text
-┌─────────────────────────────────┐
-│  ┌──────┐                       │
-│  │ 👤   │  Dr.Eng. Mohamed Sobh │
-│  │ Icon │  Projects Director    │
-│  └──────┘                       │
-└─────────────────────────────────┘
+┌────────────────────────────────────┐
+│ [PMS Logo]     [Actions] [UserMenu]│
+└────────────────────────────────────┘
 ```
 
 ### بعد التعديل:
 ```text
-┌─────────────────────────────────────┐
-│  ┌──────┐                           │
-│  │ 📷   │  Dr.Eng. Mohamed Sobh     │
-│  │Photo │  Projects Director        │
-│  └──────┘  📞 +966 54 800 0243      │
-│            ✉️ moh.sobh@imtyaz.sa    │
-│            🔗 LinkedIn Profile       │
-└─────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│                                                            │
+│  [شعار الإمتياز]  [🔍 بحث في البرنامج... ⌘K]  [📷 صورتك]  │
+│     PMS                                       [Lang][👤]   │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## مميزات التحديث
+## التفاعلات
 
-| الميزة | الوصف |
-|--------|-------|
-| **صورة شخصية** | صورة احترافية بدلاً من أيقونة |
-| **رابط LinkedIn** | وصول مباشر للملف الشخصي |
-| **تصميم محسن** | إطار أنيق حول الصورة |
-| **Responsive** | يعمل على جميع الأجهزة |
+| العنصر | عند النقر |
+|--------|----------|
+| **شعار الشركة** | لا شيء (تزييني) |
+| **صندوق البحث** | يفتح نافذة البحث الشاملة |
+| **الصورة الشخصية** | ينتقل لصفحة "About" |
+| **اختصار ⌘K** | يفتح نافذة البحث |
+
+---
+
+## ملاحظات هامة
+
+1. **شعار الشركة**: إذا لم يكن محفوظاً في localStorage، يظهر شعار PMS الافتراضي
+2. **Responsive**: التصميم يتكيف مع الشاشات الصغيرة
+3. **الصورة الشخصية**: موجودة بالفعل في `src/assets/developer/mohamed-sobh.jpg`
+4. **صندوق البحث**: يستخدم نفس hook البحث الشامل `useGlobalSearch`
 
