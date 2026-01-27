@@ -1,292 +1,214 @@
 
-# خطة إضافة ميزة حصر الكميات من المخططات
+# خطة إصلاح أزرار التصدير (PDF/Excel)
 
-## نظرة عامة على الميزة
+## تشخيص المشكلة
 
-إضافة إمكانية استخدام ملفات المخططات (PDF, DWG, صور) لحساب واستخراج الكميات تلقائياً باستخدام الذكاء الاصطناعي في صفحة "الاستخراج السريع".
+### الأعراض
+- أزرار PDF/Excel معطلة (disabled) رغم وجود مشاريع
+- ظهور رسالة "لا توجد بيانات للتصدير"
+- الأزرار لا تستجيب للنقرات
 
----
+### السبب الجذري
+بعد فحص قاعدة البيانات والكود، اكتشفت أن:
 
-## البنية الحالية
+1. **مصدران منفصلان للبيانات**:
+   - `saved_projects`: يحتوي على `analysis_data` (JSON كامل)
+   - `project_data`: لا يحتوي على `analysis_data`، بل يخزن البنود في جدول منفصل `project_items`
 
-### المكونات الموجودة
-1. **DrawingQuantityExtractor**: مكون موجود لكنه يعمل فقط من صفحة "المرفقات" ويتطلب ملفات محفوظة مسبقاً
-2. **analyze-drawings Edge Function**: دالة خلفية موجودة تستخدم Gemini AI لتحليل المخططات
-3. **FastExtractionPage**: صفحة الاستخراج السريع مع 3 خطوات (رفع → تصنيف → ربط بمشروع)
-4. **OCR Functions**: دوال OCR موجودة لاستخراج النص من الصور
+2. **المشكلة في ReportsTab**:
+   - يجلب من `project_data` و `saved_projects`
+   - لكن مشاريع `project_data` لا تحتوي على `analysis_data`
+   - فيصبح `hasData = false` والأزرار معطلة
 
-### المشكلة الحالية
-- ميزة حصر الكميات من المخططات متوفرة فقط بعد حفظ الملفات في مشروع
-- لا يمكن تحليل المخططات مباشرة من صفحة الاستخراج السريع
-- المستخدم يريد استخدام ملف المخططات فوراً لحساب الكميات
+3. **البيانات الفعلية موجودة**:
+   - مشروع "الدلم" له 485 بند في `project_items`
+   - مشروع "مشروع الشاطئ" له 130 بند
+   - لكن لم يتم جلبها لأن الكود يعتمد على `analysis_data` فقط
 
 ---
 
 ## الحل المقترح
 
-### 1. إضافة خطوة جديدة للمخططات في Fast Extraction
+### 1. تحديث ReportsTab لجلب project_items
 
-إضافة خطوة اختيارية بعد التصنيف:
-- **الخطوة 1**: رفع الملفات (موجودة)
-- **الخطوة 2**: تصنيف الملفات (موجودة)  
-- **الخطوة 2.5** (جديدة): تحليل المخططات للكميات
-- **الخطوة 3**: ربط بمشروع (موجودة)
-
-### 2. إنشاء مكون جديد: `FastExtractionDrawingAnalyzer`
+عندما يكون المشروع من `project_data` (بدون analysis_data)، يجب جلب البنود من `project_items`:
 
 ```typescript
-interface FastExtractionDrawingAnalyzerProps {
-  files: UploadedFile[];
-  onComplete: (results: DrawingAnalysisResult[]) => void;
-  onSkip: () => void;
-}
-
-interface DrawingAnalysisResult {
-  fileId: string;
-  fileName: string;
-  success: boolean;
-  quantities: ExtractedQuantity[];
-  drawingInfo: {
-    title: string;
-    type: string;
-    scale: string;
-  };
-  summary: {
-    totalItems: number;
-    categories: string[];
-    estimatedArea?: string;
-  };
+// في fetchProjects()
+// بعد جلب المشاريع، نضيف analysis_data للمشاريع من project_data
+for (const project of projectData) {
+  if (!project.analysis_data) {
+    const { data: items } = await supabase
+      .from("project_items")
+      .select("*")
+      .eq("project_id", project.id);
+    
+    project.analysis_data = {
+      items: items || [],
+      summary: {
+        total_value: project.total_value || 0,
+        total_items: project.items_count || 0,
+        currency: project.currency || 'SAR'
+      }
+    };
+  }
 }
 ```
 
-**الوظائف**:
-- عرض الملفات المصنفة كـ "drawings"
-- اختيار نوع المخطط (معماري، إنشائي، ميكانيكا، إلخ)
-- تحليل المخططات باستخدام AI
-- عرض نتائج الكميات المستخرجة
-- تصدير النتائج إلى Excel/PDF
-- خيار "تخطي" إذا لم يرد المستخدم تحليل المخططات
+### 2. تحديث ExportTab لدعم جلب البنود ديناميكياً
 
-### 3. تحسين Edge Function للمخططات
-
-تحديث `analyze-drawings/index.ts`:
-- دعم استلام base64 للصور مباشرة (Vision API)
-- تحسين استخراج الكميات من PDF الممسوح ضوئياً
-- دعم تحليل متعدد الصفحات
-- إضافة خيار اللغة (عربي/إنجليزي)
+إضافة دالة لجلب البنود من `project_items` عند الحاجة:
 
 ```typescript
-// الإضافات المقترحة
-interface AnalyzeDrawingRequest {
-  fileContent?: string;      // نص الملف (الحالي)
-  imageBase64?: string;      // صورة base64 (جديد)
-  images?: string[];         // صور متعددة الصفحات (جديد)
-  fileName: string;
-  fileType: string;
-  drawingType: string;
-  language?: 'ar' | 'en';    // جديد
-}
+const fetchProjectItems = async (projectId: string) => {
+  const { data } = await supabase
+    .from("project_items")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("item_number");
+  return data || [];
+};
 ```
 
-### 4. تحديث Stepper ليدعم 4 خطوات
+### 3. دعم البيانات من مصادر متعددة
 
-تعديل `FastExtractionStepper.tsx`:
+تحديث `getProjectItems()` للتحقق من:
+1. `analysis_data.items` (saved_projects)
+2. جدول `project_items` (project_data)
+
+---
+
+## التغييرات التفصيلية
+
+### ملف: `src/components/projects/ReportsTab.tsx`
+
+**التغيير 1**: إضافة جلب project_items للمشاريع بدون analysis_data
+
 ```typescript
-const steps = [
-  { id: 1, label: "رفع الملفات", icon: Upload },
-  { id: 2, label: "تصنيف", icon: Tag },
-  { id: 3, label: "تحليل المخططات", icon: Ruler },  // جديد
-  { id: 4, label: "حفظ", icon: Save }
-];
+const fetchProjects = async () => {
+  // ... الكود الحالي ...
+  
+  // إضافة: جلب البنود للمشاريع من project_data
+  for (const p of projectData) {
+    if (!p.analysis_data) {
+      const { data: items } = await supabase
+        .from("project_items")
+        .select("*")
+        .eq("project_id", p.id);
+      
+      p.analysis_data = {
+        items: items || [],
+        summary: {
+          total_value: p.total_value || 0,
+          total_items: p.items_count || 0,
+          currency: p.currency || 'SAR'
+        }
+      };
+    }
+  }
+  // ... باقي الكود ...
+};
+```
+
+### ملف: `src/components/reports/ExportTab.tsx`
+
+**التغيير 1**: إضافة جلب البنود ديناميكياً عند تغيير المشروع
+
+```typescript
+const [dynamicItems, setDynamicItems] = useState<any[]>([]);
+const [isLoadingItems, setIsLoadingItems] = useState(false);
+
+// جلب البنود عند تغيير المشروع
+useEffect(() => {
+  const fetchItems = async () => {
+    if (!selectedProject) return;
+    
+    // أولاً: تحقق من analysis_data
+    const items = getProjectItems(selectedProject);
+    if (items.length > 0) {
+      setDynamicItems(items);
+      return;
+    }
+    
+    // ثانياً: جلب من project_items
+    setIsLoadingItems(true);
+    const { data } = await supabase
+      .from("project_items")
+      .select("*")
+      .eq("project_id", selectedProject.id)
+      .order("item_number");
+    
+    setDynamicItems(data || []);
+    setIsLoadingItems(false);
+  };
+  
+  fetchItems();
+}, [selectedProject]);
+```
+
+**التغيير 2**: استخدام dynamicItems بدلاً من projectItems
+
+```typescript
+// تغيير hasData للاستخدام الديناميكي
+const hasData = dynamicItems.length > 0;
+
+// تحديث كل دوال التصدير لاستخدام dynamicItems
+const handleExportBOQ = () => {
+  if (dynamicItems.length === 0) { ... }
+  exportBOQToExcel(dynamicItems, selectedProject?.name || "Project");
+};
+```
+
+**التغيير 3**: إضافة مؤشر تحميل
+
+```typescript
+{isLoadingItems && (
+  <div className="flex items-center gap-2 text-muted-foreground">
+    <Loader2 className="h-4 w-4 animate-spin" />
+    {isArabic ? "جاري تحميل البيانات..." : "Loading data..."}
+  </div>
+)}
 ```
 
 ---
 
-## التفاصيل التقنية
-
-### الملفات المطلوب إنشاؤها
-
-| الملف | الوصف |
-|-------|-------|
-| `src/components/FastExtractionDrawingAnalyzer.tsx` | مكون جديد لتحليل المخططات |
-
-### الملفات المطلوب تعديلها
+## ملخص التغييرات
 
 | الملف | التغيير |
 |-------|---------|
-| `src/pages/FastExtractionPage.tsx` | إضافة الخطوة الجديدة والمكون |
-| `src/components/FastExtractionStepper.tsx` | تحديث الخطوات لتشمل تحليل المخططات |
-| `supabase/functions/analyze-drawings/index.ts` | دعم Vision API لتحليل الصور |
-
----
-
-## تفاصيل المكون الجديد `FastExtractionDrawingAnalyzer`
-
-### الواجهة
-```
-┌──────────────────────────────────────────────────────────────┐
-│ تحليل المخططات لحصر الكميات                    [تخطي] [تحليل] │
-├──────────────────────────────────────────────────────────────┤
-│ نوع المخططات: [▼ معماري | إنشائي | ميكانيكا | مدني | عام]    │
-├──────────────────────────────────────────────────────────────┤
-│ الملفات المتاحة للتحليل (3):                                 │
-│ ┌────────────────────────────────────────────────────────┐   │
-│ │ [✓] المخططات.pdf      54.37 MB    📐 رسومات           │   │
-│ │ [✓] ARCH-01.pdf       12.5 MB     📐 رسومات           │   │
-│ │ [ ] BOQ.xlsx          2.3 MB      📊 جدول الكميات      │   │
-│ └────────────────────────────────────────────────────────┘   │
-├──────────────────────────────────────────────────────────────┤
-│ [═══════════════════════70%═══════════════════          ]    │
-│ جاري تحليل: المخططات.pdf (صفحة 35/50)                       │
-├──────────────────────────────────────────────────────────────┤
-│ النتائج:                                                     │
-│ ┌──────────┬──────────────────────────────┬─────┬─────────┐  │
-│ │ البند    │ الوصف                        │ الكمية│ الوحدة │  │
-│ ├──────────┼──────────────────────────────┼─────┼─────────┤  │
-│ │ 1        │ حفر التربة                   │ 1500 │ م³     │  │
-│ │ 2        │ خرسانة أساسات               │ 450  │ م³     │  │
-│ │ 3        │ حديد تسليح                  │ 45000│ كجم    │  │
-│ └──────────┴──────────────────────────────┴─────┴─────────┘  │
-│                                [تصدير Excel] [تصدير PDF]     │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### الخطوات التقنية للتحليل
-
-1. **استخراج الصور من PDF**:
-   - استخدام `pdf-utils.ts` الموجود لتحويل صفحات PDF إلى صور
-   - استخدام دالة `pageToImage()` الموجودة
-
-2. **إرسال للتحليل**:
-   - إرسال الصور كـ base64 إلى `analyze-drawings` Edge Function
-   - استخدام Vision API (Gemini 2.5 Flash) لفهم المخططات
-
-3. **معالجة النتائج**:
-   - تحويل JSON إلى جدول كميات
-   - دمج نتائج الصفحات المتعددة
-   - حذف التكرارات وتجميع الكميات المتشابهة
-
----
-
-## تحديثات Edge Function
-
-### الكود المحدث لـ `analyze-drawings/index.ts`
-
-```typescript
-// إضافة دعم تحليل الصور مباشرة
-const { fileContent, imageBase64, images, fileName, fileType, drawingType, language } = await req.json();
-
-// إذا كانت صور متعددة
-if (images && Array.isArray(images) && images.length > 0) {
-  // تحليل كل صفحة
-  const results = [];
-  for (const img of images) {
-    const pageResult = await analyzeDrawingImage(img, drawingType, language);
-    results.push(pageResult);
-  }
-  // دمج النتائج
-  return mergeAnalysisResults(results);
-}
-
-// إذا كانت صورة واحدة
-if (imageBase64) {
-  return analyzeDrawingImage(imageBase64, drawingType, language);
-}
-
-// الطريقة الحالية (نص فقط)
-// ... الكود الحالي
-```
-
-### Prompt محسّن للمخططات العربية
-
-```typescript
-const systemPromptArabic = `أنت خبير مساحة كميات ومقاول إنشائي متخصص في قراءة وتحليل المخططات الهندسية.
-
-مهامك:
-1. قراءة المخطط وفهم جميع العناصر الإنشائية
-2. حساب الكميات بدقة (المساحات، الأطوال، الأحجام، الأعداد)
-3. تصنيف البنود حسب نظام BOQ القياسي
-4. تقدير متطلبات المواد
-
-أنواع الكميات المطلوبة:
-- أعمال الحفر والردم (م³)
-- الخرسانة بأنواعها (م³)
-- حديد التسليح (كجم/طن)
-- أعمال البناء (م²/م³)
-- التشطيبات (م²)
-- أعمال MEP (عدد/متر طولي)
-
-ملاحظات مهمة:
-- استخرج الكميات من المقاسات المكتوبة على المخطط
-- إذا لم تجد مقاساً، قدّر من المقياس
-- اذكر أساس القياس لكل بند
-`;
-```
-
----
-
-## تدفق العمل النهائي
-
-```
-رفع الملفات
-     │
-     ▼
-تصنيف تلقائي (AI)
-     │
-     ▼
-┌─────────────────────────┐
-│ هل توجد ملفات مخططات؟   │
-│ (category === 'drawings')│
-└───────────┬─────────────┘
-           │
-    ┌──────┴──────┐
-   نعم          لا
-    │             │
-    ▼             │
-تحليل المخططات   │
-    │             │
-    ▼             │
-عرض الكميات      │
-    │             │
-    └──────┬──────┘
-           │
-           ▼
-    ربط بمشروع وحفظ
-           │
-           ▼
-    الانتقال للمشروع
-```
-
----
-
-## الميزات الإضافية المقترحة
-
-1. **حفظ نتائج التحليل**: حفظ الكميات المستخرجة مع ملفات المشروع
-2. **دمج مع BOQ**: إمكانية استيراد الكميات المستخرجة إلى جدول BOQ الرئيسي
-3. **مقارنة الكميات**: مقارنة كميات المخططات مع BOQ الموجود
-4. **تقرير الفروقات**: إظهار الفرق بين المخططات وجدول الكميات
-
----
-
-## ملخص الملفات والتغييرات
-
-| الإجراء | الملف |
-|---------|-------|
-| **إنشاء** | `src/components/FastExtractionDrawingAnalyzer.tsx` |
-| **تعديل** | `src/pages/FastExtractionPage.tsx` |
-| **تعديل** | `src/components/FastExtractionStepper.tsx` |
-| **تعديل** | `supabase/functions/analyze-drawings/index.ts` |
+| `ReportsTab.tsx` | جلب project_items للمشاريع بدون analysis_data |
+| `ExportTab.tsx` | إضافة جلب ديناميكي للبنود + مؤشر تحميل |
 
 ---
 
 ## النتيجة المتوقعة
 
 ```
-✅ المستخدم يرفع ملف المخططات
-✅ النظام يصنفه تلقائياً كـ "رسومات"
-✅ تظهر خطوة تحليل المخططات
-✅ AI يستخرج الكميات من المخطط
-✅ عرض جدول الكميات المستخرجة
-✅ تصدير إلى Excel/PDF
-✅ حفظ مع المشروع
+قبل الإصلاح:
+❌ الأزرار معطلة للمشاريع من project_data
+❌ hasData: false رغم وجود 485 بند
+
+بعد الإصلاح:
+✅ الأزرار تعمل لجميع المشاريع
+✅ البيانات تُجلب من المصدر الصحيح تلقائياً
+✅ مؤشر تحميل واضح أثناء جلب البيانات
+✅ دعم كامل لـ saved_projects و project_data
 ```
+
+---
+
+## تفاصيل تقنية إضافية
+
+### تنسيق البيانات المتوقع
+```typescript
+// من saved_projects.analysis_data
+{ items: [...], summary: { total_value, currency } }
+
+// من project_items (يتم تحويله)
+[{ item_number, description, unit, quantity, unit_price, total_price, category }]
+```
+
+### الأولوية في جلب البيانات
+1. `analysis_data.items` (إذا موجود)
+2. `analysis_data.boq_items` (بديل)
+3. `project_items` جدول منفصل (fallback)
