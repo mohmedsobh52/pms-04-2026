@@ -59,6 +59,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { EditableItemCode } from "./EditableItemCode";
 import { EditableAIRate } from "./EditableAIRate";
 import { EditableUnitPrice } from "./EditableUnitPrice";
+import { EditableQuantity } from "./EditableQuantity";
+import { EditableUnit } from "./EditableUnit";
 import { ItemCodeSettings } from "./ItemCodeSettings";
 import { createWorkbook, addJsonSheet, downloadWorkbook } from "@/lib/exceljs-utils";
 import jsPDF from "jspdf";
@@ -304,15 +306,60 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
       description: isArabic ? "تم تحديث السعر الإجمالي" : "Total price updated",
     });
   }, [data.items, isArabic, toast, updateUnitPrice, updateTotalPrice]);
+
+  // ---- Inline Quantity/Unit editing (stored locally in state for now) ----
+  const [editedQuantities, setEditedQuantities] = useState<Record<string, number>>({});
+  const [editedUnits, setEditedUnits] = useState<Record<string, string>>({});
+
+  // Handler for editing quantity inline
+  const handleEditQuantity = useCallback((itemNumber: string, newQty: number) => {
+    setEditedQuantities(prev => ({ ...prev, [itemNumber]: newQty }));
+    
+    // Recalculate total price if we have a unit price
+    const item = (data.items || []).find(i => i.item_number === itemNumber);
+    if (item) {
+      const unitPrice = editedPrices[itemNumber]?.unit_price ?? item.unit_price ?? 0;
+      if (unitPrice > 0 && newQty > 0) {
+        const newTotal = unitPrice * newQty;
+        updateTotalPrice(itemNumber, newTotal);
+      }
+    }
+
+    toast({
+      title: isArabic ? "تم التحديث" : "Updated",
+      description: isArabic ? "تم تحديث الكمية" : "Quantity updated",
+    });
+  }, [data.items, editedPrices, isArabic, toast, updateTotalPrice]);
+
+  // Handler for editing unit inline
+  const handleEditUnit = useCallback((itemNumber: string, newUnit: string) => {
+    setEditedUnits(prev => ({ ...prev, [itemNumber]: newUnit }));
+    toast({
+      title: isArabic ? "تم التحديث" : "Updated",
+      description: isArabic ? "تم تحديث الوحدة" : "Unit updated",
+    });
+  }, [isArabic, toast]);
+
+  // Get effective quantity (edited > original)
+  const getEffectiveQuantity = useCallback((item: BOQItem) => {
+    return editedQuantities[item.item_number] ?? item.quantity ?? 0;
+  }, [editedQuantities]);
+
+  // Get effective unit (edited > original)
+  const getEffectiveUnit = useCallback((item: BOQItem) => {
+    return editedUnits[item.item_number] ?? item.unit ?? "";
+  }, [editedUnits]);
   
   // Get effective price for an item (edited > original)
   const getEffectivePrice = useCallback((item: BOQItem) => {
     const edited = editedPrices[item.item_number];
+    const effectiveQty = getEffectiveQuantity(item);
+    const unitPrice = edited?.unit_price ?? item.unit_price ?? 0;
     return {
-      unit_price: edited?.unit_price ?? item.unit_price ?? 0,
-      total_price: edited?.total_price ?? item.total_price ?? (item.unit_price ? item.unit_price * item.quantity : 0)
+      unit_price: unitPrice,
+      total_price: edited?.total_price ?? (unitPrice * effectiveQty)
     };
-  }, [editedPrices]);
+  }, [editedPrices, getEffectiveQuantity]);
 
   // Revert to original prices handler
   const handleRevertToOriginal = useCallback(async () => {
@@ -2171,12 +2218,19 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                         )}
                         {visibleColumns.includes("unit") && (
                           <td className="px-3 py-3 text-center">
-                            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{item.unit}</span>
+                            <EditableUnit
+                              value={getEffectiveUnit(item)}
+                              onSave={(newUnit) => handleEditUnit(item.item_number, newUnit)}
+                            />
                           </td>
                         )}
                         {visibleColumns.includes("quantity") && (
                           <td className="px-3 py-3 text-center">
-                            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{item.quantity.toLocaleString()}</span>
+                            <EditableQuantity
+                              value={getEffectiveQuantity(item)}
+                              onSave={(newQty) => handleEditQuantity(item.item_number, newQty)}
+                              className={editedQuantities[item.item_number] !== undefined ? "text-blue-600 dark:text-blue-400" : undefined}
+                            />
                           </td>
                         )}
                         {visibleColumns.includes("unit_price") && (
