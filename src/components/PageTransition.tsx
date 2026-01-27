@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useState, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -8,32 +8,29 @@ interface PageTransitionProps {
 
 export function PageTransition({ children }: PageTransitionProps) {
   const location = useLocation();
-  const [isVisible, setIsVisible] = useState(false);
-  const [displayChildren, setDisplayChildren] = useState(children);
+  const [isVisible, setIsVisible] = useState(true);
+  const previousPathname = useRef(location.pathname);
 
   useEffect(() => {
-    // Start exit animation
-    setIsVisible(false);
-    
-    // After exit animation, update children and start enter animation
-    const timer = setTimeout(() => {
-      setDisplayChildren(children);
-      setIsVisible(true);
-    }, 150);
-
-    return () => clearTimeout(timer);
-  }, [location.pathname, children]);
+    // Only trigger animation when pathname changes
+    if (previousPathname.current !== location.pathname) {
+      setIsVisible(false);
+      const timer = setTimeout(() => {
+        setIsVisible(true);
+        previousPathname.current = location.pathname;
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [location.pathname]);
 
   return (
     <div
       className={cn(
-        "transition-all duration-300 ease-out",
-        isVisible 
-          ? "opacity-100 translate-y-0" 
-          : "opacity-0 translate-y-2"
+        "transition-opacity duration-150 ease-out",
+        isVisible ? "opacity-100" : "opacity-0"
       )}
     >
-      {displayChildren}
+      {children}
     </div>
   );
 }
