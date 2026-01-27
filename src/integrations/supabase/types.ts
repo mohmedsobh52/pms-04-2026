@@ -1855,6 +1855,54 @@ export type Database = {
           },
         ]
       }
+      reference_prices: {
+        Row: {
+          category: string
+          created_at: string | null
+          id: string
+          item_name: string
+          item_name_ar: string | null
+          keywords: string[] | null
+          location: string | null
+          max_price: number | null
+          min_price: number | null
+          unit: string | null
+          updated_at: string | null
+          user_id: string | null
+          year: number | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          id?: string
+          item_name: string
+          item_name_ar?: string | null
+          keywords?: string[] | null
+          location?: string | null
+          max_price?: number | null
+          min_price?: number | null
+          unit?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          year?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          id?: string
+          item_name?: string
+          item_name_ar?: string | null
+          keywords?: string[] | null
+          location?: string | null
+          max_price?: number | null
+          min_price?: number | null
+          unit?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          year?: number | null
+        }
+        Relationships: []
+      }
       resource_items: {
         Row: {
           ai_generated: boolean | null
