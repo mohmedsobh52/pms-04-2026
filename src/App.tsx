@@ -51,8 +51,6 @@ const NewProjectPage = lazy(() => import("./pages/NewProjectPage"));
 const TenderSummaryPage = lazy(() => import("./pages/TenderSummaryPage"));
 const CompanySettingsPage = lazy(() => import("./pages/CompanySettingsPage"));
 const CostControlReportPage = lazy(() => import("./pages/CostControlReportPage"));
-const PricingAccuracyPage = lazy(() => import("./pages/PricingAccuracyPage"));
-
 const queryClient = new QueryClient();
 
 // Page loading component
@@ -118,7 +116,6 @@ const App = () => (
                       <Route path="/fast-extraction" element={<FastExtractionPage />} />
                       <Route path="/library" element={<LibraryPage />} />
                       <Route path="/cost-control-report" element={<CostControlReportPage />} />
-                      <Route path="/pricing-accuracy" element={<Navigate to="/projects" replace />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>
