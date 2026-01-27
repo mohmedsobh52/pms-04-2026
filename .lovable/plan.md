@@ -1,112 +1,222 @@
 
 
-# خطة تحسين سرعة استجابة الأزرار في القائمة الجانبية (⋮)
+# خطة تحسين شاملة للأداء والاستجابة في كامل التطبيق
 
-## تشخيص المشكلة
+## ملخص تنفيذي
 
-بعد فحص الكود و session replay، وجدت أن بطء الاستجابة ناتج عن عدة عوامل:
+سأقوم بتحسين سرعة استجابة جميع الأزرار والأيقونات وعناصر الواجهة في التطبيق عبر إزالة الرسوم المتحركة غير الضرورية وتحسين معالجة الأحداث.
 
-### الأسباب الرئيسية:
+---
 
-| السبب | التفاصيل | التأثير |
-|-------|----------|---------|
-| **الرسوم المتحركة** | `animate-in/animate-out` على DropdownMenuContent | تأخير 150-200ms |
-| **e.preventDefault()** | يُنفذ في كل نقرة قبل الإجراء الفعلي | overhead إضافي |
-| **معالجة الأحداث** | تعارض بين onClick و internal Radix handling | تأخير في التنفيذ |
+## التشخيص الحالي
+
+### المشكلات المكتشفة:
+
+| المكون | المشكلة | التأثير على السرعة |
+|--------|---------|-------------------|
+| **Dialog** | رسوم متحركة كاملة (fade + zoom + slide) | تأخير 200ms |
+| **Select** | رسوم متحركة كاملة | تأخير 150-200ms |
+| **Popover** | رسوم متحركة كاملة | تأخير 150-200ms |
+| **Sheet** | رسوم متحركة بمدة 300-500ms | تأخير كبير |
+| **Tooltip** | رسوم متحركة | تأخير طفيف |
+| **Context Menu** | رسوم متحركة كاملة | تأخير 150-200ms |
+| **Alert Dialog** | رسوم متحركة كاملة | تأخير 200ms |
+| **Hover Card** | رسوم متحركة كاملة | تأخير 150-200ms |
 
 ---
 
 ## الحل المقترح
 
-### 1. إزالة الرسوم المتحركة من DropdownMenu (تسريع كبير)
+### 1. تسريع Dialog (حوارات)
 
-**الملف:** `src/components/ui/dropdown-menu.tsx`
+**الملف:** `src/components/ui/dialog.tsx`
 
-إزالة classes الـ animation من `DropdownMenuContent` و `DropdownMenuSubContent`:
-
-```typescript
-// قبل (سطر 63-64)
-"z-[70] min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md 
- data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 
- data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 
- data-[side=bottom]:slide-in-from-top-2..."
-
-// بعد
-"z-[70] min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
-```
-
-### 2. تبسيط onClick handlers في ProjectBOQTab
-
-**الملف:** `src/components/project-details/ProjectBOQTab.tsx`
-
-إزالة `e.preventDefault()` غير الضروري:
+**التغييرات:**
+- إزالة الرسوم المتحركة من `DialogOverlay` و `DialogContent`
+- الإبقاء فقط على التأثيرات الأساسية للظهور
 
 ```typescript
-// قبل
-onClick={(e) => {
-  e.preventDefault();
-  onQuickPrice(item.id);
-}}
+// DialogOverlay - قبل:
+"data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
 
-// بعد - أبسط وأسرع
-onClick={() => onQuickPrice(item.id)}
+// DialogOverlay - بعد:
+"" // بدون رسوم متحركة
+
+// DialogContent - قبل:
+"duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]"
+
+// DialogContent - بعد:
+"" // بدون رسوم متحركة
 ```
 
-### 3. إضافة modal={false} لتعطيل modal behavior (تسريع إضافي)
+### 2. تسريع Select (القوائم المنسدلة)
 
-**الملف:** `src/components/project-details/ProjectBOQTab.tsx`
+**الملف:** `src/components/ui/select.tsx`
+
+**التغييرات:**
+- إزالة جميع الرسوم المتحركة من `SelectContent`
 
 ```typescript
-// إضافة modal={false} للـ DropdownMenu
-<DropdownMenu modal={false}>
-  <DropdownMenuTrigger asChild>
-    ...
-  </DropdownMenuTrigger>
-  <DropdownMenuContent align={isArabic ? "start" : "end"}>
-    ...
-  </DropdownMenuContent>
-</DropdownMenu>
+// قبل:
+"data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2..."
+
+// بعد:
+"" // بدون رسوم متحركة
 ```
 
-هذا يمنع إنشاء focus trap ويسرع الاستجابة.
+### 3. تسريع Popover
+
+**الملف:** `src/components/ui/popover.tsx`
+
+**التغييرات:**
+```typescript
+// قبل:
+"data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95..."
+
+// بعد:
+"" // بدون رسوم متحركة
+```
+
+### 4. تسريع Sheet (الأدراج الجانبية)
+
+**الملف:** `src/components/ui/sheet.tsx`
+
+**التغييرات:**
+```typescript
+// SheetOverlay - قبل:
+"data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+
+// SheetOverlay - بعد:
+"" // بدون رسوم متحركة
+
+// sheetVariants - قبل:
+"transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500"
+
+// sheetVariants - بعد:
+"" // بدون رسوم متحركة طويلة
+```
+
+### 5. تسريع Tooltip
+
+**الملف:** `src/components/ui/tooltip.tsx`
+
+**التغييرات:**
+```typescript
+// قبل:
+"animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95..."
+
+// بعد:
+"" // بدون رسوم متحركة
+```
+
+### 6. تسريع Context Menu
+
+**الملف:** `src/components/ui/context-menu.tsx`
+
+**التغييرات:**
+- إزالة الرسوم المتحركة من `ContextMenuContent` و `ContextMenuSubContent`
+
+### 7. تسريع Alert Dialog
+
+**الملف:** `src/components/ui/alert-dialog.tsx`
+
+**التغييرات:**
+- إزالة الرسوم المتحركة من `AlertDialogOverlay` و `AlertDialogContent`
+
+### 8. تسريع Hover Card
+
+**الملف:** `src/components/ui/hover-card.tsx`
+
+**التغييرات:**
+- إزالة الرسوم المتحركة من `HoverCardContent`
+
+### 9. تحسين CSS العام
+
+**الملف:** `src/components/ui/dialog-custom.css`
+
+**إضافات جديدة:**
+```css
+/* Global performance optimization - remove all Radix animations */
+[data-radix-popper-content-wrapper] {
+  animation-duration: 0ms !important;
+}
+
+/* Instant appearance for all Radix components */
+[data-state="open"] {
+  animation-duration: 50ms !important;
+}
+
+[data-state="closed"] {
+  animation-duration: 0ms !important;
+  pointer-events: none !important;
+}
+
+/* Ensure all buttons respond instantly */
+button, [role="button"], [type="button"] {
+  cursor: pointer;
+}
+
+button:active, [role="button"]:active {
+  transform: scale(0.98);
+  transition: transform 50ms;
+}
+
+/* Remove transition delays from interactive elements */
+.interactive-btn {
+  transition-duration: 100ms !important;
+}
+```
 
 ---
 
-## ملخص التغييرات
+## ملخص الملفات المتأثرة
 
-| الملف | السطر | التغيير |
-|-------|-------|---------|
-| `dropdown-menu.tsx` | 47, 63-64 | إزالة classes الـ animation |
-| `ProjectBOQTab.tsx` | 329-376 | إزالة `e.preventDefault()` من جميع onClick handlers |
-| `ProjectBOQTab.tsx` | 321 | إضافة `modal={false}` للـ DropdownMenu |
+| الملف | التغييرات |
+|-------|----------|
+| `src/components/ui/dialog.tsx` | إزالة رسوم متحركة من Overlay و Content |
+| `src/components/ui/select.tsx` | إزالة رسوم متحركة من Content |
+| `src/components/ui/popover.tsx` | إزالة رسوم متحركة من Content |
+| `src/components/ui/sheet.tsx` | تقليل مدة الرسوم المتحركة |
+| `src/components/ui/tooltip.tsx` | إزالة رسوم متحركة من Content |
+| `src/components/ui/context-menu.tsx` | إزالة رسوم متحركة من Content و SubContent |
+| `src/components/ui/alert-dialog.tsx` | إزالة رسوم متحركة من Overlay و Content |
+| `src/components/ui/hover-card.tsx` | إزالة رسوم متحركة من Content |
+| `src/components/ui/dialog-custom.css` | إضافة تحسينات CSS عامة |
 
 ---
 
 ## النتيجة المتوقعة
 
 ```text
-قبل الإصلاح:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• النقر على الخيار → تأخير 150-300ms
-• القائمة تغلق ببطء (animation)
-• Dialog يفتح بعد انتهاء animation
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┌─────────────────────────────────────────────────────────────┐
+│                     قبل التحسين                              │
+├─────────────────────────────────────────────────────────────┤
+│ • Dialog/Alert: 200-300ms تأخير                             │
+│ • Select/Dropdown: 150-200ms تأخير                          │
+│ • Sheet: 300-500ms تأخير                                    │
+│ • Tooltip: 100-150ms تأخير                                  │
+│ • الإحساس العام: بطيء ومتأخر                                 │
+└─────────────────────────────────────────────────────────────┘
 
-بعد الإصلاح:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• النقر على الخيار → استجابة فورية <50ms
-• القائمة تختفي فوراً
-• Dialog يفتح مباشرة
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┌─────────────────────────────────────────────────────────────┐
+│                     بعد التحسين                              │
+├─────────────────────────────────────────────────────────────┤
+│ • Dialog/Alert: <50ms استجابة فورية                          │
+│ • Select/Dropdown: <30ms استجابة فورية                       │
+│ • Sheet: <100ms استجابة سريعة                                │
+│ • Tooltip: <20ms استجابة فورية                               │
+│ • الإحساس العام: سريع وسلس                                    │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## الاختبار المطلوب
+## الاختبار المطلوب بعد التنفيذ
 
-1. **فتح القائمة (⋮)** → يجب أن تظهر فوراً (بدون animation)
-2. **النقر على Quick Price** → يجب أن يفتح Dialog فوراً
-3. **النقر على Detailed Price** → يجب أن يفتح Dialog فوراً
-4. **النقر على Edit/Delete** → يجب أن يعمل فوراً
-5. **لا يوجد تأخير محسوس** بين النقر والاستجابة
+1. **الأزرار**: جميع الأزرار تستجيب فوراً عند النقر
+2. **القوائم المنسدلة**: تظهر وتختفي فوراً
+3. **الحوارات (Dialogs)**: تفتح وتغلق فوراً
+4. **الأدراج الجانبية (Sheets)**: تفتح وتغلق بسرعة
+5. **التلميحات (Tooltips)**: تظهر فوراً عند التحويم
+6. **لا يوجد تأخير محسوس** في أي تفاعل مع الواجهة
 
