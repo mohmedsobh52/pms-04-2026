@@ -13,11 +13,11 @@
   animation-duration: 0ms !important;
 }
 
-/* Instant close with pointer-events removal */
+/* Instant close - animation only, NO pointer-events blocking on generic selector */
 [data-state="closed"] {
   animation-duration: 0ms !important;
-  pointer-events: none !important;
-  opacity: 0 !important;
+  /* REMOVED: pointer-events: none - was blocking DialogTrigger buttons */
+  /* REMOVED: opacity: 0 - was hiding DialogTrigger buttons */
 }
 
 /* Dialog Overlay - Instant pointer-events removal on close */
