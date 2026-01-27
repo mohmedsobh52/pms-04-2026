@@ -20,8 +20,12 @@ import {
   Receipt,
   Briefcase,
   FileUp,
-  Zap
+  Zap,
+  Search
 } from "lucide-react";
+import developerPhoto from "@/assets/developer/mohamed-sobh.jpg";
+import { getStoredLogo } from "@/components/CompanyLogoUpload";
+import { useGlobalSearch } from "@/hooks/useGlobalSearch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -90,10 +94,18 @@ export default function HomePage() {
   const [projectTrends, setProjectTrends] = useState<any[]>([]);
   const [categoryDistribution, setCategoryDistribution] = useState<any[]>([]);
   const [activePhase, setActivePhase] = useState(1);
+  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
 
   const { user, loading: authLoading } = useAuth();
   const { isArabic } = useLanguage();
   const navigate = useNavigate();
+  const { setIsOpen: setSearchOpen } = useGlobalSearch();
+
+  // Load company logo from localStorage
+  useEffect(() => {
+    const logo = getStoredLogo();
+    setCompanyLogo(logo);
+  }, []);
 
   const CHART_COLORS = [
     "hsl(var(--primary))",
@@ -323,44 +335,97 @@ export default function HomePage() {
     <div className="min-h-screen bg-transparent relative" dir={isArabic ? 'rtl' : 'ltr'}>
       <BackgroundImage activePhase={activePhase} />
       
-      {/* Header */}
-      <header className="border-b border-border/50 bg-card/60 backdrop-blur-xl sticky top-0 z-50">
+      {/* Header - New Professional Design */}
+      <header className="border-b border-border/50 bg-card/80 backdrop-blur-xl sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-4">
-            {/* Logo & Title */}
-            <div className="flex items-center gap-3">
-              <PMSLogo size="lg" />
-              <div>
-                <h1 className="font-display text-xl font-bold gradient-text">PMS</h1>
+            
+            {/* Left: Company Logo */}
+            <div className="flex items-center gap-3 flex-shrink-0">
+              {companyLogo ? (
+                <div className="w-12 h-12 rounded-lg overflow-hidden border border-border/50 bg-white p-1">
+                  <img 
+                    src={companyLogo} 
+                    alt="Company Logo" 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              ) : (
+                <PMSLogo size="lg" />
+              )}
+              <div className="hidden md:block">
+                <h1 className="font-display text-lg font-bold gradient-text">PMS</h1>
                 <p className="text-xs text-muted-foreground">
-                  {isArabic ? "نظام إدارة المشاريع" : "Project Management System"}
+                  {isArabic ? "نظام إدارة المشاريع" : "Project Management"}
                 </p>
               </div>
             </div>
-            
-            {/* Right Actions */}
-            <div className="flex items-center gap-2">
+
+            {/* Center: Advanced Search Box - Always Visible */}
+            <div 
+              onClick={() => setSearchOpen(true)}
+              className="flex-1 max-w-xl mx-4 cursor-pointer group hidden sm:block"
+            >
+              <div className="relative flex items-center">
+                <Search className="absolute left-3 h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                <div className="w-full h-10 pl-10 pr-16 rounded-full border border-border/60 bg-background/60 backdrop-blur-sm 
+                  flex items-center text-sm text-muted-foreground
+                  hover:border-primary/50 hover:bg-background/80 transition-all duration-200
+                  shadow-sm hover:shadow-md group-hover:ring-2 group-hover:ring-primary/20">
+                  {isArabic ? "بحث في البرنامج..." : "Search the application..."}
+                </div>
+                <div className="absolute right-3 flex items-center gap-1">
+                  <kbd className="hidden md:inline-flex h-6 items-center gap-1 rounded border border-border/60 bg-muted/50 px-2 text-xs text-muted-foreground">
+                    ⌘K
+                  </kbd>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile Search Button */}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="sm:hidden h-9 w-9"
+              onClick={() => setSearchOpen(true)}
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+
+            {/* Right: Developer Photo + Actions */}
+            <div className="flex items-center gap-2 flex-shrink-0">
               {user && <RealtimeNotifications />}
-              <LanguageToggle />
-              <ThemeToggle />
-              <Link to="/settings">
+              
+              {/* Quick Actions */}
+              <div className="hidden sm:flex items-center gap-1">
+                <LanguageToggle />
+                <ThemeToggle />
+              </div>
+              
+              <Link to="/settings" className="hidden sm:block">
                 <Button variant="ghost" size="icon" className="h-9 w-9">
                   <Settings2 className="h-4 w-4" />
                 </Button>
               </Link>
-              {user ? (
-                <div className="flex items-center gap-2">
-                  <Link to="/analyze">
-                    <Button size="sm" className="gap-2">
-                      <FileUp className="w-4 h-4" />
-                      <span className="hidden sm:inline">{isArabic ? "تحليل ملف" : "Analyze File"}</span>
-                    </Button>
-                  </Link>
-                  <UserMenu />
+              
+              {/* Developer Photo */}
+              <Link to="/about" className="group">
+                <div className="w-10 h-10 md:w-11 md:h-11 rounded-full overflow-hidden border-2 border-primary/30 
+                  hover:border-primary transition-all duration-200 hover:scale-105 shadow-md hover:shadow-lg">
+                  <img 
+                    src={developerPhoto} 
+                    alt="Developer" 
+                    className="w-full h-full object-cover"
+                  />
                 </div>
+              </Link>
+              
+              {/* User Menu */}
+              {user ? (
+                <UserMenu />
               ) : (
                 <Link to="/auth">
-                  <Button size="sm">{isArabic ? "تسجيل الدخول" : "Sign In"}</Button>
+                  <Button size="sm">{isArabic ? "دخول" : "Login"}</Button>
                 </Link>
               )}
             </div>
