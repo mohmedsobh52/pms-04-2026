@@ -622,7 +622,7 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
               <FolderOpen className="w-5 h-5" />
               {isArabic ? "مرفقات المشروع" : "Project Attachments"}
             </CardTitle>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap card-actions-safe">
               {/* Quantity Takeoff */}
               <DrawingQuantityExtractor 
                 attachments={attachments} 
