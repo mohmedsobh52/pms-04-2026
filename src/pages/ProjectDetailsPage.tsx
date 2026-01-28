@@ -20,6 +20,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import DetailedPriceDialog from "@/components/pricing/DetailedPriceDialog";
 import EditItemDialog from "@/components/items/EditItemDialog";
+import { AutoPriceDialog } from "@/components/project-details/AutoPriceDialog";
+import { QuickPriceDialog } from "@/components/project-details/QuickPriceDialog";
 
 // Import refactored components
 import { ProjectHeader } from "@/components/project-details/ProjectHeader";
@@ -79,6 +81,7 @@ export default function ProjectDetailsPage() {
   const [isAutoPricing, setIsAutoPricing] = useState(false);
   const [showAddItemDialog, setShowAddItemDialog] = useState(false);
   const [showQuickPriceDialog, setShowQuickPriceDialog] = useState<string | null>(null);
+  const [selectedItemForQuickPrice, setSelectedItemForQuickPrice] = useState<ProjectItem | null>(null);
   const [quickPriceValue, setQuickPriceValue] = useState("");
   const [newItem, setNewItem] = useState({ item_number: "", description: "", unit: "", quantity: "" });
   const [isAddingItem, setIsAddingItem] = useState(false);
@@ -86,6 +89,7 @@ export default function ProjectDetailsPage() {
   const [selectedItemForPricing, setSelectedItemForPricing] = useState<ProjectItem | null>(null);
   const [showEditItemDialog, setShowEditItemDialog] = useState(false);
   const [selectedItemForEdit, setSelectedItemForEdit] = useState<ProjectItem | null>(null);
+  const [showAutoPriceDialog, setShowAutoPriceDialog] = useState(false);
 
   // Fetch project data
   useEffect(() => {
@@ -451,34 +455,40 @@ export default function ProjectDetailsPage() {
     }
   };
 
-  const handleAutoPricing = async () => {
+  const handleAutoPricing = () => {
+    // فتح dialog التسعير التلقائي بدلاً من التسعير المباشر
+    setShowAutoPriceDialog(true);
+  };
+
+  const handleApplyAutoPricing = async (pricedItems: { id: string; price: number; source: string }[]) => {
     setIsAutoPricing(true);
     try {
-      const unpricedItems = items.filter(item => !item.unit_price || item.unit_price === 0);
-      
-      for (const item of unpricedItems) {
-        const estimatedPrice = Math.round(Math.random() * 100 + 10);
-        const totalPrice = (item.quantity || 1) * estimatedPrice;
+      for (const pricedItem of pricedItems) {
+        const item = items.find(i => i.id === pricedItem.id);
+        if (!item) continue;
+        
+        const totalPrice = (item.quantity || 1) * pricedItem.price;
         
         await supabase
           .from("project_items")
-          .update({ unit_price: estimatedPrice, total_price: totalPrice })
-          .eq("id", item.id);
+          .update({ unit_price: pricedItem.price, total_price: totalPrice })
+          .eq("id", pricedItem.id);
       }
 
       const { data: updatedItems } = await supabase
         .from("project_items")
         .select("*")
         .eq("project_id", projectId)
-        .order("item_number");
+        .order("sort_order", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true });
       
       if (updatedItems) setItems(updatedItems);
 
       toast({
         title: isArabic ? "تم التسعير التلقائي" : "Auto pricing complete",
         description: isArabic 
-          ? `تم تسعير ${unpricedItems.length} بند` 
-          : `Priced ${unpricedItems.length} items`,
+          ? `تم تسعير ${pricedItems.length} بند من مكتبة الأسعار` 
+          : `Priced ${pricedItems.length} items from price library`,
       });
     } catch (error: any) {
       toast({
@@ -488,6 +498,33 @@ export default function ProjectDetailsPage() {
       });
     } finally {
       setIsAutoPricing(false);
+    }
+  };
+
+  const handleQuickPriceApply = async (price: number) => {
+    if (!selectedItemForQuickPrice) return;
+    
+    const totalPrice = (selectedItemForQuickPrice.quantity || 0) * price;
+
+    try {
+      await supabase
+        .from("project_items")
+        .update({ unit_price: price, total_price: totalPrice })
+        .eq("id", selectedItemForQuickPrice.id);
+
+      setItems(prev => prev.map(i => 
+        i.id === selectedItemForQuickPrice.id ? { ...i, unit_price: price, total_price: totalPrice } : i
+      ));
+
+      toast({
+        title: isArabic ? "تم تحديث السعر" : "Price updated",
+      });
+    } catch (error: any) {
+      toast({
+        title: isArabic ? "خطأ في التحديث" : "Error updating",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -861,8 +898,11 @@ export default function ProjectDetailsPage() {
               onAddItem={() => setShowAddItemDialog(true)}
               onQuickPrice={(itemId) => {
                 const item = items.find(i => i.id === itemId);
-                setShowQuickPriceDialog(itemId);
-                setQuickPriceValue(item?.unit_price?.toString() || "");
+                if (item) {
+                  setSelectedItemForQuickPrice(item);
+                  setShowQuickPriceDialog(itemId);
+                  setQuickPriceValue(item?.unit_price?.toString() || "");
+                }
               }}
               onDetailedPrice={(item) => {
                 setSelectedItemForPricing(item);
@@ -909,61 +949,31 @@ export default function ProjectDetailsPage() {
         </Tabs>
       </main>
 
-      {/* Quick Price Dialog - Conditional Rendering */}
-      {showQuickPriceDialog && (
-        <Dialog 
-          key={`quick-price-${showQuickPriceDialog}`}
-          open={true} 
-          onOpenChange={() => setShowQuickPriceDialog(null)}
-        >
-          <DialogContent 
-            className="sm:max-w-[425px]"
-            onOpenAutoFocus={(e) => e.preventDefault()}
-            onCloseAutoFocus={(e) => e.preventDefault()}
-          >
-            <DialogHeader>
-              <DialogTitle>{isArabic ? "تسعير سريع" : "Quick Price"}</DialogTitle>
-              <DialogDescription>
-                {isArabic 
-                  ? "أدخل سعر الوحدة لهذا البند" 
-                  : "Enter the unit price for this item"}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="unitPrice">{isArabic ? "سعر الوحدة" : "Unit Price"}</Label>
-                <Input 
-                  id="unitPrice"
-                  type="number" 
-                  step="0.01"
-                  placeholder={isArabic ? "أدخل السعر" : "Enter price"}
-                  value={quickPriceValue}
-                  onChange={(e) => setQuickPriceValue(e.target.value)}
-                />
-              </div>
-              {(() => {
-                const item = items.find(i => i.id === showQuickPriceDialog);
-                const price = parseFloat(quickPriceValue) || 0;
-                const total = (item?.quantity || 0) * price;
-                return item ? (
-                  <div className="p-3 bg-muted/50 rounded-lg space-y-1 text-sm">
-                    <p><span className="text-muted-foreground">{isArabic ? "البند:" : "Item:"}</span> {item.item_number}</p>
-                    <p><span className="text-muted-foreground">{isArabic ? "الكمية:" : "Qty:"}</span> {item.quantity?.toLocaleString()}</p>
-                    <p><span className="text-muted-foreground">{isArabic ? "الإجمالي:" : "Total:"}</span> <span className="font-bold">{formatCurrency(total)}</span></p>
-                  </div>
-                ) : null;
-              })()}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowQuickPriceDialog(null)}>
-                {isArabic ? "إلغاء" : "Cancel"}
-              </Button>
-              <Button onClick={handleQuickPrice} disabled={!quickPriceValue}>
-                {isArabic ? "تطبيق السعر" : "Apply Price"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+      {/* Auto Price Dialog */}
+      {showAutoPriceDialog && (
+        <AutoPriceDialog
+          isOpen={showAutoPriceDialog}
+          onClose={() => setShowAutoPriceDialog(false)}
+          items={items}
+          onApplyPricing={handleApplyAutoPricing}
+          isArabic={isArabic}
+          currency={project.currency || "SAR"}
+        />
+      )}
+
+      {/* Quick Price Dialog - Using new component */}
+      {showQuickPriceDialog && selectedItemForQuickPrice && (
+        <QuickPriceDialog
+          isOpen={!!showQuickPriceDialog}
+          onClose={() => {
+            setShowQuickPriceDialog(null);
+            setSelectedItemForQuickPrice(null);
+          }}
+          item={selectedItemForQuickPrice}
+          onApplyPrice={handleQuickPriceApply}
+          isArabic={isArabic}
+          currency={project.currency || "SAR"}
+        />
       )}
 
       {/* Add Item Dialog - Conditional Rendering */}
