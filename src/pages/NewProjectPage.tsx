@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Plus, ArrowLeft, Briefcase, Building2, DollarSign, FileText, Loader2, Home } from "lucide-react";
+import { Plus, ArrowLeft, Briefcase, Building2, DollarSign, FileText, Loader2, Home, MapPin, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -147,7 +147,7 @@ export default function NewProjectPage() {
 
   return (
     <PageLayout>
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="max-w-3xl mx-auto space-y-6">
         {/* Breadcrumb */}
         <Breadcrumb className="breadcrumb-safe">
           <BreadcrumbList>
@@ -172,16 +172,24 @@ export default function NewProjectPage() {
           </BreadcrumbList>
         </Breadcrumb>
         
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/projects")} className="relative z-[51] pointer-events-auto">
+        {/* Page Header - Enhanced */}
+        <div className="flex items-center gap-4 bg-gradient-to-r from-primary/10 to-transparent p-4 rounded-lg">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => navigate("/projects")} 
+            className="relative z-[51] pointer-events-auto bg-background/80 hover:bg-background"
+          >
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Plus className="w-6 h-6 text-primary" />
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Plus className="w-6 h-6 text-primary" />
+              </div>
               {isArabic ? "إنشاء مشروع جديد" : "Create New Project"}
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground mt-1">
               {isArabic 
                 ? "قم بإنشاء مشروع فارغ وأضف بنود BOQ لاحقاً"
                 : "Create an empty project and add BOQ items later"}
@@ -190,146 +198,194 @@ export default function NewProjectPage() {
         </div>
         
         <form onSubmit={handleSubmit}>
-          <Card className="form-card-safe">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Briefcase className="w-5 h-5" />
+          <Card className="form-card-safe border-2 hover:border-primary/30 transition-colors shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-muted/50 to-transparent border-b">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <div className="p-1.5 bg-primary/10 rounded">
+                  <Briefcase className="w-5 h-5 text-primary" />
+                </div>
                 {isArabic ? "معلومات المشروع" : "Project Information"}
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-sm">
                 {isArabic 
                   ? "أدخل المعلومات الأساسية للمشروع"
                   : "Enter basic project information"}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Project Name */}
-              <div className="space-y-2">
-                <Label htmlFor="name" className="flex items-center gap-1">
+            
+            <CardContent className="space-y-8 pt-6">
+              {/* Section 1: Basic Information */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2 border-b pb-2">
                   <FileText className="w-4 h-4" />
-                  {isArabic ? "اسم المشروع *" : "Project Name *"}
-                </Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
-                  placeholder={isArabic ? "مثال: مشروع بناء مجمع سكني" : "e.g., Residential Complex Construction"}
-                  required
-                />
-              </div>
-              
-              {/* Description */}
-              <div className="space-y-2">
-                <Label htmlFor="description">
-                  {isArabic ? "وصف المشروع" : "Project Description"}
-                </Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => handleInputChange("description", e.target.value)}
-                  placeholder={isArabic ? "وصف مختصر للمشروع..." : "Brief project description..."}
-                  rows={3}
-                />
-              </div>
-              
-              {/* Currency & Type */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1">
-                    <DollarSign className="w-4 h-4" />
-                    {isArabic ? "العملة" : "Currency"}
-                  </Label>
-                  <Select 
-                    value={formData.currency} 
-                    onValueChange={(v) => handleInputChange("currency", v)}
-                  >
-                    <SelectTrigger className="relative z-[55] pointer-events-auto">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {currencies.map(c => (
-                        <SelectItem key={c.value} value={c.value}>
-                          {isArabic ? c.label.ar : c.label.en}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  {isArabic ? "المعلومات الأساسية" : "Basic Information"}
+                </h3>
                 
+                {/* Project Name */}
                 <div className="space-y-2">
-                  <Label className="flex items-center gap-1">
-                    <Building2 className="w-4 h-4" />
-                    {isArabic ? "نوع المشروع" : "Project Type"}
+                  <Label htmlFor="name" className="flex items-center gap-1 font-medium">
+                    <FileText className="w-4 h-4 text-primary" />
+                    {isArabic ? "اسم المشروع *" : "Project Name *"}
                   </Label>
-                  <Select 
-                    value={formData.projectType} 
-                    onValueChange={(v) => handleInputChange("projectType", v)}
-                  >
-                    <SelectTrigger className="relative z-[55] pointer-events-auto">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {projectTypes.map(t => (
-                        <SelectItem key={t.value} value={t.value}>
-                          {isArabic ? t.label.ar : t.label.en}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              
-              {/* Location & Client */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>{isArabic ? "موقع المشروع" : "Project Location"}</Label>
                   <Input
-                    value={formData.location}
-                    onChange={(e) => handleInputChange("location", e.target.value)}
-                    placeholder={isArabic ? "المدينة، المنطقة" : "City, Region"}
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => handleInputChange("name", e.target.value)}
+                    placeholder={isArabic ? "مثال: مشروع بناء مجمع سكني" : "e.g., Residential Complex Construction"}
+                    required
+                    className="h-11 text-base"
                   />
                 </div>
                 
+                {/* Description */}
                 <div className="space-y-2">
-                  <Label>{isArabic ? "اسم العميل" : "Client Name"}</Label>
-                  <Input
-                    value={formData.clientName}
-                    onChange={(e) => handleInputChange("clientName", e.target.value)}
-                    placeholder={isArabic ? "اسم العميل أو الشركة" : "Client or company name"}
+                  <Label htmlFor="description" className="font-medium">
+                    {isArabic ? "وصف المشروع" : "Project Description"}
+                  </Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => handleInputChange("description", e.target.value)}
+                    placeholder={isArabic ? "وصف مختصر للمشروع..." : "Brief project description..."}
+                    rows={3}
+                    className="resize-none"
                   />
                 </div>
               </div>
               
-              {/* Estimated Value */}
-              <div className="space-y-2">
-                <Label>{isArabic ? "القيمة التقديرية" : "Estimated Value"}</Label>
-                <div className="relative">
-                  <Input
-                    type="number"
-                    value={formData.estimatedValue}
-                    onChange={(e) => handleInputChange("estimatedValue", e.target.value)}
-                    placeholder="0"
-                    className="pe-16"
-                  />
-                  <span className="absolute end-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                    {formData.currency}
-                  </span>
+              {/* Section 2: Classification & Currency */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2 border-b pb-2">
+                  <Building2 className="w-4 h-4" />
+                  {isArabic ? "التصنيف والعملة" : "Classification & Currency"}
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Currency */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1 font-medium">
+                      <DollarSign className="w-4 h-4 text-green-500" />
+                      {isArabic ? "العملة" : "Currency"}
+                    </Label>
+                    <Select value={formData.currency} onValueChange={(v) => handleInputChange("currency", v)}>
+                      <SelectTrigger className="relative z-[55] pointer-events-auto h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {currencies.map(c => (
+                          <SelectItem key={c.value} value={c.value}>
+                            {isArabic ? c.label.ar : c.label.en}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {/* Project Type */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1 font-medium">
+                      <Building2 className="w-4 h-4 text-blue-500" />
+                      {isArabic ? "نوع المشروع" : "Project Type"}
+                    </Label>
+                    <Select value={formData.projectType} onValueChange={(v) => handleInputChange("projectType", v)}>
+                      <SelectTrigger className="relative z-[55] pointer-events-auto h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projectTypes.map(t => (
+                          <SelectItem key={t.value} value={t.value}>
+                            {isArabic ? t.label.ar : t.label.en}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Section 3: Location & Client */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2 border-b pb-2">
+                  <MapPin className="w-4 h-4" />
+                  {isArabic ? "الموقع والعميل" : "Location & Client"}
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Location */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1 font-medium">
+                      <MapPin className="w-4 h-4 text-orange-500" />
+                      {isArabic ? "موقع المشروع" : "Project Location"}
+                    </Label>
+                    <Input
+                      value={formData.location}
+                      onChange={(e) => handleInputChange("location", e.target.value)}
+                      placeholder={isArabic ? "المدينة، المنطقة" : "City, Region"}
+                      className="h-11"
+                    />
+                  </div>
+                  
+                  {/* Client Name */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1 font-medium">
+                      <Users className="w-4 h-4 text-purple-500" />
+                      {isArabic ? "اسم العميل" : "Client Name"}
+                    </Label>
+                    <Input
+                      value={formData.clientName}
+                      onChange={(e) => handleInputChange("clientName", e.target.value)}
+                      placeholder={isArabic ? "اسم العميل أو الشركة" : "Client or company name"}
+                      className="h-11"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Section 4: Financial Value */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2 border-b pb-2">
+                  <DollarSign className="w-4 h-4" />
+                  {isArabic ? "القيمة المالية" : "Financial Value"}
+                </h3>
+                
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 font-medium">
+                    <DollarSign className="w-4 h-4 text-emerald-500" />
+                    {isArabic ? "القيمة التقديرية" : "Estimated Value"}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      value={formData.estimatedValue}
+                      onChange={(e) => handleInputChange("estimatedValue", e.target.value)}
+                      placeholder="0"
+                      className="pe-20 h-11 text-lg font-medium"
+                    />
+                    <span className="absolute end-3 top-1/2 -translate-y-1/2 text-sm font-medium px-2 py-1 bg-muted rounded text-muted-foreground">
+                      {formData.currency}
+                    </span>
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          {/* Actions */}
-          <div className="flex justify-end gap-4 mt-6">
+          {/* Actions - Enhanced with protection */}
+          <div className="flex justify-end gap-4 mt-6 form-actions-safe">
             <Button 
               type="button" 
               variant="outline" 
               onClick={() => navigate("/projects")}
               disabled={isLoading}
+              className="relative z-[65] pointer-events-auto min-w-[100px]"
             >
               {isArabic ? "إلغاء" : "Cancel"}
             </Button>
-            <Button type="submit" disabled={isLoading} className="gap-2">
+            <Button 
+              type="submit" 
+              disabled={isLoading} 
+              className="gap-2 relative z-[65] pointer-events-auto min-w-[140px]"
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
