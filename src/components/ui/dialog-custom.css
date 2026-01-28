@@ -383,11 +383,24 @@ button:active,
 }
 
 .form-card-safe input,
-.form-card-safe textarea,
-.form-card-safe button:not([data-radix-select-trigger]) {
+.form-card-safe textarea {
   position: relative;
-  z-index: 20;
+  z-index: 45;
   pointer-events: auto !important;
+  cursor: text !important;
+}
+
+.form-card-safe input:focus,
+.form-card-safe textarea:focus {
+  z-index: 50;
+  outline: none;
+}
+
+.form-card-safe button:not([data-radix-select-trigger]):not([data-radix-popover-trigger]) {
+  position: relative;
+  z-index: 45;
+  pointer-events: auto !important;
+  cursor: pointer !important;
 }
 
 .form-card-safe label {
