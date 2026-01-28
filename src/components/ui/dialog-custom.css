@@ -394,3 +394,21 @@ button:active,
   pointer-events: auto !important;
   cursor: pointer !important;
 }
+
+/* ============================================
+   FORM ACTIONS PROTECTION
+   Ensure form submit buttons are always clickable
+   ============================================ */
+
+.form-actions-safe {
+  position: relative;
+  z-index: 60;
+  pointer-events: auto !important;
+}
+
+.form-actions-safe button {
+  position: relative;
+  z-index: 65;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
