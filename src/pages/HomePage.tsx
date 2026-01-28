@@ -352,36 +352,34 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* Center: Advanced Search Box - Always Visible */}
-            <div 
+            {/* Center: Advanced Search Box - Always Visible (Using button for better click handling) */}
+            <button 
+              type="button"
               onClick={() => setSearchOpen(true)}
-              className="flex-1 max-w-xl mx-4 cursor-pointer group hidden sm:block header-search-box"
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && setSearchOpen(true)}
+              className="flex-1 max-w-xl mx-4 group hidden sm:flex header-search-box
+                relative h-10 rounded-full border border-border/60 bg-background/60 backdrop-blur-sm
+                items-center text-sm text-muted-foreground text-left
+                hover:border-primary/50 hover:bg-background/80 transition-all duration-200
+                shadow-sm hover:shadow-md hover:ring-2 hover:ring-primary/20
+                cursor-pointer"
+              aria-label={isArabic ? "فتح البحث" : "Open search"}
             >
-              <div className="relative flex items-center pointer-events-none">
-                <Search className="absolute left-3 h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                <div className="w-full h-10 pl-10 pr-16 rounded-full border border-border/60 bg-background/60 backdrop-blur-sm 
-                  flex items-center text-sm text-muted-foreground
-                  hover:border-primary/50 hover:bg-background/80 transition-all duration-200
-                  shadow-sm hover:shadow-md group-hover:ring-2 group-hover:ring-primary/20">
-                  {isArabic ? "بحث في البرنامج..." : "Search the application..."}
-                </div>
-                <div className="absolute right-3 flex items-center gap-1">
-                  <kbd className="hidden md:inline-flex h-6 items-center gap-1 rounded border border-border/60 bg-muted/50 px-2 text-xs text-muted-foreground">
-                    ⌘K
-                  </kbd>
-                </div>
-              </div>
-            </div>
+              <Search className="absolute left-3 h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors pointer-events-none" />
+              <span className="pl-10 pr-16 flex-1 pointer-events-none">
+                {isArabic ? "بحث في البرنامج..." : "Search the application..."}
+              </span>
+              <kbd className="absolute right-3 hidden md:inline-flex h-6 items-center gap-1 rounded border border-border/60 bg-muted/50 px-2 text-xs text-muted-foreground pointer-events-none">
+                ⌘K
+              </kbd>
+            </button>
 
             {/* Mobile Search Button */}
             <Button 
               variant="ghost" 
               size="icon" 
-              className="sm:hidden h-9 w-9 relative z-[55] pointer-events-auto"
+              className="sm:hidden h-9 w-9 relative z-[56] pointer-events-auto"
               onClick={() => setSearchOpen(true)}
+              aria-label={isArabic ? "فتح البحث" : "Open search"}
             >
               <Search className="h-4 w-4" />
             </Button>
