@@ -425,3 +425,19 @@ button:active,
   pointer-events: auto !important;
   cursor: pointer !important;
 }
+
+/* ============================================
+   HEADER SEARCH BOX PROTECTION
+   Ensure header search box is always clickable
+   ============================================ */
+
+.header-search-box {
+  position: relative;
+  z-index: 55;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.header-search-box * {
+  pointer-events: auto !important;
+}
