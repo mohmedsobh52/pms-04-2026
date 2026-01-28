@@ -88,9 +88,9 @@ button:active,
   cursor: pointer !important;
 }
 
-/* Select dropdown - ensure it appears above everything */
+/* Select dropdown - ensure it appears above everything including dialogs */
 [data-radix-select-content] {
-  z-index: 70 !important;
+  z-index: 150 !important;
 }
 
 [data-radix-select-viewport] {
