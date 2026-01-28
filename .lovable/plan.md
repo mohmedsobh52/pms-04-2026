@@ -1,107 +1,101 @@
 
-# خطة إصلاح وتحسين زر حفظ المشروع
+# خطة إصلاح عرض قيم التحليل في التقرير
 
-## المشكلات المحددة
+## تحليل المشكلة
 
-### المشكلة 1: زر الحفظ لا يعمل
-- الزر موجود في منطقة الـ header (سطر 1445) 
-- قد تكون هناك مشكلة في z-index أو pointer-events تمنع النقر على الزر
-- الزر يظهر بالإنجليزية "Save Project" بينما المستخدم يريده بالعربية "حفظ المشروع"
+### الوضع الحالي:
+من خلال الصورة المرفقة، نلاحظ أن أعمدة **Unit Price** و **AI Rate** و **Total** تظهر بقيم "-" بدلاً من الأرقام الفعلية.
 
-### المشكلة 2: موقع الزر غير مناسب
-- الزر حالياً في شريط الأدوات العلوي (header)
-- المستخدم يريد الزر أعلى الجدول مباشرة ليكون أكثر وضوحاً
+### السبب:
+عند تمرير البيانات إلى `PrintableReport`، الكود الحالي يستخدم:
+```typescript
+const aiRate = calcCosts.aiSuggestedRate || 0;
+```
+هذا يعني أنه إذا لم يكن هناك `aiSuggestedRate` محفوظ في localStorage، سيكون AI Rate = 0، ولا يستخدم سعر الوحدة الأصلي كـ fallback.
+
+### المشكلة في التقرير:
+```typescript
+// formatCurrency(0) ← يظهر كـ "-" في التقرير
+<td>${formatCurrency(item.ai_rate || item.unit_price || 0)}</td>
+```
+لكن لأن `ai_rate` تم تعيينها إلى `0` بشكل صريح، الـ fallback إلى `unit_price` لا يعمل!
 
 ---
 
 ## الحل المقترح
 
-### 1. إضافة زر حفظ مشروع بارز أعلى الجدول
-- إضافة `SaveProjectButton` في قسم منفصل قبل جدول BOQ مباشرة
-- تصميم بارز ومميز بلون أخضر
-- نص عربي/إنجليزي حسب اللغة المختارة
+### التغيير في `AnalysisResults.tsx`:
 
-### 2. تحديث SaveProjectButton للغة العربية
-- تغيير نص الزر من "Save Project" إلى نص ديناميكي حسب اللغة
-- إضافة prop `isArabic` للتحكم في اللغة
+**الكود الحالي (السطر 1532-1537):**
+```typescript
+.map(item => {
+  const calcCosts = getItemCalculatedCosts(item.item_number);
+  const aiRate = calcCosts.aiSuggestedRate || 0;  // ← المشكلة هنا
+  return {
+    ...item,
+    ai_rate: aiRate,
+    calculated_total: aiRate * (item.quantity || 0)
+  };
+})
+```
 
-### 3. إصلاح مشاكل التفاعل (z-index)
-- إضافة z-index عالي للتأكد من إمكانية النقر
-- استخدام `pointer-events: auto !important` 
+**الكود المصحح:**
+```typescript
+.map(item => {
+  const calcCosts = getItemCalculatedCosts(item.item_number);
+  // استخدام AI Rate أو السعر الأصلي كـ fallback
+  const aiRate = calcCosts.aiSuggestedRate || item.unit_price || 0;
+  return {
+    ...item,
+    ai_rate: aiRate,
+    calculated_total: aiRate * (item.quantity || 0)
+  };
+})
+```
 
 ---
 
-## التغييرات التقنية
+## التغييرات التفصيلية
 
-### ملف 1: `src/components/SaveProjectButton.tsx`
+### ملف: `src/components/AnalysisResults.tsx`
 
-**التغيير:** إضافة دعم اللغة العربية
+| السطر | التغيير |
+|-------|---------|
+| ~1533 | تعديل حساب `aiRate` ليشمل `item.unit_price` كـ fallback |
+
+### الكود النهائي:
 
 ```typescript
-// إضافة prop جديد
-interface SaveProjectButtonProps {
-  items: BOQItem[];
-  wbsData?: any;
-  summary?: {...};
-  getItemCostData: (itemId: string) => ItemCostData;
-  getItemCalculatedCosts: (itemId: string) => CalculatedCosts & { aiSuggestedRate?: number };
-  fileName?: string;
-  isArabic?: boolean; // جديد
-}
-
-// تحديث الزر
-<Button variant="default" size="lg" className="gap-2 bg-green-600 hover:bg-green-700 z-[60]">
-  <Save className="w-5 h-5" />
-  {isArabic ? "حفظ المشروع" : "Save Project"}
-</Button>
+// في PrintableReport mapping (السطر 1529-1539)
+boqItems={(data.items || [])
+  .filter(item => !deletedItemNumbers.has(item.item_number))
+  .map(item => {
+    const calcCosts = getItemCalculatedCosts(item.item_number);
+    // Use AI Rate, or fallback to original unit_price, or 0
+    const aiRate = calcCosts.aiSuggestedRate || item.unit_price || 0;
+    return {
+      ...item,
+      ai_rate: aiRate,
+      calculated_total: aiRate * (item.quantity || 0)
+    };
+  })}
 ```
 
-### ملف 2: `src/components/AnalysisResults.tsx`
+---
 
-**التغيير 1:** إضافة قسم بارز لحفظ المشروع قبل الجدول (سطر 2069 تقريباً)
+## النتيجة المتوقعة
 
-```tsx
-{/* Save Project Section - Above Table */}
-<div className="flex justify-center items-center py-4 mb-4 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 rounded-xl border border-primary/20">
-  <SaveProjectButton
-    items={data.items || []}
-    wbsData={wbsData}
-    summary={data.summary}
-    getItemCostData={getItemCostData}
-    getItemCalculatedCosts={getItemCalculatedCosts}
-    fileName={fileName}
-    isArabic={isArabic}
-  />
-</div>
+### قبل الإصلاح:
+| # | الوصف | الكمية | AI Rate | الإجمالي |
+|---|-------|--------|---------|----------|
+| 1 | تسوية ترابية... | 279,250 | - | - |
+| 2 | تسوية ترابية... | 70,000 | - | - |
 
-{/* Horizontal Scroll Bar Above Table */}
-<DualHorizontalScrollBar ... />
-```
-
-**التغيير 2:** تمرير `isArabic` للزر في الـ header أيضاً
-
-```tsx
-<SaveProjectButton
-  items={data.items || []}
-  wbsData={wbsData}
-  summary={data.summary}
-  getItemCostData={getItemCostData}
-  getItemCalculatedCosts={getItemCalculatedCosts}
-  fileName={fileName}
-  isArabic={isArabic} // إضافة جديدة
-/>
-```
-
-**التغيير 3:** إضافة z-index عالي للتأكد من التفاعل
-
-```tsx
-// في SaveProjectButton
-<Button 
-  variant="default" 
-  size="lg" 
-  className="gap-2 bg-green-600 hover:bg-green-700 relative z-[60] pointer-events-auto shadow-lg hover:shadow-xl transition-all"
->
-```
+### بعد الإصلاح:
+| # | الوصف | الكمية | AI Rate | الإجمالي |
+|---|-------|--------|---------|----------|
+| 1 | تسوية ترابية... | 279,250 | 62.00 | 17,313,500 |
+| 2 | تسوية ترابية... | 70,000 | 47.00 | 3,290,000 |
 
 ---
 
@@ -109,43 +103,7 @@ interface SaveProjectButtonProps {
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/SaveProjectButton.tsx` | إضافة prop `isArabic` + تحديث نص الزر + z-index |
-| `src/components/AnalysisResults.tsx` | إضافة قسم حفظ المشروع أعلى الجدول + تمرير `isArabic` |
-
----
-
-## النتيجة المتوقعة
-
-### قبل:
-- زر الحفظ موجود في شريط الأدوات العلوي فقط
-- الزر يظهر بالإنجليزية "Save Project"
-- قد لا يعمل بسبب مشاكل z-index
-
-### بعد:
-- زر حفظ بارز ومميز أعلى الجدول مباشرة
-- نص عربي "حفظ المشروع" عندما تكون اللغة عربية
-- z-index عالي يضمن التفاعل دائماً
-- تصميم جذاب مع خلفية متدرجة
-
----
-
-## تصميم الشكل الجديد
-
-```
-┌────────────────────────────────────────────────────────────┐
-│                   ╔══════════════════════╗                  │
-│                   ║  📁 حفظ المشروع     ║ ← زر بارز أخضر    │
-│                   ╚══════════════════════╝                  │
-│               (خلفية متدرجة primary/5-10)                   │
-├────────────────────────────────────────────────────────────┤
-│ ← شريط التمرير الأفقي                                       │
-├────────────────────────────────────────────────────────────┤
-│ # │ رقم البند │ الوصف │ الوحدة │ الكمية │ AI Rate │ Total  │
-├───┼───────────┼───────┼────────┼────────┼─────────┼────────┤
-│ 1 │ 001       │ ...   │ م³     │ 100    │ 50      │ 5,000  │
-│ 2 │ 002       │ ...   │ م²     │ 200    │ 25      │ 5,000  │
-└────────────────────────────────────────────────────────────┘
-```
+| `src/components/AnalysisResults.tsx` | تعديل fallback logic لـ AI Rate في PrintableReport mapping |
 
 ---
 
@@ -153,8 +111,7 @@ interface SaveProjectButtonProps {
 
 | الاختبار | النتيجة المتوقعة |
 |---------|----------------|
-| النقر على الزر | يفتح dialog حفظ المشروع |
-| تغيير اللغة للعربية | الزر يظهر "حفظ المشروع" |
-| تغيير اللغة للإنجليزية | الزر يظهر "Save Project" |
-| عند تسجيل الدخول | الحفظ يعمل بشكل صحيح |
-| بدون تسجيل دخول | يظهر رسالة "يجب تسجيل الدخول" |
+| فتح تقرير بدون AI rates محفوظة | يعرض الأسعار الأصلية من `unit_price` |
+| فتح تقرير مع AI rates محفوظة | يعرض AI rates |
+| الإجمالي في التقرير | Qty × (AI Rate أو Unit Price) |
+| ملخص التقرير (Total Value) | مجموع كل الإجماليات صحيح |
