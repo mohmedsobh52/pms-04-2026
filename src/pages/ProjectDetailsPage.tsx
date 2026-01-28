@@ -302,7 +302,10 @@ export default function ProjectDetailsPage() {
 
     try {
       for (const file of Array.from(files)) {
-        const filePath = `${user.id}/${projectId}/${Date.now()}_${file.name}`;
+        // Generate safe filename to avoid issues with Arabic characters, spaces, or special characters
+        const fileExt = file.name.split(".").pop() || "file";
+        const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `${user.id}/${projectId}/${safeFileName}`;
         
         const { error: uploadError } = await supabase.storage
           .from("project-files")
