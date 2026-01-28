@@ -1530,7 +1530,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                         .filter(item => !deletedItemNumbers.has(item.item_number))
                         .map(item => {
                           const calcCosts = getItemCalculatedCosts(item.item_number);
-                          const aiRate = calcCosts.aiSuggestedRate || 0;
+                          // Use AI Rate, or fallback to original unit_price, or 0
+                          const aiRate = calcCosts.aiSuggestedRate || item.unit_price || 0;
                           return {
                             ...item,
                             ai_rate: aiRate,
