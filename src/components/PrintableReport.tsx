@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { Printer, Download, FileText, Settings, Eye, X, Check } from "lucide-react";
+import { useState, useRef, useMemo } from "react";
+import { Printer, Download, FileText, Settings, Eye, X, Check, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -119,7 +119,36 @@ export function PrintableReport({
   const laborCount = resourceItems.filter(r => r.type === 'labor').length;
   const equipmentCount = resourceItems.filter(r => r.type === 'equipment').length;
 
+  // Check if items have valid prices
+  const hasValidPrices = useMemo(() => {
+    return boqItems.some(item => 
+      (item.ai_rate && item.ai_rate > 0) || 
+      (item.unit_price && item.unit_price > 0) ||
+      (item.calculated_total && item.calculated_total > 0)
+    );
+  }, [boqItems]);
+
+  const itemsWithoutPricesCount = useMemo(() => {
+    return boqItems.filter(item => 
+      (!item.ai_rate || item.ai_rate === 0) && 
+      (!item.unit_price || item.unit_price === 0)
+    ).length;
+  }, [boqItems]);
+
   const handlePrint = () => {
+    // Check for valid prices before printing
+    if (!hasValidPrices && boqItems.length > 0) {
+      toast.error(
+        isArabic 
+          ? `⚠️ لا توجد أسعار لـ ${itemsWithoutPricesCount} بند. يرجى تطبيق أسعار AI أولاً من خلال زر "اقتراحات أسعار السوق" 📊`
+          : `⚠️ ${itemsWithoutPricesCount} items have no prices. Please apply AI rates first using "Market Rate Suggestions" 📊`,
+        {
+          duration: 8000,
+        }
+      );
+      return;
+    }
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       toast.error(isArabic ? "يرجى السماح بالنوافذ المنبثقة" : "Please allow popups for printing");
@@ -631,6 +660,32 @@ export function PrintableReport({
 
         <ScrollArea className="max-h-[60vh] pr-4">
           <div className="space-y-6">
+            {/* Warning if no prices */}
+            {!hasValidPrices && boqItems.length > 0 && (
+              <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-yellow-800 mb-1">
+                      {isArabic ? "⚠️ تحذير: لا توجد أسعار" : "⚠️ Warning: No Prices Found"}
+                    </h4>
+                    <p className="text-sm text-yellow-700 mb-2">
+                      {isArabic 
+                        ? `${itemsWithoutPricesCount} بند ليس لديه أسعار. التقرير سيظهر "-" في أعمدة السعر والإجمالي.`
+                        : `${itemsWithoutPricesCount} items have no prices. The report will show "-" in price and total columns.`
+                      }
+                    </p>
+                    <p className="text-xs text-yellow-600">
+                      {isArabic 
+                        ? "💡 للحصول على أسعار، استخدم زر 'اقتراحات أسعار السوق' في صفحة التحليل."
+                        : "💡 To get prices, use 'Market Rate Suggestions' button on the analysis page."
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Title & Settings */}
             <div className="space-y-4">
               <Label>{isArabic ? "عنوان التقرير" : "Report Title"}</Label>
