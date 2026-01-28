@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { LanguageProvider } from "@/hooks/useLanguage";
 import { AnalysisProvider } from "@/hooks/useAnalysisData";
 import { AnalysisTrackingProvider } from "@/hooks/useAnalysisTracking";
+import { GlobalSearchProvider } from "@/contexts/GlobalSearchContext";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import BackgroundImage from "@/components/BackgroundImage";
 import { FloatingBackButton } from "@/components/FloatingBackButton";
@@ -74,53 +75,55 @@ const App = () => (
               <Toaster />
               <Sonner />
               <BrowserRouter>
-                <GlobalSearch />
-                <UpdateBanner />
-                <FloatingBackButton />
-                <ErrorBoundary>
-                  <Suspense fallback={<PageLoader />}>
-                    <Routes>
-                      <Route path="/" element={<HomePage />} />
-                      <Route path="/analyze" element={<Index />} />
-                      <Route path="/auth" element={<Auth />} />
-                      <Route path="/shared/:shareCode" element={<SharedView />} />
-                      <Route path="/projects" element={<SavedProjectsPage />} />
-                      <Route path="/projects/new" element={<NewProjectPage />} />
-                      <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
-                      <Route path="/projects/:projectId/pricing" element={<TenderSummaryPage />} />
-                      <Route path="/about" element={<About />} />
-                      <Route path="/cost-analysis" element={<CostAnalysisPage />} />
-                      <Route path="/changelog" element={<Changelog />} />
-                      <Route path="/admin/versions" element={<AdminVersions />} />
-                      {/* Separate pages for each section */}
-                      <Route path="/dashboard" element={<DashboardPage />} />
-                      <Route path="/items" element={<BOQItemsPage />} />
-                      <Route path="/analysis-tools" element={<AnalysisToolsPage />} />
-                      <Route path="/procurement" element={<ProcurementPage />} />
-                      <Route path="/quotations" element={<QuotationsPage />} />
-                      {/* Separate routes for contracts and subcontractors */}
-                      <Route path="/contracts" element={<ContractsPage />} />
-                      <Route path="/subcontractors" element={<SubcontractorsPage />} />
-                      <Route path="/risk" element={<RiskPage />} />
-                      <Route path="/reports" element={<Navigate to="/projects?tab=reports" replace />} />
-                      <Route path="/settings" element={<SettingsPage />} />
-                      <Route path="/company-settings" element={<CompanySettingsPage />} />
-                      <Route path="/attachments" element={<AttachmentsPage />} />
-                      <Route path="/templates" element={<TemplatesPage />} />
-                      <Route path="/p6-export" element={<P6ExportPage />} />
-                      <Route path="/compare-versions" element={<CompareVersionsPage />} />
-                      <Route path="/historical-pricing" element={<HistoricalPricingPage />} />
-                      <Route path="/resources" element={<ResourcesPage />} />
-                      <Route path="/material-prices" element={<MaterialPricesPage />} />
-                      <Route path="/calendar" element={<CalendarPage />} />
-                      <Route path="/fast-extraction" element={<FastExtractionPage />} />
-                      <Route path="/library" element={<LibraryPage />} />
-                      <Route path="/cost-control-report" element={<CostControlReportPage />} />
-                      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </Suspense>
-                </ErrorBoundary>
+                <GlobalSearchProvider>
+                  <GlobalSearch />
+                  <UpdateBanner />
+                  <FloatingBackButton />
+                  <ErrorBoundary>
+                    <Suspense fallback={<PageLoader />}>
+                      <Routes>
+                        <Route path="/" element={<HomePage />} />
+                        <Route path="/analyze" element={<Index />} />
+                        <Route path="/auth" element={<Auth />} />
+                        <Route path="/shared/:shareCode" element={<SharedView />} />
+                        <Route path="/projects" element={<SavedProjectsPage />} />
+                        <Route path="/projects/new" element={<NewProjectPage />} />
+                        <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
+                        <Route path="/projects/:projectId/pricing" element={<TenderSummaryPage />} />
+                        <Route path="/about" element={<About />} />
+                        <Route path="/cost-analysis" element={<CostAnalysisPage />} />
+                        <Route path="/changelog" element={<Changelog />} />
+                        <Route path="/admin/versions" element={<AdminVersions />} />
+                        {/* Separate pages for each section */}
+                        <Route path="/dashboard" element={<DashboardPage />} />
+                        <Route path="/items" element={<BOQItemsPage />} />
+                        <Route path="/analysis-tools" element={<AnalysisToolsPage />} />
+                        <Route path="/procurement" element={<ProcurementPage />} />
+                        <Route path="/quotations" element={<QuotationsPage />} />
+                        {/* Separate routes for contracts and subcontractors */}
+                        <Route path="/contracts" element={<ContractsPage />} />
+                        <Route path="/subcontractors" element={<SubcontractorsPage />} />
+                        <Route path="/risk" element={<RiskPage />} />
+                        <Route path="/reports" element={<Navigate to="/projects?tab=reports" replace />} />
+                        <Route path="/settings" element={<SettingsPage />} />
+                        <Route path="/company-settings" element={<CompanySettingsPage />} />
+                        <Route path="/attachments" element={<AttachmentsPage />} />
+                        <Route path="/templates" element={<TemplatesPage />} />
+                        <Route path="/p6-export" element={<P6ExportPage />} />
+                        <Route path="/compare-versions" element={<CompareVersionsPage />} />
+                        <Route path="/historical-pricing" element={<HistoricalPricingPage />} />
+                        <Route path="/resources" element={<ResourcesPage />} />
+                        <Route path="/material-prices" element={<MaterialPricesPage />} />
+                        <Route path="/calendar" element={<CalendarPage />} />
+                        <Route path="/fast-extraction" element={<FastExtractionPage />} />
+                        <Route path="/library" element={<LibraryPage />} />
+                        <Route path="/cost-control-report" element={<CostControlReportPage />} />
+                        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </Suspense>
+                  </ErrorBoundary>
+                </GlobalSearchProvider>
               </BrowserRouter>
             </TooltipProvider>
           </AnalysisTrackingProvider>

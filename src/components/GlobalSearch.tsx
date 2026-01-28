@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLanguage } from '@/hooks/useLanguage';
-import { useGlobalSearch, SearchItem } from '@/hooks/useGlobalSearch';
+import { useGlobalSearch, SearchItem } from '@/contexts/GlobalSearchContext';
 import {
   CommandDialog,
   CommandInput,

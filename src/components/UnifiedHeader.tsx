@@ -28,7 +28,7 @@ import {
   Search
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useGlobalSearch } from "@/hooks/useGlobalSearch";
+import { useGlobalSearch } from "@/contexts/GlobalSearchContext";
 
 interface QuickNavItem {
   label: string;

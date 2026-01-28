@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import developerPhoto from "@/assets/developer/mohamed-sobh.jpg";
 import alimtyazLogo from "@/assets/company/alimtyaz-logo.jpg";
-import { useGlobalSearch } from "@/hooks/useGlobalSearch";
+import { useGlobalSearch } from "@/contexts/GlobalSearchContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
