@@ -629,12 +629,19 @@ export function ComprehensiveReport({
           return cleaned || '-';
         };
 
-        const boqData = analysisData.items.map((item, index) => {
+        // Filter out items with zero quantity
+        const filteredItems = analysisData.items.filter(item => {
+          const quantity = Number(item.quantity || item.qty || 0);
+          return quantity > 0;
+        });
+
+        const boqData = filteredItems.map((item, index) => {
           const description = sanitizeText(item.description);
           const truncatedDesc = description.length > 35 ? description.substring(0, 35) + '...' : description;
           
-          // Calculate prices with multiple fallbacks
-          const unitPrice = Number(item.unit_price || item.rate || item.price || 0);
+          // Calculate prices with multiple fallbacks including AI rates
+          const aiRate = Number((item as any).ai_rate || (item as any).ai_suggested_rate || (item as any).calculated_price || 0);
+          const unitPrice = Number(item.unit_price || item.rate || item.price || aiRate || 0);
           const quantity = Number(item.quantity || item.qty || 1);
           const totalPrice = Number(item.total_price || item.amount || item.total || (unitPrice * quantity));
           
@@ -645,13 +652,14 @@ export function ComprehensiveReport({
             sanitizeText(item.unit),
             quantity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
             unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            aiRate > 0 ? aiRate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-',
             totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
           ];
         });
 
         autoTable(doc, {
           startY: 35,
-          head: [['#', 'Item No.', 'Description', 'Unit', 'Qty', 'Unit Price', 'Total']],
+          head: [['#', 'Item No.', 'Description', 'Unit', 'Qty', 'Unit Price', 'AI Rate', 'Total']],
           body: boqData,
           theme: 'striped',
           headStyles: {
@@ -669,16 +677,26 @@ export function ComprehensiveReport({
             fillColor: [248, 250, 252],
           },
           columnStyles: {
-            0: { halign: 'center', cellWidth: 10 },
-            1: { halign: 'center', cellWidth: 18 },
-            2: { halign: 'left', cellWidth: 55 },
-            3: { halign: 'center', cellWidth: 15 },
-            4: { halign: 'center', cellWidth: 15 },
-            5: { halign: 'right', cellWidth: 25 },
-            6: { halign: 'right', cellWidth: 25 },
+            0: { halign: 'center', cellWidth: 8 },
+            1: { halign: 'center', cellWidth: 16 },
+            2: { halign: 'left', cellWidth: 48 },
+            3: { halign: 'center', cellWidth: 12 },
+            4: { halign: 'center', cellWidth: 14 },
+            5: { halign: 'right', cellWidth: 22 },
+            6: { halign: 'right', cellWidth: 22, textColor: [124, 58, 237] }, // AI Rate in purple
+            7: { halign: 'right', cellWidth: 22 },
           },
           margin: { left: margin, right: margin },
-          didDrawPage: () => {
+          showHead: 'everyPage', // Header on every page
+          didDrawPage: (data) => {
+            // Header on every page
+            doc.setFillColor(59, 130, 246);
+            doc.rect(0, 0, pageWidth, 25, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(16);
+            doc.setFont("helvetica", "bold");
+            doc.text("2. Bill of Quantities (BOQ)", margin, 16);
+            
             // Footer
             doc.setFontSize(8);
             doc.setTextColor(100, 116, 139);
@@ -686,9 +704,10 @@ export function ComprehensiveReport({
           },
         });
 
-        // Calculate actual total from items with multiple fallbacks
-        const calculatedTotal = analysisData.items.reduce((sum, item) => {
-          const unitPrice = Number(item.unit_price || item.rate || item.price || 0);
+        // Calculate actual total from filtered items with multiple fallbacks
+        const calculatedTotal = filteredItems.reduce((sum, item) => {
+          const aiRate = Number((item as any).ai_rate || (item as any).ai_suggested_rate || (item as any).calculated_price || 0);
+          const unitPrice = Number(item.unit_price || item.rate || item.price || aiRate || 0);
           const quantity = Number(item.quantity || item.qty || 1);
           const totalPrice = Number(item.total_price || item.amount || item.total || (unitPrice * quantity));
           return sum + totalPrice;

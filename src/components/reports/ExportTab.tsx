@@ -240,6 +240,57 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
       max-width: 80px;
       object-fit: contain;
     }
+    
+    /* Header appears on every printed page */
+    @media print {
+      .company-header {
+        position: running(header);
+      }
+      @page {
+        @top-center {
+          content: element(header);
+        }
+        margin-top: 100px;
+      }
+    }
+    
+    /* Fallback for browsers that don't support running headers */
+    thead {
+      display: table-header-group;
+    }
+    
+    .print-header {
+      display: none;
+    }
+    
+    @media print {
+      .print-header {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        z-index: 1000;
+      }
+      
+      body {
+        padding-top: 80px !important;
+      }
+      
+      table {
+        page-break-inside: auto;
+      }
+      
+      tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+      }
+      
+      thead {
+        display: table-header-group;
+      }
+    }
   `;
 
   const handleViewPriceAnalysis = () => {
@@ -583,7 +634,15 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
       toast.error(isArabic ? "لا توجد بيانات للطباعة" : "No data to print");
       return;
     }
-    const totalValue = projectItems.reduce((sum: number, item: any) => sum + (parseFloat(item.total_price) || 0), 0);
+    
+    // Filter out items with zero quantity
+    const filteredItems = projectItems.filter((item: any) => {
+      const qty = parseFloat(item.quantity) || 0;
+      return qty > 0;
+    });
+    
+    // Calculate total from filtered items only
+    const totalValue = filteredItems.reduce((sum: number, item: any) => sum + (parseFloat(item.total_price) || 0), 0);
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -614,6 +673,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
             direction: ${isArabic ? 'rtl' : 'ltr'}; 
             text-align: ${isArabic ? 'right' : 'left'}; 
             padding: 20px;
+            padding-top: 10px;
             color: #1e293b;
           }
           ${getCompanyHeaderCSS()}
@@ -640,56 +700,127 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
           th { background: #3b82f6; color: white; font-weight: 600; }
           tr:nth-child(even) { background: #f8fafc; }
           .total-row { font-weight: bold; background: #e2e8f0 !important; }
+          .ai-price { color: #7c3aed; font-weight: 600; }
+          .auto-priced { background: #f5f3ff; }
+          
+          /* Print styles for header on every page */
+          @media print {
+            .print-header-repeat {
+              display: table-header-group;
+            }
+            
+            .print-header-wrapper {
+              position: fixed;
+              top: 0;
+              left: 0;
+              right: 0;
+              background: white;
+              z-index: 1000;
+            }
+            
+            .content-wrapper {
+              margin-top: 100px;
+            }
+            
+            table {
+              page-break-inside: auto;
+            }
+            
+            tr {
+              page-break-inside: avoid;
+              page-break-after: auto;
+            }
+            
+            thead {
+              display: table-header-group;
+            }
+            
+            tfoot {
+              display: table-footer-group;
+            }
+          }
+          
+          @page {
+            margin-top: 25mm;
+            margin-bottom: 15mm;
+          }
         </style>
       </head>
       <body>
-        ${getCompanyHeaderHTML()}
-        <h1>${selectedProject?.name || 'Project'}</h1>
-        <p class="subtitle">${isArabic ? "تقرير جدول الكميات" : "Bill of Quantities Report"}</p>
-        
-        <div class="summary">
-          <div class="summary-item">
-            <div class="summary-label">${isArabic ? "إجمالي البنود" : "Total Items"}</div>
-            <div class="summary-value">${projectItems.length}</div>
-          </div>
-          <div class="summary-item">
-            <div class="summary-label">${isArabic ? "إجمالي القيمة" : "Total Value"}</div>
-            <div class="summary-value">${totalValue.toLocaleString('en-US')}</div>
-          </div>
-          <div class="summary-item">
-            <div class="summary-label">${isArabic ? "التاريخ" : "Date"}</div>
-            <div class="summary-value">${new Date().toLocaleDateString('en-US')}</div>
-          </div>
+        <div class="print-header-wrapper">
+          ${getCompanyHeaderHTML()}
         </div>
         
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>${isArabic ? "الوصف" : "Description"}</th>
-              <th>${isArabic ? "الكمية" : "Qty"}</th>
-              <th>${isArabic ? "الوحدة" : "Unit"}</th>
-              <th>${isArabic ? "السعر" : "Price"}</th>
-              <th>${isArabic ? "الإجمالي" : "Total"}</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${projectItems.map((item: any, idx: number) => `
+        <div class="content-wrapper">
+          <h1>${selectedProject?.name || 'Project'}</h1>
+          <p class="subtitle">${isArabic ? "تقرير جدول الكميات - التسعير الشامل" : "Bill of Quantities Report - Comprehensive Pricing"}</p>
+          
+          <div class="summary">
+            <div class="summary-item">
+              <div class="summary-label">${isArabic ? "إجمالي البنود" : "Total Items"}</div>
+              <div class="summary-value">${filteredItems.length}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">${isArabic ? "إجمالي القيمة" : "Total Value"}</div>
+              <div class="summary-value">${totalValue.toLocaleString('en-US')}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">${isArabic ? "التاريخ" : "Report Date"}</div>
+              <div class="summary-value">${new Date().toLocaleDateString('en-US')}</div>
+            </div>
+            ${projectItems.length !== filteredItems.length ? `
+            <div class="summary-item">
+              <div class="summary-label">${isArabic ? "بنود مستثناة (كمية صفر)" : "Excluded Items (Zero Qty)"}</div>
+              <div class="summary-value">${projectItems.length - filteredItems.length}</div>
+            </div>
+            ` : ''}
+          </div>
+          
+          <table>
+            <thead class="print-header-repeat">
               <tr>
-                <td>${idx + 1}</td>
-                <td>${item.description || '-'}</td>
-                <td>${item.quantity?.toLocaleString('en-US') || '-'}</td>
-                <td>${item.unit || '-'}</td>
-                <td>${item.unit_price?.toLocaleString('en-US') || '-'}</td>
-                <td>${item.total_price?.toLocaleString('en-US') || '-'}</td>
+                <th>#</th>
+                <th>${isArabic ? "الوصف" : "Description"}</th>
+                <th>${isArabic ? "الكمية" : "Qty"}</th>
+                <th>${isArabic ? "الوحدة" : "Unit"}</th>
+                <th>${isArabic ? "سعر الوحدة" : "Unit Price"}</th>
+                <th>${isArabic ? "سعر AI" : "AI Rate"}</th>
+                <th>${isArabic ? "الإجمالي" : "Total"}</th>
               </tr>
-            `).join('')}
-            <tr class="total-row">
-              <td colspan="5">${isArabic ? "الإجمالي" : "Total"}</td>
-              <td>${totalValue.toLocaleString('en-US')}</td>
-            </tr>
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              ${filteredItems.map((item: any, idx: number) => {
+                const hasAIPrice = item.ai_rate || item.ai_suggested_rate || item.calculated_price;
+                const aiRate = item.ai_rate || item.ai_suggested_rate || item.calculated_price || 0;
+                const displayPrice = item.unit_price || aiRate || 0;
+                const displayTotal = item.total_price || (displayPrice * (item.quantity || 0));
+                
+                return `
+                <tr class="${hasAIPrice ? 'auto-priced' : ''}">
+                  <td>${idx + 1}</td>
+                  <td>${item.description || '-'}</td>
+                  <td>${item.quantity?.toLocaleString('en-US') || '-'}</td>
+                  <td>${item.unit || '-'}</td>
+                  <td>${displayPrice > 0 ? displayPrice.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}</td>
+                  <td class="ai-price">${aiRate > 0 ? aiRate.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}</td>
+                  <td>${displayTotal > 0 ? displayTotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}</td>
+                </tr>
+              `;
+              }).join('')}
+              <tr class="total-row">
+                <td colspan="6">${isArabic ? "الإجمالي الكلي" : "Grand Total"}</td>
+                <td>${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div style="margin-top: 30px; padding: 15px; background: #f8fafc; border-radius: 8px; font-size: 11px; color: #64748b;">
+            <strong>${isArabic ? "ملاحظة:" : "Note:"}</strong>
+            ${isArabic 
+              ? "البنود المظللة بالبنفسجي تم تسعيرها تلقائياً بواسطة نظام AI. تم استثناء البنود ذات الكمية صفر من هذا التقرير."
+              : "Purple highlighted items were automatically priced by the AI system. Items with zero quantity are excluded from this report."}
+          </div>
+        </div>
       </body>
       </html>
     `);
