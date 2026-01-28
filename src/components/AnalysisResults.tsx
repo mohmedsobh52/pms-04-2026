@@ -2108,24 +2108,14 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                         Qty
                       </th>
                     )}
-                    {visibleColumns.includes("unit_price") && (
-                      <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                        Unit Price
-                      </th>
-                    )}
-                    {visibleColumns.includes("total") && (
-                      <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                        Total
-                      </th>
-                    )}
                     {visibleColumns.includes("ai_rate") && (
                       <th className="px-3 py-3 text-right font-bold text-sm text-purple-700 dark:text-purple-300 whitespace-nowrap bg-purple-500/10">
                         AI Rate
                       </th>
                     )}
                     {visibleColumns.includes("calc_price") && (
-                      <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap bg-primary/10">
-                        Calc. Price
+                      <th className="px-3 py-3 text-right font-bold text-sm text-primary dark:text-primary whitespace-nowrap bg-primary/10">
+                        Total
                       </th>
                     )}
                     {visibleColumns.includes("balance_status") && (
@@ -2233,30 +2223,6 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                             />
                           </td>
                         )}
-                        {visibleColumns.includes("unit_price") && (
-                          <td className="px-3 py-3 text-right">
-                            <EditableUnitPrice
-                              value={getEffectivePrice(item).unit_price}
-                              onSave={(newPrice) => handleEditUnitPrice(item.item_number, newPrice)}
-                              className={cn(
-                                "text-slate-700 dark:text-slate-200",
-                                editedPrices[item.item_number]?.unit_price !== undefined && "text-blue-600 dark:text-blue-400"
-                              )}
-                            />
-                          </td>
-                        )}
-                        {visibleColumns.includes("total") && (
-                          <td className="px-3 py-3 text-right">
-                            <EditableUnitPrice
-                              value={getEffectivePrice(item).total_price}
-                              onSave={(newTotal) => handleEditTotalPrice(item.item_number, newTotal)}
-                              className={cn(
-                                "text-slate-700 dark:text-slate-200",
-                                editedPrices[item.item_number]?.total_price !== undefined && "text-blue-600 dark:text-blue-400"
-                              )}
-                            />
-                          </td>
-                        )}
                         {visibleColumns.includes("ai_rate") && (
                           <td className="px-3 py-3 text-right bg-purple-500/5">
                             <EditableAIRate
@@ -2271,9 +2237,9 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                           <td className="px-3 py-3 text-right bg-primary/5">
                             <span className={cn(
                               "text-sm font-bold",
-                              calculatedPrice > 0 ? "text-primary" : "text-slate-500"
+                              totalPrice > 0 ? "text-primary" : "text-slate-500"
                             )}>
-                              {calculatedPrice > 0 ? calculatedPrice.toLocaleString() : '-'}
+                              {totalPrice > 0 ? totalPrice.toLocaleString() : '-'}
                             </span>
                           </td>
                         )}
@@ -2330,18 +2296,6 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                     <td className="px-4 py-4 text-center font-bold text-slate-800 dark:text-slate-100">
                       {filteredItems.reduce((sum, item) => sum + (item.quantity || 0), 0).toLocaleString()}
                     </td>
-                    <td className="px-4 py-4 text-right font-bold text-slate-800 dark:text-slate-100">
-                      -
-                    </td>
-                    <td className="px-4 py-4 text-right font-bold text-primary bg-primary/20">
-                      {(() => {
-                        const totalSum = filteredItems.reduce((sum, item) => {
-                          const effectivePrice = getEffectivePrice(item);
-                          return sum + effectivePrice.total_price;
-                        }, 0);
-                        return totalSum.toLocaleString();
-                      })()} {data.summary?.currency || 'SAR'}
-                    </td>
                     <td className="px-4 py-4 text-right bg-purple-500/10">
                       -
                     </td>
@@ -2355,6 +2309,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                         return calculatedTotal > 0 ? calculatedTotal.toLocaleString() : '-';
                       })()} {data.summary?.currency || 'SAR'}
                     </td>
+                    <td className="px-4 py-4"></td>
                     <td className="px-4 py-4"></td>
                   </tr>
                 </tfoot>
