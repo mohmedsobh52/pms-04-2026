@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Plus, ArrowLeft, Briefcase, Building2, DollarSign, FileText, Loader2, Home, MapPin, Users } from "lucide-react";
+import { Plus, ArrowLeft, Briefcase, Building2, DollarSign, FileText, Loader2, Home, MapPin, Users, CalendarIcon, Clock, Flag } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,11 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
+import { ar, enUS } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -43,6 +48,13 @@ const projectTypes = [
   { value: "other", label: { ar: "أخرى", en: "Other" } },
 ];
 
+const projectStatuses = [
+  { value: "draft", label: { ar: "مسودة", en: "Draft" } },
+  { value: "planning", label: { ar: "تخطيط", en: "Planning" } },
+  { value: "in_progress", label: { ar: "قيد التنفيذ", en: "In Progress" } },
+  { value: "on_hold", label: { ar: "معلق", en: "On Hold" } },
+];
+
 export default function NewProjectPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -58,11 +70,19 @@ export default function NewProjectPage() {
     location: "",
     clientName: "",
     estimatedValue: "",
+    startDate: undefined as Date | undefined,
+    endDate: undefined as Date | undefined,
+    status: "draft",
   });
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | Date | undefined) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  // Calculate duration in days
+  const durationDays = formData.startDate && formData.endDate 
+    ? Math.ceil((formData.endDate.getTime() - formData.startDate.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,7 +116,7 @@ export default function NewProjectPage() {
       const projectData = {
         name: formData.name.trim(),
         user_id: user.id,
-        status: "draft",
+        status: formData.status,
         analysis_data: {
           items: [],
           summary: {
@@ -111,6 +131,8 @@ export default function NewProjectPage() {
             client_name: formData.clientName,
             description: formData.description,
             estimated_value: formData.estimatedValue ? parseFloat(formData.estimatedValue) : null,
+            start_date: formData.startDate?.toISOString() || null,
+            end_date: formData.endDate?.toISOString() || null,
           },
           created_at: new Date().toISOString(),
         },
@@ -303,7 +325,103 @@ export default function NewProjectPage() {
                 </div>
               </div>
               
-              {/* Section 3: Location & Client */}
+              {/* Section 3: Dates & Timeline */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2 border-b pb-2">
+                  <CalendarIcon className="w-4 h-4" />
+                  {isArabic ? "التواريخ والجدول الزمني" : "Dates & Timeline"}
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Start Date */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1 font-medium">
+                      <CalendarIcon className="w-4 h-4 text-blue-500" />
+                      {isArabic ? "تاريخ البدء" : "Start Date"}
+                    </Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          type="button"
+                          className={cn(
+                            "w-full justify-start text-left font-normal h-11 relative z-[55] pointer-events-auto",
+                            !formData.startDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="me-2 h-4 w-4" />
+                          {formData.startDate ? (
+                            format(formData.startDate, "PPP", { locale: isArabic ? ar : enUS })
+                          ) : (
+                            <span>{isArabic ? "اختر تاريخ البدء" : "Pick start date"}</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 z-[100] pointer-events-auto" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={formData.startDate}
+                          onSelect={(date) => handleInputChange("startDate", date)}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  {/* End Date */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1 font-medium">
+                      <CalendarIcon className="w-4 h-4 text-red-500" />
+                      {isArabic ? "تاريخ الانتهاء المتوقع" : "Expected End Date"}
+                    </Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          type="button"
+                          className={cn(
+                            "w-full justify-start text-left font-normal h-11 relative z-[55] pointer-events-auto",
+                            !formData.endDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="me-2 h-4 w-4" />
+                          {formData.endDate ? (
+                            format(formData.endDate, "PPP", { locale: isArabic ? ar : enUS })
+                          ) : (
+                            <span>{isArabic ? "اختر تاريخ الانتهاء" : "Pick end date"}</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 z-[100] pointer-events-auto" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={formData.endDate}
+                          onSelect={(date) => handleInputChange("endDate", date)}
+                          disabled={(date) => formData.startDate ? date < formData.startDate : false}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+                
+                {/* Duration Indicator */}
+                {durationDays !== null && durationDays > 0 && (
+                  <div className="p-3 bg-muted/50 rounded-lg flex items-center gap-2 text-sm">
+                    <Clock className="w-4 h-4 text-primary" />
+                    <span className="font-medium">
+                      {isArabic ? "المدة المتوقعة:" : "Expected Duration:"}
+                    </span>
+                    <span className="text-primary font-semibold">
+                      {durationDays} {isArabic ? "يوم" : "days"}
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Section 4: Location & Client */}
               <div className="space-y-4">
                 <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2 border-b pb-2">
                   <MapPin className="w-4 h-4" />
@@ -339,9 +457,29 @@ export default function NewProjectPage() {
                     />
                   </div>
                 </div>
+                
+                {/* Project Status */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 font-medium">
+                    <Flag className="w-4 h-4 text-indigo-500" />
+                    {isArabic ? "حالة المشروع" : "Project Status"}
+                  </Label>
+                  <Select value={formData.status} onValueChange={(v) => handleInputChange("status", v)}>
+                    <SelectTrigger className="relative z-[55] pointer-events-auto h-11">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projectStatuses.map(s => (
+                        <SelectItem key={s.value} value={s.value}>
+                          {isArabic ? s.label.ar : s.label.en}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
-              {/* Section 4: Financial Value */}
+              {/* Section 5: Financial Value */}
               <div className="space-y-4">
                 <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2 border-b pb-2">
                   <DollarSign className="w-4 h-4" />
@@ -365,6 +503,11 @@ export default function NewProjectPage() {
                       {formData.currency}
                     </span>
                   </div>
+                  {formData.estimatedValue && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      ≈ {Number(formData.estimatedValue).toLocaleString(isArabic ? 'ar-SA' : 'en-US')} {formData.currency}
+                    </p>
+                  )}
                 </div>
               </div>
             </CardContent>
