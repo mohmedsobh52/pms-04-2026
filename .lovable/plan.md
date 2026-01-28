@@ -1,52 +1,84 @@
 
 
-# خطة تعديل أعمدة الجدول
+# خطة تحسين الجدول وتعديل حساب Total
 
-## طلب المستخدم
-- **إزالة** عمودين: `Unit Price` و `Total`
-- **استبدال** عمود `Calc. Price` بـ `Total` (إعادة تسمية العمود المحسوب ليكون هو الإجمالي الرئيسي)
+## المشكلة الحالية
 
-## الوضع الحالي للأعمدة
+### منطق الحساب الحالي (معقد):
+```typescript
+const calcCosts = getItemCalculatedCosts(item.item_number);
+const calculatedPrice = calcCosts.calculatedUnitPrice; // يشمل مواد + عمالة + أرباح
+const effectivePrice = calculatedPrice > 0 ? calculatedPrice : (item.unit_price || 0);
+const totalPrice = effectivePrice * item.quantity;
+```
 
-| العمود | الحالة الحالية |
-|--------|---------------|
-| Unit Price | موجود ✓ |
-| Total | موجود ✓ |
-| AI Rate | موجود ✓ |
-| Calc. Price | موجود ✓ |
+### المنطق المطلوب (بسيط ومباشر):
+```typescript
+Total = Quantity × AI Rate
+```
+
+---
 
 ## التغييرات المطلوبة
 
-### 1. ملف `src/components/TableControls.tsx`
-تحديث `BOQ_TABLE_COLUMNS` لإزالة العمودين وإعادة تسمية `calc_price`:
+### ملف: `src/components/AnalysisResults.tsx`
 
+#### 1. تعديل منطق حساب Total (السطر 2141-2143):
+
+**قبل:**
 ```typescript
-// قبل
-{ id: "unit_price", label: "Unit Price", labelAr: "سعر الوحدة" },
-{ id: "total", label: "Total", labelAr: "الإجمالي" },
-{ id: "ai_rate", label: "AI Rate", labelAr: "سعر AI" },
-{ id: "calc_price", label: "Calc. Price", labelAr: "السعر المحسوب" },
-
-// بعد - إزالة unit_price و total، وتغيير calc_price إلى Total
-{ id: "ai_rate", label: "AI Rate", labelAr: "سعر AI" },
-{ id: "calc_price", label: "Total", labelAr: "الإجمالي" },
+const calculatedPrice = calcCosts.calculatedUnitPrice;
+const effectivePrice = calculatedPrice > 0 ? calculatedPrice : (item.unit_price || 0);
+const totalPrice = effectivePrice * item.quantity;
 ```
 
-### 2. ملف `src/components/AnalysisResults.tsx`
+**بعد:**
+```typescript
+// AI Rate هو السعر الأساسي
+const aiRate = calcCosts.aiSuggestedRate || 0;
+// Total = Qty × AI Rate
+const totalPrice = aiRate * (item.quantity || 0);
+```
 
-#### تحديث Header الجدول (السطور 2111-2129):
-- **إزالة** header لـ `unit_price` (السطور 2111-2115)
-- **إزالة** header لـ `total` (السطور 2116-2120)
-- **تغيير نص** `calc_price` من "Calc. Price" إلى "Total"
+#### 2. تحديث Footer الجدول (السطر 2303-2309):
 
-#### تحديث Body الجدول (السطور 2236-2279):
-- **إزالة** خلايا `unit_price` (السطور 2236-2247)
-- **إزالة** خلايا `total` (السطور 2248-2259)
-- **تحويل** `calc_price` لعرض الإجمالي = `calculatedUnitPrice × quantity`
+**قبل:**
+```typescript
+const calculatedTotal = filteredItems.reduce((sum, item) => {
+  const calcPrice = getItemCalculatedCosts(item.item_number).calculatedUnitPrice;
+  const effectivePrice = calcPrice > 0 ? calcPrice : (item.unit_price || 0);
+  return sum + (effectivePrice * item.quantity);
+}, 0);
+```
 
-#### تحديث Footer الجدول (السطور 2325-2360):
-- تحديث colspan وإزالة الأعمدة المحذوفة
-- الإبقاء على العمود الأخير كإجمالي كلي
+**بعد:**
+```typescript
+const calculatedTotal = filteredItems.reduce((sum, item) => {
+  const aiRate = getItemCalculatedCosts(item.item_number).aiSuggestedRate || 0;
+  return sum + (aiRate * (item.quantity || 0));
+}, 0);
+```
+
+---
+
+## النتيجة المتوقعة
+
+### مثال من الصورة المرفقة:
+
+| Qty | AI Rate | Total (الجديد) |
+|-----|---------|---------------|
+| 279,250 | 62.00 | 17,313,500 ✓ |
+| 70,000 | 47.00 | 3,290,000 ✓ |
+| 350,000 | 25.00 | 8,750,000 ✓ |
+| 320,000 | 55.00 | 17,600,000 ✓ |
+| 1,350 | 100.00 | 135,000 ✓ |
+| 1,350 | 220.00 | 297,000 ✓ |
+
+### الحسابات الحالية في الصورة:
+- السطر 2: Qty=279,250 × AI Rate=62.00 = **17,313,500** (لكن يظهر 27,925,000 - خطأ!)
+- السطر 5: Qty=350,000 × AI Rate=25.00 = **8,750,000** (لكن يظهر 35,000,000 - خطأ!)
+
+المشكلة أن الحساب الحالي لا يستخدم AI Rate مباشرة.
 
 ---
 
@@ -54,39 +86,37 @@
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/TableControls.tsx` | إزالة عمودين من `BOQ_TABLE_COLUMNS` + إعادة تسمية |
-| `src/components/AnalysisResults.tsx` | تحديث header/body/footer للجدول |
+| `src/components/AnalysisResults.tsx` | تعديل منطق حساب Total + Footer |
 
 ---
 
-## النتيجة المتوقعة
+## تفاصيل تقنية
 
-### قبل التعديل
-```
-| # | Item No. | Description | Unit | Qty | Unit Price | Total | AI Rate | Calc. Price | Balance | Actions |
-```
-
-### بعد التعديل
-```
-| # | Item No. | Description | Unit | Qty | AI Rate | Total | Balance | Actions |
-```
-
----
-
-## ملاحظات تقنية
-
-### منطق العمود الجديد `Total`
-سيعرض العمود الجديد القيمة المحسوبة:
+### التغييرات في Body الجدول:
 ```typescript
-// Total = calculatedUnitPrice × quantity
-const total = calculatedPrice * item.quantity;
-// أو إذا لم يوجد سعر محسوب:
-const total = (item.unit_price || 0) * item.quantity;
+// السطر 2140-2143 تقريباً
+const calcCosts = getItemCalculatedCosts(item.item_number);
+const aiRate = calcCosts.aiSuggestedRate || 0;
+const totalPrice = aiRate * (item.quantity || 0);
 ```
 
-### التوافق مع الصادرات
-لن يؤثر هذا التغيير على صادرات Excel/PDF لأنها تستخدم البيانات الأصلية وليس أعمدة الجدول المرئية.
+### التغييرات في Footer الجدول:
+```typescript
+// السطر 2303-2309 تقريباً
+const calculatedTotal = filteredItems.reduce((sum, item) => {
+  const aiRate = getItemCalculatedCosts(item.item_number).aiSuggestedRate || 0;
+  return sum + (aiRate * (item.quantity || 0));
+}, 0);
+```
 
-### التوافق مع localStorage
-سيتم تحديث الأعمدة المرئية تلقائياً - المستخدمون الذين لديهم إعدادات محفوظة قد يحتاجون لإعادة تعيين إعدادات الأعمدة.
+---
+
+## اختبار التحقق
+
+| الاختبار | النتيجة المتوقعة |
+|---------|----------------|
+| عنصر بـ Qty=100, AI Rate=50 | Total = 5,000 |
+| عنصر بـ Qty=0, AI Rate=100 | Total = 0 |
+| عنصر بـ Qty=100, AI Rate=0 | Total = 0 (يظهر "-") |
+| إجمالي الجدول | مجموع (Qty × AI Rate) لجميع العناصر |
 
