@@ -355,7 +355,7 @@ export default function HomePage() {
             {/* Center: Advanced Search Box - Always Visible */}
             <div 
               onClick={() => setSearchOpen(true)}
-              className="flex-1 max-w-xl mx-4 cursor-pointer group hidden sm:block"
+              className="flex-1 max-w-xl mx-4 cursor-pointer group hidden sm:block header-search-box"
             >
               <div className="relative flex items-center">
                 <Search className="absolute left-3 h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -377,7 +377,7 @@ export default function HomePage() {
             <Button 
               variant="ghost" 
               size="icon" 
-              className="sm:hidden h-9 w-9"
+              className="sm:hidden h-9 w-9 relative z-[55] pointer-events-auto"
               onClick={() => setSearchOpen(true)}
             >
               <Search className="h-4 w-4" />

@@ -180,7 +180,7 @@ export function UnifiedHeader({ showQuickNav = true }: UnifiedHeaderProps) {
             variant="ghost"
             size="sm"
             onClick={() => setSearchOpen(true)}
-            className="gap-1.5 h-9 px-2 sm:px-3"
+            className="gap-1.5 h-9 px-2 sm:px-3 relative z-[55] pointer-events-auto"
             title={isArabic ? "بحث (⌘K)" : "Search (⌘K)"}
           >
             <Search className="h-4 w-4" />
