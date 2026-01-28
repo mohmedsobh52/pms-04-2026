@@ -399,13 +399,13 @@ export function GuaranteesTab({ isArabic, contractValue = 10000000, initialData,
   const currentTotalCost = calculateCost(currentGuaranteeValue, formData.bankCharges, formData.duration);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+    <Card className="tender-card-safe">
+      <CardHeader className="flex flex-row items-center justify-between tender-card-header">
         <CardTitle className="flex items-center gap-2">
           <FileCheck className="w-5 h-5" />
           {isArabic ? "الضمانات البنكية" : "Bank Guarantees"}
         </CardTitle>
-        <Button onClick={handleAdd} className="gap-2">
+        <Button onClick={handleAdd} className="gap-2 relative z-[65] pointer-events-auto">
           <Plus className="w-4 h-4" />
           {isArabic ? "إضافة ضمان" : "Add Guarantee"}
         </Button>

@@ -161,13 +161,13 @@ export function PricingSettingsTab({
   const riskProgress = RISK_LEVELS.findIndex(r => r.value === localSettings.riskLevel) * 33.33 + 16.67;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+    <Card className="tender-card-safe">
+      <CardHeader className="flex flex-row items-center justify-between tender-card-header">
         <CardTitle className="flex items-center gap-2">
           <Settings className="w-5 h-5" />
           {isArabic ? "إعدادات التسعير" : "Pricing Settings"}
         </CardTitle>
-        <Button onClick={handleSave} className="gap-2">
+        <Button onClick={handleSave} className="gap-2 relative z-[65] pointer-events-auto">
           <Save className="w-4 h-4" />
           {isArabic ? "حفظ الإعدادات" : "Save Settings"}
         </Button>

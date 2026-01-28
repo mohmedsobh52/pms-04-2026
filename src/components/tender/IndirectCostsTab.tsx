@@ -496,13 +496,13 @@ export function IndirectCostsTab({
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+    <Card className="tender-card-safe">
+      <CardHeader className="flex flex-row items-center justify-between tender-card-header">
         <CardTitle className="flex items-center gap-2">
           <Building2 className="w-5 h-5" />
           {isArabic ? "التكاليف غير المباشرة" : "Indirect Costs"}
         </CardTitle>
-        <Button onClick={handleAdd} className="gap-2">
+        <Button onClick={handleAdd} className="gap-2 relative z-[65] pointer-events-auto">
           <Plus className="w-4 h-4" />
           {isArabic ? "إضافة بند" : "Add Item"}
         </Button>

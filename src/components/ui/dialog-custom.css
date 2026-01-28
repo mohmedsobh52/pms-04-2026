@@ -223,3 +223,34 @@ button:active,
 [data-radix-slider-track] {
   pointer-events: auto !important;
 }
+
+/* ============================================
+   TENDER TABS CARD HEADER PROTECTION
+   Ensure add buttons in tender tabs are always clickable
+   ============================================ */
+
+.tender-card-safe {
+  position: relative;
+  z-index: 10;
+}
+
+.tender-card-header {
+  position: relative;
+  z-index: 60;
+  pointer-events: auto !important;
+}
+
+.tender-card-header button {
+  position: relative;
+  z-index: 65;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.tender-card-safe [data-radix-dialog-trigger],
+.tender-card-safe button:not([data-radix-dialog-content] button) {
+  position: relative;
+  z-index: 65;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
