@@ -8,7 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -155,20 +154,46 @@ export function AnalysisStatusDashboard() {
         </div>
       </CardHeader>
       <CardContent>
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="overview">
-              {isArabic ? "نظرة عامة" : "Overview"}
-            </TabsTrigger>
-            <TabsTrigger value="history">
-              {isArabic ? "السجل" : "History"}
-            </TabsTrigger>
-            <TabsTrigger value="details">
-              {isArabic ? "التفاصيل" : "Details"}
-            </TabsTrigger>
-          </TabsList>
+        {/* Custom Tab Navigation - Avoids Recharts interference with Radix Tabs */}
+        <div className="flex gap-1 p-1 bg-muted rounded-lg mb-4">
+          <button
+            type="button"
+            onClick={() => setActiveTab('overview')}
+            className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              activeTab === 'overview' 
+                ? 'bg-background text-foreground shadow-sm' 
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {isArabic ? "نظرة عامة" : "Overview"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('history')}
+            className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              activeTab === 'history' 
+                ? 'bg-background text-foreground shadow-sm' 
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {isArabic ? "السجل" : "History"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('details')}
+            className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              activeTab === 'details' 
+                ? 'bg-background text-foreground shadow-sm' 
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {isArabic ? "التفاصيل" : "Details"}
+          </button>
+        </div>
 
-          <TabsContent value="overview" className="space-y-4">
+        {/* Overview Tab Content */}
+        {activeTab === 'overview' && (
+          <div className="space-y-4">
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
@@ -305,151 +330,153 @@ export function AnalysisStatusDashboard() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
+        )}
 
-          <TabsContent value="history">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{isArabic ? 'الكل' : 'All'}</SelectItem>
-                    <SelectItem value="success">{isArabic ? 'ناجح' : 'Success'}</SelectItem>
-                    <SelectItem value="fallback">{isArabic ? 'بديل' : 'Fallback'}</SelectItem>
-                    <SelectItem value="error">{isArabic ? 'خطأ' : 'Error'}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Badge variant="secondary">
-                  {filteredRecords.length} {isArabic ? 'سجل' : 'records'}
-                </Badge>
-              </div>
-
-              <ScrollArea className="h-[400px]">
-                <div className="space-y-2">
-                  {filteredRecords.map((record) => {
-                    const statusConfig = STATUS_CONFIG[record.status];
-                    const StatusIcon = statusConfig.icon;
-                    
-                    return (
-                      <Collapsible
-                        key={record.id}
-                        open={expandedRecord === record.id}
-                        onOpenChange={() => setExpandedRecord(expandedRecord === record.id ? null : record.id)}
-                      >
-                        <div className={`p-3 rounded-lg border ${statusConfig.bgColor}`}>
-                          <CollapsibleTrigger className="w-full">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <StatusIcon className={`h-5 w-5 ${statusConfig.color}`} />
-                                <div className="text-left">
-                                  <p className="font-medium text-sm">
-                                    {isArabic ? record.displayNameAr : record.displayName}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {formatDate(record.startTime)}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="text-xs">
-                                  {isArabic ? getModelDisplayNameAr(record.model) : getModelDisplayName(record.model)}
-                                </Badge>
-                                <Badge variant="secondary" className="text-xs">
-                                  {formatDuration(record.duration)}
-                                </Badge>
-                                {expandedRecord === record.id ? (
-                                  <ChevronUp className="h-4 w-4" />
-                                ) : (
-                                  <ChevronDown className="h-4 w-4" />
-                                )}
-                              </div>
-                            </div>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <div className="mt-3 pt-3 border-t space-y-2 text-sm">
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">{isArabic ? 'مصدر البيانات' : 'Data Source'}</span>
-                                <Badge variant={record.dataSource === 'ai' ? 'default' : 'secondary'}>
-                                  {record.dataSource === 'ai' ? (isArabic ? 'ذكاء اصطناعي' : 'AI') : (isArabic ? 'حسابات بديلة' : 'Fallback')}
-                                </Badge>
-                              </div>
-                              {record.itemsAnalyzed && (
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">{isArabic ? 'البنود المحللة' : 'Items Analyzed'}</span>
-                                  <span>{record.itemsAnalyzed}</span>
-                                </div>
-                              )}
-                              {record.confidence && (
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">{isArabic ? 'الثقة' : 'Confidence'}</span>
-                                  <span>{record.confidence}%</span>
-                                </div>
-                              )}
-                              {record.error && (
-                                <div className="text-red-500 text-xs mt-2 p-2 bg-red-100 dark:bg-red-900/20 rounded">
-                                  {record.error}
-                                </div>
-                              )}
-                              {record.details && (
-                                <div className="text-xs mt-2 p-2 bg-muted rounded">
-                                  {record.details}
-                                </div>
-                              )}
-                            </div>
-                          </CollapsibleContent>
-                        </div>
-                      </Collapsible>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
+        {/* History Tab Content */}
+        {activeTab === 'history' && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{isArabic ? 'الكل' : 'All'}</SelectItem>
+                  <SelectItem value="success">{isArabic ? 'ناجح' : 'Success'}</SelectItem>
+                  <SelectItem value="fallback">{isArabic ? 'بديل' : 'Fallback'}</SelectItem>
+                  <SelectItem value="error">{isArabic ? 'خطأ' : 'Error'}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Badge variant="secondary">
+                {filteredRecords.length} {isArabic ? 'سجل' : 'records'}
+              </Badge>
             </div>
-          </TabsContent>
 
-          <TabsContent value="details">
             <ScrollArea className="h-[400px]">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{isArabic ? 'الوظيفة' : 'Function'}</TableHead>
-                    <TableHead>{isArabic ? 'الإجمالي' : 'Total'}</TableHead>
-                    <TableHead className="text-green-600">{isArabic ? 'ناجح' : 'Success'}</TableHead>
-                    <TableHead className="text-orange-600">{isArabic ? 'بديل' : 'Fallback'}</TableHead>
-                    <TableHead className="text-red-600">{isArabic ? 'خطأ' : 'Error'}</TableHead>
-                    <TableHead>{isArabic ? 'نسبة النجاح' : 'Success Rate'}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {Object.entries(stats.byFunction).map(([func, data]) => (
-                    <TableRow key={func}>
-                      <TableCell className="font-medium">
-                        {isArabic ? (FUNCTION_LABELS[func]?.ar || func) : (FUNCTION_LABELS[func]?.en || func)}
-                      </TableCell>
-                      <TableCell>{data.total}</TableCell>
-                      <TableCell className="text-green-600">{data.success}</TableCell>
-                      <TableCell className="text-orange-600">{data.fallback}</TableCell>
-                      <TableCell className="text-red-600">{data.error}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Progress 
-                            value={data.total > 0 ? (data.success / data.total) * 100 : 0} 
-                            className="h-2 w-16" 
-                          />
-                          <span className="text-xs">
-                            {data.total > 0 ? ((data.success / data.total) * 100).toFixed(0) : 0}%
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="space-y-2">
+                {filteredRecords.map((record) => {
+                  const statusConfig = STATUS_CONFIG[record.status];
+                  const StatusIcon = statusConfig.icon;
+                  
+                  return (
+                    <Collapsible
+                      key={record.id}
+                      open={expandedRecord === record.id}
+                      onOpenChange={() => setExpandedRecord(expandedRecord === record.id ? null : record.id)}
+                    >
+                      <div className={`p-3 rounded-lg border ${statusConfig.bgColor}`}>
+                        <CollapsibleTrigger className="w-full">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <StatusIcon className={`h-5 w-5 ${statusConfig.color}`} />
+                              <div className="text-left">
+                                <p className="font-medium text-sm">
+                                  {isArabic ? record.displayNameAr : record.displayName}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatDate(record.startTime)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">
+                                {isArabic ? getModelDisplayNameAr(record.model) : getModelDisplayName(record.model)}
+                              </Badge>
+                              <Badge variant="secondary" className="text-xs">
+                                {formatDuration(record.duration)}
+                              </Badge>
+                              {expandedRecord === record.id ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )}
+                            </div>
+                          </div>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="mt-3 pt-3 border-t space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">{isArabic ? 'مصدر البيانات' : 'Data Source'}</span>
+                              <Badge variant={record.dataSource === 'ai' ? 'default' : 'secondary'}>
+                                {record.dataSource === 'ai' ? (isArabic ? 'ذكاء اصطناعي' : 'AI') : (isArabic ? 'حسابات بديلة' : 'Fallback')}
+                              </Badge>
+                            </div>
+                            {record.itemsAnalyzed && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">{isArabic ? 'البنود المحللة' : 'Items Analyzed'}</span>
+                                <span>{record.itemsAnalyzed}</span>
+                              </div>
+                            )}
+                            {record.confidence && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">{isArabic ? 'الثقة' : 'Confidence'}</span>
+                                <span>{record.confidence}%</span>
+                              </div>
+                            )}
+                            {record.error && (
+                              <div className="text-red-500 text-xs mt-2 p-2 bg-red-100 dark:bg-red-900/20 rounded">
+                                {record.error}
+                              </div>
+                            )}
+                            {record.details && (
+                              <div className="text-xs mt-2 p-2 bg-muted rounded">
+                                {record.details}
+                              </div>
+                            )}
+                          </div>
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
+                  );
+                })}
+              </div>
             </ScrollArea>
-          </TabsContent>
-        </Tabs>
+          </div>
+        )}
+
+        {/* Details Tab Content */}
+        {activeTab === 'details' && (
+          <ScrollArea className="h-[400px]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{isArabic ? 'الوظيفة' : 'Function'}</TableHead>
+                  <TableHead>{isArabic ? 'الإجمالي' : 'Total'}</TableHead>
+                  <TableHead className="text-green-600">{isArabic ? 'ناجح' : 'Success'}</TableHead>
+                  <TableHead className="text-orange-600">{isArabic ? 'بديل' : 'Fallback'}</TableHead>
+                  <TableHead className="text-red-600">{isArabic ? 'خطأ' : 'Error'}</TableHead>
+                  <TableHead>{isArabic ? 'نسبة النجاح' : 'Success Rate'}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Object.entries(stats.byFunction).map(([func, data]) => (
+                  <TableRow key={func}>
+                    <TableCell className="font-medium">
+                      {isArabic ? (FUNCTION_LABELS[func]?.ar || func) : (FUNCTION_LABELS[func]?.en || func)}
+                    </TableCell>
+                    <TableCell>{data.total}</TableCell>
+                    <TableCell className="text-green-600">{data.success}</TableCell>
+                    <TableCell className="text-orange-600">{data.fallback}</TableCell>
+                    <TableCell className="text-red-600">{data.error}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Progress 
+                          value={data.total > 0 ? (data.success / data.total) * 100 : 0} 
+                          className="h-2 w-16" 
+                        />
+                        <span className="text-xs">
+                          {data.total > 0 ? ((data.success / data.total) * 100).toFixed(0) : 0}%
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        )}
       </CardContent>
     </Card>
   );
