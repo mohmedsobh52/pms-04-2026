@@ -303,8 +303,8 @@ const PricingScenarios = forwardRef<HTMLDivElement, PricingScenariosProps>(
         </Card>
 
         {/* Scenarios Comparison Card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
+        <Card className="tender-card-safe">
+          <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4 tender-card-header">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-primary" />
@@ -318,7 +318,7 @@ const PricingScenarios = forwardRef<HTMLDivElement, PricingScenariosProps>(
             </div>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
+                <Button variant="outline" size="sm" className="gap-2 relative z-[65] pointer-events-auto">
                   <Plus className="w-4 h-4" />
                   {isArabic ? "سيناريو مخصص" : "Custom Scenario"}
                 </Button>

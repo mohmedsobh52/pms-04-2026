@@ -252,8 +252,8 @@ const TenderSubcontractorsTab = forwardRef<HTMLDivElement, TenderSubcontractorsT
       </div>
 
       {/* Main Content */}
-      <Card>
-        <CardHeader>
+      <Card className="tender-card-safe">
+        <CardHeader className="tender-card-header">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5" />
@@ -267,7 +267,7 @@ const TenderSubcontractorsTab = forwardRef<HTMLDivElement, TenderSubcontractorsT
               }
             }}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="relative z-[65] pointer-events-auto">
                   <Plus className="h-4 w-4 mr-1" />
                   {isRTL ? "إضافة مقاول" : "Add Subcontractor"}
                 </Button>

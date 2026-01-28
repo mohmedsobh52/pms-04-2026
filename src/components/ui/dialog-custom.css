@@ -254,3 +254,43 @@ button:active,
   pointer-events: auto !important;
   cursor: pointer !important;
 }
+
+/* ============================================
+   DIALOG TRIGGER GLOBAL PROTECTION
+   ============================================ */
+
+/* All DialogTrigger buttons should be interactive */
+[data-radix-dialog-trigger] {
+  position: relative;
+  z-index: 65;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* Nested DialogTrigger in CardHeader */
+.tender-card-header [data-radix-dialog-trigger],
+.tender-card-header > * [data-radix-dialog-trigger] {
+  position: relative;
+  z-index: 65;
+  pointer-events: auto !important;
+}
+
+/* Card with Dialog inside */
+.card-with-dialog {
+  position: relative;
+  z-index: 10;
+}
+
+.card-with-dialog .card-header-actions {
+  position: relative;
+  z-index: 60;
+  pointer-events: auto !important;
+}
+
+.card-with-dialog .card-header-actions button,
+.card-with-dialog .card-header-actions [data-radix-dialog-trigger] {
+  position: relative;
+  z-index: 65;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}

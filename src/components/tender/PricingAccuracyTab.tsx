@@ -32,7 +32,7 @@ export function PricingAccuracyTab({ isArabic, projectId }: PricingAccuracyTabPr
 
       {/* Sub-tabs */}
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
-        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid tabs-navigation-safe">
           <TabsTrigger value="comparison" className="flex items-center gap-2">
             <GitCompare className="h-4 w-4" />
             <span className="hidden sm:inline">
