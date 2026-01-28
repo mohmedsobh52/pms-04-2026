@@ -431,20 +431,28 @@ button:active,
    Ensure header search box is always clickable
    ============================================ */
 
+/* ============================================
+   HEADER SEARCH BOX PROTECTION
+   Ensure header search box is always clickable
+   ============================================ */
+
 .header-search-box {
   position: relative;
-  z-index: 55;
+  z-index: 56 !important; /* Higher than header (50) and other elements */
   pointer-events: auto !important;
   cursor: pointer !important;
 }
 
-/* Allow click events to bubble to parent */
+/* Ensure all child elements don't block clicks when using button element */
 .header-search-box > * {
-  pointer-events: none;
+  pointer-events: none !important;
 }
 
-/* Re-enable for specific interactive elements if needed */
-.header-search-box button,
-.header-search-box a {
-  pointer-events: auto;
+/* For button-based search boxes, re-enable pointer events on the button itself */
+button.header-search-box {
+  pointer-events: auto !important;
+}
+
+button.header-search-box > * {
+  pointer-events: none !important;
 }

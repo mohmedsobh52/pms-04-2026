@@ -204,7 +204,7 @@ const BackgroundImage = ({ activePhase = 1 }: BackgroundImageProps) => {
       />
       
       {/* Light/Dark Mode Overlay - Reduced opacity for more vibrant background */}
-      <div className="fixed inset-0 -z-10 bg-background/75 dark:bg-background/70 backdrop-blur-[1px]" />
+      <div className="fixed inset-0 -z-10 bg-background/75 dark:bg-background/70 backdrop-blur-[1px] pointer-events-none" />
     </>
   );
 };
