@@ -294,3 +294,35 @@ button:active,
   pointer-events: auto !important;
   cursor: pointer !important;
 }
+
+/* ============================================
+   REPORTS CARD PROTECTION
+   Ensure report action buttons are always clickable
+   ============================================ */
+
+.reports-card-safe {
+  position: relative;
+  z-index: 10;
+}
+
+.reports-card-safe button,
+.reports-card-safe .report-action-btn {
+  position: relative;
+  z-index: 65;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* Card actions container */
+.card-actions-safe {
+  position: relative;
+  z-index: 60;
+  pointer-events: auto !important;
+}
+
+.card-actions-safe button {
+  position: relative;
+  z-index: 65;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}

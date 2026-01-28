@@ -379,6 +379,7 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
             size="sm" 
             disabled={!hasData || isLoadingItems}
             onClick={() => handleExportPriceComparison('pdf')}
+            className="relative z-[65] pointer-events-auto"
           >
             <FileDown className="h-4 w-4 mr-1" />
             PDF
@@ -388,6 +389,7 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
             size="sm" 
             disabled={!hasData || isLoadingItems}
             onClick={() => handleExportPriceComparison('excel')}
+            className="relative z-[65] pointer-events-auto"
           >
             <FileSpreadsheet className="h-4 w-4 mr-1" />
             Excel
@@ -410,7 +412,7 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
           size="sm" 
           disabled={!hasData || isLoadingItems}
           onClick={handleExportBalanceReport}
-          className="gap-2"
+          className="gap-2 relative z-[65] pointer-events-auto"
         >
           <FileDown className="h-4 w-4" />
           PDF
@@ -432,6 +434,7 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
           size="sm" 
           disabled={!hasData || isLoadingItems}
           onClick={() => setShowVarianceDialog(true)}
+          className="relative z-[65] pointer-events-auto"
         >
           <Eye className="h-4 w-4 mr-1" />
           {isArabic ? "عرض" : "View"}
@@ -612,7 +615,7 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
       {/* Report Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {reportCards.map((card) => (
-          <Card key={card.id} className="border-border hover:shadow-md transition-shadow">
+          <Card key={card.id} className="border-border hover:shadow-md transition-shadow reports-card-safe">
             <CardHeader className="pb-2">
               <div className="flex items-start gap-3">
                 <div className={`p-2.5 rounded-lg ${card.bgColor}`}>
@@ -627,7 +630,7 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
               </div>
             </CardHeader>
             <CardContent className="pt-2">
-              <div className="flex justify-end">
+              <div className="flex justify-end card-actions-safe">
                 {card.actions}
               </div>
             </CardContent>
