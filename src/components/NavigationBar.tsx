@@ -28,13 +28,13 @@ export function NavigationBar({ showBreadcrumbs = true, className = "" }: Naviga
   };
 
   return (
-    <div className={`flex items-center gap-2 mb-4 flex-wrap ${className}`} dir={isArabic ? "rtl" : "ltr"}>
+    <div className={`flex items-center gap-2 mb-4 flex-wrap navigation-bar-safe ${className}`} dir={isArabic ? "rtl" : "ltr"}>
       {/* زر الرجوع */}
       <Button 
         variant="ghost" 
         size="sm" 
         onClick={handleBack}
-        className="gap-1.5 hover:bg-primary/10"
+        className="gap-1.5 hover:bg-primary/10 relative z-[51] pointer-events-auto"
       >
         {isArabic ? (
           <ChevronLeft className="h-4 w-4 rotate-180" />
@@ -51,7 +51,7 @@ export function NavigationBar({ showBreadcrumbs = true, className = "" }: Naviga
         variant="outline" 
         size="sm" 
         asChild
-        className="gap-1.5"
+        className="gap-1.5 relative z-[51] pointer-events-auto"
       >
         <Link to="/">
           <Home className="h-4 w-4" />

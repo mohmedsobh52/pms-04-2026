@@ -149,11 +149,11 @@ export default function NewProjectPage() {
     <PageLayout>
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Breadcrumb */}
-        <Breadcrumb>
+        <Breadcrumb className="breadcrumb-safe">
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link to="/" className="flex items-center gap-1">
+                <Link to="/" className="flex items-center gap-1 relative z-[46] pointer-events-auto">
                   <Home className="w-4 h-4" />
                   {isArabic ? "الرئيسية" : "Home"}
                 </Link>
@@ -162,7 +162,7 @@ export default function NewProjectPage() {
             <BreadcrumbSeparator />
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link to="/projects">{isArabic ? "المشاريع" : "Projects"}</Link>
+                <Link to="/projects" className="relative z-[46] pointer-events-auto">{isArabic ? "المشاريع" : "Projects"}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
@@ -173,7 +173,7 @@ export default function NewProjectPage() {
         </Breadcrumb>
         
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/projects")}>
+          <Button variant="ghost" size="icon" onClick={() => navigate("/projects")} className="relative z-[51] pointer-events-auto">
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
@@ -190,7 +190,7 @@ export default function NewProjectPage() {
         </div>
         
         <form onSubmit={handleSubmit}>
-          <Card>
+          <Card className="form-card-safe">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Briefcase className="w-5 h-5" />
@@ -243,7 +243,7 @@ export default function NewProjectPage() {
                     value={formData.currency} 
                     onValueChange={(v) => handleInputChange("currency", v)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="relative z-[55] pointer-events-auto">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -265,7 +265,7 @@ export default function NewProjectPage() {
                     value={formData.projectType} 
                     onValueChange={(v) => handleInputChange("projectType", v)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="relative z-[55] pointer-events-auto">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

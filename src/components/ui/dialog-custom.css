@@ -326,3 +326,71 @@ button:active,
   pointer-events: auto !important;
   cursor: pointer !important;
 }
+
+/* ============================================
+   NAVIGATION BAR PROTECTION
+   Ensure navigation buttons are always clickable
+   ============================================ */
+
+.navigation-bar-safe {
+  position: relative;
+  z-index: 50;
+  pointer-events: auto !important;
+}
+
+.navigation-bar-safe button,
+.navigation-bar-safe a {
+  position: relative;
+  z-index: 51;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* ============================================
+   BREADCRUMB PROTECTION
+   Ensure breadcrumb links are always clickable
+   ============================================ */
+
+.breadcrumb-safe {
+  position: relative;
+  z-index: 45;
+  pointer-events: auto !important;
+}
+
+.breadcrumb-safe a,
+.breadcrumb-safe [role="link"] {
+  position: relative;
+  z-index: 46;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* ============================================
+   FORM CARD PROTECTION
+   Ensure form elements in cards are always interactive
+   ============================================ */
+
+.form-card-safe {
+  position: relative;
+  z-index: 10;
+}
+
+.form-card-safe [data-radix-select-trigger] {
+  position: relative;
+  z-index: 55;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.form-card-safe input,
+.form-card-safe textarea,
+.form-card-safe button:not([data-radix-select-trigger]) {
+  position: relative;
+  z-index: 20;
+  pointer-events: auto !important;
+}
+
+.form-card-safe label {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}

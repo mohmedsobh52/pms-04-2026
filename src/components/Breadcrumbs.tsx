@@ -195,7 +195,7 @@ export function Breadcrumbs() {
   };
 
   return (
-    <Breadcrumb>
+    <Breadcrumb className="breadcrumb-safe">
       <BreadcrumbList className="flex-wrap">
         {trail.map((route, index) => {
           const isLast = index === trail.length - 1;
@@ -219,7 +219,7 @@ export function Breadcrumbs() {
                 <BreadcrumbLink asChild>
                   <Link 
                     to={route.path} 
-                    className="flex items-center gap-1.5 hover:text-primary transition-colors text-muted-foreground"
+                    className="flex items-center gap-1.5 hover:text-primary transition-colors text-muted-foreground relative z-[46] pointer-events-auto"
                   >
                     {IconComponent && <IconComponent className="h-3.5 w-3.5" />}
                     <span className="hidden sm:inline max-w-[120px] truncate" title={label}>{label}</span>
