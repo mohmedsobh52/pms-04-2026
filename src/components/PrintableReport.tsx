@@ -21,6 +21,8 @@ interface BOQItem {
   unit_price?: number;
   total_price?: number;
   category?: string;
+  ai_rate?: number;
+  calculated_total?: number;
 }
 
 interface ProcurementItem {
@@ -109,7 +111,7 @@ export function PrintableReport({
     return `${value.toLocaleString('en-US', { maximumFractionDigits: 0 })} ${currency}`;
   };
 
-  const totalValue = boqItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+  const totalValue = boqItems.reduce((sum, item) => sum + (item.calculated_total || item.total_price || 0), 0);
   const categories = [...new Set(boqItems.map(i => i.category).filter(Boolean))];
   const totalDuration = timelineItems.length > 0 
     ? Math.max(...timelineItems.map(t => t.startDay + t.duration))
@@ -386,7 +388,7 @@ export function PrintableReport({
                 <th>${isArabic ? "الوصف" : "Description"}</th>
                 <th>${isArabic ? "الوحدة" : "Unit"}</th>
                 <th>${isArabic ? "الكمية" : "Qty"}</th>
-                <th>${isArabic ? "سعر الوحدة" : "Unit Price"}</th>
+                <th>${isArabic ? "سعر AI" : "AI Rate"}</th>
                 <th>${isArabic ? "الإجمالي" : "Total"}</th>
               </tr>
             </thead>
@@ -397,9 +399,9 @@ export function PrintableReport({
                   <td>${item.item_number}</td>
                   <td>${item.description?.substring(0, 50) || ''}</td>
                   <td>${item.unit || ''}</td>
-                  <td>${item.quantity || 0}</td>
-                  <td>${formatCurrency(item.unit_price || 0)}</td>
-                  <td>${formatCurrency(item.total_price || 0)}</td>
+                  <td>${(item.quantity || 0).toLocaleString()}</td>
+                  <td>${formatCurrency(item.ai_rate || item.unit_price || 0)}</td>
+                  <td>${formatCurrency(item.calculated_total || item.total_price || 0)}</td>
                 </tr>
               `).join('')}
             </tbody>

@@ -212,8 +212,24 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const pageContainerRef = useRef<HTMLDivElement>(null);
   
-  // State for deleted items (to hide zero quantity rows)
-  const [deletedItemNumbers, setDeletedItemNumbers] = useState<Set<string>>(new Set());
+  // State for deleted items (to hide zero quantity rows) - persisted to localStorage
+  const [deletedItemNumbers, setDeletedItemNumbers] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('boq_deleted_items');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Auto-save deleted items to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('boq_deleted_items', JSON.stringify([...deletedItemNumbers]));
+    } catch (error) {
+      console.error('Failed to save deleted items:', error);
+    }
+  }, [deletedItemNumbers]);
   
   // State for restoration system - track deleted items with details
   const [deletedItems, setDeletedItems] = useState<Array<{
@@ -1509,7 +1525,17 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                   <div className="p-0">
                     <PrintableReport
                       projectName={fileName || "المشروع"}
-                      boqItems={data.items || []}
+                      boqItems={(data.items || [])
+                        .filter(item => !deletedItemNumbers.has(item.item_number))
+                        .map(item => {
+                          const calcCosts = getItemCalculatedCosts(item.item_number);
+                          const aiRate = calcCosts.aiSuggestedRate || 0;
+                          return {
+                            ...item,
+                            ai_rate: aiRate,
+                            calculated_total: aiRate * (item.quantity || 0)
+                          };
+                        })}
                       timelineItems={wbsData?.wbs?.map((item, idx) => ({
                         code: item.code,
                         title: item.title,
