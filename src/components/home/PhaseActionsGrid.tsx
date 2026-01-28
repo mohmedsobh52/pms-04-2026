@@ -17,6 +17,7 @@ import {
   Briefcase,
   Settings,
   Sparkles,
+  Target,
   LucideIcon
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -139,6 +140,14 @@ const phaseConfigs: PhaseConfig[] = [
         description: { ar: "تفاصيل التكاليف", en: "Cost details" },
         href: "/cost-analysis",
         previewText: { ar: "تحليل مفصل لتكاليف المشروع", en: "Detailed analysis of project costs" }
+      },
+      { 
+        icon: Target, 
+        label: { ar: "دقة التسعير", en: "Pricing Accuracy" }, 
+        description: { ar: "تتبع دقة الأسعار", en: "Track price accuracy" },
+        href: "/pricing-accuracy",
+        isNew: true,
+        previewText: { ar: "مقارنة الأسعار المقترحة مع الأسعار النهائية المعتمدة", en: "Compare suggested prices with final approved prices" }
       }
     ]
   },
