@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, forwardRef } from "react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,7 +48,8 @@ interface MergedAnalysisReportProps {
   analyzedFiles: AnalyzedFile[];
 }
 
-export function MergedAnalysisReport({ isOpen, onClose, analyzedFiles }: MergedAnalysisReportProps) {
+export const MergedAnalysisReport = forwardRef<HTMLDivElement, MergedAnalysisReportProps>(
+  function MergedAnalysisReport({ isOpen, onClose, analyzedFiles }, ref) {
   const { isArabic } = useLanguage();
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set(analyzedFiles.map(f => f.id)));
   const [isGenerating, setIsGenerating] = useState(false);
@@ -464,4 +465,6 @@ export function MergedAnalysisReport({ isOpen, onClose, analyzedFiles }: MergedA
       </DialogContent>
     </Dialog>
   );
-}
+});
+
+MergedAnalysisReport.displayName = "MergedAnalysisReport";
