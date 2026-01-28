@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, memo } from "react";
 import { DollarSign, Search, CheckCircle, Loader2, Library } from "lucide-react";
 import {
   Dialog,
@@ -28,7 +28,7 @@ interface QuickPriceDialogProps {
   currency: string;
 }
 
-export function QuickPriceDialog({
+function QuickPriceDialogComponent({
   isOpen,
   onClose,
   item,
@@ -364,3 +364,9 @@ export function QuickPriceDialog({
     </Dialog>
   );
 }
+
+// Wrap with memo to prevent ref warnings with Radix UI
+const QuickPriceDialog = memo(QuickPriceDialogComponent);
+QuickPriceDialog.displayName = "QuickPriceDialog";
+
+export { QuickPriceDialog };
