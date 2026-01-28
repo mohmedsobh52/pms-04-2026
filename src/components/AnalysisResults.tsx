@@ -1449,6 +1449,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
               getItemCostData={getItemCostData}
               getItemCalculatedCosts={getItemCalculatedCosts}
               fileName={fileName}
+              isArabic={isArabic}
             />
             
             {/* Export Dropdown */}
@@ -2065,6 +2066,19 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                 />
               </div>
             )}
+
+            {/* Save Project Section - Above Table */}
+            <div className="flex justify-center items-center py-4 mb-4 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 rounded-xl border border-primary/20">
+              <SaveProjectButton
+                items={data.items || []}
+                wbsData={wbsData}
+                summary={data.summary}
+                getItemCostData={getItemCostData}
+                getItemCalculatedCosts={getItemCalculatedCosts}
+                fileName={fileName}
+                isArabic={isArabic}
+              />
+            </div>
 
             {/* Horizontal Scroll Bar Above Table */}
             <DualHorizontalScrollBar 

@@ -42,6 +42,7 @@ interface SaveProjectButtonProps {
   getItemCostData: (itemId: string) => ItemCostData;
   getItemCalculatedCosts: (itemId: string) => CalculatedCosts & { aiSuggestedRate?: number };
   fileName?: string;
+  isArabic?: boolean;
 }
 
 export function SaveProjectButton({
@@ -51,6 +52,7 @@ export function SaveProjectButton({
   getItemCostData,
   getItemCalculatedCosts,
   fileName,
+  isArabic = false,
 }: SaveProjectButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -274,9 +276,13 @@ export function SaveProjectButton({
     <>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
-          <Button variant="default" size="sm" className="gap-2 bg-green-600 hover:bg-green-700">
-            <Save className="w-4 h-4" />
-            Save Project
+          <Button 
+            variant="default" 
+            size="lg" 
+            className="gap-2 bg-green-600 hover:bg-green-700 relative z-[60] pointer-events-auto shadow-lg hover:shadow-xl transition-all"
+          >
+            <Save className="w-5 h-5" />
+            {isArabic ? "حفظ المشروع" : "Save Project"}
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-md">
