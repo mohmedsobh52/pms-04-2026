@@ -1,103 +1,85 @@
 
-# خطة ربط شاشة التسعير التلقائي بأزرار الإجراءات
+# خطة إصلاح أزرار Quick Price و Detailed Price و Edit
 
-## المشكلات المحددة
+## تحليل المشكلة
 
-### 1. شاشة التسعير التلقائي (الصورة الأولى)
-الشاشة الموجودة في الصورة الأولى **غير موجودة** حالياً في صفحة `ProjectDetailsPage.tsx`. 
-
-الدالة الحالية `handleAutoPricing` تقوم فقط بـ:
-```typescript
-const estimatedPrice = Math.round(Math.random() * 100 + 10);
+### السبب الجذري
+من خلال فحص Console logs، يظهر خطأ:
 ```
-أي تعيين أسعار عشوائية بدون أي منطق ذكي أو واجهة مستخدم!
+Warning: Function components cannot be given refs. 
+Check the render method of `QuickPriceDialog`.
+```
 
-### 2. زر Quick Price
-يعمل ويفتح dialog بسيط لإدخال السعر **يدوياً**، ولكنه غير مربوط بمكتبة الأسعار المحلية (`material_prices`, `labor_rates`, `equipment_rates`).
+هذا الخطأ يحدث لأن:
+1. **مكون `QuickPriceDialog`** لم يتم تغليفه بـ `memo` و `forwardRef` مثل `EditItemDialog` و `DetailedPriceDialog`
+2. **مكون `DialogFooter`** في `dialog.tsx` لا يدعم `forwardRef`، مما يسبب مشاكل مع Radix UI
 
-### 3. زر Edit  
-يعمل بشكل صحيح ويفتح `EditItemDialog`.
-
-### 4. "Edited price" (السعر المعدل)
-غير موجود كخيار منفصل في القائمة الحالية.
+### المشكلة في الواجهة
+عند النقر على أي من الأزرار (Quick Price, Detailed Price, Edit):
+- يتم استدعاء `onClick` handler بشكل صحيح
+- يتم تعيين الـ state (`setSelectedItemForQuickPrice`, `setShowQuickPriceDialog`)
+- لكن Dialog لا يظهر بسبب خطأ ref warning الذي يتسبب في مشاكل rendering
 
 ---
 
 ## الحل المقترح
 
-### 1. إنشاء مكون AutoPriceDialog جديد
-إنشاء dialog للتسعير التلقائي يحتوي على:
-- شريط تحديد الحد الأدنى للثقة (50%, 30%, 70%, 80%)
-- عرض ما سيحدث عند التطبيق
-- زر معاينة لعرض النتائج قبل التطبيق
-- زر إلغاء وتطبيق
+### التغيير 1: تحديث `QuickPriceDialog.tsx`
+تغليف المكون بـ `memo` لمنع مشاكل ref مع Radix UI:
 
-### 2. ربط Quick Price بمكتبة الأسعار
-تحديث زر "Quick Price" ليعرض اقتراحات من:
-- جدول `material_prices`
-- جدول `labor_rates`
-- جدول `equipment_rates`
-
-### 3. إضافة حالة "Edited Price"
-إضافة badge لعرض البنود التي تم تعديل سعرها يدوياً.
-
----
-
-## التغييرات التفصيلية
-
-### ملف جديد: `src/components/project-details/AutoPriceDialog.tsx`
-
-```tsx
-interface AutoPriceDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  items: ProjectItem[];
-  onApplyPricing: (pricedItems: { id: string; price: number }[]) => void;
-  isArabic: boolean;
-  currency: string;
+```typescript
+// قبل
+export function QuickPriceDialog({ ... }: QuickPriceDialogProps) {
+  // ...
 }
 
-// يحتوي على:
-// - Slider للحد الأدنى للثقة (30%, 50%, 70%, 80%)
-// - شرح ما سيحدث (مطابقة البنود، تطبيق الأسعار، حساب الإجمالي)
-// - زر معاينة يعرض النتائج المتوقعة
-// - جدول معاينة للبنود مع الأسعار المقترحة والثقة
-// - زر إلغاء وتطبيق
+// بعد
+function QuickPriceDialogComponent({ ... }: QuickPriceDialogProps) {
+  // ...
+}
+
+const QuickPriceDialog = memo(QuickPriceDialogComponent);
+QuickPriceDialog.displayName = "QuickPriceDialog";
+
+export { QuickPriceDialog };
 ```
 
-### تحديث: `src/pages/ProjectDetailsPage.tsx`
+### التغيير 2: تحديث `DialogFooter` في `dialog.tsx`
+إضافة `forwardRef` لدعم Radix UI refs:
 
-#### 1. إضافة state جديد:
 ```typescript
-const [showAutoPriceDialog, setShowAutoPriceDialog] = useState(false);
+// قبل
+const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)} {...props} />
+);
+
+// بعد
+const DialogFooter = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div 
+    ref={ref}
+    className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)} 
+    {...props} 
+  />
+));
 ```
 
-#### 2. تحديث handleAutoPricing:
+### التغيير 3: تحديث `DialogHeader` في `dialog.tsx`
+إضافة `forwardRef` للاتساق:
+
 ```typescript
-const handleAutoPricing = () => {
-  // فتح dialog التسعير التلقائي بدلاً من التسعير المباشر
-  setShowAutoPriceDialog(true);
-};
-```
-
-#### 3. تحديث handleQuickPrice لعرض اقتراحات:
-```typescript
-// استخدام findAllMatchingPrices من useMaterialPrices
-// لعرض اقتراحات الأسعار من المكتبة
-```
-
-### تحديث: `src/components/project-details/ProjectBOQTab.tsx`
-
-#### إضافة خيار جديد في القائمة المنسدلة:
-```tsx
-<DropdownMenuItem 
-  onClick={() => onEditedPrice?.(item)}
-  className="gap-2"
-  disabled={!item.is_price_edited}
->
-  <CheckCircle className="w-4 h-4" />
-  {isArabic ? "عرض السعر المعدل" : "View Edited Price"}
-</DropdownMenuItem>
+const DialogHeader = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div 
+    ref={ref}
+    className={cn("flex flex-col space-y-1.5 text-center sm:text-left", className)} 
+    {...props} 
+  />
+));
 ```
 
 ---
@@ -106,71 +88,93 @@ const handleAutoPricing = () => {
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/project-details/AutoPriceDialog.tsx` | **إنشاء جديد** - dialog التسعير التلقائي |
-| `src/pages/ProjectDetailsPage.tsx` | إضافة state + تحديث handleAutoPricing + إضافة useMaterialPrices |
-| `src/components/project-details/ProjectBOQTab.tsx` | تحديث القائمة المنسدلة |
+| `src/components/project-details/QuickPriceDialog.tsx` | إضافة `memo` wrapper |
+| `src/components/ui/dialog.tsx` | إضافة `forwardRef` لـ `DialogHeader` و `DialogFooter` |
 
 ---
 
-## تفاصيل AutoPriceDialog
+## التغييرات التفصيلية
 
-### واجهة المستخدم:
-```
-┌─────────────────────────────────────────────────────┐
-│                 ✨ التسعير التلقائي                  │
-├─────────────────────────────────────────────────────┤
-│  تسعير البنود تلقائياً من مكتبة الأسعار السعودية 2025  │
-│                                                      │
-│  الحد الأدنى للثقة                                   │
-│  ┌──────────────────────────────────────────────┐   │
-│  │ [50]  %  │ 30% │ 50% │ 70% │ 80% │           │   │
-│  └──────────────────────────────────────────────┘   │
-│  البنود ذات الثقة الأعلى من هذا الحد سيتم تسعيرها    │
-│                                                      │
-│  ┌──────────────────────────────────────────────┐   │
-│  │ ✨ ما الذي سيحدث:                             │   │
-│  │ • مطابقة أوصاف البنود مع مواد المكتبة        │   │
-│  │ • تطبيق أسعار السوق السعودي 2025            │   │
-│  │ • حساب الإجمالي لكل بند                      │   │
-│  │ • البنود المسعرة مسبقاً لن تتأثر             │   │
-│  └──────────────────────────────────────────────┘   │
-│                                                      │
-│          [إلغاء]        [معاينة ✨]                  │
-└─────────────────────────────────────────────────────┘
+### ملف 1: `src/components/project-details/QuickPriceDialog.tsx`
+
+**السطر 1**: إضافة `memo` للـ imports
+```typescript
+import { useState, useMemo, memo } from "react";
 ```
 
-### منطق التسعير:
-1. جلب جميع البنود غير المسعرة
-2. لكل بند، البحث في `material_prices` باستخدام `findMatchingPrice`
-3. حساب درجة الثقة بناءً على:
-   - تطابق الاسم والوصف
-   - تطابق الفئة
-   - حداثة السعر
-   - التحقق من المصدر
-4. تصفية البنود حسب الحد الأدنى للثقة
-5. عرض المعاينة للمستخدم
-6. تطبيق الأسعار عند الموافقة
+**السطر 31**: تغيير اسم الدالة
+```typescript
+function QuickPriceDialogComponent({
+```
+
+**نهاية الملف**: إضافة wrapper
+```typescript
+// Wrap with memo to prevent ref warnings with Radix UI
+const QuickPriceDialog = memo(QuickPriceDialogComponent);
+QuickPriceDialog.displayName = "QuickPriceDialog";
+
+export { QuickPriceDialog };
+```
+
+### ملف 2: `src/components/ui/dialog.tsx`
+
+**السطر 54-57**: تحديث `DialogHeader`
+```typescript
+const DialogHeader = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div 
+    ref={ref}
+    className={cn("flex flex-col space-y-1.5 text-center sm:text-left", className)} 
+    {...props} 
+  />
+));
+DialogHeader.displayName = "DialogHeader";
+```
+
+**السطر 59-62**: تحديث `DialogFooter`
+```typescript
+const DialogFooter = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div 
+    ref={ref}
+    className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)} 
+    {...props} 
+  />
+));
+DialogFooter.displayName = "DialogFooter";
+```
 
 ---
 
 ## النتيجة المتوقعة
 
-### قبل التطبيق:
-- زر "Auto Price" يقوم بتعيين أسعار عشوائية
-- زر "Quick Price" يفتح dialog بسيط للإدخال اليدوي
-- لا توجد معاينة للأسعار قبل التطبيق
+### قبل الإصلاح:
+- ❌ النقر على Quick Price لا يفتح dialog
+- ❌ النقر على Detailed Price لا يفتح dialog  
+- ❌ النقر على Edit لا يفتح dialog
+- ⚠️ ظهور warning في Console
 
-### بعد التطبيق:
-- زر "Auto Price" يفتح dialog متكامل مع خيارات الثقة
-- زر "Quick Price" يعرض اقتراحات من مكتبة الأسعار
-- معاينة كاملة للأسعار قبل التطبيق
-- تسعير ذكي من قاعدة بيانات `material_prices`
+### بعد الإصلاح:
+- ✓ النقر على Quick Price يفتح dialog التسعير السريع
+- ✓ النقر على Detailed Price يفتح dialog التسعير المفصل
+- ✓ النقر على Edit يفتح dialog التعديل
+- ✓ لا توجد warnings في Console
 
 ---
 
-## خطوات التنفيذ
+## خطوات الاختبار
 
-1. **إنشاء AutoPriceDialog.tsx** مع واجهة المستخدم الكاملة
-2. **تحديث ProjectDetailsPage.tsx** لإضافة dialog جديد وتحديث logic
-3. **تحديث Quick Price dialog** لعرض اقتراحات من المكتبة
-4. **اختبار التكامل** مع مكتبة الأسعار المحلية
+| الخطوة | النتيجة المتوقعة |
+|-------|----------------|
+| 1. فتح صفحة تفاصيل المشروع | - |
+| 2. النقر على BOQ tab | ظهور جدول البنود |
+| 3. النقر على زر ⋮ لأي بند | فتح القائمة المنسدلة |
+| 4. النقر على Quick Price | فتح dialog التسعير السريع ✓ |
+| 5. إغلاق dialog | - |
+| 6. النقر على Detailed Price | فتح dialog التسعير المفصل ✓ |
+| 7. إغلاق dialog | - |
+| 8. النقر على Edit | فتح dialog التعديل ✓ |
