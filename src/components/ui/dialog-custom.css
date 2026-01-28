@@ -438,6 +438,13 @@ button:active,
   cursor: pointer !important;
 }
 
-.header-search-box * {
-  pointer-events: auto !important;
+/* Allow click events to bubble to parent */
+.header-search-box > * {
+  pointer-events: none;
+}
+
+/* Re-enable for specific interactive elements if needed */
+.header-search-box button,
+.header-search-box a {
+  pointer-events: auto;
 }

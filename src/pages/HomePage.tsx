@@ -356,8 +356,11 @@ export default function HomePage() {
             <div 
               onClick={() => setSearchOpen(true)}
               className="flex-1 max-w-xl mx-4 cursor-pointer group hidden sm:block header-search-box"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && setSearchOpen(true)}
             >
-              <div className="relative flex items-center">
+              <div className="relative flex items-center pointer-events-none">
                 <Search className="absolute left-3 h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 <div className="w-full h-10 pl-10 pr-16 rounded-full border border-border/60 bg-background/60 backdrop-blur-sm 
                   flex items-center text-sm text-muted-foreground
