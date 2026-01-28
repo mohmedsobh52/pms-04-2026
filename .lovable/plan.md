@@ -1,116 +1,104 @@
 
 
-# خطة إصلاح مشكلة رفع الملفات بأسماء عربية
+# خطة إصلاح مشكلة رفع الملفات - Foreign Key Constraint Error
 
 ## تحليل المشكلة
 
 ### الخطأ الظاهر
 ```
-Error uploading file
-Invalid key: f269ae08-bcee-4935-a740-d236c26578bc/84eadb52-5ab6-491c-9afc-aa8dca200ee7/1769596624630_جدول الكميات_بفاتة المنح بالجبيل_اكسيا.xlsx
+insert or update on table "project_attachments" violates foreign key constraint "project_attachments_project_id_fkey"
 ```
 
 ### السبب الجذري
-Supabase Storage يرفض مفاتيح الملفات (file keys) التي تحتوي على:
-- أحرف عربية
-- مسافات
-- أحرف خاصة غير مسموح بها
+الـ Foreign Key في جدول `project_attachments` يشير إلى الجدول الخاطئ:
 
-### الكود الحالي المُسبب للمشكلة
-في ملف `src/pages/ProjectDetailsPage.tsx` السطر 305:
-```typescript
-const filePath = `${user.id}/${projectId}/${Date.now()}_${file.name}`;
-```
+| الحالة الحالية | الحالة المطلوبة |
+|---------------|----------------|
+| `project_attachments.project_id` → `saved_projects(id)` | `project_attachments.project_id` → `project_data(id)` |
 
-`file.name` يحتوي على الاسم الأصلي للملف (بما فيه الأحرف العربية).
-
-### كيف يتم التعامل في الملفات الأخرى (الحل الصحيح)
-في `ProjectAttachments.tsx` و `FastExtractionUploader.tsx`:
-```typescript
-const fileExt = file.name.split(".").pop();
-const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-```
+### لماذا يحدث الخطأ؟
+- المشروع `84eadb52-5ab6-491c-9afc-aa8dca200ee7` موجود في جدول `project_data`
+- لكن الـ Foreign Key يبحث عنه في جدول `saved_projects`
+- المشروع غير موجود في `saved_projects`
+- لذلك الإدراج يفشل!
 
 ---
 
 ## الحل المطلوب
 
-### التغيير: تحديث `src/pages/ProjectDetailsPage.tsx`
+### تغيير واحد: تحديث Foreign Key Constraint
 
-استبدال الكود الحالي في دالة `handleFileUpload`:
+إزالة الـ constraint القديم وإنشاء constraint جديد يشير إلى `project_data`:
 
-```typescript
-// قبل (السطر 304-305):
-for (const file of Array.from(files)) {
-  const filePath = `${user.id}/${projectId}/${Date.now()}_${file.name}`;
+```sql
+-- إزالة الـ Foreign Key القديم
+ALTER TABLE public.project_attachments 
+DROP CONSTRAINT project_attachments_project_id_fkey;
 
-// بعد:
-for (const file of Array.from(files)) {
-  const fileExt = file.name.split(".").pop() || "file";
-  const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-  const filePath = `${user.id}/${projectId}/${safeFileName}`;
-```
-
-### توضيح التغييرات
-
-| العنصر | قبل | بعد |
-|--------|-----|-----|
-| اسم الملف في Storage | `1769596624630_جدول الكميات.xlsx` | `1769596624630_x7k2m9.xlsx` |
-| اسم الملف المحفوظ | `file.name` مباشرة | `safeFileName` (آمن) |
-| الاسم المعروض للمستخدم | يُحفظ في DB في عمود `file_name` | لا تغيير - يبقى الاسم الأصلي |
-
-### آلية العمل بعد التغيير
-
-```text
-1. المستخدم يرفع ملف: "جدول الكميات_المنح.xlsx"
-
-2. التحويل:
-   - file.name = "جدول الكميات_المنح.xlsx"
-   - fileExt = "xlsx"
-   - safeFileName = "1769596624630_x7k2m9.xlsx"
-   - filePath = "user-id/project-id/1769596624630_x7k2m9.xlsx"
-
-3. الحفظ:
-   - Storage: يُرفع الملف بالمسار الآمن ✅
-   - Database: يُحفظ الاسم الأصلي "جدول الكميات_المنح.xlsx" ✅
-
-4. العرض للمستخدم:
-   - يرى المستخدم الاسم الأصلي "جدول الكميات_المنح.xlsx" ✅
-   - التحميل يعمل باستخدام file_path من DB ✅
+-- إنشاء Foreign Key جديد يشير إلى project_data
+ALTER TABLE public.project_attachments
+ADD CONSTRAINT project_attachments_project_id_fkey 
+FOREIGN KEY (project_id) REFERENCES project_data(id) ON DELETE CASCADE;
 ```
 
 ---
 
-## الملفات المتأثرة
+## توضيح التغيير
 
-| الملف | التغيير |
-|-------|---------|
-| `src/pages/ProjectDetailsPage.tsx` | تحديث بناء `filePath` ليستخدم اسم ملف آمن بدلاً من الاسم الأصلي |
+### قبل
+
+```text
+project_attachments
+└── project_id → saved_projects(id) ❌ خاطئ
+```
+
+### بعد
+
+```text
+project_attachments
+└── project_id → project_data(id) ✅ صحيح
+```
+
+---
+
+## لماذا `project_data` وليس `saved_projects`؟
+
+| الجدول | الغرض |
+|--------|-------|
+| `project_data` | المشاريع الرئيسية المحفوظة في قاعدة البيانات (المستخدمة في التطبيق) |
+| `saved_projects` | نسخ قديمة من المشاريع المحفوظة (legacy) |
+
+صفحة تفاصيل المشروع (`/projects/:id`) تستخدم `project_data`، لذلك يجب أن يشير الـ foreign key إليه.
+
+---
+
+## الملفات/الجداول المتأثرة
+
+| النوع | الاسم | التغيير |
+|-------|------|---------|
+| Database | `project_attachments` | تحديث Foreign Key Constraint |
 
 ---
 
 ## النتيجة المتوقعة
 
 ### قبل الإصلاح
-- ❌ رفع ملفات بأسماء عربية يفشل بخطأ "Invalid key"
-- ❌ رفع ملفات بأسماء تحتوي مسافات يفشل
-- ❌ رفع ملفات بأحرف خاصة يفشل
+- ❌ رفع الملفات يفشل بخطأ Foreign Key
+- ❌ لا يمكن إضافة مستندات للمشاريع
 
 ### بعد الإصلاح
-- ✅ رفع ملفات بأسماء عربية يعمل بنجاح
-- ✅ رفع ملفات بأي اسم يعمل بنجاح
-- ✅ المستخدم يرى الاسم الأصلي للملف في الواجهة
-- ✅ التحميل يعمل بشكل صحيح
+- ✅ رفع الملفات يعمل بنجاح
+- ✅ الملفات تُربط بالمشروع الصحيح
+- ✅ حذف المشروع يحذف الملفات تلقائياً (CASCADE)
 
 ---
 
 ## خطوات الاختبار
 
-1. الذهاب لصفحة تفاصيل المشروع
-2. النقر على تبويب Documents
+1. فتح صفحة تفاصيل المشروع
+2. الذهاب لتبويب Documents
 3. النقر على "Upload File"
-4. اختيار ملف بأسم عربي (مثل: جدول الكميات.xlsx)
-5. التحقق من أن الملف يُرفع بنجاح
-6. التحقق من ظهور الملف في القائمة بالاسم الأصلي
-7. التحقق من أن التحميل يعمل بشكل صحيح
+4. اختيار ملف
+5. التحقق من رفع الملف بنجاح
+6. التحقق من ظهور الملف في القائمة
 
