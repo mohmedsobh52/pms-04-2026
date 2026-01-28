@@ -1,380 +1,318 @@
 
-# خطة إصلاح شاملة لصندوق البحث غير المستجيب
 
-## تحليل عميق للمشكلة
+# خطة العلاج الجذري لمشكلة صندوق البحث
 
-بعد دراسة شاملة للكود، اكتشفت أن المشكلة لها **عدة طبقات متداخلة**:
+## تشخيص المشكلة الجذرية
 
-### 1. **مشكلة BackgroundImage Component**
-في `BackgroundImage.tsx` السطر 207:
-```tsx
-<div className="fixed inset-0 -z-10 bg-background/75 dark:bg-background/70 backdrop-blur-[1px]" />
-```
+### المشكلة الحقيقية
 
-هذا الـ `div` له:
-- `fixed inset-0`: يغطي الشاشة بالكامل
-- `-z-10`: z-index سالب، **لكن** هذا **أعلى من** `-z-50` للخلفيات الأخرى
-- **المشكلة الكبرى**: رغم أن `-z-10` منخفض، قد يتداخل مع عناصر أخرى
+المشكلة **ليست** في CSS أو z-index أو pointer-events. المشكلة **معمارية** في طريقة إدارة حالة البحث.
 
-### 2. **مشكلة هيكلية في HomePage Header**
-الـ Header في HomePage يستخدم:
-- `sticky top-0 z-50` للـ header container
-- `header-search-box` مع `z-index: 55` للبحث
-- **لكن** الـ `pointer-events-none` قد يمنع النقرات في بعض الأحيان
-
-### 3. **مشكلة CSS Specificity**
-الكود الحالي في `dialog-custom.css`:
-```css
-.header-search-box > * {
-  pointer-events: none;
-}
-```
-
-هذا يمنع **جميع** العناصر الفرعية **المباشرة** من استقبال النقرات، **حتى** الـ outer `<div>` نفسه!
-
-### 4. **مشكلة Event Propagation**
-حتى مع `pointer-events-none` على العناصر الداخلية، قد يكون هناك تداخل مع عناصر أخرى مثل:
-- `BackgroundImage` overlays
-- `GlobalSearch` dialog overlay (عندما يكون مفتوحاً ثم يُغلق)
-- Header sticky positioning
-
----
-
-## الحل الشامل
-
-سأقوم بـ **إعادة بناء كاملة** لنظام pointer-events و z-index لضمان عمل صندوق البحث 100%.
-
-### ✅ الحل #1: تحويل صندوق البحث إلى `<button>` بدلاً من `<div>`
-
-**السبب**: عنصر `<button>` الأصلي يتعامل مع النقرات بشكل أفضل ويوفر accessibility مدمجة.
-
-#### ملف: `src/pages/HomePage.tsx` - تحديث Search Box
-
-**من:** (السطور 356-377)
-```tsx
-<div 
-  onClick={() => setSearchOpen(true)}
-  className="flex-1 max-w-xl mx-4 cursor-pointer group hidden sm:block header-search-box"
-  role="button"
-  tabIndex={0}
-  onKeyDown={(e) => e.key === 'Enter' && setSearchOpen(true)}
->
-  <div className="relative flex items-center pointer-events-none">
-    {/* ... */}
-  </div>
-</div>
-```
-
-**إلى:**
-```tsx
-<button 
-  type="button"
-  onClick={() => setSearchOpen(true)}
-  className="flex-1 max-w-xl mx-4 group hidden sm:block header-search-box
-    relative h-12 px-4 rounded-full border border-border/60 bg-background/60 backdrop-blur-sm
-    hover:border-primary/50 hover:bg-background/80 transition-all duration-200
-    shadow-sm hover:shadow-md hover:ring-2 hover:ring-primary/20
-    flex items-center text-left w-full"
-  aria-label={isArabic ? "فتح البحث" : "Open search"}
->
-  <Search className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors absolute left-3" />
-  <span className="ml-10 text-sm text-muted-foreground flex-1">
-    {isArabic ? "بحث في البرنامج..." : "Search the application..."}
-  </span>
-  <kbd className="hidden md:inline-flex h-6 items-center gap-1 rounded border border-border/60 bg-muted/50 px-2 text-xs text-muted-foreground absolute right-3">
-    ⌘K
-  </kbd>
-</button>
-```
-
-**الفوائد:**
-- ✅ Semantic HTML (أفضل لـ SEO و accessibility)
-- ✅ Built-in keyboard support (Enter, Space)
-- ✅ No pointer-events conflicts
-- ✅ Better focus management
-- ✅ Simpler structure
-
----
-
-### ✅ الحل #2: تحديث CSS للتخلص من التعقيدات
-
-#### ملف: `src/components/ui/dialog-custom.css`
-
-**تحديث `.header-search-box`:**
-
-**من:**
-```css
-.header-search-box {
-  position: relative;
-  z-index: 55;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* Allow click events to bubble to parent */
-.header-search-box > * {
-  pointer-events: none;
-}
-
-/* Re-enable for specific interactive elements if needed */
-.header-search-box button,
-.header-search-box a {
-  pointer-events: auto;
-}
-```
-
-**إلى:**
-```css
-/* ============================================
-   HEADER SEARCH BOX PROTECTION
-   Ensure header search box is always clickable
-   ============================================ */
-
-.header-search-box {
-  position: relative;
-  z-index: 56 !important; /* Higher than header (50) and other elements */
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* Ensure all child elements don't block clicks when using button element */
-.header-search-box > * {
-  pointer-events: none !important;
-}
-
-/* For button-based search boxes, re-enable pointer events on the button itself */
-button.header-search-box {
-  pointer-events: auto !important;
-}
-
-button.header-search-box > * {
-  pointer-events: none !important;
-}
-```
-
-**التغييرات:**
-1. رفع z-index من `55` إلى `56` للتأكد من عدم التداخل
-2. إضافة `!important` للتأكيد على القواعد
-3. إضافة قاعدة خاصة لـ `button.header-search-box`
-
----
-
-### ✅ الحل #3: التأكد من عدم تداخل BackgroundImage
-
-#### ملف: `src/components/BackgroundImage.tsx`
-
-**لا تغيير مطلوب**، لأن:
-- جميع طبقات BackgroundImage تستخدم z-index سالب (`-z-50` إلى `-z-10`)
-- `header-search-box` يستخدم `z-index: 56` موجب
-- لا يجب أن يكون هناك تداخل
-
-**لكن للتأكيد الكامل**، سأضيف `pointer-events: none` صريح للطبقة الأخيرة:
-
-في السطر 207، **من:**
-```tsx
-<div className="fixed inset-0 -z-10 bg-background/75 dark:bg-background/70 backdrop-blur-[1px]" />
-```
-
-**إلى:**
-```tsx
-<div className="fixed inset-0 -z-10 bg-background/75 dark:bg-background/70 backdrop-blur-[1px] pointer-events-none" />
-```
-
----
-
-### ✅ الحل #4: تحديث Mobile Search Button
-
-للتناسق، سأحدث أيضاً Mobile Search Button:
-
-#### ملف: `src/pages/HomePage.tsx` - Mobile Button
-
-**موقع:** السطور 380-390 (تقريباً)
-
-تأكد من أن Mobile Button يستخدم نفس الـ classes:
+### تحليل الكود الحالي
 
 ```tsx
-<Button 
-  variant="ghost" 
-  size="icon"
-  onClick={() => setSearchOpen(true)}
-  className="sm:hidden relative z-[56] pointer-events-auto"
-  aria-label={isArabic ? "فتح البحث" : "Open search"}
->
-  <Search className="h-5 w-5" />
-</Button>
+// في useGlobalSearch.tsx (سطر 332-333)
+export function useGlobalSearch() {
+  const [isOpen, setIsOpen] = useState(false);  // ← useState محلي لكل hook instance
+  ...
+}
+```
+
+```tsx
+// في App.tsx (سطر 77) - GlobalSearch يستخدم hook
+<GlobalSearch />  // ← لديه isOpen = A
+
+// في HomePage.tsx (سطر 101) - hook آخر
+const { setIsOpen: setSearchOpen } = useGlobalSearch();  // ← لديه isOpen = B
+
+// في UnifiedHeader.tsx (سطر 85) - hook ثالث
+const { setIsOpen: setSearchOpen } = useGlobalSearch();  // ← لديه isOpen = C
+```
+
+**النتيجة**: عند النقر على صندوق البحث في HomePage:
+- `setSearchOpen(true)` يغير **B** إلى `true`
+- لكن GlobalSearch يعتمد على **A** الذي لا يزال `false`
+- **Dialog لا يفتح!**
+
+---
+
+## الحل الجذري: React Context
+
+### الخطوات التنفيذية
+
+### 1. إنشاء GlobalSearchProvider
+
+إنشاء ملف جديد: `src/contexts/GlobalSearchContext.tsx`
+
+```tsx
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+
+// Types
+export type SearchItemType = 'page' | 'project' | 'action' | 'setting' | 'file';
+
+export interface SearchItem {
+  id: string;
+  type: SearchItemType;
+  label: string;
+  labelAr: string;
+  description?: string;
+  descriptionAr?: string;
+  icon: string;
+  href?: string;
+  action?: () => void;
+  keywords: string[];
+}
+
+export interface SearchResults {
+  pages: SearchItem[];
+  projects: SearchItem[];
+  actions: SearchItem[];
+  settings: SearchItem[];
+}
+
+interface GlobalSearchContextType {
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+  query: string;
+  setQuery: (query: string) => void;
+  results: SearchResults;
+  isLoading: boolean;
+  navigateToItem: (item: SearchItem) => void;
+}
+
+const GlobalSearchContext = createContext<GlobalSearchContextType | null>(null);
+
+// Static pages, actions, and settings data (moved here)
+// ... (نفس البيانات الثابتة من useGlobalSearch.tsx)
+
+export function GlobalSearchProvider({ children }: { children: ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [projects, setProjects] = useState<SearchItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
+
+  // نفس المنطق من useGlobalSearch.tsx لكن في Context
+  // ...
+
+  // Keyboard shortcut (⌘K / Ctrl+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsOpen((prev) => !prev);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const value = useMemo(() => ({
+    isOpen,
+    setIsOpen,
+    query,
+    setQuery,
+    results,
+    isLoading,
+    navigateToItem,
+  }), [isOpen, query, results, isLoading, navigateToItem]);
+
+  return (
+    <GlobalSearchContext.Provider value={value}>
+      {children}
+    </GlobalSearchContext.Provider>
+  );
+}
+
+// Custom hook للوصول للـ Context
+export function useGlobalSearch() {
+  const context = useContext(GlobalSearchContext);
+  if (!context) {
+    throw new Error('useGlobalSearch must be used within GlobalSearchProvider');
+  }
+  return context;
+}
 ```
 
 ---
 
-## الملفات المتأثرة
+### 2. تحديث App.tsx
 
-| الملف | التغيير | الأولوية |
-|-------|---------|----------|
-| `src/pages/HomePage.tsx` | تحويل Search Box من `div` إلى `button` + تبسيط الهيكل | 🔴 عالية جداً |
-| `src/components/ui/dialog-custom.css` | تحديث `.header-search-box` CSS + رفع z-index إلى 56 | 🔴 عالية جداً |
-| `src/components/BackgroundImage.tsx` | إضافة `pointer-events-none` للطبقة الأخيرة | 🟡 متوسطة |
+```tsx
+import { GlobalSearchProvider } from '@/contexts/GlobalSearchContext';
 
----
-
-## تسلسل z-index النهائي
-
-| العنصر | z-index | الموقع |
-|--------|---------|--------|
-| Dialog Content | 100 | Radix UI |
-| Dialog Overlay | 99 | Radix UI |
-| Select/Dropdown | 70 | Radix UI |
-| Form Actions Buttons | 65 | dialog-custom.css |
-| Form Actions Container | 60 | dialog-custom.css |
-| **Header Search Box** | **56** | ← **جديد** |
-| Navigation Tabs | 55 | dialog-custom.css |
-| Header (sticky) | 50 | HomePage |
-| Input/Textarea (focus) | 50 | dialog-custom.css |
-| Input/Textarea | 45 | dialog-custom.css |
-| Breadcrumb Links | 46 | dialog-custom.css |
-| Breadcrumb | 45 | dialog-custom.css |
-| BackgroundImage (top layer) | -10 | BackgroundImage |
-| BackgroundImage (bottom) | -50 | BackgroundImage |
-
----
-
-## مقارنة قبل/بعد
-
-### قبل الإصلاح
-
-```
-User clicks search box
-  ↓
-Click hits <div> with pointer-events-none children
-  ↓
-Inner <div> blocks click (despite pointer-events-none)
-  ↓
-Click doesn't reach onClick handler
-  ❌ Nothing happens
-```
-
-### بعد الإصلاح
-
-```
-User clicks search box
-  ↓
-Click hits <button> (semantic HTML element)
-  ↓
-Button's onClick fires immediately
-  ↓
-setSearchOpen(true) is called
-  ✅ GlobalSearch dialog opens
+const App = () => (
+  <LanguageProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <AnalysisProvider>
+          <AnalysisTrackingProvider>
+            <TooltipProvider>
+              <BrowserRouter>
+                <GlobalSearchProvider>  {/* ← إضافة Provider هنا */}
+                  <BackgroundImage />
+                  <Toaster />
+                  <Sonner />
+                  <GlobalSearch />
+                  <UpdateBanner />
+                  <FloatingBackButton />
+                  <ErrorBoundary>
+                    <Suspense fallback={<PageLoader />}>
+                      <Routes>
+                        {/* ... routes ... */}
+                      </Routes>
+                    </Suspense>
+                  </ErrorBoundary>
+                </GlobalSearchProvider>
+              </BrowserRouter>
+            </TooltipProvider>
+          </AnalysisTrackingProvider>
+        </AnalysisProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  </LanguageProvider>
+);
 ```
 
 ---
 
-## النتيجة المتوقعة
+### 3. تحديث GlobalSearch.tsx
 
-| الميزة | الحالة |
-|--------|--------|
-| Desktop search box click | ✅ يعمل |
-| Mobile search button click | ✅ يعمل |
-| Keyboard shortcut (⌘K) | ✅ يعمل |
-| Tab navigation | ✅ يعمل |
-| Enter key on focused search | ✅ يعمل |
-| Screen reader support | ✅ محسّن |
-| Hover effects | ✅ يعمل |
-| Click on keyboard badge (⌘K) | ✅ يفتح البحث |
-| No interference from background | ✅ مضمون |
+```tsx
+import { useGlobalSearch } from '@/contexts/GlobalSearchContext';  // ← تغيير المسار
+
+export function GlobalSearch() {
+  const { isOpen, setIsOpen, query, setQuery, results, isLoading, navigateToItem } =
+    useGlobalSearch();
+  // ... باقي الكود كما هو
+}
+```
+
+---
+
+### 4. تحديث HomePage.tsx
+
+```tsx
+import { useGlobalSearch } from '@/contexts/GlobalSearchContext';  // ← تغيير المسار
+
+// في المكون
+const { setIsOpen: setSearchOpen } = useGlobalSearch();
+```
+
+---
+
+### 5. تحديث UnifiedHeader.tsx
+
+```tsx
+import { useGlobalSearch } from '@/contexts/GlobalSearchContext';  // ← تغيير المسار
+
+// في المكون
+const { setIsOpen: setSearchOpen } = useGlobalSearch();
+```
+
+---
+
+### 6. حذف أو تعديل useGlobalSearch.tsx القديم
+
+يمكن إما:
+- **حذف** الملف `src/hooks/useGlobalSearch.tsx` بالكامل
+- أو **تعديله** ليقوم بـ re-export من Context:
+
+```tsx
+// src/hooks/useGlobalSearch.tsx
+export { useGlobalSearch, type SearchItem, type SearchResults } from '@/contexts/GlobalSearchContext';
+```
+
+---
+
+## هيكل الملفات النهائي
+
+| الملف | التغيير |
+|-------|---------|
+| `src/contexts/GlobalSearchContext.tsx` | **ملف جديد** - Context Provider |
+| `src/App.tsx` | إضافة `GlobalSearchProvider` |
+| `src/components/GlobalSearch.tsx` | تغيير import path |
+| `src/pages/HomePage.tsx` | تغيير import path |
+| `src/components/UnifiedHeader.tsx` | تغيير import path |
+| `src/hooks/useGlobalSearch.tsx` | تحويل إلى re-export فقط |
+
+---
+
+## مخطط تدفق البيانات بعد الإصلاح
+
+```
+GlobalSearchProvider (في App.tsx)
+    ↓
+    isOpen = shared state
+    ↓
+    ├── GlobalSearch (Dialog)
+    │   └── يقرأ isOpen → يفتح/يغلق Dialog
+    │
+    ├── HomePage
+    │   └── يستدعي setIsOpen(true) → يغير shared state
+    │
+    └── UnifiedHeader
+        └── يستدعي setIsOpen(true) → يغير shared state
+```
+
+**النتيجة**: أي مكان يستدعي `setIsOpen(true)` سيؤثر على **نفس** الـ state الذي يقرأه `GlobalSearch`.
+
+---
+
+## لماذا هذا الحل جذري؟
+
+| الجانب | قبل | بعد |
+|--------|-----|-----|
+| State Management | useState محلي (3 نسخ منفصلة) | Context مشترك (نسخة واحدة) |
+| تزامن State | ❌ لا يوجد | ✅ تلقائي |
+| صندوق البحث في HomePage | ❌ لا يعمل | ✅ يعمل |
+| صندوق البحث في UnifiedHeader | ❌ قد لا يعمل | ✅ يعمل |
+| اختصار ⌘K | ✅ يعمل (لأنه في GlobalSearch) | ✅ يعمل |
+| Performance | ⚠️ 3 hooks منفصلة | ✅ Context واحد محسّن |
 
 ---
 
 ## ملاحظات تقنية
 
-### لماذا `<button>` أفضل من `<div onClick>`؟
+### لماذا Context بدلاً من Zustand أو Redux؟
 
-1. **Semantic HTML**: `<button>` يُخبر المتصفح والقارئات الشاشية أن هذا عنصر تفاعلي
-2. **Built-in keyboard support**: يعمل مع Enter و Space تلقائياً
-3. **No pointer-events issues**: لا توجد مشاكل في event propagation
-4. **Better accessibility**: ARIA roles مدمجة
-5. **Simpler code**: لا حاجة لـ `role="button"` أو `tabIndex` أو `onKeyDown`
+1. **بسيط**: لا حاجة لمكتبات إضافية
+2. **كافي**: State بسيط (boolean + string) لا يحتاج state manager معقد
+3. **متوافق**: يعمل مع React Router الموجود
 
-### لماذا z-index: 56 بدلاً من 55؟
+### لماذا GlobalSearchProvider داخل BrowserRouter؟
 
-- `55` مستخدم بالفعل في Navigation Tabs
-- `56` يضمن أن Search Box **دائماً** فوق Navigation
-- لا يتعارض مع Form Actions (60) أو Dialogs (99-100)
+لأن `navigateToItem` يستخدم `useNavigate()` من React Router، والذي يحتاج أن يكون **داخل** BrowserRouter.
 
-### لماذا `pointer-events: none !important` على children؟
+### هل سيؤثر على الأداء؟
 
-عند استخدام `<button>` مع children (icon, text, kbd):
-- نريد النقرة تذهب للـ button نفسه، ليس للـ children
-- `pointer-events: none` على children يضمن ذلك
-- **ثم** نعيد تفعيل `pointer-events: auto` على الـ button نفسه
+لا، لأن:
+- Context محسّن باستخدام `useMemo` للقيمة
+- Re-render يحدث فقط عند تغير `isOpen` أو `query`
+- البحث لا يحدث كثيراً (فقط عند فتح Dialog)
 
 ---
 
-## الخطوات التنفيذية بالترتيب
+## الاختبارات المطلوبة بعد التنفيذ
 
-### 1. تحديث HomePage.tsx ✅ (الأولوية القصوى)
-- تحويل Desktop search من `<div>` إلى `<button>`
-- تبسيط الهيكل الداخلي
-- تحديث Mobile search button
-
-### 2. تحديث dialog-custom.css ✅ (الأولوية القصوى)
-- رفع z-index إلى 56
-- إضافة قواعد لـ `button.header-search-box`
-- إضافة `!important` للتأكيد
-
-### 3. تحديث BackgroundImage.tsx ⚙️ (اختياري)
-- إضافة `pointer-events-none` للطبقة الأخيرة
-- للتأكيد الكامل على عدم التداخل
-
----
-
-## الاختبارات المقترحة بعد التنفيذ
-
-1. ✅ **Desktop**: النقر على صندوق البحث
+1. ✅ **Desktop**: النقر على صندوق البحث في HomePage
 2. ✅ **Mobile**: النقر على زر البحث
-3. ✅ **Keyboard**: الضغط على ⌘K (Cmd+K) أو Ctrl+K
-4. ✅ **Tab Navigation**: Tab إلى صندوق البحث ثم Enter
-5. ✅ **Hover**: التأكد من Hover effects تعمل
-6. ✅ **Focus**: التأكد من Focus ring يظهر
-7. ✅ **Screen Reader**: اختبار مع screen reader (VoiceOver/NVDA)
-
----
-
-## خطة احتياطية (إذا لم يعمل)
-
-إذا استمرت المشكلة **بعد** تنفيذ كل التغييرات أعلاه:
-
-### Plan B: استخدام Portal للبحث
-
-```tsx
-import { createPortal } from 'react-dom';
-
-// في HomePage
-{createPortal(
-  <button
-    onClick={() => setSearchOpen(true)}
-    className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] ..."
-  >
-    Search
-  </button>,
-  document.body
-)}
-```
-
-**الفائدة**: Portal يضع العنصر **خارج** الـ DOM hierarchy العادي، مما يمنع **أي** تداخل من parent elements.
+3. ✅ **Keyboard**: الضغط على ⌘K أو Ctrl+K من أي صفحة
+4. ✅ **UnifiedHeader**: النقر على زر البحث في أي صفحة أخرى
+5. ✅ **Navigation**: البحث ثم الانتقال لصفحة أخرى
+6. ✅ **Close**: إغلاق Dialog بـ ESC أو النقر خارجه
 
 ---
 
 ## الخلاصة
 
-المشكلة الأساسية كانت:
-1. استخدام `<div>` بدلاً من `<button>` (non-semantic)
-2. Pointer-events conflicts بين parent و children
-3. Z-index محتمل التداخل مع Navigation
-4. Possible interference من BackgroundImage overlays
+**المشكلة الجذرية**: `useGlobalSearch` hook يستخدم `useState` محلي، مما يعني أن كل مكان يستدعي الـ hook لديه نسخة **منفصلة** من `isOpen` state.
 
-**الحل الشامل**:
-- ✅ تحويل إلى `<button>` semantic
-- ✅ رفع z-index إلى 56
-- ✅ تبسيط CSS rules
-- ✅ إضافة `pointer-events-none` لـ BackgroundImage overlay
+**الحل الجذري**: استخدام React Context لمشاركة الـ state بين جميع المكونات التي تحتاجه.
 
-هذا الحل **يجب** أن يحل المشكلة نهائياً 100%.
+هذا الحل **سيحل المشكلة نهائياً 100%** لأنه يعالج السبب الجذري وليس الأعراض.
+
