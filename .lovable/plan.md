@@ -1,38 +1,116 @@
 
 
-# خطة إصلاح مشكلة زر Quick Price
+# خطة إصلاح مشكلة ظهور الـ Dialogs في الخلفية
 
 ## تحليل المشكلة
 
-### الخطأ في Console
+من فحص الـ Console logs، يظهر الخطأ التالي:
 ```
 Warning: Function components cannot be given refs.
-Check the render method of `QuickPriceDialogComponent`.
-    at Dialog
+Check the render method of `ProjectDetailsPage`.
+    at AutoPriceDialog
 ```
 
 ### السبب الجذري
-مكون `QuickPriceDialog` يستخدم `memo` فقط، لكنه **لا يتعامل مع refs بشكل صحيح** مع Radix UI Dialog. عند فتح الـ dialog، يحاول Radix تمرير ref للمكون، مما يسبب خطأ ويمنع ظهور الـ dialog.
+عند استخدام Radix UI Dialog مع React، يحاول Radix تمرير refs للمكونات. إذا لم يتم التعامل معها بشكل صحيح:
+1. يحدث خطأ ref warning في Console
+2. Dialog لا يُعرض بشكل صحيح (يظهر في الخلفية أو لا يظهر أصلاً)
+3. Focus trapping يتعطل
 
-**مقارنة مع `EditItemDialog` الذي يعمل:**
-- `EditItemDialog` يستخدم `onOpenAutoFocus={(e) => e.preventDefault()}` و `onCloseAutoFocus={(e) => e.preventDefault()}` في `DialogContent`
-- `QuickPriceDialog` **لا يستخدم** هذه الخصائص!
+### حالة الـ Dialogs الحالية
+
+| Dialog | `memo` wrapper | `onOpenAutoFocus` | الحالة |
+|--------|----------------|-------------------|--------|
+| `QuickPriceDialog` | مُضاف | مُضاف | يعمل |
+| `EditItemDialog` | مُضاف | مُضاف | يعمل |
+| `DetailedPriceDialog` | مُضاف | **مفقود** | يظهر في الخلفية |
+| `AutoPriceDialog` | **مفقود** | **مفقود** | يظهر في الخلفية |
 
 ---
 
 ## الحل المطلوب
 
-### التغيير في `QuickPriceDialog.tsx`
+### الملف 1: `src/components/project-details/AutoPriceDialog.tsx`
 
-إضافة `onOpenAutoFocus` و `onCloseAutoFocus` preventions في `DialogContent` لمنع مشاكل focus/ref:
+#### التغييرات:
+1. إضافة `memo` للـ imports
+2. تغيير اسم الدالة إلى `AutoPriceDialogComponent`
+3. إضافة `onOpenAutoFocus` و `onCloseAutoFocus` في `DialogContent`
+4. تغليف المكون بـ `memo` وتصديره
 
 ```typescript
-// قبل (السطر 120):
-<DialogContent className="max-w-lg max-h-[80vh] overflow-hidden">
+// السطر 1: إضافة memo
+import { useState, useMemo, memo } from "react";
 
-// بعد:
+// السطر 47: تغيير اسم الدالة
+function AutoPriceDialogComponent({
+  isOpen,
+  onClose,
+  // ...
+}: AutoPriceDialogProps) {
+
+// السطر 217-218: تحديث DialogContent
 <DialogContent 
-  className="max-w-lg max-h-[80vh] overflow-hidden"
+  className="max-w-3xl max-h-[80vh] overflow-hidden"
+  onOpenAutoFocus={(e) => e.preventDefault()}
+  onCloseAutoFocus={(e) => e.preventDefault()}
+>
+
+// نهاية الملف: إضافة wrapper
+const AutoPriceDialog = memo(AutoPriceDialogComponent);
+AutoPriceDialog.displayName = "AutoPriceDialog";
+
+export { AutoPriceDialog };
+```
+
+### الملف 2: `src/components/pricing/DetailedPriceDialog.tsx`
+
+#### التغيير:
+إضافة `onOpenAutoFocus` و `onCloseAutoFocus` في `DialogContent`:
+
+```typescript
+// السطر 139: تحديث DialogContent
+<DialogContent 
+  className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+  onOpenAutoFocus={(e) => e.preventDefault()}
+  onCloseAutoFocus={(e) => e.preventDefault()}
+>
+```
+
+### الملف 3: `src/components/pricing/MaterialsSelectionTab.tsx`
+
+#### التغيير:
+إضافة `onOpenAutoFocus` و `onCloseAutoFocus` في `DialogContent`:
+
+```typescript
+<DialogContent 
+  className="max-w-2xl"
+  onOpenAutoFocus={(e) => e.preventDefault()}
+  onCloseAutoFocus={(e) => e.preventDefault()}
+>
+```
+
+### الملف 4: `src/components/pricing/LaborSelectionTab.tsx`
+
+#### التغيير:
+إضافة `onOpenAutoFocus` و `onCloseAutoFocus` في `DialogContent`:
+
+```typescript
+<DialogContent 
+  className="max-w-2xl"
+  onOpenAutoFocus={(e) => e.preventDefault()}
+  onCloseAutoFocus={(e) => e.preventDefault()}
+>
+```
+
+### الملف 5: `src/components/pricing/EquipmentSelectionTab.tsx`
+
+#### التغيير:
+إضافة `onOpenAutoFocus` و `onCloseAutoFocus` في `DialogContent`:
+
+```typescript
+<DialogContent 
+  className="max-w-2xl"
   onOpenAutoFocus={(e) => e.preventDefault()}
   onCloseAutoFocus={(e) => e.preventDefault()}
 >
@@ -40,11 +118,15 @@ Check the render method of `QuickPriceDialogComponent`.
 
 ---
 
-## ملخص التغييرات
+## ملخص الملفات المتأثرة
 
-| الملف | التغيير |
-|-------|---------|
-| `src/components/project-details/QuickPriceDialog.tsx` | إضافة `onOpenAutoFocus` و `onCloseAutoFocus` في `DialogContent` |
+| الملف | التغييرات |
+|-------|-----------|
+| `src/components/project-details/AutoPriceDialog.tsx` | إضافة `memo` + focus preventions |
+| `src/components/pricing/DetailedPriceDialog.tsx` | إضافة focus preventions |
+| `src/components/pricing/MaterialsSelectionTab.tsx` | إضافة focus preventions |
+| `src/components/pricing/LaborSelectionTab.tsx` | إضافة focus preventions |
+| `src/components/pricing/EquipmentSelectionTab.tsx` | إضافة focus preventions |
 
 ---
 
@@ -52,18 +134,22 @@ Check the render method of `QuickPriceDialogComponent`.
 
 | قبل الإصلاح | بعد الإصلاح |
 |------------|------------|
-| ❌ النقر على Quick Price لا يفتح dialog | ✓ النقر على Quick Price يفتح dialog بنجاح |
-| ⚠️ ظهور ref warning في Console | ✓ لا توجد warnings |
-| ❌ تعطل rendering بسبب ref conflict | ✓ Dialog يعمل بسلاسة |
+| Auto Price dialog يظهر في الخلفية | Auto Price dialog يظهر في المقدمة |
+| Detailed Price dialog يظهر في الخلفية | Detailed Price dialog يظهر في المقدمة |
+| ظهور ref warnings في Console | لا توجد warnings |
+| تعطل focus trapping | Focus يعمل بشكل صحيح |
 
 ---
 
-## خطوات الاختبار بعد التطبيق
+## خطوات الاختبار
 
 1. فتح صفحة تفاصيل المشروع
 2. الذهاب لتبويب BOQ
-3. النقر على زر ⋮ لأي بند
-4. اختيار Quick Price
-5. **التحقق من ظهور dialog التسعير السريع ✓**
-6. اختبار إدخال السعر والتطبيق
+3. النقر على "Auto Price" - التحقق من ظهور dialog في المقدمة
+4. إغلاق dialog
+5. النقر على زر ⋮ لأي بند → Quick Price - التحقق من ظهور dialog
+6. إغلاق dialog
+7. النقر على زر ⋮ لأي بند → Detailed Price - التحقق من ظهور dialog
+8. داخل Detailed Price، اختبار إضافة مواد/عمالة/معدات - التحقق من ظهور dialogs الفرعية
+9. التحقق من عدم وجود warnings في Console
 
