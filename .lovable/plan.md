@@ -1,143 +1,118 @@
 
-# خطة إصلاح عرض جميع المشاريع المحفوظة
+# خطة إضافة اختصار "Pricing Accuracy" على الشاشة الرئيسية
 
-## تشخيص المشكلة
+## تحليل الوضع الحالي
 
-### السبب الجذري
-هناك جدولان للمشاريع في قاعدة البيانات:
-- **`saved_projects`**: يحتوي على **13 مشروع** (الجدول الأساسي المستخدم في معظم الأماكن)
-- **`project_data`**: يحتوي على **3 مشاريع** (جدول ثانوي)
+### موقع تبويب Pricing Accuracy حالياً
+- **المسار**: `/projects/:projectId/pricing?tab=accuracy`
+- **الصفحة**: `TenderSummaryPage.tsx` (صفحة التسعير)
+- **التبويب**: ضمن تبويبات التسعير (Site Staff, Facilities, Insurance, Guarantees, **Accuracy**, Settings)
 
-### المشكلة
-صفحة `SavedProjectsPage.tsx` تستعلم فقط من جدول `project_data`:
-
-```tsx
-// السطور 106-109 - تستعلم فقط من project_data
-const { data, error } = await supabase
-  .from("project_data")
-  .select("*")
-  .order("created_at", { ascending: false });
-```
-
-بينما صفحات أخرى مثل `HomePage` و `ReportsTab` تستعلم من `saved_projects` أو كليهما.
+### هيكل الشاشة الرئيسية
+الصفحة الرئيسية تحتوي على:
+1. **PhaseActionsGrid**: شبكة الإجراءات حسب مراحل المشروع (6 مراحل)
+2. **mainModules**: الوحدات الرئيسية (المشاريع، العروض، العقود، المشتريات، المخاطر، الإعدادات)
+3. **KPI Summary Cards**: بطاقات مؤشرات الأداء
 
 ---
 
-## الحل
+## الحل المقترح
 
-تحديث دالة `fetchProjects` في `SavedProjectsPage.tsx` لجلب المشاريع من **كلا الجدولين** ودمجها، بنفس المنهج المستخدم في `ReportsTab.tsx`.
+إضافة اختصار "Pricing Accuracy" في **المرحلة 3** (مرحلة التسعير والتحليل) ضمن `PhaseActionsGrid`، لأن هذه المرحلة تحتوي على:
+- عروض الأسعار (Quotations)
+- التسعير التاريخي (Historical Pricing)
+- تحليل التكاليف (Cost Analysis)
 
-### التغييرات المطلوبة
-
-#### ملف: `src/pages/SavedProjectsPage.tsx`
-
-**تحديث دالة `fetchProjects` (السطور 101-123):**
-
+### الإجراء الجديد
 ```tsx
-const fetchProjects = async () => {
-  if (!user) return;
-  
-  setIsLoading(true);
-  try {
-    // Fetch from both tables in parallel
-    const [savedProjectsRes, projectDataRes] = await Promise.all([
-      supabase
-        .from("saved_projects")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("updated_at", { ascending: false }),
-      supabase
-        .from("project_data")
-        .select("*")
-        .order("created_at", { ascending: false })
-    ]);
-
-    const savedProjects = savedProjectsRes.data || [];
-    const projectDataList = projectDataRes.data || [];
-
-    // Merge projects - use Map to avoid duplicates
-    const projectMap = new Map<string, ProjectData>();
-
-    // Add saved_projects first (prioritize)
-    savedProjects.forEach(p => {
-      const analysisData = p.analysis_data as any;
-      projectMap.set(p.id, {
-        id: p.id,
-        name: p.name,
-        file_name: p.file_name,
-        analysis_data: p.analysis_data,
-        wbs_data: p.wbs_data,
-        items_count: analysisData?.items?.length || analysisData?.summary?.total_items || 0,
-        total_value: analysisData?.summary?.total_value || 0,
-        currency: analysisData?.summary?.currency || 'SAR',
-        created_at: p.created_at,
-        updated_at: p.updated_at,
-      });
-    });
-
-    // Add project_data if not already in map
-    projectDataList.forEach(p => {
-      if (!projectMap.has(p.id)) {
-        projectMap.set(p.id, {
-          id: p.id,
-          name: p.name,
-          file_name: p.file_name,
-          analysis_data: p.analysis_data,
-          wbs_data: p.wbs_data,
-          items_count: p.items_count || 0,
-          total_value: p.total_value || 0,
-          currency: p.currency || 'SAR',
-          created_at: p.created_at,
-          updated_at: p.updated_at,
-        });
-      }
-    });
-
-    // Convert map to array and sort by created_at
-    const allProjects = Array.from(projectMap.values())
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-    setProjects(allProjects);
-  } catch (error: any) {
-    console.error("Error fetching projects:", error);
-    toast({
-      title: isArabic ? "خطأ في تحميل المشاريع" : "Error loading projects",
-      description: error.message,
-      variant: "destructive",
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
+{ 
+  icon: Target, 
+  label: { ar: "دقة التسعير", en: "Pricing Accuracy" }, 
+  description: { ar: "تتبع دقة الأسعار", en: "Track price accuracy" },
+  href: "/pricing-accuracy",  // صفحة مستقلة جديدة
+  isNew: true,
+  previewText: { ar: "مقارنة الأسعار المقترحة مع النهائية", en: "Compare suggested vs final prices" }
+}
 ```
 
-**تحديث دالة `handleDelete` (السطور 131-152):**
+---
+
+## خيارات التنفيذ
+
+### الخيار 1: إضافة اختصار يفتح صفحة مستقلة (موصى به)
+- إنشاء صفحة `/pricing-accuracy` مستقلة تعرض `PricingAccuracyTab` بدون الحاجة لاختيار مشروع
+- **المميزات**: وصول مباشر وسريع من الشاشة الرئيسية
+- **العيوب**: يتطلب إنشاء صفحة جديدة
+
+### الخيار 2: إضافة اختصار يوجه لصفحة التسعير مع تحديد المشروع
+- الرابط: `/projects` ثم اختيار مشروع → التسعير → Accuracy
+- **العيوب**: يتطلب خطوات إضافية
+
+---
+
+## التنفيذ المقترح
+
+### 1. إنشاء صفحة جديدة: `src/pages/PricingAccuracyPage.tsx`
 
 ```tsx
-const handleDelete = async (id: string) => {
-  try {
-    // Try to delete from both tables
-    // Delete project items first (if any)
-    await supabase.from("project_items").delete().eq("project_id", id);
-    
-    // Delete from project_data
-    await supabase.from("project_data").delete().eq("id", id);
-    
-    // Delete from saved_projects
-    await supabase.from("saved_projects").delete().eq("id", id);
-    
-    toast({
-      title: isArabic ? "تم حذف المشروع" : "Project deleted",
-    });
-    fetchProjects();
-  } catch (error: any) {
-    toast({
-      title: isArabic ? "خطأ في حذف المشروع" : "Error deleting project",
-      description: error.message,
-      variant: "destructive",
-    });
-  }
-};
+import { useLanguage } from "@/hooks/useLanguage";
+import { PricingAccuracyTab } from "@/components/tender/PricingAccuracyTab";
+import { NavigationBar } from "@/components/NavigationBar";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
+
+export default function PricingAccuracyPage() {
+  const { isArabic } = useLanguage();
+  
+  return (
+    <div className="min-h-screen bg-background">
+      <NavigationBar />
+      <main className="container mx-auto p-6">
+        <Breadcrumbs />
+        <PricingAccuracyTab isArabic={isArabic} />
+      </main>
+    </div>
+  );
+}
+```
+
+### 2. تحديث `src/App.tsx`: إضافة المسار الجديد
+
+```tsx
+<Route path="/pricing-accuracy" element={<PricingAccuracyPage />} />
+```
+
+### 3. تحديث `src/components/home/PhaseActionsGrid.tsx`
+
+إضافة الاختصار في المرحلة 3 (phaseConfigs[2].actions):
+
+```tsx
+// في المرحلة 3 (id: 3) - بعد Cost Analysis
+{ 
+  icon: Target, 
+  label: { ar: "دقة التسعير", en: "Pricing Accuracy" }, 
+  description: { ar: "تتبع دقة الأسعار", en: "Track price accuracy" },
+  href: "/pricing-accuracy",
+  isNew: true,
+  previewText: { ar: "مقارنة الأسعار المقترحة مع الأسعار النهائية المعتمدة", en: "Compare suggested prices with final approved prices" }
+}
+```
+
+### 4. تحديث Global Search
+
+إضافة الصفحة الجديدة في `GlobalSearchContext.tsx` ضمن قائمة الصفحات:
+
+```tsx
+{
+  id: 'pricing-accuracy',
+  type: 'page',
+  label: 'Pricing Accuracy',
+  labelAr: 'دقة التسعير',
+  description: 'Track and compare suggested vs final prices',
+  descriptionAr: 'تتبع ومقارنة الأسعار المقترحة مع النهائية',
+  icon: 'Target',
+  href: '/pricing-accuracy',
+  keywords: ['pricing', 'accuracy', 'comparison', 'track', 'دقة', 'تسعير', 'مقارنة']
+}
 ```
 
 ---
@@ -146,46 +121,32 @@ const handleDelete = async (id: string) => {
 
 | الملف | التغيير |
 |-------|---------|
-| `src/pages/SavedProjectsPage.tsx` | تحديث `fetchProjects` لجلب من كلا الجدولين + تحديث `handleDelete` |
+| `src/pages/PricingAccuracyPage.tsx` | **ملف جديد** - صفحة مستقلة لدقة التسعير |
+| `src/App.tsx` | إضافة Route جديد `/pricing-accuracy` |
+| `src/components/home/PhaseActionsGrid.tsx` | إضافة اختصار في المرحلة 3 |
+| `src/contexts/GlobalSearchContext.tsx` | إضافة الصفحة للبحث العالمي |
 
 ---
 
 ## النتيجة المتوقعة
 
-| قبل الإصلاح | بعد الإصلاح |
-|-------------|-------------|
-| 3 مشاريع ظاهرة | 13 مشروع (أو أكثر) ظاهرة |
-| استعلام من `project_data` فقط | استعلام من كلا الجدولين |
-| ❌ مشاريع مفقودة | ✅ جميع المشاريع مرئية |
+| الميزة | الحالة |
+|--------|--------|
+| اختصار على الشاشة الرئيسية | ✅ في المرحلة 3 |
+| شارة "جديد" | ✅ تظهر على الاختصار |
+| البحث العالمي (⌘K) | ✅ يجد الصفحة |
+| وصول مباشر بدون مشروع | ✅ صفحة مستقلة |
+| ثنائي اللغة | ✅ عربي/إنجليزي |
 
 ---
 
-## ملاحظات تقنية
+## التصميم المقترح للاختصار
 
-### لماذا يوجد جدولان؟
+```
+┌─────────────────────────────────┐
+│  🎯  دقة التسعير          [جديد]│
+│      تتبع دقة الأسعار           │
+└─────────────────────────────────┘
+```
 
-- **`saved_projects`**: الجدول الأصلي القديم للمشاريع المحفوظة (يحتوي على `analysis_data` JSON)
-- **`project_data`**: جدول أحدث مع بنية مختلفة (يستخدم `project_items` منفصل)
-
-### استراتيجية الدمج
-
-1. **الأولوية لـ `saved_projects`**: إذا وُجد مشروع في كلا الجدولين، نستخدم بيانات `saved_projects`
-2. **استخدام Map**: لتجنب التكرار عند وجود نفس الـ ID في كلا الجدولين
-3. **توحيد الـ Schema**: تحويل البيانات لتتوافق مع interface `ProjectData`
-
-### التوافق مع الصفحات الأخرى
-
-هذا الحل يتبع نفس المنهج المستخدم في:
-- `ReportsTab.tsx` (سطور 75-117)
-- `HomePage.tsx` (dashboard statistics)
-
----
-
-## التحسينات المستقبلية (اختيارية)
-
-للتخلص من ازدواجية الجداول، يمكن لاحقاً:
-1. ترحيل جميع البيانات من `saved_projects` إلى `project_data`
-2. تحديث جميع الاستعلامات لاستخدام جدول واحد
-3. حذف الجدول القديم
-
-لكن هذا يتطلب خطة ترحيل بيانات كاملة وليس جزءاً من هذا الإصلاح.
+سيظهر في **المرحلة 3** (الأخضر) مع باقي أدوات التسعير.
