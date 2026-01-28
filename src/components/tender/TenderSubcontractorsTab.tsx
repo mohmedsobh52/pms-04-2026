@@ -1,4 +1,4 @@
-import { forwardRef, useState, useEffect } from "react";
+import { forwardRef, useState, useEffect, useMemo } from "react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, Plus, Trash2, Edit, Building2, FileText, DollarSign, Percent } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Users, Plus, Trash2, Edit, Building2, FileText, DollarSign, Percent, Search } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -55,6 +57,7 @@ const TenderSubcontractorsTab = forwardRef<HTMLDivElement, TenderSubcontractorsT
   const [availableSubcontractors, setAvailableSubcontractors] = useState<any[]>([]);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<TenderSubcontractor | null>(null);
+  const [itemSearchTerm, setItemSearchTerm] = useState("");
   const [formData, setFormData] = useState<Partial<TenderSubcontractor>>({
     subcontractorId: "",
     subcontractorName: "",
@@ -189,6 +192,37 @@ const TenderSubcontractorsTab = forwardRef<HTMLDivElement, TenderSubcontractorsT
       setFormData({ ...formData, linkedItems: currentItems.filter(i => i !== itemNumber) });
     }
   };
+
+  // Filter project items by search term
+  const filteredProjectItems = useMemo(() => {
+    if (!itemSearchTerm.trim()) return projectItems;
+    const term = itemSearchTerm.toLowerCase();
+    return projectItems.filter(item => 
+      item.itemNumber.toLowerCase().includes(term) ||
+      item.description.toLowerCase().includes(term)
+    );
+  }, [projectItems, itemSearchTerm]);
+
+  // Select all items
+  const handleSelectAll = () => {
+    setFormData({ 
+      ...formData, 
+      linkedItems: projectItems.map(i => i.itemNumber) 
+    });
+  };
+
+  // Deselect all items
+  const handleDeselectAll = () => {
+    setFormData({ ...formData, linkedItems: [] });
+  };
+
+  // Calculate total of selected items
+  const selectedItemsTotal = useMemo(() => {
+    return (formData.linkedItems || []).reduce((sum, itemNo) => {
+      const item = projectItems.find(i => i.itemNumber === itemNo);
+      return sum + (item?.totalPrice || 0);
+    }, 0);
+  }, [formData.linkedItems, projectItems]);
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -374,25 +408,102 @@ const TenderSubcontractorsTab = forwardRef<HTMLDivElement, TenderSubcontractorsT
 
                   {/* Linked BOQ Items */}
                   {projectItems.length > 0 && (
-                    <div>
-                      <Label>{isRTL ? "البنود المرتبطة" : "Linked BOQ Items"}</Label>
-                      <div className="max-h-40 overflow-y-auto border rounded p-2 mt-2 space-y-2">
-                        {projectItems.map((item) => (
-                          <div key={item.itemNumber} className="flex items-center gap-2">
-                            <Checkbox
-                              id={item.itemNumber}
-                              checked={(formData.linkedItems || []).includes(item.itemNumber)}
-                              onCheckedChange={(checked) => handleItemToggle(item.itemNumber, checked as boolean)}
-                            />
-                            <label htmlFor={item.itemNumber} className="text-sm flex-1">
-                              <span className="font-medium">{item.itemNumber}</span> - {item.description?.slice(0, 50)}...
-                            </label>
-                            <span className="text-sm text-muted-foreground">
-                              {formatCurrency(item.totalPrice)} {currency}
-                            </span>
-                          </div>
-                        ))}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <Label>{isRTL ? "البنود المرتبطة" : "Linked BOQ Items"}</Label>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">
+                            {(formData.linkedItems || []).length} / {projectItems.length}
+                          </Badge>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            onClick={handleSelectAll}
+                          >
+                            {isRTL ? "تحديد الكل" : "Select All"}
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={handleDeselectAll}
+                          >
+                            {isRTL ? "إلغاء الكل" : "Clear"}
+                          </Button>
+                        </div>
                       </div>
+                      
+                      {/* Search Box */}
+                      <div className="relative">
+                        <Search className={cn(
+                          "absolute top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground",
+                          isRTL ? "right-3" : "left-3"
+                        )} />
+                        <Input
+                          placeholder={isRTL ? "بحث في البنود..." : "Search items..."}
+                          value={itemSearchTerm}
+                          onChange={(e) => setItemSearchTerm(e.target.value)}
+                          className={isRTL ? "pr-9" : "pl-9"}
+                        />
+                      </div>
+                      
+                      {/* Selected Total */}
+                      {(formData.linkedItems || []).length > 0 && (
+                        <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-2">
+                          {isRTL ? "إجمالي البنود المحددة:" : "Selected Items Total:"}{" "}
+                          <span className="font-semibold text-foreground">
+                            {formatCurrency(selectedItemsTotal)} {currency}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Items List */}
+                      <ScrollArea className="h-72 border rounded-lg">
+                        <div className="p-2 space-y-1">
+                          {filteredProjectItems.length === 0 ? (
+                            <div className="text-center py-8 text-muted-foreground">
+                              {isRTL ? "لا توجد بنود مطابقة" : "No matching items"}
+                            </div>
+                          ) : (
+                            filteredProjectItems.map((item) => {
+                              const isSelected = (formData.linkedItems || []).includes(item.itemNumber);
+                              return (
+                                <div 
+                                  key={item.itemNumber} 
+                                  className={cn(
+                                    "flex items-start gap-3 p-2 rounded-lg cursor-pointer transition-colors",
+                                    isSelected 
+                                      ? "bg-primary/10 border border-primary/30" 
+                                      : "hover:bg-muted/50"
+                                  )}
+                                  onClick={() => handleItemToggle(item.itemNumber, !isSelected)}
+                                >
+                                  <Checkbox
+                                    id={item.itemNumber}
+                                    checked={isSelected}
+                                    onCheckedChange={(checked) => handleItemToggle(item.itemNumber, checked as boolean)}
+                                    className="mt-0.5"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
+                                        {item.itemNumber}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                      {item.description}
+                                    </p>
+                                  </div>
+                                  <div className="text-sm font-medium whitespace-nowrap">
+                                    {formatCurrency(item.totalPrice)} {currency}
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </ScrollArea>
                     </div>
                   )}
 
