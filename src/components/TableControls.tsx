@@ -388,9 +388,7 @@ export const BOQ_TABLE_COLUMNS = [
   { id: "description", label: "Description", labelAr: "الوصف" },
   { id: "unit", label: "Unit", labelAr: "الوحدة" },
   { id: "quantity", label: "Qty", labelAr: "الكمية" },
-  { id: "unit_price", label: "Unit Price", labelAr: "سعر الوحدة" },
-  { id: "total", label: "Total", labelAr: "الإجمالي" },
   { id: "ai_rate", label: "AI Rate", labelAr: "سعر AI" },
-  { id: "calc_price", label: "Calc. Price", labelAr: "السعر المحسوب" },
+  { id: "calc_price", label: "Total", labelAr: "الإجمالي" },
   { id: "balance_status", label: "Balance", labelAr: "التوازن" },
 ];
