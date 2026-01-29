@@ -37,7 +37,7 @@ const AttachmentsPage = () => {
 
     const fetchProjects = async () => {
       const { data, error } = await supabase
-        .from("saved_projects")
+        .from("project_data")
         .select("id, name")
         .eq("user_id", user.id)
         .order("name", { ascending: true });
