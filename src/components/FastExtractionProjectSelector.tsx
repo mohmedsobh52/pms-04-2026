@@ -15,7 +15,6 @@ import type { UploadedFile } from "./FastExtractionUploader";
 interface Project {
   id: string;
   name: string;
-  file_name: string | null;
   created_at: string;
   files_count: number;
   categories: string[];
@@ -60,10 +59,10 @@ export default function FastExtractionProjectSelector({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch projects
+      // Fetch projects from project_data (matches project_attachments FK)
       const { data: projectsData, error } = await supabase
-        .from("saved_projects")
-        .select("id, name, file_name, created_at")
+        .from("project_data")
+        .select("id, name, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -124,14 +123,13 @@ export default function FastExtractionProjectSelector({
 
       let projectId = selectedProjectId;
 
-      // Create new project if needed
+      // Create new project in project_data (matches project_attachments FK)
       if (mode === "new") {
         const { data: newProject, error: projectError } = await supabase
-          .from("saved_projects")
+          .from("project_data")
           .insert({
             name: newProjectName.trim(),
             user_id: user.id,
-            file_name: successFiles[0]?.name || null,
           })
           .select()
           .single();
