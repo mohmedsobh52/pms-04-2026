@@ -24,10 +24,13 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 interface ExtractedQuantity {
   item_number: string;
   category: string;
+  subcategory?: string;
   description: string;
   quantity: number;
   unit: string;
   measurement_basis?: string;
+  pipe_diameter?: string;
+  pipe_material?: string;
   notes?: string;
 }
 
@@ -64,8 +67,19 @@ const drawingTypes = [
   { id: "electrical", labelEn: "Electrical", labelAr: "كهرباء" },
   { id: "civil", labelEn: "Civil", labelAr: "مدني" },
   { id: "plumbing", labelEn: "Plumbing", labelAr: "صحي" },
+  { id: "infrastructure", labelEn: "Infrastructure/Networks", labelAr: "شبكات وبنية تحتية" },
   { id: "general", labelEn: "General", labelAr: "عام" },
 ];
+
+// Category icons and colors for infrastructure analysis
+const categoryConfig: Record<string, { icon: string; color: string; labelEn: string; labelAr: string }> = {
+  "Excavation": { icon: "⛏️", color: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200", labelEn: "Excavation Works", labelAr: "أعمال الحفر" },
+  "Backfilling": { icon: "🏗️", color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200", labelEn: "Backfilling Works", labelAr: "أعمال الردم" },
+  "Pipes": { icon: "🔧", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200", labelEn: "Pipes", labelAr: "المواسير" },
+  "Fittings": { icon: "⚙️", color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200", labelEn: "Fittings & Accessories", labelAr: "القطع والتركيبات" },
+  "Manholes": { icon: "🕳️", color: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200", labelEn: "Manholes", labelAr: "غرف التفتيش" },
+  "Valves": { icon: "🚰", color: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200", labelEn: "Valves", labelAr: "المحابس" },
+};
 
 export default function FastExtractionDrawingAnalyzer({
   files,
@@ -232,13 +246,16 @@ export default function FastExtractionDrawingAnalyzer({
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet(isArabic ? "الكميات المستخرجة" : "Extracted Quantities");
 
-    // Header row
+    // Header row - include infrastructure columns
     sheet.columns = [
       { header: isArabic ? "م" : "#", key: "item_number", width: 8 },
-      { header: isArabic ? "الفئة" : "Category", key: "category", width: 20 },
+      { header: isArabic ? "الفئة" : "Category", key: "category", width: 18 },
+      { header: isArabic ? "الفئة الفرعية" : "Subcategory", key: "subcategory", width: 20 },
       { header: isArabic ? "الوصف" : "Description", key: "description", width: 40 },
       { header: isArabic ? "الكمية" : "Quantity", key: "quantity", width: 12 },
       { header: isArabic ? "الوحدة" : "Unit", key: "unit", width: 10 },
+      { header: isArabic ? "القطر" : "Diameter", key: "pipe_diameter", width: 15 },
+      { header: isArabic ? "المادة" : "Material", key: "pipe_material", width: 15 },
       { header: isArabic ? "أساس القياس" : "Measurement Basis", key: "measurement_basis", width: 30 },
       { header: isArabic ? "ملاحظات" : "Notes", key: "notes", width: 30 },
     ];
@@ -257,9 +274,12 @@ export default function FastExtractionDrawingAnalyzer({
       sheet.addRow({
         item_number: q.item_number || String(idx + 1),
         category: q.category,
+        subcategory: q.subcategory || "",
         description: q.description,
         quantity: q.quantity,
         unit: q.unit,
+        pipe_diameter: q.pipe_diameter || "",
+        pipe_material: q.pipe_material || "",
         measurement_basis: q.measurement_basis || "",
         notes: q.notes || "",
       });
@@ -282,13 +302,16 @@ export default function FastExtractionDrawingAnalyzer({
     doc.setFontSize(16);
     doc.text(isArabic ? "Extracted Quantities from Drawings" : "Extracted Quantities from Drawings", 14, 20);
 
-    const headers = ["#", "Category", "Description", "Quantity", "Unit", "Basis"];
+    const headers = ["#", "Category", "Subcategory", "Description", "Qty", "Unit", "Diameter", "Material"];
     const rows = allQuantities.map((q, idx) => [
       q.item_number || String(idx + 1),
       q.category,
-      q.description.substring(0, 50),
+      q.subcategory || "",
+      q.description.substring(0, 40),
       String(q.quantity),
       q.unit,
+      q.pipe_diameter || "-",
+      q.pipe_material || "-",
       q.measurement_basis?.substring(0, 30) || "",
     ]);
 
@@ -502,7 +525,7 @@ export default function FastExtractionDrawingAnalyzer({
             ))}
           </div>
 
-          {/* Quantities Table */}
+          {/* Quantities Table - Grouped by Category for Infrastructure */}
           {allQuantities.length > 0 && (
             <Card>
               <CardHeader className="py-3 flex flex-row items-center justify-between">
@@ -522,29 +545,77 @@ export default function FastExtractionDrawingAnalyzer({
                 </div>
               </CardHeader>
               <CardContent className="p-0">
+                {/* Category Summary Cards for Infrastructure */}
+                {drawingType === "infrastructure" && (
+                  <div className="p-4 border-b grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    {Object.entries(
+                      allQuantities.reduce((acc, q) => {
+                        const cat = q.category || "Other";
+                        if (!acc[cat]) acc[cat] = { count: 0, totalQty: 0, unit: q.unit };
+                        acc[cat].count++;
+                        acc[cat].totalQty += q.quantity || 0;
+                        return acc;
+                      }, {} as Record<string, { count: number; totalQty: number; unit: string }>)
+                    ).map(([category, data]) => {
+                      const config = categoryConfig[category] || { icon: "📦", color: "bg-gray-100 text-gray-800", labelEn: category, labelAr: category };
+                      return (
+                        <div key={category} className={cn("p-3 rounded-lg text-center", config.color)}>
+                          <div className="text-2xl mb-1">{config.icon}</div>
+                          <div className="text-xs font-medium">{isArabic ? config.labelAr : config.labelEn}</div>
+                          <div className="text-lg font-bold">{data.totalQty.toLocaleString()}</div>
+                          <div className="text-xs opacity-75">{data.unit} ({data.count} {isArabic ? "بند" : "items"})</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
                 <div className="max-h-[400px] overflow-auto">
                   <UITable>
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-[60px]">{isArabic ? "م" : "#"}</TableHead>
                         <TableHead>{isArabic ? "الفئة" : "Category"}</TableHead>
+                        {drawingType === "infrastructure" && (
+                          <TableHead>{isArabic ? "الفئة الفرعية" : "Subcategory"}</TableHead>
+                        )}
                         <TableHead className="min-w-[200px]">{isArabic ? "الوصف" : "Description"}</TableHead>
                         <TableHead className="text-right">{isArabic ? "الكمية" : "Qty"}</TableHead>
                         <TableHead>{isArabic ? "الوحدة" : "Unit"}</TableHead>
+                        {drawingType === "infrastructure" && (
+                          <>
+                            <TableHead>{isArabic ? "القطر" : "Diameter"}</TableHead>
+                            <TableHead>{isArabic ? "المادة" : "Material"}</TableHead>
+                          </>
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {allQuantities.slice(0, 50).map((q, idx) => (
-                        <TableRow key={idx}>
-                          <TableCell className="font-medium">{q.item_number || idx + 1}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{q.category}</Badge>
-                          </TableCell>
-                          <TableCell className="max-w-[300px] truncate">{q.description}</TableCell>
-                          <TableCell className="text-right font-mono">{q.quantity.toLocaleString()}</TableCell>
-                          <TableCell>{q.unit}</TableCell>
-                        </TableRow>
-                      ))}
+                      {allQuantities.slice(0, 50).map((q, idx) => {
+                        const config = categoryConfig[q.category] || { icon: "📦", color: "bg-gray-100 text-gray-800" };
+                        return (
+                          <TableRow key={idx}>
+                            <TableCell className="font-medium">{q.item_number || idx + 1}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={cn("gap-1", config.color)}>
+                                <span>{config.icon}</span> {q.category}
+                              </Badge>
+                            </TableCell>
+                            {drawingType === "infrastructure" && (
+                              <TableCell className="text-sm text-muted-foreground">{q.subcategory || "-"}</TableCell>
+                            )}
+                            <TableCell className="max-w-[300px] truncate">{q.description}</TableCell>
+                            <TableCell className="text-right font-mono font-semibold">{q.quantity.toLocaleString()}</TableCell>
+                            <TableCell>{q.unit}</TableCell>
+                            {drawingType === "infrastructure" && (
+                              <>
+                                <TableCell className="font-mono text-sm">{q.pipe_diameter || "-"}</TableCell>
+                                <TableCell className="text-sm">{q.pipe_material || "-"}</TableCell>
+                              </>
+                            )}
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </UITable>
                 </div>

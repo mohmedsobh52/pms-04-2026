@@ -26,6 +26,101 @@ serve(async (req) => {
 
     const isArabic = language === 'ar';
 
+    // Specialized prompt for infrastructure/networks (excavation, backfilling, pipes)
+    const infrastructurePromptArabic = `أنت خبير حصر كميات متخصص في أعمال شبكات المياه والصرف والبنية التحتية.
+
+المطلوب استخراجه بالتفصيل:
+
+### 1. أعمال الحفر (Excavation):
+- حفر الخنادق: الطول × العرض × العمق = الحجم (م³)
+- حفر غرف التفتيش: العدد والأبعاد
+- التفريق بين: حفر عادي / حفر صخري / حفر في مياه جوفية
+- category = "Excavation"
+- subcategory = نوع الحفر (Trench Excavation, Rock Excavation, Normal Excavation)
+
+### 2. أعمال الردم (Backfilling):
+- فرشة رملية تحت المواسير (سمك 10-15 سم)
+- ردم جوانب المواسير (رمل أو تربة محسنة)
+- ردم نهائي فوق المواسير (تربة عادية)
+- حساب كل طبقة بشكل منفصل
+- category = "Backfilling"
+- subcategory = نوع الردم (Sand Bedding, Selected Backfill, Normal Backfill)
+
+### 3. المواسير (Pipes):
+لكل نوع من المواسير أذكر:
+- النوع (uPVC, HDPE, GRP, Steel, Ductile Iron)
+- القطر بالبوصة والمليمتر
+- الطول الإجمالي (م.ط)
+- category = "Pipes"
+- subcategory = نوع الماسورة
+- pipe_diameter = القطر (مثال: "150mm / 6 inch")
+- pipe_material = المادة (مثال: "uPVC")
+
+### 4. القطع والتركيبات (Fittings):
+- المحابس (Valves): العدد لكل قطر - category = "Valves"
+- الكيعان (Elbows): العدد لكل قطر - category = "Fittings"
+- النقاط T و Y - category = "Fittings"
+- وصلات الفلنج - category = "Fittings"
+
+### 5. غرف التفتيش (Manholes):
+- عدد الغرف
+- الأبعاد والعمق لكل غرفة
+- category = "Manholes"
+
+مهم جداً:
+- أعد النتائج بتنسيق JSON مع category و subcategory واضح لكل بند
+- اذكر measurement_basis لتوضيح كيف تم حساب الكمية
+- للمواسير: اذكر pipe_diameter و pipe_material
+
+يجب الرد بصيغة JSON مع بيانات الكميات المهيكلة.`;
+
+    const infrastructurePromptEnglish = `You are an expert quantity surveyor specializing in water networks, sewerage, and infrastructure works.
+
+Extract the following in detail:
+
+### 1. Excavation Works:
+- Trench excavation: Length × Width × Depth = Volume (m³)
+- Manhole excavation: Count and dimensions
+- Distinguish between: Normal excavation / Rock excavation / Excavation in groundwater
+- category = "Excavation"
+- subcategory = Type (Trench Excavation, Rock Excavation, Normal Excavation)
+
+### 2. Backfilling Works:
+- Sand bedding under pipes (10-15 cm thickness)
+- Side filling (sand or selected material)
+- Final backfill above pipes (normal soil)
+- Calculate each layer separately
+- category = "Backfilling"
+- subcategory = Type (Sand Bedding, Selected Backfill, Normal Backfill)
+
+### 3. Pipes:
+For each pipe type specify:
+- Material (uPVC, HDPE, GRP, Steel, Ductile Iron)
+- Diameter in inches and mm
+- Total length (linear meters)
+- category = "Pipes"
+- subcategory = Pipe type
+- pipe_diameter = Diameter (e.g., "150mm / 6 inch")
+- pipe_material = Material (e.g., "uPVC")
+
+### 4. Fittings & Accessories:
+- Valves: Count per diameter - category = "Valves"
+- Elbows: Count per diameter - category = "Fittings"
+- Tees and Y-pieces - category = "Fittings"
+- Flange connections - category = "Fittings"
+
+### 5. Manholes:
+- Number of manholes
+- Dimensions and depth for each
+- category = "Manholes"
+
+Important:
+- Return results in JSON format with clear category and subcategory for each item
+- Include measurement_basis to explain how quantity was calculated
+- For pipes: include pipe_diameter and pipe_material
+
+Always respond in JSON format with structured quantity data.`;
+
     const systemPromptEnglish = `You are an expert quantity surveyor and construction estimator. You specialize in analyzing architectural and engineering drawings (PDF, DWG) to extract quantities for Bill of Quantities (BOQ).
 
 Your expertise includes:
@@ -60,7 +155,156 @@ Always respond in JSON format with structured quantity data.`;
 
 يجب الرد بصيغة JSON مع بيانات الكميات المهيكلة.`;
 
-    const systemPrompt = isArabic ? systemPromptArabic : systemPromptEnglish;
+    // Select appropriate system prompt based on drawing type
+    let systemPrompt: string;
+    if (drawingType === 'infrastructure') {
+      systemPrompt = isArabic ? infrastructurePromptArabic : infrastructurePromptEnglish;
+    } else {
+      systemPrompt = isArabic ? systemPromptArabic : systemPromptEnglish;
+    }
+
+    // Infrastructure-specific user prompts
+    const infrastructureUserPromptEnglish = `Analyze this infrastructure/network drawing and extract ALL quantities for BOQ with focus on:
+- Excavation works (trenches, manholes) with dimensions
+- Backfilling works (sand bedding, selected fill, normal fill) with volumes
+- All pipe types with EXACT diameters and lengths
+- Fittings (valves, elbows, tees) with counts per diameter
+- Manholes with dimensions
+
+File Name: ${fileName}
+Drawing Type: Infrastructure/Networks
+${fileContent ? `File Content/Description:\n${fileContent}` : ''}
+
+Return JSON with this EXACT structure:
+{
+  "drawing_info": {
+    "title": "Drawing title",
+    "type": "infrastructure",
+    "scale": "Drawing scale if mentioned",
+    "date": "Date if found"
+  },
+  "quantities": [
+    {
+      "item_number": "1",
+      "category": "Excavation",
+      "subcategory": "Trench Excavation",
+      "description": "Trench excavation for water pipes depth 1.5m",
+      "quantity": 850,
+      "unit": "m³",
+      "measurement_basis": "Length 450m × Width 1.2m × Depth 1.5m",
+      "pipe_diameter": null,
+      "pipe_material": null,
+      "notes": ""
+    },
+    {
+      "item_number": "2",
+      "category": "Pipes",
+      "subcategory": "uPVC Water Pipes",
+      "description": "uPVC pipes 6 inch (150mm)",
+      "quantity": 450,
+      "unit": "m",
+      "measurement_basis": "Total length from drawing",
+      "pipe_diameter": "150mm / 6 inch",
+      "pipe_material": "uPVC",
+      "notes": ""
+    },
+    {
+      "item_number": "3",
+      "category": "Backfilling",
+      "subcategory": "Sand Bedding",
+      "description": "Sand bedding under pipes 10cm thick",
+      "quantity": 54,
+      "unit": "m³",
+      "measurement_basis": "Length 450m × Width 1.2m × Depth 0.1m",
+      "pipe_diameter": null,
+      "pipe_material": null,
+      "notes": ""
+    }
+  ],
+  "summary": {
+    "total_items": 3,
+    "categories": ["Excavation", "Pipes", "Backfilling"],
+    "main_materials": ["uPVC", "Sand"],
+    "estimated_area": "",
+    "estimated_volume": ""
+  }
+}
+
+IMPORTANT: 
+- Extract EVERY pipe with its specific diameter
+- Calculate excavation volumes based on trench dimensions
+- Separate backfilling into layers (bedding, selected fill, normal fill)`;
+
+    const infrastructureUserPromptArabic = `قم بتحليل مخطط شبكات البنية التحتية هذا واستخراج جميع الكميات لجدول الكميات (BOQ) مع التركيز على:
+- أعمال الحفر (الخنادق، غرف التفتيش) مع الأبعاد
+- أعمال الردم (فرشة رملية، ردم محسن، ردم عادي) مع الأحجام
+- جميع أنواع المواسير مع الأقطار والأطوال بالتحديد
+- القطع والتركيبات (محابس، كيعان، نقاط T) مع الأعداد لكل قطر
+- غرف التفتيش مع الأبعاد
+
+اسم الملف: ${fileName}
+نوع المخطط: شبكات وبنية تحتية
+${fileContent ? `محتوى الملف/الوصف:\n${fileContent}` : ''}
+
+أعد JSON بهذا الهيكل بالضبط:
+{
+  "drawing_info": {
+    "title": "عنوان المخطط",
+    "type": "infrastructure",
+    "scale": "مقياس الرسم إن وجد",
+    "date": "التاريخ إن وجد"
+  },
+  "quantities": [
+    {
+      "item_number": "1",
+      "category": "Excavation",
+      "subcategory": "Trench Excavation",
+      "description": "حفر خنادق لمواسير المياه عمق 1.5م",
+      "quantity": 850,
+      "unit": "م³",
+      "measurement_basis": "الطول 450م × العرض 1.2م × العمق 1.5م",
+      "pipe_diameter": null,
+      "pipe_material": null,
+      "notes": ""
+    },
+    {
+      "item_number": "2",
+      "category": "Pipes",
+      "subcategory": "uPVC Water Pipes",
+      "description": "مواسير uPVC قطر 6 بوصة (150مم)",
+      "quantity": 450,
+      "unit": "م.ط",
+      "measurement_basis": "إجمالي الطول من المخطط",
+      "pipe_diameter": "150mm / 6 inch",
+      "pipe_material": "uPVC",
+      "notes": ""
+    },
+    {
+      "item_number": "3",
+      "category": "Backfilling",
+      "subcategory": "Sand Bedding",
+      "description": "فرشة رملية تحت المواسير سمك 10سم",
+      "quantity": 54,
+      "unit": "م³",
+      "measurement_basis": "الطول 450م × العرض 1.2م × السمك 0.1م",
+      "pipe_diameter": null,
+      "pipe_material": null,
+      "notes": ""
+    }
+  ],
+  "summary": {
+    "total_items": 3,
+    "categories": ["Excavation", "Pipes", "Backfilling"],
+    "main_materials": ["uPVC", "رمل"],
+    "estimated_area": "",
+    "estimated_volume": ""
+  }
+}
+
+مهم جداً:
+- استخرج كل ماسورة مع قطرها المحدد
+- احسب أحجام الحفر بناءً على أبعاد الخندق
+- افصل الردم إلى طبقات (فرشة، ردم محسن، ردم عادي)`;
 
     const userPromptEnglish = `Analyze this construction drawing and extract all quantities for BOQ:
 
@@ -80,10 +324,13 @@ Extract and return JSON with:
     {
       "item_number": "Sequential number",
       "category": "Category (Concrete, Steel, Masonry, Finishes, MEP, etc.)",
+      "subcategory": "Sub-category if applicable",
       "description": "Detailed item description",
       "quantity": number,
       "unit": "m2, m3, m, nos, kg, etc.",
       "measurement_basis": "How the quantity was calculated",
+      "pipe_diameter": "For pipes only",
+      "pipe_material": "For pipes only",
       "notes": "Any relevant notes"
     }
   ],
@@ -116,10 +363,13 @@ ${fileContent ? `محتوى الملف/الوصف:\n${fileContent}` : ''}
     {
       "item_number": "رقم تسلسلي",
       "category": "الفئة (خرسانة، حديد، بناء، تشطيبات، أعمال كهروميكانيكية، إلخ)",
+      "subcategory": "الفئة الفرعية إن وجدت",
       "description": "وصف تفصيلي للبند",
       "quantity": رقم,
       "unit": "م²، م³، م.ط، عدد، كجم، إلخ",
       "measurement_basis": "أساس حساب الكمية",
+      "pipe_diameter": "للمواسير فقط",
+      "pipe_material": "للمواسير فقط",
       "notes": "أي ملاحظات ذات صلة"
     }
   ],
@@ -134,7 +384,13 @@ ${fileContent ? `محتوى الملف/الوصف:\n${fileContent}` : ''}
   "assumptions": ["قائمة الافتراضات المستخدمة في حصر الكميات"]
 }`;
 
-    const userPrompt = isArabic ? userPromptArabic : userPromptEnglish;
+    // Select appropriate user prompt based on drawing type
+    let userPrompt: string;
+    if (drawingType === 'infrastructure') {
+      userPrompt = isArabic ? infrastructureUserPromptArabic : infrastructureUserPromptEnglish;
+    } else {
+      userPrompt = isArabic ? userPromptArabic : userPromptEnglish;
+    }
 
     // Build message content based on what's provided
     let messageContent: any;
