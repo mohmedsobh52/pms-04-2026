@@ -1,52 +1,128 @@
 
+# خطة حل مشكلة ملفات المشروع وحفظ الكميات المستخرجة
 
-# تحسين تنسيق التاريخ في نموذج إنشاء المشروع
+## المشاكل المحددة
 
-## المشكلة الحالية
+### المشكلة 1: الملفات لا تظهر في Project Files
+بعد تحليل الكود، وجدت أن الملفات تُحفظ بشكل صحيح في جدول `project_attachments`، لكن يجب التحقق من العلاقة مع جدول `saved_projects` vs `project_data`.
 
-التنسيق الحالي للتاريخ يعرض:
-- **الآن**: "January 1st, 2026" 
-- **المطلوب**: "2026-01-15" (yyyy-MM-dd)
+### المشكلة 2: الكميات المستخرجة لا تُحفظ مع الملفات
+- نتائج تحليل المخططات (`drawingResults`) تبقى في حالة محلية فقط
+- لا يتم تمريرها إلى مكون `FastExtractionProjectSelector`
+- لا يتم حفظها في عمود `analysis_result` في جدول `project_attachments`
 
-## الحل
+## الحل المقترح
 
-تغيير تنسيق عرض التاريخ من `"PPP"` إلى `"yyyy-MM-dd"` في:
-- حقل تاريخ البدء (Start Date)
-- حقل تاريخ الانتهاء (Expected End Date)
+### التغييرات في FastExtractionPage.tsx
 
-## التغييرات التقنية
-
-### الملف: `src/pages/NewProjectPage.tsx`
-
-#### 1. تاريخ البدء (السطر 354)
-```typescript
-// قبل
-format(formData.startDate, "PPP", { locale: isArabic ? ar : enUS })
-
-// بعد
-format(formData.startDate, "yyyy-MM-dd")
+```text
+- تمرير drawingResults إلى FastExtractionProjectSelector
+- Props الجديدة: drawingResults للكميات المستخرجة
 ```
 
-#### 2. تاريخ الانتهاء (السطر 390)
+### التغييرات في FastExtractionProjectSelector.tsx
+
+```text
+1. استقبال drawingResults كـ prop جديد
+2. عند حفظ الملفات، ربط نتائج التحليل بكل ملف
+3. تحديث payload الإدراج ليشمل:
+   - is_analyzed: true (إذا كان الملف مُحلل)
+   - analysis_result: JSON بالكميات المستخرجة
+```
+
+### هيكل البيانات المحفوظة
+
+```typescript
+// لكل ملف في project_attachments
+{
+  file_name: "المخططات.pdf",
+  category: "drawings",
+  is_analyzed: true,
+  analysis_result: {
+    success: true,
+    quantities: [
+      { item_number: "1", description: "...", quantity: 100, unit: "m²" },
+      // ... المزيد من البنود
+    ],
+    drawing_info: { title: "...", type: "civil", scale: "1:100" },
+    summary: { totalItems: 25, categories: ["civil", "structural"] }
+  }
+}
+```
+
+## تفاصيل التنفيذ
+
+### 1. تعديل FastExtractionPage.tsx (السطور 250-252)
+
 ```typescript
 // قبل
-format(formData.endDate, "PPP", { locale: isArabic ? ar : enUS })
+<FastExtractionProjectSelector files={files} />
 
 // بعد
-format(formData.endDate, "yyyy-MM-dd")
+<FastExtractionProjectSelector 
+  files={files} 
+  drawingResults={drawingResults}
+/>
 ```
+
+### 2. تعديل FastExtractionProjectSelector.tsx
+
+#### إضافة Props جديدة:
+```typescript
+interface FastExtractionProjectSelectorProps {
+  files: UploadedFile[];
+  drawingResults?: DrawingAnalysisResult[]; // جديد
+}
+```
+
+#### تعديل دالة handleSave:
+```typescript
+// ربط نتائج التحليل بكل ملف
+const attachments = successFiles.map((file) => {
+  // البحث عن نتيجة تحليل هذا الملف
+  const analysisResult = drawingResults?.find(r => 
+    r.fileName === file.name || r.fileId === file.id
+  );
+  
+  return {
+    project_id: projectId,
+    user_id: user.id,
+    file_name: file.name,
+    file_path: file.storagePath!,
+    file_type: file.type,
+    file_size: file.size,
+    category: file.category || "general",
+    // إضافة نتائج التحليل
+    is_analyzed: !!analysisResult?.success,
+    analysis_result: analysisResult ? {
+      success: analysisResult.success,
+      quantities: analysisResult.quantities,
+      drawing_info: analysisResult.drawingInfo,
+      summary: analysisResult.summary
+    } : null
+  };
+});
+```
+
+### 3. تحسين عرض الملفات في ProjectFilesViewer
+
+- إضافة مؤشر للملفات التي تحتوي على كميات مستخرجة
+- عرض عدد البنود المستخرجة بجانب كل ملف
 
 ## النتيجة المتوقعة
 
-| الحقل | قبل | بعد |
-|-------|-----|-----|
-| Start Date | January 1st, 2026 | 2026-01-01 |
-| Expected End Date | January 15th, 2026 | 2026-01-15 |
+```text
+بعد التغييرات:
+1. ✅ الملفات المرفوعة تظهر في Project Files
+2. ✅ الكميات المستخرجة تُحفظ مع كل ملف
+3. ✅ يمكن عرض الكميات لاحقاً من صفحة الملفات
+4. ✅ مؤشر بصري يوضح الملفات المحللة
+```
 
-## ملاحظة
+## الملفات المطلوب تعديلها
 
-تنسيق `yyyy-MM-dd` هو المعيار الدولي ISO 8601 وهو:
-- سهل القراءة والفهم
-- موحد بين اللغات
-- مناسب للترتيب والفرز
-
+| الملف | نوع التغيير |
+|-------|-------------|
+| `src/pages/FastExtractionPage.tsx` | تمرير drawingResults |
+| `src/components/FastExtractionProjectSelector.tsx` | استقبال وحفظ نتائج التحليل |
+| `src/components/ProjectFilesViewer.tsx` | عرض حالة التحليل |
