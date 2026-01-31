@@ -16,6 +16,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Layers,
   Play,
   Loader2,
@@ -23,7 +29,8 @@ import {
   XCircle,
   FileText,
   Clock,
-  AlertCircle
+  AlertCircle,
+  AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
 import { XLSX, xlsxReadAsync } from '@/lib/exceljs-utils';
@@ -59,9 +66,14 @@ export function BatchAnalysisDialog({ isOpen, onClose, files, onComplete }: Batc
   const [analysisStatuses, setAnalysisStatuses] = useState<Map<string, AnalysisStatus>>(new Map());
   const [currentIndex, setCurrentIndex] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
+  const [expandedErrors, setExpandedErrors] = useState<Set<string>>(new Set());
 
   const unanalyzedFiles = files.filter(f => !f.is_analyzed);
   const progress = selectedFiles.size > 0 ? (completedCount / selectedFiles.size) * 100 : 0;
+  
+  // Count statuses
+  const successCount = Array.from(analysisStatuses.values()).filter(s => s.status === "success").length;
+  const errorCount = Array.from(analysisStatuses.values()).filter(s => s.status === "error").length;
 
   const toggleFile = (id: string) => {
     const newSelected = new Set(selectedFiles);
@@ -80,30 +92,48 @@ export function BatchAnalysisDialog({ isOpen, onClose, files, onComplete }: Batc
       setSelectedFiles(new Set(unanalyzedFiles.map(f => f.id)));
     }
   };
+  
+  const toggleErrorExpand = (id: string) => {
+    const newExpanded = new Set(expandedErrors);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedErrors(newExpanded);
+  };
 
   const extractFileContent = async (blob: Blob, fileName: string, fileType: string): Promise<string> => {
-    // Handle text files
-    if (fileType.includes("text") || fileName.endsWith(".txt") || 
-        fileName.endsWith(".json") || fileName.endsWith(".xml") ||
-        fileName.endsWith(".csv")) {
-      return await blob.text();
+    let content = "";
+    
+    try {
+      // Handle text files
+      if (fileType.includes("text") || fileName.endsWith(".txt") || 
+          fileName.endsWith(".json") || fileName.endsWith(".xml") ||
+          fileName.endsWith(".csv")) {
+        content = await blob.text();
+      }
+      // Handle Excel files
+      else if (fileType.includes("sheet") || fileType.includes("excel") ||
+          fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+        const arrayBuffer = await blob.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: "array" });
+        workbook.SheetNames.forEach(sheetName => {
+          const sheet = workbook.Sheets[sheetName];
+          content += `\n=== Sheet: ${sheetName} ===\n`;
+          content += XLSX.utils.sheet_to_csv(sheet);
+        });
+      }
+    } catch (err) {
+      console.warn("Content extraction failed for", fileName, err);
     }
     
-    // Handle Excel files
-    if (fileType.includes("sheet") || fileType.includes("excel") ||
-        fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
-      const arrayBuffer = await blob.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: "array" });
-      let content = "";
-      workbook.SheetNames.forEach(sheetName => {
-        const sheet = workbook.Sheets[sheetName];
-        content += `\n=== Sheet: ${sheetName} ===\n`;
-        content += XLSX.utils.sheet_to_csv(sheet);
-      });
-      return content;
+    // Fallback for empty content (e.g., PDFs, images, or extraction failures)
+    if (!content || content.trim().length === 0) {
+      content = `[Document: ${fileName}]\n[Type: ${fileType || 'unknown'}]\n[Size: ${blob.size} bytes]\n[Note: Content requires OCR/PDF parsing - metadata-based analysis]`;
     }
     
-    return `[File: ${fileName}, Type: ${fileType}]`;
+    return content;
   };
 
   const analyzeFile = async (file: FileToAnalyze): Promise<boolean> => {
@@ -260,109 +290,166 @@ export function BatchAnalysisDialog({ isOpen, onClose, files, onComplete }: Batc
 
   return (
     <Dialog open={isOpen} onOpenChange={() => !isAnalyzing && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Layers className="w-5 h-5" />
-            {isArabic ? "تحليل مجموعة ملفات" : "Batch File Analysis"}
-          </DialogTitle>
-          <DialogDescription>
-            {isArabic
-              ? "اختر الملفات التي تريد تحليلها دفعة واحدة"
-              : "Select files to analyze in batch"}
-          </DialogDescription>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader className="pb-4 border-b">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+              <Layers className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <DialogTitle className="text-lg">
+                {isArabic ? "تحليل مجموعة ملفات" : "Batch File Analysis"}
+              </DialogTitle>
+              <DialogDescription className="mt-0.5">
+                {isArabic
+                  ? "تحليل الملفات باستخدام الذكاء الاصطناعي"
+                  : "Analyzing files with AI"}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Progress */}
+        <div className="space-y-4 py-2">
+          {/* Progress Section */}
           {isAnalyzing && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {isArabic 
-                    ? `جاري تحليل ${completedCount + 1} من ${selectedFiles.size}...`
-                    : `Analyzing ${completedCount + 1} of ${selectedFiles.size}...`
-                  }
-                </span>
-                <span className="font-medium">{Math.round(progress)}%</span>
+            <div className="space-y-3 p-4 rounded-lg bg-muted/30 border">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <span className="text-sm font-medium">
+                    {isArabic 
+                      ? `جاري تحليل ${completedCount + 1} من ${selectedFiles.size}...`
+                      : `Analyzing ${completedCount + 1} of ${selectedFiles.size}...`
+                    }
+                  </span>
+                </div>
+                <span className="text-lg font-bold text-primary">{Math.round(progress)}%</span>
               </div>
-              <Progress value={progress} className="h-2" />
+              <Progress 
+                value={progress} 
+                className="h-3"
+              />
+              {/* Status summary during analysis */}
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                {successCount > 0 && (
+                  <span className="flex items-center gap-1 text-green-600">
+                    <CheckCircle className="w-3 h-3" /> {successCount} {isArabic ? "ناجح" : "done"}
+                  </span>
+                )}
+                {errorCount > 0 && (
+                  <span className="flex items-center gap-1 text-red-600">
+                    <XCircle className="w-3 h-3" /> {errorCount} {isArabic ? "فشل" : "failed"}
+                  </span>
+                )}
+              </div>
             </div>
           )}
 
           {/* Select All */}
           {!isAnalyzing && (
-            <div className="flex items-center gap-2 pb-2 border-b">
+            <div className="flex items-center gap-2 pb-3 border-b">
               <Checkbox
                 id="select-all-batch"
                 checked={selectedFiles.size === unanalyzedFiles.length && unanalyzedFiles.length > 0}
                 onCheckedChange={toggleAll}
               />
-              <Label htmlFor="select-all-batch" className="cursor-pointer">
-                {isArabic ? "تحديد الكل" : "Select All"} ({unanalyzedFiles.length})
+              <Label htmlFor="select-all-batch" className="cursor-pointer font-medium">
+                {isArabic ? "تحديد الكل" : "Select All"} 
+                <Badge variant="secondary" className="ml-2">{unanalyzedFiles.length}</Badge>
               </Label>
             </div>
           )}
 
           {/* File List */}
-          <ScrollArea className="h-64">
-            <div className="space-y-2">
+          <ScrollArea className="h-72">
+            <div className="space-y-1 pr-2">
               {unanalyzedFiles.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500 opacity-50" />
-                  <p>{isArabic ? "جميع الملفات تم تحليلها" : "All files are already analyzed"}</p>
+                <div className="text-center py-12 text-muted-foreground">
+                  <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500/50" />
+                  <p className="font-medium">{isArabic ? "جميع الملفات تم تحليلها" : "All files are already analyzed"}</p>
                 </div>
               ) : (
                 unanalyzedFiles.map((file) => {
                   const status = analysisStatuses.get(file.id);
+                  const hasError = status?.status === "error";
+                  const isExpanded = expandedErrors.has(file.id);
                   
                   return (
-                    <div
-                      key={file.id}
-                      className={cn(
-                        "flex items-center gap-3 p-2 rounded-lg",
-                        isAnalyzing ? "bg-muted/30" : "hover:bg-muted/50"
-                      )}
-                    >
-                      {!isAnalyzing && (
-                        <Checkbox
-                          id={file.id}
-                          checked={selectedFiles.has(file.id)}
-                          onCheckedChange={() => toggleFile(file.id)}
-                        />
-                      )}
-                      
-                      {isAnalyzing && status && (
-                        <div className="flex-shrink-0">
-                          {getStatusIcon(status.status)}
-                        </div>
-                      )}
-                      
-                      <div className="flex-1 min-w-0">
-                        <Label 
-                          htmlFor={file.id} 
-                          className={cn(
-                            "cursor-pointer text-sm font-medium truncate block",
-                            isAnalyzing && "cursor-default"
-                          )}
-                        >
-                          {file.file_name}
-                        </Label>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-[10px]">
-                            {file.category}
-                          </Badge>
-                          {status?.error && (
-                            <span className="text-xs text-red-500 truncate">
-                              {status.error.slice(0, 30)}...
+                    <div key={file.id} className="space-y-1">
+                      <div
+                        className={cn(
+                          "flex items-center gap-3 p-3 rounded-lg transition-colors",
+                          isAnalyzing ? "bg-muted/20" : "hover:bg-muted/50 cursor-pointer",
+                          hasError && "bg-red-500/5 border border-red-500/20"
+                        )}
+                        onClick={() => !isAnalyzing && toggleFile(file.id)}
+                      >
+                        {!isAnalyzing && (
+                          <Checkbox
+                            id={file.id}
+                            checked={selectedFiles.has(file.id)}
+                            onCheckedChange={() => toggleFile(file.id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                        
+                        {isAnalyzing && status && (
+                          <div className="flex-shrink-0">
+                            {getStatusIcon(status.status)}
+                          </div>
+                        )}
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                            <span className={cn(
+                              "text-sm font-medium truncate",
+                              hasError && "text-red-700 dark:text-red-400"
+                            )}>
+                              {file.file_name}
                             </span>
-                          )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline" className="text-[10px] h-5">
+                              {file.category || "general"}
+                            </Badge>
+                            {hasError && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); toggleErrorExpand(file.id); }}
+                                      className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700"
+                                    >
+                                      <AlertTriangle className="w-3 h-3" />
+                                      {isArabic ? "عرض الخطأ" : "Show error"}
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="bottom" className="max-w-sm">
+                                    <p className="text-xs">{status?.error}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
                         </div>
+                        
+                        {isAnalyzing && status && (
+                          <div className="flex-shrink-0">
+                            {getStatusBadge(status.status)}
+                          </div>
+                        )}
                       </div>
                       
-                      {isAnalyzing && status && (
-                        <div className="flex-shrink-0">
-                          {getStatusBadge(status.status)}
+                      {/* Expanded error message */}
+                      {hasError && isExpanded && (
+                        <div className="mx-3 p-3 rounded-md bg-red-500/10 border border-red-500/20 text-xs text-red-700 dark:text-red-400">
+                          <div className="flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                            <div className="break-words whitespace-pre-wrap">
+                              {status?.error || (isArabic ? "خطأ غير معروف" : "Unknown error")}
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>

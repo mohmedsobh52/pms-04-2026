@@ -351,27 +351,44 @@ export default function SavedProjectsPage() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <TabsList className="grid w-full sm:w-auto grid-cols-4 tabs-navigation-safe">
-              <TabsTrigger value="projects" className="gap-2">
+            <TabsList className="grid w-full sm:w-auto grid-cols-4 p-1 h-auto tabs-navigation-safe bg-muted/50 backdrop-blur-sm">
+              <TabsTrigger 
+                value="projects" 
+                className="gap-2 py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50"
+              >
                 <FolderOpen className="w-4 h-4" />
-                {isArabic ? "المشاريع" : "Projects"}
+                <span className="hidden sm:inline">{isArabic ? "المشاريع" : "Projects"}</span>
+                {projects.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs bg-primary/10 text-primary">
+                    {projects.length}
+                  </Badge>
+                )}
               </TabsTrigger>
-              <TabsTrigger value="analyze" className="gap-2">
+              <TabsTrigger 
+                value="analyze" 
+                className="gap-2 py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50"
+              >
                 <FileUp className="w-4 h-4" />
-                {isArabic ? "تحليل BOQ" : "Analyze"}
+                <span className="hidden sm:inline">{isArabic ? "تحليل BOQ" : "Analyze"}</span>
               </TabsTrigger>
-              <TabsTrigger value="reports" className="gap-2">
+              <TabsTrigger 
+                value="reports" 
+                className="gap-2 py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50"
+              >
                 <BarChart3 className="w-4 h-4" />
-                {isArabic ? "التقارير" : "Reports"}
+                <span className="hidden sm:inline">{isArabic ? "التقارير" : "Reports"}</span>
               </TabsTrigger>
-              <TabsTrigger value="attachments" className="gap-2">
+              <TabsTrigger 
+                value="attachments" 
+                className="gap-2 py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50"
+              >
                 <Paperclip className="w-4 h-4" />
-                {isArabic ? "المرفقات" : "Attachments"}
+                <span className="hidden sm:inline">{isArabic ? "المرفقات" : "Attachments"}</span>
               </TabsTrigger>
             </TabsList>
             
             {activeTab === "projects" && (
-              <Button onClick={() => navigate("/projects/new")} className="gap-2">
+              <Button onClick={() => navigate("/projects/new")} className="gap-2 shadow-sm">
                 <Plus className="w-4 h-4" />
                 {isArabic ? "مشروع جديد" : "New Project"}
               </Button>
