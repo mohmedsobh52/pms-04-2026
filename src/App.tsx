@@ -108,7 +108,7 @@ const App = () => (
                         <Route path="/reports" element={<Navigate to="/projects?tab=reports" replace />} />
                         <Route path="/settings" element={<SettingsPage />} />
                         <Route path="/company-settings" element={<CompanySettingsPage />} />
-                        <Route path="/attachments" element={<AttachmentsPage />} />
+                        <Route path="/attachments" element={<Navigate to="/projects?tab=attachments" replace />} />
                         <Route path="/templates" element={<TemplatesPage />} />
                         <Route path="/p6-export" element={<P6ExportPage />} />
                         <Route path="/compare-versions" element={<CompareVersionsPage />} />

@@ -3,12 +3,13 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { 
   FolderOpen, Trash2, Loader2, Calendar, FileText, Search, 
   ArrowLeft, Eye, Edit, DollarSign, Package, Filter, X,
-  SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3
+  SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3, Paperclip
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AttachmentsTab } from "@/components/projects/AttachmentsTab";
 import { ReportsTab } from "@/components/projects/ReportsTab";
 import {
   Select,
@@ -85,7 +86,9 @@ export default function SavedProjectsPage() {
   
   // Tab state - check URL for initial tab
   const urlTab = searchParams.get("tab");
-  const initialTab = urlTab === "analyze" ? "analyze" : urlTab === "reports" ? "reports" : "projects";
+  const initialTab = urlTab === "analyze" ? "analyze" : 
+                     urlTab === "reports" ? "reports" : 
+                     urlTab === "attachments" ? "attachments" : "projects";
   const [activeTab, setActiveTab] = useState(initialTab);
   
   // Update tab when URL changes
@@ -95,6 +98,8 @@ export default function SavedProjectsPage() {
       setActiveTab("analyze");
     } else if (tab === "reports") {
       setActiveTab("reports");
+    } else if (tab === "attachments") {
+      setActiveTab("attachments");
     }
   }, [searchParams]);
 
@@ -346,7 +351,7 @@ export default function SavedProjectsPage() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <TabsList className="grid w-full sm:w-auto grid-cols-3 tabs-navigation-safe">
+            <TabsList className="grid w-full sm:w-auto grid-cols-4 tabs-navigation-safe">
               <TabsTrigger value="projects" className="gap-2">
                 <FolderOpen className="w-4 h-4" />
                 {isArabic ? "المشاريع" : "Projects"}
@@ -358,6 +363,10 @@ export default function SavedProjectsPage() {
               <TabsTrigger value="reports" className="gap-2">
                 <BarChart3 className="w-4 h-4" />
                 {isArabic ? "التقارير" : "Reports"}
+              </TabsTrigger>
+              <TabsTrigger value="attachments" className="gap-2">
+                <Paperclip className="w-4 h-4" />
+                {isArabic ? "المرفقات" : "Attachments"}
               </TabsTrigger>
             </TabsList>
             
@@ -576,6 +585,11 @@ export default function SavedProjectsPage() {
           {/* Reports Tab */}
           <TabsContent value="reports">
             <ReportsTab isArabic={isArabic} />
+          </TabsContent>
+
+          {/* Attachments Tab */}
+          <TabsContent value="attachments">
+            <AttachmentsTab />
           </TabsContent>
         </Tabs>
       </main>
