@@ -1,189 +1,145 @@
 
 
-# إضافة ميزة رفع مجلد كامل مع التصنيف التلقائي
+# نقل تبويب المرفقات (Attachments) إلى صفحة المشاريع
 
-## الميزة المطلوبة
+## الهدف
 
-إضافة إمكانية رفع مجلد كامل (Folder Upload) بدلاً من اختيار الملفات واحداً واحداً، ثم يقوم النظام بتصنيف جميع الملفات تلقائياً.
+دمج صفحة المرفقات الكاملة داخل صفحة المشاريع `/projects` كتبويب رابع بجانب التبويبات الحالية (المشاريع، تحليل BOQ، التقارير).
+
+## التحليل الحالي
+
+```text
+الهيكل الحالي:
+┌──────────────────────────────────────────────┐
+│  صفحة المشاريع /projects                      │
+├──────────────────────────────────────────────┤
+│  [المشاريع] [تحليل BOQ] [التقارير]           │
+│  ────────────────────────────────────────────│
+│  محتوى التبويب                               │
+└──────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────┐
+│  صفحة المرفقات /attachments (منفصلة)          │
+├──────────────────────────────────────────────┤
+│  ProjectAttachments component                 │
+└──────────────────────────────────────────────┘
+```
+
+## الهيكل المقترح
+
+```text
+الهيكل الجديد:
+┌──────────────────────────────────────────────────────┐
+│  صفحة المشاريع /projects                              │
+├──────────────────────────────────────────────────────┤
+│  [المشاريع] [تحليل BOQ] [التقارير] [📎 المرفقات]     │
+│  ─────────────────────────────────────────────────── │
+│  محتوى التبويب المختار                                │
+│                                                       │
+│  ◄ إذا تم اختيار "المرفقات":                         │
+│  ┌─────────────────────────────────────────────────┐ │
+│  │  فلترة المشاريع                                  │ │
+│  │  ProjectAttachments component                    │ │
+│  └─────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────┘
+```
 
 ## التغييرات المطلوبة
 
-### 1. تحديث `FastExtractionUploader.tsx`
+### 1. تحديث `src/pages/SavedProjectsPage.tsx`
 
-**إضافة زر رفع مجلد:**
-```text
-┌─────────────────────────────────────────────────────┐
-│                                                     │
-│         📁  Drag and drop files here               │
-│             or click to select files                │
-│                                                     │
-│     ┌──────────────┐   ┌──────────────────┐        │
-│     │ Select Files │   │ 📁 Select Folder │        │
-│     └──────────────┘   └──────────────────┘        │
-│                                                     │
-│              Max size: 500MB                        │
-└─────────────────────────────────────────────────────┘
-```
+**إضافة تبويب المرفقات:**
 
-**التغييرات التقنية:**
+- استيراد `ProjectAttachments` component و `Paperclip` icon
+- إضافة state للمشروع المختار في تبويب المرفقات
+- إضافة تبويب رابع "المرفقات" في `TabsList`
+- إضافة `TabsContent` جديد يحتوي على:
+  - فلتر اختيار المشروع
+  - مكون `ProjectAttachments`
 
 ```typescript
-// إضافة input جديد لرفع المجلدات
-<input
-  type="file"
-  ref={folderInputRef}
-  // webkitdirectory attribute للسماح باختيار مجلد
-  {...{ webkitdirectory: "", directory: "" }}
-  multiple
-  onChange={handleFolderSelect}
-  className="hidden"
-/>
+// إضافة في الاستيرادات
+import { ProjectAttachments } from "@/components/ProjectAttachments";
+import { Paperclip } from "lucide-react";
 
-// دالة معالجة المجلد
-const handleFolderSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const files = e.target.files;
-  if (files && files.length > 0) {
-    // تصفية الملفات حسب الأنواع المقبولة
-    const acceptedFiles = Array.from(files).filter(file => 
-      isAcceptedFileType(file)
-    );
-    handleFiles(acceptedFiles);
-    
-    toast.success(
-      isArabic 
-        ? `تم تحميل ${acceptedFiles.length} ملف من المجلد` 
-        : `Loaded ${acceptedFiles.length} files from folder`
-    );
-  }
-};
+// تحديث التبويبات
+<TabsTrigger value="attachments" className="gap-2">
+  <Paperclip className="w-4 h-4" />
+  {isArabic ? "المرفقات" : "Attachments"}
+</TabsTrigger>
+
+// إضافة محتوى التبويب
+<TabsContent value="attachments">
+  <AttachmentsTab projects={projects} isArabic={isArabic} />
+</TabsContent>
 ```
 
-### 2. إضافة مؤشر مسار الملف (اختياري)
+### 2. إنشاء مكون جديد `src/components/projects/AttachmentsTab.tsx`
 
-عرض مسار الملف داخل المجلد للتوضيح:
+مكون يغلف `ProjectAttachments` مع فلتر المشاريع:
 
 ```typescript
-interface UploadedFile {
-  // ... existing fields
-  relativePath?: string;  // المسار النسبي داخل المجلد
+interface AttachmentsTabProps {
+  projects: ProjectData[];
+  isArabic: boolean;
 }
 
-// استخراج المسار النسبي
-const relativePath = (file as any).webkitRelativePath || file.name;
+export function AttachmentsTab({ projects, isArabic }: AttachmentsTabProps) {
+  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>();
+  
+  return (
+    <div className="space-y-4">
+      {/* Project Filter */}
+      <Select ...>
+        <SelectItem value="all">All Projects</SelectItem>
+        {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+      </Select>
+      
+      {/* Attachments */}
+      <ProjectAttachments projectId={selectedProjectId} />
+    </div>
+  );
+}
 ```
 
-### 3. تحسين واجهة المستخدم
+### 3. تحديث `src/App.tsx`
 
-**إضافة أيقونة وزر للمجلد:**
-- أيقونة `FolderUp` من Lucide
-- زر منفصل "Select Folder" / "اختر مجلد"
-- دعم سحب وإفلات المجلد (Drag & Drop Folder)
-
-### 4. إضافة تصفية ذكية للملفات
+تغيير مسار `/attachments` ليُعيد التوجيه إلى `/projects?tab=attachments`:
 
 ```typescript
-const ACCEPTED_EXTENSIONS = ['.pdf', '.xlsx', '.xls', '.csv', '.png', '.jpg', '.jpeg', '.webp'];
-const EXCLUDED_PATTERNS = ['.DS_Store', 'Thumbs.db', '__MACOSX'];
+// قبل
+<Route path="/attachments" element={<AttachmentsPage />} />
 
-const isAcceptedFileType = (file: File): boolean => {
-  const fileName = file.name.toLowerCase();
-  
-  // استبعاد ملفات النظام
-  if (EXCLUDED_PATTERNS.some(pattern => fileName.includes(pattern.toLowerCase()))) {
-    return false;
-  }
-  
-  // التحقق من الامتداد
-  return ACCEPTED_EXTENSIONS.some(ext => fileName.endsWith(ext));
-};
+// بعد  
+<Route path="/attachments" element={<Navigate to="/projects?tab=attachments" replace />} />
 ```
 
-### 5. دعم السحب والإفلات للمجلدات
+### 4. تحديث دعم URL Parameters
+
+تحديث منطق قراءة التبويب من URL في `SavedProjectsPage.tsx`:
 
 ```typescript
-const handleDrop = async (e: React.DragEvent) => {
-  e.preventDefault();
-  setIsDragging(false);
-  
-  const items = e.dataTransfer.items;
-  const allFiles: File[] = [];
-  
-  // معالجة المجلدات والملفات
-  for (const item of Array.from(items)) {
-    if (item.kind === 'file') {
-      const entry = item.webkitGetAsEntry?.();
-      if (entry) {
-        if (entry.isDirectory) {
-          // قراءة محتويات المجلد
-          const folderFiles = await readDirectory(entry as FileSystemDirectoryEntry);
-          allFiles.push(...folderFiles);
-        } else {
-          const file = item.getAsFile();
-          if (file && isAcceptedFileType(file)) {
-            allFiles.push(file);
-          }
-        }
-      }
-    }
-  }
-  
-  if (allFiles.length > 0) {
-    handleFiles(allFiles);
-  }
-};
-
-// دالة قراءة محتويات المجلد بشكل تكراري
-const readDirectory = async (directory: FileSystemDirectoryEntry): Promise<File[]> => {
-  const files: File[] = [];
-  const reader = directory.createReader();
-  
-  const readEntries = (): Promise<FileSystemEntry[]> => {
-    return new Promise((resolve, reject) => {
-      reader.readEntries(resolve, reject);
-    });
-  };
-  
-  let entries = await readEntries();
-  while (entries.length > 0) {
-    for (const entry of entries) {
-      if (entry.isFile) {
-        const file = await getFile(entry as FileSystemFileEntry);
-        if (isAcceptedFileType(file)) {
-          files.push(file);
-        }
-      } else if (entry.isDirectory) {
-        // قراءة المجلدات الفرعية
-        const subFiles = await readDirectory(entry as FileSystemDirectoryEntry);
-        files.push(...subFiles);
-      }
-    }
-    entries = await readEntries();
-  }
-  
-  return files;
-};
+const urlTab = searchParams.get("tab");
+const initialTab = 
+  urlTab === "analyze" ? "analyze" : 
+  urlTab === "reports" ? "reports" : 
+  urlTab === "attachments" ? "attachments" :  // ← إضافة
+  "projects";
 ```
 
-## ملخص التغييرات
+## ملخص الملفات
 
 | الملف | التغيير |
 |-------|---------|
-| `FastExtractionUploader.tsx` | إضافة زر رفع مجلد + دعم سحب المجلدات + تصفية الملفات |
+| `src/pages/SavedProjectsPage.tsx` | إضافة تبويب المرفقات + دعم URL parameter |
+| `src/components/projects/AttachmentsTab.tsx` | **ملف جديد** - مكون التبويب |
+| `src/App.tsx` | إعادة توجيه `/attachments` → `/projects?tab=attachments` |
 
 ## النتيجة المتوقعة
 
-```text
-✅ زر "Select Folder" لاختيار مجلد كامل
-✅ سحب وإفلات مجلد في منطقة الرفع
-✅ تصفية تلقائية للملفات غير المدعومة
-✅ عرض عدد الملفات المحملة من المجلد
-✅ الانتقال التلقائي للتصنيف بعد الرفع
-✅ دعم المجلدات الفرعية (Nested Folders)
-```
-
-## ملاحظات تقنية
-
-- خاصية `webkitdirectory` مدعومة في Chrome, Edge, Firefox
-- Safari يدعمها جزئياً
-- سيتم تجاهل ملفات النظام مثل `.DS_Store` و `Thumbs.db`
+- ✅ تبويب جديد "المرفقات" في صفحة المشاريع
+- ✅ جميع وظائف إدارة الملفات متاحة (رفع، تحليل، تصنيف، إلخ)
+- ✅ فلترة الملفات حسب المشروع
+- ✅ الروابط القديمة `/attachments` تعمل (إعادة توجيه)
+- ✅ دعم URL مباشر `/projects?tab=attachments`
 
