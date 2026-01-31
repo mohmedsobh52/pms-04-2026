@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import {
   Ruler,
   FileImage,
@@ -40,7 +43,11 @@ import {
   AlertCircle,
   Calculator,
   Layers,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Filter,
+  File,
+  CircleDot,
+  FileType
 } from "lucide-react";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -53,6 +60,7 @@ interface ProjectAttachment {
   file_type: string | null;
   category: string | null;
   analysis_result: any;
+  file_size?: number | null;
 }
 
 interface DrawingQuantityExtractorProps {
@@ -71,12 +79,19 @@ interface ExtractedQuantity {
 }
 
 const DRAWING_TYPES = [
-  { value: "architectural", labelEn: "Architectural", labelAr: "معماري" },
-  { value: "structural", labelEn: "Structural", labelAr: "إنشائي" },
-  { value: "mep", labelEn: "MEP (Mechanical/Electrical/Plumbing)", labelAr: "ميكانيكا وكهرباء وسباكة" },
-  { value: "civil", labelEn: "Civil", labelAr: "مدني" },
-  { value: "landscape", labelEn: "Landscape", labelAr: "تنسيق الموقع" },
-  { value: "general", labelEn: "General", labelAr: "عام" },
+  { value: "architectural", labelEn: "Architectural", labelAr: "معماري", icon: "🏛️" },
+  { value: "structural", labelEn: "Structural", labelAr: "إنشائي", icon: "🏗️" },
+  { value: "mep", labelEn: "MEP (Mechanical/Electrical/Plumbing)", labelAr: "ميكانيكا وكهرباء وسباكة", icon: "⚡" },
+  { value: "civil", labelEn: "Civil", labelAr: "مدني", icon: "🛤️" },
+  { value: "landscape", labelEn: "Landscape", labelAr: "تنسيق الموقع", icon: "🌳" },
+  { value: "general", labelEn: "General", labelAr: "عام", icon: "📄" },
+];
+
+const FILE_TYPE_FILTERS = [
+  { value: "all", labelEn: "All Files", labelAr: "كل الملفات", color: "bg-slate-500" },
+  { value: "pdf", labelEn: "PDF", labelAr: "PDF", color: "bg-red-500" },
+  { value: "dwg", labelEn: "DWG/DXF", labelAr: "DWG/DXF", color: "bg-blue-500" },
+  { value: "image", labelEn: "Images", labelAr: "صور", color: "bg-purple-500" },
 ];
 
 export function DrawingQuantityExtractor({ 
@@ -92,14 +107,35 @@ export function DrawingQuantityExtractor({
   const [currentFile, setCurrentFile] = useState("");
   const [results, setResults] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("select");
+  const [fileTypeFilter, setFileTypeFilter] = useState("all");
 
   // Filter drawing files (PDF, DWG-like)
   const drawingFiles = attachments.filter(a => 
     a.file_type?.includes("pdf") || 
     a.file_name.toLowerCase().endsWith(".dwg") ||
     a.file_name.toLowerCase().endsWith(".dxf") ||
+    a.file_type?.includes("image") ||
     a.category === "drawings"
   );
+
+  // Filter by file type
+  const filteredDrawingFiles = useMemo(() => {
+    if (fileTypeFilter === "all") return drawingFiles;
+    if (fileTypeFilter === "pdf") return drawingFiles.filter(f => f.file_type?.includes("pdf") || f.file_name.toLowerCase().endsWith(".pdf"));
+    if (fileTypeFilter === "dwg") return drawingFiles.filter(f => f.file_name.toLowerCase().endsWith(".dwg") || f.file_name.toLowerCase().endsWith(".dxf"));
+    if (fileTypeFilter === "image") return drawingFiles.filter(f => f.file_type?.includes("image"));
+    return drawingFiles;
+  }, [drawingFiles, fileTypeFilter]);
+
+  // Count files per type
+  const fileTypeCounts = useMemo(() => {
+    return {
+      all: drawingFiles.length,
+      pdf: drawingFiles.filter(f => f.file_type?.includes("pdf") || f.file_name.toLowerCase().endsWith(".pdf")).length,
+      dwg: drawingFiles.filter(f => f.file_name.toLowerCase().endsWith(".dwg") || f.file_name.toLowerCase().endsWith(".dxf")).length,
+      image: drawingFiles.filter(f => f.file_type?.includes("image")).length,
+    };
+  }, [drawingFiles]);
 
   const toggleFileSelection = (fileId: string) => {
     setSelectedFiles(prev => 
@@ -107,6 +143,67 @@ export function DrawingQuantityExtractor({
         ? prev.filter(id => id !== fileId)
         : [...prev, fileId]
     );
+  };
+
+  const toggleAllFiltered = () => {
+    const filteredIds = filteredDrawingFiles.map(f => f.id);
+    const allSelected = filteredIds.every(id => selectedFiles.includes(id));
+    
+    if (allSelected) {
+      setSelectedFiles(prev => prev.filter(id => !filteredIds.includes(id)));
+    } else {
+      setSelectedFiles(prev => [...new Set([...prev, ...filteredIds])]);
+    }
+  };
+
+  const selectByFileType = (type: string) => {
+    let filesToSelect: ProjectAttachment[] = [];
+    if (type === "pdf") filesToSelect = drawingFiles.filter(f => f.file_type?.includes("pdf") || f.file_name.toLowerCase().endsWith(".pdf"));
+    else if (type === "dwg") filesToSelect = drawingFiles.filter(f => f.file_name.toLowerCase().endsWith(".dwg") || f.file_name.toLowerCase().endsWith(".dxf"));
+    else if (type === "image") filesToSelect = drawingFiles.filter(f => f.file_type?.includes("image"));
+    
+    const newSelected = [...new Set([...selectedFiles, ...filesToSelect.map(f => f.id)])];
+    setSelectedFiles(newSelected);
+    toast.success(isArabic 
+      ? `تم تحديد ${filesToSelect.length} ملف`
+      : `Selected ${filesToSelect.length} files`
+    );
+  };
+
+  const getFileTypeIcon = (file: ProjectAttachment) => {
+    if (file.file_type?.includes("pdf") || file.file_name.toLowerCase().endsWith(".pdf")) {
+      return <File className="w-4 h-4 text-red-500" />;
+    }
+    if (file.file_name.toLowerCase().endsWith(".dwg") || file.file_name.toLowerCase().endsWith(".dxf")) {
+      return <FileType className="w-4 h-4 text-blue-500" />;
+    }
+    if (file.file_type?.includes("image")) {
+      return <FileImage className="w-4 h-4 text-purple-500" />;
+    }
+    return <FileImage className="w-4 h-4 text-muted-foreground" />;
+  };
+
+  const getFileTypeBadge = (file: ProjectAttachment) => {
+    if (file.file_type?.includes("pdf") || file.file_name.toLowerCase().endsWith(".pdf")) {
+      return <Badge variant="outline" className="text-[10px] h-5 bg-red-500/10 text-red-600 border-red-500/30">PDF</Badge>;
+    }
+    if (file.file_name.toLowerCase().endsWith(".dwg")) {
+      return <Badge variant="outline" className="text-[10px] h-5 bg-blue-500/10 text-blue-600 border-blue-500/30">DWG</Badge>;
+    }
+    if (file.file_name.toLowerCase().endsWith(".dxf")) {
+      return <Badge variant="outline" className="text-[10px] h-5 bg-blue-500/10 text-blue-600 border-blue-500/30">DXF</Badge>;
+    }
+    if (file.file_type?.includes("image")) {
+      return <Badge variant="outline" className="text-[10px] h-5 bg-purple-500/10 text-purple-600 border-purple-500/30">Image</Badge>;
+    }
+    return <Badge variant="outline" className="text-[10px] h-5">Drawing</Badge>;
+  };
+
+  const formatFileSize = (bytes: number | null | undefined) => {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const handleAnalyze = async () => {
@@ -283,6 +380,8 @@ export function DrawingQuantityExtractor({
     toast.success(isArabic ? "تم التصدير بنجاح" : "Exported successfully");
   };
 
+  const filteredSelectedCount = filteredDrawingFiles.filter(f => selectedFiles.includes(f.id)).length;
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -291,37 +390,43 @@ export function DrawingQuantityExtractor({
           {isArabic ? "حصر الكميات" : "Quantity Takeoff"}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
-            <Calculator className="w-5 h-5" />
-            {isArabic ? "حصر الكميات من المخططات" : "Quantity Takeoff from Drawings"}
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+              <Calculator className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <span>{isArabic ? "حصر الكميات من المخططات" : "Quantity Takeoff from Drawings"}</span>
+              <DialogDescription className="mt-0.5 font-normal">
+                {isArabic 
+                  ? "استخرج الكميات من مخططات PDF و DWG باستخدام الذكاء الاصطناعي"
+                  : "Extract quantities from PDF and DWG drawings using AI"}
+              </DialogDescription>
+            </div>
           </DialogTitle>
-          <DialogDescription>
-            {isArabic 
-              ? "استخرج الكميات من مخططات PDF و DWG باستخدام الذكاء الاصطناعي"
-              : "Extract quantities from PDF and DWG drawings using AI"}
-          </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="select">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
+            <TabsTrigger value="select" className="gap-2">
+              <FileImage className="w-4 h-4" />
               {isArabic ? "اختيار الملفات" : "Select Files"}
             </TabsTrigger>
-            <TabsTrigger value="results" disabled={results.length === 0}>
+            <TabsTrigger value="results" disabled={results.length === 0} className="gap-2">
+              <Layers className="w-4 h-4" />
               {isArabic ? "النتائج" : "Results"}
               {results.length > 0 && (
-                <Badge variant="secondary" className="mr-2 ml-2">
+                <Badge variant="secondary" className="ml-1">
                   {results.filter(r => r.success).length}
                 </Badge>
               )}
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="select" className="space-y-4">
+          <TabsContent value="select" className="flex-1 overflow-hidden flex flex-col space-y-4 mt-4">
             {/* Drawing Type Selection */}
-            <div className="space-y-2">
+            <div className="space-y-2 flex-shrink-0">
               <label className="text-sm font-medium">
                 {isArabic ? "نوع المخططات" : "Drawing Type"}
               </label>
@@ -332,75 +437,169 @@ export function DrawingQuantityExtractor({
                 <SelectContent>
                   {DRAWING_TYPES.map(type => (
                     <SelectItem key={type.value} value={type.value}>
-                      {isArabic ? type.labelAr : type.labelEn}
+                      <span className="flex items-center gap-2">
+                        <span>{type.icon}</span>
+                        {isArabic ? type.labelAr : type.labelEn}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
+            {/* File Type Filter Chips */}
+            <div className="space-y-3 flex-shrink-0">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Filter className="w-4 h-4" />
+                {isArabic ? "فلترة حسب نوع الملف:" : "Filter by File Type:"}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {FILE_TYPE_FILTERS.map((filter) => {
+                  const count = fileTypeCounts[filter.value as keyof typeof fileTypeCounts] || 0;
+                  if (filter.value !== "all" && count === 0) return null;
+                  
+                  const isActive = fileTypeFilter === filter.value;
+                  
+                  return (
+                    <button
+                      key={filter.value}
+                      onClick={() => setFileTypeFilter(filter.value)}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
+                        "border hover:shadow-sm",
+                        isActive 
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm" 
+                          : "bg-background hover:bg-muted border-border"
+                      )}
+                    >
+                      <span>{isArabic ? filter.labelAr : filter.labelEn}</span>
+                      <Badge 
+                        variant={isActive ? "secondary" : "outline"} 
+                        className={cn("h-5 px-1.5 text-xs", isActive && "bg-primary-foreground/20 text-primary-foreground")}
+                      >
+                        {count}
+                      </Badge>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Quick Selection Buttons */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
+                <span className="text-xs text-muted-foreground">
+                  {isArabic ? "اختيار سريع:" : "Quick select:"}
+                </span>
+                {FILE_TYPE_FILTERS.filter(f => f.value !== "all" && (fileTypeCounts[f.value as keyof typeof fileTypeCounts] || 0) > 0).map(filter => (
+                  <Button
+                    key={filter.value}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => selectByFileType(filter.value)}
+                    className="h-7 text-xs gap-1.5"
+                  >
+                    <CircleDot className="w-3 h-3" />
+                    {isArabic ? `كل ${filter.labelAr}` : `All ${filter.labelEn}`}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Select All for filtered */}
+            <div className="flex items-center justify-between pb-2 border-b flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="select-all-drawings"
+                  checked={filteredDrawingFiles.length > 0 && filteredSelectedCount === filteredDrawingFiles.length}
+                  onCheckedChange={toggleAllFiltered}
+                />
+                <label htmlFor="select-all-drawings" className="text-sm font-medium cursor-pointer">
+                  {isArabic ? "تحديد الكل المعروض" : "Select All Shown"}
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">{filteredDrawingFiles.length} {isArabic ? "ملف" : "files"}</Badge>
+                {selectedFiles.length > 0 && (
+                  <Badge variant="default">{selectedFiles.length} {isArabic ? "محدد" : "selected"}</Badge>
+                )}
+              </div>
+            </div>
+
             {/* File Selection */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                {isArabic ? "اختر الملفات" : "Select Files"}
-              </label>
-              
-              {drawingFiles.length === 0 ? (
+            <ScrollArea className="flex-1 min-h-0">
+              {filteredDrawingFiles.length === 0 ? (
                 <Card className="border-dashed">
                   <CardContent className="py-8 text-center">
                     <FileImage className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                     <p className="text-muted-foreground">
-                      {isArabic 
-                        ? "لا توجد مخططات. يرجى رفع ملفات PDF أو DWG"
-                        : "No drawings found. Please upload PDF or DWG files"}
+                      {fileTypeFilter === "all"
+                        ? (isArabic ? "لا توجد مخططات. يرجى رفع ملفات PDF أو DWG" : "No drawings found. Please upload PDF or DWG files")
+                        : (isArabic ? "لا توجد ملفات من هذا النوع" : "No files of this type")
+                      }
                     </p>
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid gap-2 max-h-60 overflow-y-auto">
-                  {drawingFiles.map(file => (
-                    <Card 
-                      key={file.id}
-                      className={`cursor-pointer transition-colors ${
-                        selectedFiles.includes(file.id) 
-                          ? "border-primary bg-primary/5" 
-                          : "hover:bg-muted/50"
-                      }`}
-                      onClick={() => toggleFileSelection(file.id)}
-                    >
-                      <CardContent className="py-3 flex items-center gap-3">
-                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
-                          selectedFiles.includes(file.id) 
-                            ? "bg-primary border-primary text-primary-foreground" 
-                            : "border-muted-foreground"
-                        }`}>
-                          {selectedFiles.includes(file.id) && (
-                            <CheckCircle className="w-4 h-4" />
-                          )}
-                        </div>
-                        <FileImage className="w-5 h-5 text-blue-500" />
-                        <span className="flex-1 truncate">{file.file_name}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {file.file_type?.split('/').pop() || 'drawing'}
-                        </Badge>
-                      </CardContent>
-                    </Card>
-                  ))}
+                <div className="space-y-2 pr-3">
+                  {filteredDrawingFiles.map(file => {
+                    const isSelected = selectedFiles.includes(file.id);
+                    return (
+                      <Card 
+                        key={file.id}
+                        className={cn(
+                          "cursor-pointer transition-all duration-200",
+                          "hover:shadow-md hover:border-primary/50",
+                          isSelected && "border-primary bg-primary/5 shadow-sm"
+                        )}
+                        onClick={() => toggleFileSelection(file.id)}
+                      >
+                        <CardContent className="py-3 px-4">
+                          <div className="flex items-center gap-3">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleFileSelection(file.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex-shrink-0"
+                            />
+                            <div className={cn(
+                              "w-10 h-10 rounded-lg flex items-center justify-center",
+                              isSelected ? "bg-primary/10" : "bg-muted"
+                            )}>
+                              {getFileTypeIcon(file)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-medium truncate block">{file.file_name}</span>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {getFileTypeBadge(file)}
+                                {file.file_size && (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {formatFileSize(file.file_size)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <CheckCircle className="w-5 h-5 text-primary flex-shrink-0" />
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
-            </div>
+            </ScrollArea>
 
             {/* Progress */}
             {isAnalyzing && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
+              <div className="space-y-3 p-4 rounded-lg bg-gradient-to-r from-primary/5 to-accent/5 border flex-shrink-0">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
                     {isArabic ? "جاري التحليل..." : "Analyzing..."}
                   </span>
-                  <span>{Math.round(progress)}%</span>
+                  <span className="text-2xl font-bold text-primary">{Math.round(progress)}%</span>
                 </div>
-                <Progress value={progress} />
+                <Progress value={progress} className="h-3" />
                 {currentFile && (
                   <p className="text-xs text-muted-foreground truncate">
                     {currentFile}
@@ -410,19 +609,7 @@ export function DrawingQuantityExtractor({
             )}
 
             {/* Actions */}
-            <div className="flex gap-2 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setSelectedFiles(
-                  selectedFiles.length === drawingFiles.length 
-                    ? [] 
-                    : drawingFiles.map(f => f.id)
-                )}
-              >
-                {selectedFiles.length === drawingFiles.length 
-                  ? (isArabic ? "إلغاء تحديد الكل" : "Deselect All")
-                  : (isArabic ? "تحديد الكل" : "Select All")}
-              </Button>
+            <div className="flex gap-2 justify-end pt-4 border-t flex-shrink-0">
               <Button
                 onClick={handleAnalyze}
                 disabled={selectedFiles.length === 0 || isAnalyzing}
@@ -440,10 +627,10 @@ export function DrawingQuantityExtractor({
             </div>
           </TabsContent>
 
-          <TabsContent value="results" className="space-y-4">
+          <TabsContent value="results" className="flex-1 overflow-auto space-y-4 mt-4">
             {/* Results Summary */}
             <div className="grid grid-cols-3 gap-4">
-              <Card>
+              <Card className="border-green-500/30 bg-green-500/5">
                 <CardContent className="py-4 text-center">
                   <div className="text-2xl font-bold text-green-600">
                     {results.filter(r => r.success).length}
@@ -453,7 +640,7 @@ export function DrawingQuantityExtractor({
                   </div>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="border-red-500/30 bg-red-500/5">
                 <CardContent className="py-4 text-center">
                   <div className="text-2xl font-bold text-red-600">
                     {results.filter(r => !r.success).length}
@@ -463,7 +650,7 @@ export function DrawingQuantityExtractor({
                   </div>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="border-primary/30 bg-primary/5">
                 <CardContent className="py-4 text-center">
                   <div className="text-2xl font-bold text-primary">
                     {getAllQuantities().length}
@@ -492,7 +679,7 @@ export function DrawingQuantityExtractor({
                           <TableHead>#</TableHead>
                           <TableHead>{isArabic ? "الفئة" : "Category"}</TableHead>
                           <TableHead>{isArabic ? "الوصف" : "Description"}</TableHead>
-                          <TableHead>{isArabic ? "الكمية" : "Qty"}</TableHead>
+                          <TableHead className="text-right">{isArabic ? "الكمية" : "Qty"}</TableHead>
                           <TableHead>{isArabic ? "الوحدة" : "Unit"}</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -503,10 +690,8 @@ export function DrawingQuantityExtractor({
                             <TableCell>
                               <Badge variant="outline">{q.category}</Badge>
                             </TableCell>
-                            <TableCell className="max-w-[200px] truncate">
-                              {q.description}
-                            </TableCell>
-                            <TableCell>{q.quantity}</TableCell>
+                            <TableCell className="max-w-xs truncate">{q.description}</TableCell>
+                            <TableCell className="text-right font-medium">{q.quantity}</TableCell>
                             <TableCell>{q.unit}</TableCell>
                           </TableRow>
                         ))}
@@ -517,7 +702,7 @@ export function DrawingQuantityExtractor({
               </Card>
             )}
 
-            {/* Export Actions */}
+            {/* Export Buttons */}
             {getAllQuantities().length > 0 && (
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={exportToExcel} className="gap-2">
@@ -529,29 +714,6 @@ export function DrawingQuantityExtractor({
                   {isArabic ? "تصدير PDF" : "Export PDF"}
                 </Button>
               </div>
-            )}
-
-            {/* Failed Files */}
-            {results.filter(r => !r.success).length > 0 && (
-              <Card className="border-destructive">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg flex items-center gap-2 text-destructive">
-                    <AlertCircle className="w-5 h-5" />
-                    {isArabic ? "ملفات فشل تحليلها" : "Failed Files"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {results.filter(r => !r.success).map((result, index) => (
-                      <div key={index} className="flex items-center gap-2 text-sm">
-                        <AlertCircle className="w-4 h-4 text-destructive" />
-                        <span className="font-medium">{result.fileName}:</span>
-                        <span className="text-muted-foreground">{result.error}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
             )}
           </TabsContent>
         </Tabs>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -30,7 +31,14 @@ import {
   FileText,
   Clock,
   AlertCircle,
-  AlertTriangle
+  AlertTriangle,
+  Filter,
+  FileSpreadsheet,
+  FileImage,
+  FileCode,
+  Briefcase,
+  FolderOpen,
+  CircleDot
 } from "lucide-react";
 import { toast } from "sonner";
 import { XLSX, xlsxReadAsync } from '@/lib/exceljs-utils';
@@ -42,6 +50,7 @@ interface FileToAnalyze {
   file_type: string | null;
   category: string | null;
   is_analyzed: boolean | null;
+  file_size?: number | null;
 }
 
 interface BatchAnalysisDialogProps {
@@ -57,6 +66,16 @@ interface AnalysisStatus {
   error?: string;
 }
 
+// Category definitions with icons and colors
+const CATEGORIES = [
+  { value: "all", labelEn: "All", labelAr: "الكل", icon: FolderOpen, color: "bg-slate-500" },
+  { value: "boq", labelEn: "BOQ", labelAr: "جداول الكميات", icon: FileSpreadsheet, color: "bg-blue-500" },
+  { value: "drawings", labelEn: "Drawings", labelAr: "الرسومات", icon: FileImage, color: "bg-purple-500" },
+  { value: "contracts", labelEn: "Contracts", labelAr: "العقود", icon: Briefcase, color: "bg-amber-500" },
+  { value: "quotations", labelEn: "Quotations", labelAr: "عروض الأسعار", icon: FileCode, color: "bg-green-500" },
+  { value: "general", labelEn: "General", labelAr: "عام", icon: FileText, color: "bg-gray-500" },
+];
+
 export function BatchAnalysisDialog({ isOpen, onClose, files, onComplete }: BatchAnalysisDialogProps) {
   const { isArabic } = useLanguage();
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(
@@ -67,8 +86,26 @@ export function BatchAnalysisDialog({ isOpen, onClose, files, onComplete }: Batc
   const [currentIndex, setCurrentIndex] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
   const [expandedErrors, setExpandedErrors] = useState<Set<string>>(new Set());
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   const unanalyzedFiles = files.filter(f => !f.is_analyzed);
+  
+  // Filter files by category
+  const filteredFiles = useMemo(() => {
+    if (categoryFilter === "all") return unanalyzedFiles;
+    return unanalyzedFiles.filter(f => (f.category || "general") === categoryFilter);
+  }, [unanalyzedFiles, categoryFilter]);
+
+  // Count files per category
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: unanalyzedFiles.length };
+    unanalyzedFiles.forEach(f => {
+      const cat = f.category || "general";
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
+    return counts;
+  }, [unanalyzedFiles]);
+
   const progress = selectedFiles.size > 0 ? (completedCount / selectedFiles.size) * 100 : 0;
   
   // Count statuses
@@ -86,11 +123,27 @@ export function BatchAnalysisDialog({ isOpen, onClose, files, onComplete }: Batc
   };
 
   const toggleAll = () => {
-    if (selectedFiles.size === unanalyzedFiles.length) {
-      setSelectedFiles(new Set());
+    const filteredIds = filteredFiles.map(f => f.id);
+    const allFilteredSelected = filteredIds.every(id => selectedFiles.has(id));
+    
+    const newSelected = new Set(selectedFiles);
+    if (allFilteredSelected) {
+      filteredIds.forEach(id => newSelected.delete(id));
     } else {
-      setSelectedFiles(new Set(unanalyzedFiles.map(f => f.id)));
+      filteredIds.forEach(id => newSelected.add(id));
     }
+    setSelectedFiles(newSelected);
+  };
+
+  const selectByCategory = (category: string) => {
+    const categoryFiles = unanalyzedFiles.filter(f => (f.category || "general") === category);
+    const newSelected = new Set(selectedFiles);
+    categoryFiles.forEach(f => newSelected.add(f.id));
+    setSelectedFiles(newSelected);
+    toast.success(isArabic 
+      ? `تم تحديد ${categoryFiles.length} ملف من ${CATEGORIES.find(c => c.value === category)?.labelAr}`
+      : `Selected ${categoryFiles.length} files from ${CATEGORIES.find(c => c.value === category)?.labelEn}`
+    );
   };
   
   const toggleErrorExpand = (id: string) => {
@@ -275,9 +328,9 @@ export function BatchAnalysisDialog({ isOpen, onClose, files, onComplete }: Batc
   const getStatusBadge = (status: AnalysisStatus["status"]) => {
     const styles = {
       pending: "bg-muted text-muted-foreground",
-      analyzing: "bg-blue-500/10 text-blue-600",
-      success: "bg-green-500/10 text-green-600",
-      error: "bg-red-500/10 text-red-600",
+      analyzing: "bg-blue-500/10 text-blue-600 border-blue-500/30",
+      success: "bg-green-500/10 text-green-600 border-green-500/30",
+      error: "bg-red-500/10 text-red-600 border-red-500/30",
     };
     const labels = {
       pending: isArabic ? "في الانتظار" : "Pending",
@@ -285,13 +338,36 @@ export function BatchAnalysisDialog({ isOpen, onClose, files, onComplete }: Batc
       success: isArabic ? "تم" : "Done",
       error: isArabic ? "خطأ" : "Error",
     };
-    return <Badge variant="outline" className={styles[status]}>{labels[status]}</Badge>;
+    return <Badge variant="outline" className={cn("text-xs", styles[status])}>{labels[status]}</Badge>;
   };
+
+  const getCategoryIcon = (category: string | null) => {
+    const cat = CATEGORIES.find(c => c.value === (category || "general"));
+    if (cat) {
+      const Icon = cat.icon;
+      return <Icon className="w-4 h-4" />;
+    }
+    return <FileText className="w-4 h-4" />;
+  };
+
+  const getCategoryColor = (category: string | null) => {
+    const cat = CATEGORIES.find(c => c.value === (category || "general"));
+    return cat?.color || "bg-gray-500";
+  };
+
+  const formatFileSize = (bytes: number | null | undefined) => {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const filteredSelectedCount = filteredFiles.filter(f => selectedFiles.has(f.id)).length;
 
   return (
     <Dialog open={isOpen} onOpenChange={() => !isAnalyzing && onClose()}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader className="pb-4 border-b">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader className="pb-4 border-b flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
               <Layers className="w-6 h-6 text-primary" />
@@ -309,13 +385,13 @@ export function BatchAnalysisDialog({ isOpen, onClose, files, onComplete }: Batc
           </div>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-4 py-2 flex-1 overflow-hidden flex flex-col">
           {/* Progress Section */}
           {isAnalyzing && (
-            <div className="space-y-3 p-4 rounded-lg bg-muted/30 border">
+            <div className="space-y-3 p-4 rounded-lg bg-gradient-to-r from-primary/5 to-accent/5 border flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
                   <span className="text-sm font-medium">
                     {isArabic 
                       ? `جاري تحليل ${completedCount + 1} من ${selectedFiles.size}...`
@@ -323,127 +399,219 @@ export function BatchAnalysisDialog({ isOpen, onClose, files, onComplete }: Batc
                     }
                   </span>
                 </div>
-                <span className="text-lg font-bold text-primary">{Math.round(progress)}%</span>
+                <span className="text-2xl font-bold text-primary">{Math.round(progress)}%</span>
               </div>
               <Progress 
                 value={progress} 
                 className="h-3"
               />
               {/* Status summary during analysis */}
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <div className="flex items-center gap-4 text-sm">
                 {successCount > 0 && (
-                  <span className="flex items-center gap-1 text-green-600">
-                    <CheckCircle className="w-3 h-3" /> {successCount} {isArabic ? "ناجح" : "done"}
+                  <span className="flex items-center gap-1.5 text-green-600 font-medium">
+                    <CheckCircle className="w-4 h-4" /> {successCount} {isArabic ? "ناجح" : "done"}
                   </span>
                 )}
                 {errorCount > 0 && (
-                  <span className="flex items-center gap-1 text-red-600">
-                    <XCircle className="w-3 h-3" /> {errorCount} {isArabic ? "فشل" : "failed"}
+                  <span className="flex items-center gap-1.5 text-red-600 font-medium">
+                    <XCircle className="w-4 h-4" /> {errorCount} {isArabic ? "فشل" : "failed"}
                   </span>
                 )}
               </div>
             </div>
           )}
 
-          {/* Select All */}
+          {/* Category Filter Chips */}
           {!isAnalyzing && (
-            <div className="flex items-center gap-2 pb-3 border-b">
-              <Checkbox
-                id="select-all-batch"
-                checked={selectedFiles.size === unanalyzedFiles.length && unanalyzedFiles.length > 0}
-                onCheckedChange={toggleAll}
-              />
-              <Label htmlFor="select-all-batch" className="cursor-pointer font-medium">
-                {isArabic ? "تحديد الكل" : "Select All"} 
-                <Badge variant="secondary" className="ml-2">{unanalyzedFiles.length}</Badge>
-              </Label>
+            <div className="space-y-3 flex-shrink-0">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Filter className="w-4 h-4" />
+                {isArabic ? "فلترة حسب التصنيف:" : "Filter by Category:"}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {CATEGORIES.map((cat) => {
+                  const count = categoryCounts[cat.value] || 0;
+                  if (cat.value !== "all" && count === 0) return null;
+                  
+                  const Icon = cat.icon;
+                  const isActive = categoryFilter === cat.value;
+                  
+                  return (
+                    <button
+                      key={cat.value}
+                      onClick={() => setCategoryFilter(cat.value)}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
+                        "border hover:shadow-sm",
+                        isActive 
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm" 
+                          : "bg-background hover:bg-muted border-border"
+                      )}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      <span>{isArabic ? cat.labelAr : cat.labelEn}</span>
+                      <Badge 
+                        variant={isActive ? "secondary" : "outline"} 
+                        className={cn("h-5 px-1.5 text-xs", isActive && "bg-primary-foreground/20 text-primary-foreground")}
+                      >
+                        {cat.value === "all" ? unanalyzedFiles.length : count}
+                      </Badge>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Quick Selection Buttons */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
+                <span className="text-xs text-muted-foreground">
+                  {isArabic ? "اختيار سريع:" : "Quick select:"}
+                </span>
+                {CATEGORIES.filter(c => c.value !== "all" && (categoryCounts[c.value] || 0) > 0).map(cat => (
+                  <Button
+                    key={cat.value}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => selectByCategory(cat.value)}
+                    className="h-7 text-xs gap-1.5"
+                  >
+                    <CircleDot className="w-3 h-3" />
+                    {isArabic ? `كل ${cat.labelAr}` : `All ${cat.labelEn}`}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Select All for filtered */}
+          {!isAnalyzing && (
+            <div className="flex items-center justify-between pb-2 border-b flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="select-all-batch"
+                  checked={filteredFiles.length > 0 && filteredSelectedCount === filteredFiles.length}
+                  onCheckedChange={toggleAll}
+                />
+                <Label htmlFor="select-all-batch" className="cursor-pointer font-medium">
+                  {isArabic ? "تحديد الكل المعروض" : "Select All Shown"} 
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">{filteredFiles.length} {isArabic ? "ملف" : "files"}</Badge>
+                {selectedFiles.size > 0 && (
+                  <Badge variant="default">{selectedFiles.size} {isArabic ? "محدد" : "selected"}</Badge>
+                )}
+              </div>
             </div>
           )}
 
           {/* File List */}
-          <ScrollArea className="h-72">
-            <div className="space-y-1 pr-2">
-              {unanalyzedFiles.length === 0 ? (
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="space-y-2 pr-3">
+              {filteredFiles.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500/50" />
-                  <p className="font-medium">{isArabic ? "جميع الملفات تم تحليلها" : "All files are already analyzed"}</p>
+                  <p className="font-medium">
+                    {categoryFilter === "all" 
+                      ? (isArabic ? "جميع الملفات تم تحليلها" : "All files are already analyzed")
+                      : (isArabic ? "لا توجد ملفات في هذا التصنيف" : "No files in this category")
+                    }
+                  </p>
                 </div>
               ) : (
-                unanalyzedFiles.map((file) => {
+                filteredFiles.map((file) => {
                   const status = analysisStatuses.get(file.id);
                   const hasError = status?.status === "error";
                   const isExpanded = expandedErrors.has(file.id);
+                  const isSelected = selectedFiles.has(file.id);
                   
                   return (
                     <div key={file.id} className="space-y-1">
-                      <div
+                      <Card
                         className={cn(
-                          "flex items-center gap-3 p-3 rounded-lg transition-colors",
-                          isAnalyzing ? "bg-muted/20" : "hover:bg-muted/50 cursor-pointer",
-                          hasError && "bg-red-500/5 border border-red-500/20"
+                          "cursor-pointer transition-all duration-200",
+                          !isAnalyzing && "hover:shadow-md hover:border-primary/50",
+                          isSelected && !isAnalyzing && "border-primary bg-primary/5 shadow-sm",
+                          hasError && "border-red-500/30 bg-red-500/5"
                         )}
                         onClick={() => !isAnalyzing && toggleFile(file.id)}
                       >
-                        {!isAnalyzing && (
-                          <Checkbox
-                            id={file.id}
-                            checked={selectedFiles.has(file.id)}
-                            onCheckedChange={() => toggleFile(file.id)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        )}
-                        
-                        {isAnalyzing && status && (
-                          <div className="flex-shrink-0">
-                            {getStatusIcon(status.status)}
-                          </div>
-                        )}
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                            <span className={cn(
-                              "text-sm font-medium truncate",
-                              hasError && "text-red-700 dark:text-red-400"
+                        <CardContent className="py-3 px-4">
+                          <div className="flex items-center gap-3">
+                            {!isAnalyzing && (
+                              <Checkbox
+                                id={file.id}
+                                checked={isSelected}
+                                onCheckedChange={() => toggleFile(file.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex-shrink-0"
+                              />
+                            )}
+                            
+                            {isAnalyzing && status && (
+                              <div className="flex-shrink-0">
+                                {getStatusIcon(status.status)}
+                              </div>
+                            )}
+                            
+                            {/* Category Icon */}
+                            <div className={cn(
+                              "w-8 h-8 rounded-lg flex items-center justify-center text-white flex-shrink-0",
+                              getCategoryColor(file.category)
                             )}>
-                              {file.file_name}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-[10px] h-5">
-                              {file.category || "general"}
-                            </Badge>
-                            {hasError && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <button 
-                                      onClick={(e) => { e.stopPropagation(); toggleErrorExpand(file.id); }}
-                                      className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700"
-                                    >
-                                      <AlertTriangle className="w-3 h-3" />
-                                      {isArabic ? "عرض الخطأ" : "Show error"}
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="bottom" className="max-w-sm">
-                                    <p className="text-xs">{status?.error}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
+                              {getCategoryIcon(file.category)}
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className={cn(
+                                  "text-sm font-medium truncate",
+                                  hasError && "text-red-700 dark:text-red-400"
+                                )}>
+                                  {file.file_name}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <Badge variant="outline" className="text-[10px] h-5 capitalize">
+                                  {file.category || "general"}
+                                </Badge>
+                                {file.file_size && (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {formatFileSize(file.file_size)}
+                                  </span>
+                                )}
+                                {hasError && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button 
+                                          onClick={(e) => { e.stopPropagation(); toggleErrorExpand(file.id); }}
+                                          className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700"
+                                        >
+                                          <AlertTriangle className="w-3 h-3" />
+                                          {isArabic ? "عرض الخطأ" : "Show error"}
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="bottom" className="max-w-sm">
+                                        <p className="text-xs">{status?.error}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {isAnalyzing && status && (
+                              <div className="flex-shrink-0">
+                                {getStatusBadge(status.status)}
+                              </div>
                             )}
                           </div>
-                        </div>
-                        
-                        {isAnalyzing && status && (
-                          <div className="flex-shrink-0">
-                            {getStatusBadge(status.status)}
-                          </div>
-                        )}
-                      </div>
+                        </CardContent>
+                      </Card>
                       
                       {/* Expanded error message */}
                       {hasError && isExpanded && (
-                        <div className="mx-3 p-3 rounded-md bg-red-500/10 border border-red-500/20 text-xs text-red-700 dark:text-red-400">
+                        <div className="mx-1 p-3 rounded-md bg-red-500/10 border border-red-500/20 text-xs text-red-700 dark:text-red-400">
                           <div className="flex items-start gap-2">
                             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                             <div className="break-words whitespace-pre-wrap">
@@ -460,7 +628,7 @@ export function BatchAnalysisDialog({ isOpen, onClose, files, onComplete }: Batc
           </ScrollArea>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t">
+          <div className="flex gap-3 pt-4 border-t flex-shrink-0">
             <Button
               variant="outline"
               onClick={onClose}
