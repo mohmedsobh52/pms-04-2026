@@ -15,9 +15,13 @@ serve(async (req) => {
   console.log(`Authenticated user: ${userId}`);
 
   try {
-    const { fileContent, fileName, fileType, analysisType } = await req.json();
+    const body = await req.json();
+    const { fileContent, fileName, fileType, analysisType } = body;
     
-    if (!fileContent) {
+    console.log(`Request body keys: ${Object.keys(body).join(', ')}`);
+    console.log(`fileContent length: ${fileContent?.length || 0}`);
+    
+    if (!fileContent || (typeof fileContent === 'string' && fileContent.trim().length === 0)) {
       throw new Error('File content is required');
     }
 

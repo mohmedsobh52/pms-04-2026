@@ -310,7 +310,12 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
       // Extract content based on file type
       const blob = fileData as Blob;
       const file = new window.File([blob], attachment.file_name, { type: attachment.file_type || "" });
-      const content = await extractFileContent(file);
+      let content = await extractFileContent(file);
+
+      // Ensure content is not empty - provide file metadata if extraction failed
+      if (!content || content.trim().length === 0) {
+        content = `[File: ${attachment.file_name}, Type: ${attachment.file_type || 'unknown'}, Size: ${blob.size} bytes]`;
+      }
 
       // Determine analysis type based on category
       let analysisType = "extract_data";
