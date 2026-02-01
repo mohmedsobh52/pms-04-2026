@@ -1,143 +1,211 @@
 
-# إصلاح مشكلة عدم عمل Fast Extraction
 
-## المشاكل المكتشفة
+# خطة إصلاح زر Fast Extraction الذي لا يعمل
 
-### 1. مشكلة تمرير الـ Props
-```text
-SavedProjectsPage.tsx:
-  extractionMode = true (من URL parameter)
-  ↓
-  <AttachmentsTab initialExtractionMode={extractionMode} />
-  ↓
-AttachmentsTab.tsx:
-  showFastExtraction = useState(initialExtractionMode)  
-  ← يعمل مرة واحدة فقط عند التهيئة ❌
+## ملخص المشكلة
+
+عند الضغط على زر "Fast Extraction" في تبويب المرفقات (Attachments) داخل صفحة المشاريع، **لا يحدث أي شيء** رغم أن المستخدم مسجل دخول.
+
+## التحليل الفني
+
+بعد فحص الكود، تم اكتشاف المشاكل التالية:
+
+### المشكلة 1: CSS يحجب النقر على الزر
+
+الملف `dialog-custom.css` يحتوي على قاعدة CSS تؤثر على العناصر:
+
+```css
+[data-state="closed"] {
+  animation-duration: 0ms !important;
+}
 ```
 
-### 2. مشكلة عدم ظهور اللوحة عند الضغط على الزر
-من الصورة المرفقة، يظهر أن:
-- زر "Fast Extraction" موجود ومفعّل
-- لكن عند الضغط عليه لا تظهر لوحة الاستخراج
-- المشكلة قد تكون في شرط العرض أو في تحديث الـ state
+هذا قد يتداخل مع أزرار أخرى. لكن الأهم أن **زر Fast Extraction ليس لديه حماية CSS** مثل الأزرار الأخرى في المشروع.
 
-### 3. مشكلة Warning في Console
-```text
-Warning: Function components cannot be given refs.
-Check the render method of `DialogContent`.
-```
-هذا يشير لمشكلة في `ProjectFilesViewer` الذي يستخدم Sheet/Dialog
+### المشكلة 2: الزر غير محمي بـ CSS Classes
 
-## الإصلاحات المطلوبة
+الأزرار الأخرى في المشروع تستخدم classes مثل:
+- `project-actions-section`
+- `card-actions-safe`
+- `tabs-navigation-safe`
 
-### 1. إصلاح `AttachmentsTab.tsx`
+لكن زر Fast Extraction لا يستخدم أي من هذه الـ classes.
 
-**المشكلة**: `initialExtractionMode` لا يُحدّث الـ state بعد التهيئة
+### المشكلة 3: عنصر Card يحجب الزر
+
+الـ `Card` component في السطر 121-157 قد يحجب الزر بسبب طريقة ترتيب العناصر:
 
 ```typescript
-// الحل: إضافة useEffect لمراقبة التغييرات
-useEffect(() => {
-  if (initialExtractionMode) {
-    setShowFastExtraction(true);
-  }
-}, [initialExtractionMode]);
+<div className="flex flex-wrap items-center gap-3">
+  <Button ...>Fast Extraction</Button>
+  
+  {!showFastExtraction && (
+    <Card className="flex-1 min-w-[280px] ...">  // ← هذا قد يحجب الزر
+      ...
+    </Card>
+  )}
+</div>
 ```
 
-### 2. إصلاح عرض FastExtractionPanel
+### المشكلة 4: Sheet/Dialog overlay قد يكون نشطاً
 
-**تحسين الشرط**:
+`FastExtractionPanel` يستخدم `ProjectFilesViewer` الذي يستخدم `Sheet` component. إذا لم يُغلق بشكل صحيح، قد يترك overlay غير مرئي يحجب النقر.
+
+## خطة الإصلاح
+
+### التغيير 1: إضافة CSS protection للزر
+
 ```typescript
-{showFastExtraction ? (
-  <FastExtractionPanel
-    defaultProjectId={selectedProjectId}
-    onComplete={handleExtractionComplete}
-    onCancel={() => setShowFastExtraction(false)}
-  />
-) : (
-  <ProjectAttachments projectId={selectedProjectId} />
-)}
+// في AttachmentsTab.tsx
+<div className="flex flex-wrap items-center gap-3 card-actions-safe">
+  <Button
+    onClick={() => setShowFastExtraction(!showFastExtraction)}
+    variant={showFastExtraction ? "secondary" : "default"}
+    className={cn(
+      "gap-2 shadow-sm transition-all z-60",  // إضافة z-60
+      "pointer-events-auto",                   // ضمان قابلية النقر
+      showFastExtraction && "bg-primary/10 border-primary/30"
+    )}
+  >
 ```
 
-### 3. إضافة console.log للتشخيص
+### التغيير 2: إضافة console.log للتشخيص (مؤقت)
+
 ```typescript
-console.log("showFastExtraction:", showFastExtraction);
-console.log("initialExtractionMode:", initialExtractionMode);
+const handleFastExtractionToggle = () => {
+  console.log("Fast Extraction button clicked, current state:", showFastExtraction);
+  setShowFastExtraction(!showFastExtraction);
+};
 ```
 
-### 4. التحقق من استيراد FastExtractionPanel
-التأكد من أن المكون يتم استيراده بشكل صحيح:
+### التغيير 3: إصلاح ترتيب العناصر (z-index)
+
+```css
+/* في dialog-custom.css */
+.attachments-actions-safe {
+  position: relative;
+  z-index: 65;
+  pointer-events: auto !important;
+}
+
+.attachments-actions-safe button {
+  position: relative;
+  z-index: 70;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+```
+
+### التغيير 4: إضافة onOpenAutoFocus prevention للـ Sheet
+
 ```typescript
-import { FastExtractionPanel } from "@/components/fast-extraction/FastExtractionPanel";
+// في FastExtractionPanel.tsx - ProjectFilesViewer
+<Sheet open={showProjectFiles} onOpenChange={...}>
+  <SheetContent
+    onOpenAutoFocus={(e) => e.preventDefault()}
+    onCloseAutoFocus={(e) => e.preventDefault()}
+    ...
+  >
 ```
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `AttachmentsTab.tsx` | إضافة useEffect لمزامنة initialExtractionMode |
-| `FastExtractionPanel.tsx` | التأكد من عدم وجود أخطاء في العرض |
+| `src/components/projects/AttachmentsTab.tsx` | إضافة CSS class للحماية + z-index للزر |
+| `src/components/ui/dialog-custom.css` | إضافة `.attachments-actions-safe` class |
+| `src/components/fast-extraction/FastExtractionPanel.tsx` | إضافة focus prevention للـ Sheet |
+| `src/components/ProjectFilesViewer.tsx` | إضافة focus prevention للـ Sheet |
 
-## التفاصيل التقنية
+## الكود النهائي
 
-### إصلاح AttachmentsTab.tsx
-
-```typescript
-// إضافة هذا الـ useEffect بعد تعريف الـ state
-useEffect(() => {
-  // تفعيل الاستخراج السريع إذا كان الـ prop يطلب ذلك
-  if (initialExtractionMode && !showFastExtraction) {
-    setShowFastExtraction(true);
-  }
-}, [initialExtractionMode]);
-
-// إضافة log للتشخيص (يمكن إزالته لاحقاً)
-useEffect(() => {
-  console.log("AttachmentsTab state:", {
-    showFastExtraction,
-    initialExtractionMode,
-    selectedProjectId
-  });
-}, [showFastExtraction, initialExtractionMode, selectedProjectId]);
-```
-
-### التحقق من FastExtractionPanel
-
-1. التأكد من أن المكون لا يُرجع `null` في أي حالة
-2. التحقق من imports المكونات الفرعية
-3. التأكد من عدم وجود errors تمنع الـ render
-
-### إضافة Error Boundary (اختياري)
+### AttachmentsTab.tsx (التغييرات)
 
 ```typescript
-// في AttachmentsTab.tsx
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-
-{showFastExtraction && (
-  <ErrorBoundary fallback={<div>Error loading Fast Extraction</div>}>
-    <FastExtractionPanel {...props} />
-  </ErrorBoundary>
-)}
+// سطر 93-116 - إضافة class للحماية ومعالج منفصل للزر
+return (
+  <div className="space-y-6">
+    {/* Quick Actions Bar - مع حماية CSS */}
+    <div className="flex flex-wrap items-center gap-3 attachments-actions-safe">
+      <Button
+        onClick={() => {
+          console.log("Toggle Fast Extraction:", !showFastExtraction);
+          setShowFastExtraction(!showFastExtraction);
+        }}
+        variant={showFastExtraction ? "secondary" : "default"}
+        className={cn(
+          "gap-2 shadow-sm transition-all",
+          "relative z-[70] pointer-events-auto",
+          showFastExtraction && "bg-primary/10 border-primary/30"
+        )}
+      >
 ```
 
-## تسلسل الإصلاح
+### dialog-custom.css (الإضافات)
+
+```css
+/* Attachments tab actions protection */
+.attachments-actions-safe {
+  position: relative;
+  z-index: 65;
+  pointer-events: auto;
+}
+
+.attachments-actions-safe button {
+  position: relative;
+  z-index: 70;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+```
+
+### ProjectFilesViewer.tsx (التغييرات)
+
+```typescript
+// سطر 206 - إضافة focus prevention
+<SheetContent 
+  side={isArabic ? "left" : "right"} 
+  className="w-full sm:max-w-lg"
+  onOpenAutoFocus={(e) => e.preventDefault()}
+  onCloseAutoFocus={(e) => e.preventDefault()}
+>
+```
+
+## سبب هذا الحل
+
+1. **z-index Protection**: يضمن أن الزر يظهر فوق أي عناصر قد تحجبه
+2. **pointer-events: auto**: يتجاوز أي قواعد CSS قد تمنع النقر
+3. **Focus Prevention**: يمنع Sheet من احتجاز الـ focus بعد الإغلاق
+4. **Console Log**: للتأكد من أن onClick يُنفذ (يُزال بعد الإصلاح)
+
+## مخطط التدفق
 
 ```text
-1. تحديث AttachmentsTab.tsx
-   └─ إضافة useEffect لمزامنة الـ prop مع الـ state
-   
-2. إضافة logging مؤقت للتشخيص
-   └─ console.log لقيم الـ state
-   
-3. اختبار الزر
-   └─ التأكد من أن الضغط يُغيّر showFastExtraction
-   
-4. التحقق من ظهور اللوحة
-   └─ التأكد من render الـ FastExtractionPanel
+قبل الإصلاح:
+┌─────────────────┐     ┌──────────────────────┐
+│ زر Fast Extract │ ──► │ onClick لا يُنفذ      │
+│ (بدون حماية)    │     │ (محجوب بـ overlay)    │
+└─────────────────┘     └──────────────────────┘
+
+بعد الإصلاح:
+┌─────────────────────────────┐     ┌──────────────────────┐
+│ زر Fast Extract             │ ──► │ onClick يُنفذ        │
+│ z-index: 70                 │     │ showFastExtraction   │
+│ pointer-events: auto        │     │ يتغير لـ true        │
+│ class: attachments-actions  │     └──────────────────────┘
+└─────────────────────────────┘              │
+                                             ▼
+                               ┌──────────────────────┐
+                               │ FastExtractionPanel  │
+                               │ يظهر بشكل صحيح       │
+                               └──────────────────────┘
 ```
 
-## النتائج المتوقعة
+## ملاحظات للاختبار
 
-- ✅ ظهور لوحة الاستخراج السريع عند الضغط على الزر
-- ✅ العمل مع URL parameter `?mode=extraction`
-- ✅ إغلاق اللوحة عند الضغط على X أو "Close Extraction"
-- ✅ الانتقال بين الخطوات (رفع، تصنيف، تحليل، ربط)
+بعد التنفيذ، يجب اختبار:
+1. الضغط على زر Fast Extraction - يجب أن تظهر اللوحة
+2. الضغط على X أو "Close Extraction" - يجب أن تختفي اللوحة
+3. التبديل بين الوضعين عدة مرات
+4. فتح Project Files Viewer ثم إغلاقه - يجب أن يبقى الزر يعمل
+
