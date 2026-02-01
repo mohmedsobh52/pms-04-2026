@@ -456,3 +456,26 @@ button.header-search-box {
 button.header-search-box > * {
   pointer-events: none !important;
 }
+
+/* ============================================
+   ATTACHMENTS TAB ACTIONS PROTECTION
+   Ensure Fast Extraction button is always clickable
+   ============================================ */
+
+.attachments-actions-safe {
+  position: relative;
+  z-index: 65;
+  pointer-events: auto !important;
+}
+
+.attachments-actions-safe button {
+  position: relative;
+  z-index: 70;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.attachments-actions-safe button:active {
+  transform: scale(0.98);
+  transition: transform 50ms ease-out;
+}

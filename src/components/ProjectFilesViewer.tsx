@@ -203,7 +203,12 @@ export function ProjectFilesViewer({ isOpen, onClose }: ProjectFilesViewerProps)
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side={isArabic ? "left" : "right"} className="w-full sm:max-w-lg">
+      <SheetContent 
+        side={isArabic ? "left" : "right"} 
+        className="w-full sm:max-w-lg"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
         <SheetHeader className="pb-4 border-b">
           <SheetTitle className="flex items-center gap-2">
             <FolderOpen className="h-5 w-5" />

@@ -90,15 +90,21 @@ export function AttachmentsTab({ initialProjectId, initialExtractionMode = false
     setSelectedProjectId(projectId);
   };
 
+  const handleFastExtractionToggle = () => {
+    console.log("Fast Extraction button clicked, current state:", showFastExtraction);
+    setShowFastExtraction(!showFastExtraction);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Quick Actions Bar */}
-      <div className="flex flex-wrap items-center gap-3">
+      {/* Quick Actions Bar - with CSS protection */}
+      <div className="flex flex-wrap items-center gap-3 attachments-actions-safe">
         <Button
-          onClick={() => setShowFastExtraction(!showFastExtraction)}
+          onClick={handleFastExtractionToggle}
           variant={showFastExtraction ? "secondary" : "default"}
           className={cn(
             "gap-2 shadow-sm transition-all",
+            "relative z-[70] pointer-events-auto",
             showFastExtraction && "bg-primary/10 border-primary/30"
           )}
         >
