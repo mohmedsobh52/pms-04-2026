@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sparkles, FileText, Image, FileSpreadsheet, File, Loader2 } from "lucide-react";
+import { Sparkles, FileText, Image, FileSpreadsheet, File, Loader2, Zap } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { UploadedFile } from "./FastExtractionUploader";
+import { classifyFilesLocally } from "@/lib/local-file-classification";
 
 const categories = [
   { id: "boq", labelEn: "BOQ", labelAr: "جدول الكميات", color: "bg-blue-500" },
@@ -52,19 +53,72 @@ export default function FastExtractionClassifier({
     );
   };
 
+  // Apply local classification results to files
+  const applyLocalClassification = (filesToClassify: { fileName: string; fileType: string }[]) => {
+    const localResults = classifyFilesLocally(filesToClassify);
+    const updatedFiles = files.map((f) => {
+      const classification = localResults.find((c) => c.fileName === f.name);
+      return classification ? { ...f, category: classification.category } : f;
+    });
+    onFilesChange(updatedFiles);
+    return localResults.length;
+  };
+
+  // Quick local classification without AI
+  const handleQuickClassify = () => {
+    const filesToClassify = successFiles.map((f) => ({
+      fileName: f.name,
+      fileType: f.type,
+    }));
+    
+    const count = applyLocalClassification(filesToClassify);
+    toast.success(
+      isArabic 
+        ? `تم تصنيف ${count} ملفات بناءً على أسماء الملفات` 
+        : `Classified ${count} files based on filenames`
+    );
+  };
+
   const handleAutoClassify = async () => {
     setIsClassifying(true);
-    try {
-      const filesToClassify = successFiles.map((f) => ({
-        fileName: f.name,
-        fileType: f.type,
-      }));
+    const filesToClassify = successFiles.map((f) => ({
+      fileName: f.name,
+      fileType: f.type,
+    }));
 
+    try {
       const { data, error } = await supabase.functions.invoke("classify-files", {
         body: { files: filesToClassify, language },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Check for specific error codes in the error object
+        const errorMessage = error.message || '';
+        const errorContext = JSON.stringify(error.context || {});
+        
+        // Check for 402 (AI credits exhausted)
+        if (errorMessage.includes('402') || errorMessage.includes('credits') || errorContext.includes('402')) {
+          toast.warning(
+            isArabic 
+              ? "نفد رصيد AI - يتم استخدام التصنيف المحلي" 
+              : "AI credits exhausted - using local classification"
+          );
+          applyLocalClassification(filesToClassify);
+          return;
+        }
+        
+        // Check for 429 (Rate limit)
+        if (errorMessage.includes('429') || errorMessage.includes('rate') || errorContext.includes('429')) {
+          toast.error(
+            isArabic 
+              ? "تم تجاوز الحد الأقصى للطلبات. يرجى المحاولة لاحقاً" 
+              : "Rate limit exceeded. Please try again later"
+          );
+          return;
+        }
+        
+        throw error;
+      }
 
       if (data?.classifications) {
         const updatedFiles = files.map((f) => {
@@ -76,9 +130,38 @@ export default function FastExtractionClassifier({
         onFilesChange(updatedFiles);
         toast.success(isArabic ? "تم تصنيف الملفات بنجاح" : "Files classified successfully");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Classification error:", error);
-      toast.error(isArabic ? "فشل التصنيف التلقائي" : "Auto-classification failed");
+      
+      // Additional error handling for edge cases
+      const errorMessage = error?.message || '';
+      
+      if (errorMessage.includes('402') || errorMessage.includes('credits')) {
+        toast.warning(
+          isArabic 
+            ? "نفد رصيد AI - يتم استخدام التصنيف المحلي" 
+            : "AI credits exhausted - using local classification"
+        );
+        applyLocalClassification(filesToClassify);
+        return;
+      }
+      
+      if (errorMessage.includes('429') || errorMessage.includes('rate')) {
+        toast.error(
+          isArabic 
+            ? "تم تجاوز الحد الأقصى للطلبات. يرجى المحاولة لاحقاً" 
+            : "Rate limit exceeded. Please try again later"
+        );
+        return;
+      }
+      
+      // Fallback to local classification on any error
+      toast.warning(
+        isArabic 
+          ? "فشل التصنيف التلقائي - يتم استخدام التصنيف المحلي" 
+          : "Auto-classification failed - using local classification"
+      );
+      applyLocalClassification(filesToClassify);
     } finally {
       setIsClassifying(false);
     }
@@ -102,18 +185,29 @@ export default function FastExtractionClassifier({
               : "Classify each file manually or use auto-classification"}
           </p>
         </div>
-        <Button
-          onClick={handleAutoClassify}
-          disabled={isClassifying || successFiles.length === 0}
-          className="gap-2"
-        >
-          {isClassifying ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Sparkles className="h-4 w-4" />
-          )}
-          {isArabic ? "تصنيف تلقائي" : "Auto Classify"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleQuickClassify}
+            variant="outline"
+            disabled={isClassifying || successFiles.length === 0}
+            className="gap-2"
+          >
+            <Zap className="h-4 w-4" />
+            {isArabic ? "تصنيف سريع" : "Quick Classify"}
+          </Button>
+          <Button
+            onClick={handleAutoClassify}
+            disabled={isClassifying || successFiles.length === 0}
+            className="gap-2"
+          >
+            {isClassifying ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            {isArabic ? "تصنيف تلقائي (AI)" : "Auto Classify (AI)"}
+          </Button>
+        </div>
       </div>
 
       {/* Files List */}
