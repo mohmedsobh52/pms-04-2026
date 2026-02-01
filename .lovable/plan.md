@@ -1,211 +1,262 @@
 
+# خطة إصلاح خطأ Auto Classify (402 - نفاد رصيد AI)
 
-# خطة إصلاح زر Fast Extraction الذي لا يعمل
+## المشكلة
 
-## ملخص المشكلة
-
-عند الضغط على زر "Fast Extraction" في تبويب المرفقات (Attachments) داخل صفحة المشاريع، **لا يحدث أي شيء** رغم أن المستخدم مسجل دخول.
+عند الضغط على زر **Auto Classify** في شاشة تصنيف الملفات، يظهر خطأ عام "The app encountered an error". السبب هو أن Edge Function تُرجع خطأ **402** (نفاد رصيد AI) ولكن الواجهة الأمامية لا تتعامل معه بشكل صحيح.
 
 ## التحليل الفني
 
-بعد فحص الكود، تم اكتشاف المشاكل التالية:
+### الخطأ الفعلي من Network Logs:
+```
+POST /functions/v1/classify-files
+Status: 402
+Response: {"error":"AI credits exhausted. Please add credits."}
+```
 
-### المشكلة 1: CSS يحجب النقر على الزر
-
-الملف `dialog-custom.css` يحتوي على قاعدة CSS تؤثر على العناصر:
-
-```css
-[data-state="closed"] {
-  animation-duration: 0ms !important;
+### المشكلة في الكود الحالي:
+```typescript
+// FastExtractionClassifier.tsx - lines 79-82
+} catch (error) {
+  console.error("Classification error:", error);
+  toast.error(isArabic ? "فشل التصنيف التلقائي" : "Auto-classification failed");
 }
 ```
 
-هذا قد يتداخل مع أزرار أخرى. لكن الأهم أن **زر Fast Extraction ليس لديه حماية CSS** مثل الأزرار الأخرى في المشروع.
+الكود الحالي:
+- يلتقط جميع الأخطاء بشكل عام
+- لا يتحقق من نوع الخطأ (402 أو 429)
+- لا يُظهر رسالة مفيدة للمستخدم
+- لا يوفر بديل محلي
 
-### المشكلة 2: الزر غير محمي بـ CSS Classes
+## الحل المقترح
 
-الأزرار الأخرى في المشروع تستخدم classes مثل:
-- `project-actions-section`
-- `card-actions-safe`
-- `tabs-navigation-safe`
+### 1. إضافة تصنيف محلي ذكي (Local Fallback)
 
-لكن زر Fast Extraction لا يستخدم أي من هذه الـ classes.
-
-### المشكلة 3: عنصر Card يحجب الزر
-
-الـ `Card` component في السطر 121-157 قد يحجب الزر بسبب طريقة ترتيب العناصر:
+تصنيف الملفات بناءً على اسم الملف ونوعه دون الحاجة لـ AI:
 
 ```typescript
-<div className="flex flex-wrap items-center gap-3">
-  <Button ...>Fast Extraction</Button>
-  
-  {!showFastExtraction && (
-    <Card className="flex-1 min-w-[280px] ...">  // ← هذا قد يحجب الزر
-      ...
-    </Card>
-  )}
-</div>
-```
-
-### المشكلة 4: Sheet/Dialog overlay قد يكون نشطاً
-
-`FastExtractionPanel` يستخدم `ProjectFilesViewer` الذي يستخدم `Sheet` component. إذا لم يُغلق بشكل صحيح، قد يترك overlay غير مرئي يحجب النقر.
-
-## خطة الإصلاح
-
-### التغيير 1: إضافة CSS protection للزر
-
-```typescript
-// في AttachmentsTab.tsx
-<div className="flex flex-wrap items-center gap-3 card-actions-safe">
-  <Button
-    onClick={() => setShowFastExtraction(!showFastExtraction)}
-    variant={showFastExtraction ? "secondary" : "default"}
-    className={cn(
-      "gap-2 shadow-sm transition-all z-60",  // إضافة z-60
-      "pointer-events-auto",                   // ضمان قابلية النقر
-      showFastExtraction && "bg-primary/10 border-primary/30"
-    )}
-  >
-```
-
-### التغيير 2: إضافة console.log للتشخيص (مؤقت)
-
-```typescript
-const handleFastExtractionToggle = () => {
-  console.log("Fast Extraction button clicked, current state:", showFastExtraction);
-  setShowFastExtraction(!showFastExtraction);
+const localClassifyFiles = (files: FileToClassify[]): ClassificationResult[] => {
+  return files.map(file => {
+    const name = file.fileName.toLowerCase();
+    const type = file.fileType.toLowerCase();
+    
+    // BOQ patterns
+    if (name.includes('boq') || name.includes('كمي') || name.includes('مقايس')) {
+      return { fileName: file.fileName, category: 'boq', confidence: 0.8 };
+    }
+    // Drawing patterns
+    if (name.includes('drawing') || name.includes('رسم') || name.includes('dwg') || type.includes('dwg')) {
+      return { fileName: file.fileName, category: 'drawings', confidence: 0.8 };
+    }
+    // ... more patterns
+    
+    return { fileName: file.fileName, category: 'general', confidence: 0.5 };
+  });
 };
 ```
 
-### التغيير 3: إصلاح ترتيب العناصر (z-index)
+### 2. معالجة أخطاء محددة (402, 429)
 
-```css
-/* في dialog-custom.css */
-.attachments-actions-safe {
-  position: relative;
-  z-index: 65;
-  pointer-events: auto !important;
-}
-
-.attachments-actions-safe button {
-  position: relative;
-  z-index: 70;
-  pointer-events: auto !important;
-  cursor: pointer !important;
+```typescript
+} catch (error: any) {
+  console.error("Classification error:", error);
+  
+  // Check for specific error codes
+  const errorMessage = error?.message || '';
+  const statusCode = error?.status || 0;
+  
+  if (statusCode === 402 || errorMessage.includes('402') || errorMessage.includes('credits')) {
+    // AI Credits exhausted - use local fallback
+    toast.warning(
+      isArabic 
+        ? "نفد رصيد AI - يتم استخدام التصنيف المحلي" 
+        : "AI credits exhausted - using local classification"
+    );
+    const localResults = localClassifyFiles(filesToClassify);
+    // Apply local results...
+    return;
+  }
+  
+  if (statusCode === 429 || errorMessage.includes('429') || errorMessage.includes('rate')) {
+    toast.error(
+      isArabic 
+        ? "تم تجاوز الحد الأقصى للطلبات. يرجى المحاولة لاحقاً" 
+        : "Rate limit exceeded. Please try again later"
+    );
+    return;
+  }
+  
+  // Generic error
+  toast.error(isArabic ? "فشل التصنيف التلقائي" : "Auto-classification failed");
 }
 ```
 
-### التغيير 4: إضافة onOpenAutoFocus prevention للـ Sheet
+### 3. إضافة زر للتصنيف المحلي كبديل
+
+إضافة زر منفصل يسمح بالتصنيف المحلي مباشرة:
 
 ```typescript
-// في FastExtractionPanel.tsx - ProjectFilesViewer
-<Sheet open={showProjectFiles} onOpenChange={...}>
-  <SheetContent
-    onOpenAutoFocus={(e) => e.preventDefault()}
-    onCloseAutoFocus={(e) => e.preventDefault()}
-    ...
-  >
+<Button
+  onClick={handleLocalClassify}
+  variant="outline"
+  className="gap-2"
+>
+  <Zap className="h-4 w-4" />
+  {isArabic ? "تصنيف سريع" : "Quick Classify"}
+</Button>
 ```
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/projects/AttachmentsTab.tsx` | إضافة CSS class للحماية + z-index للزر |
-| `src/components/ui/dialog-custom.css` | إضافة `.attachments-actions-safe` class |
-| `src/components/fast-extraction/FastExtractionPanel.tsx` | إضافة focus prevention للـ Sheet |
-| `src/components/ProjectFilesViewer.tsx` | إضافة focus prevention للـ Sheet |
+| `src/components/FastExtractionClassifier.tsx` | إضافة معالجة أخطاء محددة + تصنيف محلي |
+| `src/lib/local-file-classification.ts` | ملف جديد - منطق التصنيف المحلي |
 
-## الكود النهائي
+## منطق التصنيف المحلي الكامل
 
-### AttachmentsTab.tsx (التغييرات)
+التصنيف يعتمد على أنماط في اسم الملف:
 
-```typescript
-// سطر 93-116 - إضافة class للحماية ومعالج منفصل للزر
-return (
-  <div className="space-y-6">
-    {/* Quick Actions Bar - مع حماية CSS */}
-    <div className="flex flex-wrap items-center gap-3 attachments-actions-safe">
-      <Button
-        onClick={() => {
-          console.log("Toggle Fast Extraction:", !showFastExtraction);
-          setShowFastExtraction(!showFastExtraction);
-        }}
-        variant={showFastExtraction ? "secondary" : "default"}
-        className={cn(
-          "gap-2 shadow-sm transition-all",
-          "relative z-[70] pointer-events-auto",
-          showFastExtraction && "bg-primary/10 border-primary/30"
-        )}
-      >
-```
+| الفئة | الأنماط (إنجليزي) | الأنماط (عربي) |
+|-------|------------------|----------------|
+| BOQ | boq, bill, quantity, pricing | كمي، مقايس، تسعير، بنود |
+| Drawings | drawing, dwg, plan, section | رسم، مخطط، قطاع |
+| Specifications | spec, standard, technical | مواصفات، معايير، فني |
+| Contracts | contract, agreement, legal | عقد، اتفاقية، قانوني |
+| Quotations | quotation, quote, bid, offer | عرض سعر، مناقصة، تسعيرة |
+| Reports | report, analysis, study | تقرير، دراسة، تحليل |
+| Schedules | schedule, timeline, gantt | جدول زمني، برنامج |
+| General | (fallback) | (افتراضي) |
 
-### dialog-custom.css (الإضافات)
+## تجربة المستخدم بعد الإصلاح
 
-```css
-/* Attachments tab actions protection */
-.attachments-actions-safe {
-  position: relative;
-  z-index: 65;
-  pointer-events: auto;
-}
+### السيناريو 1: AI يعمل بشكل طبيعي
+1. المستخدم يضغط "Auto Classify"
+2. يتم التصنيف عبر AI
+3. تظهر رسالة نجاح ✓
 
-.attachments-actions-safe button {
-  position: relative;
-  z-index: 70;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-```
+### السيناريو 2: نفاد رصيد AI (402)
+1. المستخدم يضغط "Auto Classify"
+2. يظهر تحذير: "نفد رصيد AI - يتم استخدام التصنيف المحلي"
+3. يتم التصنيف محلياً بناءً على اسم الملف
+4. الملفات تُصنف تلقائياً ✓
 
-### ProjectFilesViewer.tsx (التغييرات)
-
-```typescript
-// سطر 206 - إضافة focus prevention
-<SheetContent 
-  side={isArabic ? "left" : "right"} 
-  className="w-full sm:max-w-lg"
-  onOpenAutoFocus={(e) => e.preventDefault()}
-  onCloseAutoFocus={(e) => e.preventDefault()}
->
-```
-
-## سبب هذا الحل
-
-1. **z-index Protection**: يضمن أن الزر يظهر فوق أي عناصر قد تحجبه
-2. **pointer-events: auto**: يتجاوز أي قواعد CSS قد تمنع النقر
-3. **Focus Prevention**: يمنع Sheet من احتجاز الـ focus بعد الإغلاق
-4. **Console Log**: للتأكد من أن onClick يُنفذ (يُزال بعد الإصلاح)
+### السيناريو 3: تجاوز حد الطلبات (429)
+1. المستخدم يضغط "Auto Classify"
+2. يظهر خطأ: "تم تجاوز الحد الأقصى. يرجى المحاولة لاحقاً"
+3. المستخدم يمكنه استخدام "Quick Classify" أو التصنيف اليدوي
 
 ## مخطط التدفق
 
 ```text
-قبل الإصلاح:
-┌─────────────────┐     ┌──────────────────────┐
-│ زر Fast Extract │ ──► │ onClick لا يُنفذ      │
-│ (بدون حماية)    │     │ (محجوب بـ overlay)    │
-└─────────────────┘     └──────────────────────┘
-
-بعد الإصلاح:
-┌─────────────────────────────┐     ┌──────────────────────┐
-│ زر Fast Extract             │ ──► │ onClick يُنفذ        │
-│ z-index: 70                 │     │ showFastExtraction   │
-│ pointer-events: auto        │     │ يتغير لـ true        │
-│ class: attachments-actions  │     └──────────────────────┘
-└─────────────────────────────┘              │
-                                             ▼
-                               ┌──────────────────────┐
-                               │ FastExtractionPanel  │
-                               │ يظهر بشكل صحيح       │
-                               └──────────────────────┘
+Auto Classify Click
+        │
+        ▼
+┌───────────────────┐
+│ Call Edge Function│
+│ classify-files    │
+└───────────────────┘
+        │
+        ▼
+    Response?
+   /    │    \
+  /     │     \
+200    402    429
+ │      │      │
+ ▼      ▼      ▼
+Apply  Local   Show
+AI     Fallback Error
+Results        Message
+ │      │      │
+ ▼      ▼      ▼
+   ┌─────────┐
+   │ Update  │
+   │ Files   │
+   └─────────┘
 ```
+
+## التغييرات التفصيلية
+
+### ملف جديد: `src/lib/local-file-classification.ts`
+
+```typescript
+interface FileToClassify {
+  fileName: string;
+  fileType: string;
+}
+
+interface ClassificationResult {
+  fileName: string;
+  category: string;
+  confidence: number;
+}
+
+const CATEGORY_PATTERNS = {
+  boq: {
+    en: ['boq', 'bill of quantities', 'pricing', 'cost estimate', 'quantity'],
+    ar: ['كمي', 'مقايس', 'تسعير', 'بنود', 'جدول الكميات']
+  },
+  drawings: {
+    en: ['drawing', 'dwg', 'plan', 'section', 'elevation', 'detail', 'layout'],
+    ar: ['رسم', 'مخطط', 'قطاع', 'واجهة', 'تفصيل', 'تخطيط']
+  },
+  specifications: {
+    en: ['spec', 'specification', 'standard', 'technical', 'requirement'],
+    ar: ['مواصفات', 'معايير', 'فني', 'متطلبات', 'شروط']
+  },
+  contracts: {
+    en: ['contract', 'agreement', 'legal', 'terms', 'conditions'],
+    ar: ['عقد', 'اتفاقية', 'قانوني', 'شروط']
+  },
+  quotations: {
+    en: ['quotation', 'quote', 'bid', 'offer', 'proposal', 'tender'],
+    ar: ['عرض', 'سعر', 'مناقصة', 'تسعيرة', 'اقتراح']
+  },
+  reports: {
+    en: ['report', 'analysis', 'study', 'summary', 'review'],
+    ar: ['تقرير', 'دراسة', 'تحليل', 'ملخص', 'مراجعة']
+  },
+  schedules: {
+    en: ['schedule', 'timeline', 'gantt', 'program', 'milestone'],
+    ar: ['جدول', 'زمني', 'برنامج', 'مراحل']
+  }
+};
+
+export function classifyFilesLocally(files: FileToClassify[]): ClassificationResult[] {
+  return files.map(file => {
+    const name = file.fileName.toLowerCase();
+    
+    for (const [category, patterns] of Object.entries(CATEGORY_PATTERNS)) {
+      const allPatterns = [...patterns.en, ...patterns.ar];
+      if (allPatterns.some(pattern => name.includes(pattern))) {
+        return {
+          fileName: file.fileName,
+          category,
+          confidence: 0.75
+        };
+      }
+    }
+    
+    return {
+      fileName: file.fileName,
+      category: 'general',
+      confidence: 0.5
+    };
+  });
+}
+```
+
+### تحديث: `src/components/FastExtractionClassifier.tsx`
+
+التغييرات الرئيسية:
+1. استيراد دالة التصنيف المحلي
+2. تحديث `handleAutoClassify` للتعامل مع الأخطاء
+3. إضافة زر "Quick Classify" كبديل
 
 ## ملاحظات للاختبار
 
-بعد التنفيذ، يجب اختبار:
-1. الضغط على زر Fast Extraction - يجب أن تظهر اللوحة
-2. الضغط على X أو "Close Extraction" - يجب أن تختفي اللوحة
-3. التبديل بين الوضعين عدة مرات
-4. فتح Project Files Viewer ثم إغلاقه - يجب أن يبقى الزر يعمل
-
+1. ✅ اختبار مع رصيد AI متاح - يجب أن يعمل عادي
+2. ✅ اختبار مع نفاد رصيد AI - يجب استخدام الفallback
+3. ✅ اختبار زر Quick Classify - يجب أن يصنف محلياً
+4. ✅ التأكد من ظهور الرسائل بالعربية والإنجليزية
