@@ -54,6 +54,43 @@ interface DrawingAnalysisResult {
   };
 }
 
+// Normalize quantities from AI response to handle different field names and types
+const normalizeQuantities = (quantities: any[]): ExtractedQuantity[] => {
+  if (!Array.isArray(quantities)) {
+    console.warn("Quantities is not an array:", quantities);
+    return [];
+  }
+  
+  return quantities.map((q, idx) => {
+    // Extract quantity from multiple possible field names
+    let qty = 0;
+    const rawQty = q?.quantity ?? q?.qty ?? q?.Quantity ?? q?.QTY ?? q?.amount ?? q?.Amount ?? 0;
+    
+    // Convert to number safely
+    if (typeof rawQty === 'number' && !isNaN(rawQty)) {
+      qty = rawQty;
+    } else if (typeof rawQty === 'string') {
+      // Remove commas, Arabic commas, and non-numeric chars except decimal point
+      const cleaned = rawQty.replace(/[,،\s]/g, '').replace(/[^\d.-]/g, '');
+      const parsed = parseFloat(cleaned);
+      qty = isNaN(parsed) ? 0 : parsed;
+    }
+    
+    return {
+      item_number: String(q?.item_number || q?.itemNumber || q?.no || q?.num || idx + 1),
+      category: q?.category || q?.Category || 'General',
+      subcategory: q?.subcategory || q?.subCategory || q?.sub_category || '',
+      description: q?.description || q?.Description || q?.desc || q?.name || '',
+      quantity: qty,
+      unit: q?.unit || q?.Unit || '-',
+      measurement_basis: q?.measurement_basis || q?.measurementBasis || q?.basis || '',
+      pipe_diameter: q?.pipe_diameter || q?.pipeDiameter || q?.diameter || q?.Diameter || '',
+      pipe_material: q?.pipe_material || q?.pipeMaterial || q?.material || q?.Material || '',
+      notes: q?.notes || q?.Notes || q?.remarks || ''
+    };
+  }).filter(q => q.description && q.description.trim() !== '');
+};
+
 interface FastExtractionDrawingAnalyzerProps {
   files: UploadedFile[];
   onComplete: (results: DrawingAnalysisResult[]) => void;
@@ -197,13 +234,24 @@ export default function FastExtractionDrawingAnalyzer({
 
         if (error) throw error;
 
+        // Normalize quantities from AI response
+        const rawQuantities = data.analysis?.quantities || [];
+        console.log("Raw AI quantities sample:", JSON.stringify(rawQuantities.slice(0, 2)));
+        
+        const normalizedQuantities = normalizeQuantities(rawQuantities);
+        console.log("Normalized quantities sample:", JSON.stringify(normalizedQuantities.slice(0, 2)));
+
         const result: DrawingAnalysisResult = {
           fileId: file.id,
           fileName: file.name,
           success: data.success,
-          quantities: data.analysis?.quantities || [],
+          quantities: normalizedQuantities,
           drawingInfo: data.analysis?.drawing_info || { title: file.name, type: drawingType, scale: "N/A" },
-          summary: data.analysis?.summary || { totalItems: 0, categories: [] },
+          summary: {
+            totalItems: normalizedQuantities.length,
+            categories: [...new Set(normalizedQuantities.map(q => q.category))],
+            ...data.analysis?.summary
+          },
         };
 
         analysisResults.push(result);
@@ -551,9 +599,9 @@ export default function FastExtractionDrawingAnalyzer({
                     {Object.entries(
                       allQuantities.reduce((acc, q) => {
                         const cat = q.category || "Other";
-                        if (!acc[cat]) acc[cat] = { count: 0, totalQty: 0, unit: q.unit };
+                        if (!acc[cat]) acc[cat] = { count: 0, totalQty: 0, unit: q.unit || '-' };
                         acc[cat].count++;
-                        acc[cat].totalQty += q.quantity || 0;
+                        acc[cat].totalQty += (typeof q.quantity === 'number' ? q.quantity : 0);
                         return acc;
                       }, {} as Record<string, { count: number; totalQty: number; unit: string }>)
                     ).map(([category, data]) => {
@@ -605,7 +653,7 @@ export default function FastExtractionDrawingAnalyzer({
                               <TableCell className="text-sm text-muted-foreground">{q.subcategory || "-"}</TableCell>
                             )}
                             <TableCell className="max-w-[300px] truncate">{q.description}</TableCell>
-                            <TableCell className="text-right font-mono font-semibold">{q.quantity.toLocaleString()}</TableCell>
+                            <TableCell className="text-right font-mono font-semibold">{(typeof q.quantity === 'number' ? q.quantity : 0).toLocaleString()}</TableCell>
                             <TableCell>{q.unit}</TableCell>
                             {drawingType === "infrastructure" && (
                               <>
