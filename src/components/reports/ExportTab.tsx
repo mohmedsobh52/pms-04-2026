@@ -70,12 +70,36 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
     return [];
   };
 
-  // Fetch items dynamically when project changes
+  // Helper function to normalize item prices from various sources
+  const normalizeItemPrices = (items: any[]): any[] => {
+    return items.map(item => {
+      // Extract unit price from multiple possible fields
+      const unitPrice = parseFloat(
+        item.unit_price || item.rate || item.price || item.ai_rate || item.ai_suggested_rate || 0
+      ) || 0;
+      
+      // Extract quantity
+      const quantity = parseFloat(item.quantity || item.qty || 0) || 0;
+      
+      // Calculate total price
+      const totalPrice = parseFloat(
+        item.total_price || item.amount || item.total || 0
+      ) || (unitPrice * quantity) || 0;
+      
+      return {
+        ...item,
+        unit_price: unitPrice,
+        total_price: totalPrice,
+        quantity: quantity
+      };
+    });
+  };
+
+  // Fetch items dynamically when project changes - PRIORITY: project_items table FIRST (has updated prices)
   useEffect(() => {
     const fetchItems = async () => {
       console.log("📊 ExportTab: Fetching items for project:", selectedProject?.name);
       console.log("📊 ExportTab: selectedProjectId:", selectedProjectId);
-      console.log("📊 ExportTab: analysis_data exists?", !!selectedProject?.analysis_data);
       
       if (!selectedProject) {
         console.log("⚠️ ExportTab: No project selected, clearing items");
@@ -83,39 +107,47 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
         return;
       }
       
-      // First check analysis_data
-      const items = getProjectItems(selectedProject);
-      console.log("📊 ExportTab: Items from getProjectItems:", items.length);
-      
-      if (items.length > 0) {
-        console.log("✅ ExportTab: Found items in analysis_data, using them");
-        setDynamicItems(items);
-        return;
-      }
-      
-      // If no items in analysis_data, fetch from project_items table
-      console.log("⚠️ ExportTab: No items in analysis_data, fetching from DB...");
       setIsLoadingItems(true);
+      
+      // PRIORITY 1: Fetch from project_items table (contains UPDATED prices from AI/manual pricing)
       try {
-        const { data, error } = await supabase
+        const { data: dbItems, error } = await supabase
           .from("project_items")
           .select("*")
           .eq("project_id", selectedProject.id)
           .order("item_number");
         
+        if (!error && dbItems && dbItems.length > 0) {
+          console.log("✅ ExportTab: Using project_items (updated prices):", dbItems.length, "items");
+          // Normalize prices to ensure numeric values
+          const normalizedItems = normalizeItemPrices(dbItems);
+          setDynamicItems(normalizedItems);
+          setIsLoadingItems(false);
+          return;
+        }
+        
         if (error) {
-          console.error("❌ ExportTab: Error fetching project items:", error);
-          setDynamicItems([]);
-        } else {
-          console.log("✅ ExportTab: Fetched from DB:", data?.length || 0, "items");
-          setDynamicItems(data || []);
+          console.error("⚠️ ExportTab: Error fetching project_items:", error);
         }
       } catch (err) {
-        console.error("❌ ExportTab: Failed to fetch project items:", err);
-        setDynamicItems([]);
-      } finally {
-        setIsLoadingItems(false);
+        console.error("⚠️ ExportTab: Failed to fetch project_items:", err);
       }
+      
+      // PRIORITY 2: Fallback to analysis_data (may have outdated/zero prices)
+      console.log("⚠️ ExportTab: No items in project_items table, falling back to analysis_data...");
+      const analysisItems = getProjectItems(selectedProject);
+      
+      if (analysisItems.length > 0) {
+        console.log("⚠️ ExportTab: Using analysis_data (may have outdated prices):", analysisItems.length, "items");
+        // Normalize prices from analysis_data as well
+        const normalizedItems = normalizeItemPrices(analysisItems);
+        setDynamicItems(normalizedItems);
+      } else {
+        console.log("❌ ExportTab: No items found in any source");
+        setDynamicItems([]);
+      }
+      
+      setIsLoadingItems(false);
     };
     
     fetchItems();
@@ -154,9 +186,13 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
       return;
     }
     
-    // Create analysis data structure from project items
-    const totalValue = projectItems.reduce((sum: number, item: any) => 
-      sum + (parseFloat(item.total_price) || 0), 0);
+    // Calculate total with proper fallback logic
+    const totalValue = projectItems.reduce((sum: number, item: any) => {
+      const unitPrice = parseFloat(item.unit_price) || parseFloat(item.rate) || parseFloat(item.ai_rate) || 0;
+      const quantity = parseFloat(item.quantity) || 0;
+      const itemTotal = parseFloat(item.total_price) || parseFloat(item.amount) || (unitPrice * quantity) || 0;
+      return sum + itemTotal;
+    }, 0);
     
     const analysisData = {
       items: projectItems,
@@ -300,9 +336,13 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
       return;
     }
     
-    // Open price analysis in a new print window
-    const totalValue = projectItems.reduce((sum: number, item: any) => 
-      sum + (parseFloat(item.total_price) || 0), 0);
+    // Calculate total with proper fallback logic
+    const totalValue = projectItems.reduce((sum: number, item: any) => {
+      const unitPrice = parseFloat(item.unit_price) || parseFloat(item.rate) || parseFloat(item.ai_rate) || 0;
+      const quantity = parseFloat(item.quantity) || 0;
+      const itemTotal = parseFloat(item.total_price) || parseFloat(item.amount) || (unitPrice * quantity) || 0;
+      return sum + itemTotal;
+    }, 0);
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -410,15 +450,18 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
           </thead>
           <tbody>
             ${projectItems.map((item: any, idx: number) => {
-              const itemTotal = parseFloat(item.total_price) || 0;
+              // Calculate with proper fallback logic
+              const unitPrice = parseFloat(item.unit_price) || parseFloat(item.rate) || parseFloat(item.ai_rate) || 0;
+              const quantity = parseFloat(item.quantity) || 0;
+              const itemTotal = parseFloat(item.total_price) || parseFloat(item.amount) || (unitPrice * quantity) || 0;
               const percentage = totalValue > 0 ? ((itemTotal / totalValue) * 100) : 0;
               return `
                 <tr>
                   <td>${idx + 1}</td>
                   <td>${item.description || '-'}</td>
-                  <td>${item.quantity?.toLocaleString('en-US') || '-'}</td>
-                  <td>${item.unit_price?.toLocaleString('en-US') || '-'}</td>
-                  <td>${itemTotal.toLocaleString('en-US')}</td>
+                  <td>${quantity > 0 ? quantity.toLocaleString('en-US') : '-'}</td>
+                  <td>${unitPrice > 0 ? unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}</td>
+                  <td>${itemTotal > 0 ? itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}</td>
                   <td>
                     <div style="display: flex; align-items: center; gap: 8px;">
                       <div class="percentage-bar" style="width: 60px;">
@@ -459,7 +502,13 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
     }
-    const totalValue = projectItems.reduce((sum: number, item: any) => sum + (parseFloat(item.total_price) || 0), 0);
+    // Calculate total with proper fallback logic
+    const totalValue = projectItems.reduce((sum: number, item: any) => {
+      const unitPrice = parseFloat(item.unit_price) || parseFloat(item.rate) || parseFloat(item.ai_rate) || 0;
+      const quantity = parseFloat(item.quantity) || 0;
+      const itemTotal = parseFloat(item.total_price) || parseFloat(item.amount) || (unitPrice * quantity) || 0;
+      return sum + itemTotal;
+    }, 0);
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -589,16 +638,22 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
             </tr>
           </thead>
           <tbody>
-            ${projectItems.map((item: any, idx: number) => `
+            ${projectItems.map((item: any, idx: number) => {
+              // Calculate with proper fallback logic
+              const unitPrice = parseFloat(item.unit_price) || parseFloat(item.rate) || parseFloat(item.ai_rate) || 0;
+              const quantity = parseFloat(item.quantity) || 0;
+              const itemTotal = parseFloat(item.total_price) || parseFloat(item.amount) || (unitPrice * quantity) || 0;
+              return `
               <tr>
                 <td>${idx + 1}</td>
                 <td>${item.description || '-'}</td>
-                <td>${item.quantity?.toLocaleString('en-US') || '-'}</td>
+                <td>${quantity > 0 ? quantity.toLocaleString('en-US') : '-'}</td>
                 <td>${item.unit || '-'}</td>
-                <td>${item.unit_price?.toLocaleString('en-US') || '-'}</td>
-                <td>${item.total_price?.toLocaleString('en-US') || '-'}</td>
+                <td>${unitPrice > 0 ? unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}</td>
+                <td>${itemTotal > 0 ? itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}</td>
               </tr>
-            `).join('')}
+            `;
+            }).join('')}
             <tr class="total-row">
               <td colspan="5">${isArabic ? "الإجمالي" : "Total"}</td>
               <td>${totalValue.toLocaleString('en-US')}</td>
@@ -641,8 +696,13 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
       return qty > 0;
     });
     
-    // Calculate total from filtered items only
-    const totalValue = filteredItems.reduce((sum: number, item: any) => sum + (parseFloat(item.total_price) || 0), 0);
+    // Calculate total from filtered items with proper fallback logic
+    const totalValue = filteredItems.reduce((sum: number, item: any) => {
+      const unitPrice = parseFloat(item.unit_price) || parseFloat(item.rate) || parseFloat(item.ai_rate) || 0;
+      const quantity = parseFloat(item.quantity) || 0;
+      const itemTotal = parseFloat(item.total_price) || parseFloat(item.amount) || (unitPrice * quantity) || 0;
+      return sum + itemTotal;
+    }, 0);
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
