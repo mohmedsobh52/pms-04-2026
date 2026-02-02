@@ -1,262 +1,240 @@
 
-# خطة إصلاح خطأ Auto Classify (402 - نفاد رصيد AI)
+# خطة إصلاح مشكلة عدم ظهور الكميات (Qty = 0)
 
 ## المشكلة
 
-عند الضغط على زر **Auto Classify** في شاشة تصنيف الملفات، يظهر خطأ عام "The app encountered an error". السبب هو أن Edge Function تُرجع خطأ **402** (نفاد رصيد AI) ولكن الواجهة الأمامية لا تتعامل معه بشكل صحيح.
+في شاشة **Extracted Quantities**، جميع الكميات تظهر بقيمة **0** رغم أن التحليل نجح واستخرج 26 بند. هذا يعني أن الـ AI يُرجع البيانات لكن حقل `quantity` لا يُعالج بشكل صحيح.
 
 ## التحليل الفني
 
-### الخطأ الفعلي من Network Logs:
-```
-POST /functions/v1/classify-files
-Status: 402
-Response: {"error":"AI credits exhausted. Please add credits."}
-```
+### السبب الجذري
 
-### المشكلة في الكود الحالي:
+الكود الحالي في `FastExtractionDrawingAnalyzer.tsx` (سطر 204):
 ```typescript
-// FastExtractionClassifier.tsx - lines 79-82
-} catch (error) {
-  console.error("Classification error:", error);
-  toast.error(isArabic ? "فشل التصنيف التلقائي" : "Auto-classification failed");
-}
+quantities: data.analysis?.quantities || [],
 ```
 
-الكود الحالي:
-- يلتقط جميع الأخطاء بشكل عام
-- لا يتحقق من نوع الخطأ (402 أو 429)
-- لا يُظهر رسالة مفيدة للمستخدم
-- لا يوفر بديل محلي
+يأخذ `quantities` مباشرة من رد AI **بدون أي تطبيع (normalization)**. 
+
+المشاكل المحتملة:
+1. **AI يُرجع `quantity` كـ string**: مثل `"150"` بدلاً من `150`
+2. **AI يُرجع اسم حقل مختلف**: مثل `qty`, `Quantity`, `QTY`
+3. **AI يُرجع null/undefined**: أو كائن فارغ
+4. **AI يُرجع نص وصفي**: مثل `"calculated"` أو `"TBD"`
+
+### موقع المشكلة
+
+```typescript
+// سطر 608 - العرض
+<TableCell className="text-right font-mono font-semibold">
+  {q.quantity.toLocaleString()}  // ← إذا كان quantity ليس رقم، يظهر 0 أو يفشل
+</TableCell>
+```
 
 ## الحل المقترح
 
-### 1. إضافة تصنيف محلي ذكي (Local Fallback)
-
-تصنيف الملفات بناءً على اسم الملف ونوعه دون الحاجة لـ AI:
+### 1. إضافة دالة تطبيع الكميات
 
 ```typescript
-const localClassifyFiles = (files: FileToClassify[]): ClassificationResult[] => {
-  return files.map(file => {
-    const name = file.fileName.toLowerCase();
-    const type = file.fileType.toLowerCase();
+// دالة لتطبيع الكميات المستخرجة
+const normalizeQuantities = (quantities: any[]): ExtractedQuantity[] => {
+  if (!Array.isArray(quantities)) return [];
+  
+  return quantities.map((q, idx) => {
+    // استخراج الكمية من حقول متعددة محتملة
+    let qty = 0;
+    const rawQty = q.quantity ?? q.qty ?? q.Quantity ?? q.QTY ?? q.amount ?? q.Amount ?? 0;
     
-    // BOQ patterns
-    if (name.includes('boq') || name.includes('كمي') || name.includes('مقايس')) {
-      return { fileName: file.fileName, category: 'boq', confidence: 0.8 };
+    // تحويل لرقم
+    if (typeof rawQty === 'number') {
+      qty = rawQty;
+    } else if (typeof rawQty === 'string') {
+      // إزالة الفواصل والرموز
+      const cleaned = rawQty.replace(/[,،]/g, '').replace(/[^\d.-]/g, '');
+      qty = parseFloat(cleaned) || 0;
     }
-    // Drawing patterns
-    if (name.includes('drawing') || name.includes('رسم') || name.includes('dwg') || type.includes('dwg')) {
-      return { fileName: file.fileName, category: 'drawings', confidence: 0.8 };
-    }
-    // ... more patterns
     
-    return { fileName: file.fileName, category: 'general', confidence: 0.5 };
-  });
+    return {
+      item_number: String(q.item_number || q.itemNumber || q.no || idx + 1),
+      category: q.category || q.Category || 'General',
+      subcategory: q.subcategory || q.subCategory || q.sub_category || '',
+      description: q.description || q.Description || q.desc || '',
+      quantity: qty,
+      unit: q.unit || q.Unit || '-',
+      measurement_basis: q.measurement_basis || q.measurementBasis || '',
+      pipe_diameter: q.pipe_diameter || q.pipeDiameter || q.diameter || '',
+      pipe_material: q.pipe_material || q.pipeMaterial || q.material || '',
+      notes: q.notes || q.Notes || ''
+    };
+  }).filter(q => q.description); // إزالة البنود الفارغة
 };
 ```
 
-### 2. معالجة أخطاء محددة (402, 429)
+### 2. تطبيق التطبيع عند استلام النتائج
 
 ```typescript
-} catch (error: any) {
-  console.error("Classification error:", error);
-  
-  // Check for specific error codes
-  const errorMessage = error?.message || '';
-  const statusCode = error?.status || 0;
-  
-  if (statusCode === 402 || errorMessage.includes('402') || errorMessage.includes('credits')) {
-    // AI Credits exhausted - use local fallback
-    toast.warning(
-      isArabic 
-        ? "نفد رصيد AI - يتم استخدام التصنيف المحلي" 
-        : "AI credits exhausted - using local classification"
-    );
-    const localResults = localClassifyFiles(filesToClassify);
-    // Apply local results...
-    return;
-  }
-  
-  if (statusCode === 429 || errorMessage.includes('429') || errorMessage.includes('rate')) {
-    toast.error(
-      isArabic 
-        ? "تم تجاوز الحد الأقصى للطلبات. يرجى المحاولة لاحقاً" 
-        : "Rate limit exceeded. Please try again later"
-    );
-    return;
-  }
-  
-  // Generic error
-  toast.error(isArabic ? "فشل التصنيف التلقائي" : "Auto-classification failed");
-}
+// سطر 200-207 - تحديث
+const result: DrawingAnalysisResult = {
+  fileId: file.id,
+  fileName: file.name,
+  success: data.success,
+  quantities: normalizeQuantities(data.analysis?.quantities || []),  // ← تطبيع هنا
+  drawingInfo: data.analysis?.drawing_info || { title: file.name, type: drawingType, scale: "N/A" },
+  summary: data.analysis?.summary || { totalItems: 0, categories: [] },
+};
 ```
 
-### 3. إضافة زر للتصنيف المحلي كبديل
-
-إضافة زر منفصل يسمح بالتصنيف المحلي مباشرة:
+### 3. إضافة حماية عند العرض (fallback)
 
 ```typescript
-<Button
-  onClick={handleLocalClassify}
-  variant="outline"
-  className="gap-2"
->
-  <Zap className="h-4 w-4" />
-  {isArabic ? "تصنيف سريع" : "Quick Classify"}
-</Button>
+// سطر 608 - تحديث العرض ليكون آمناً
+<TableCell className="text-right font-mono font-semibold">
+  {(q.quantity || 0).toLocaleString()}
+</TableCell>
+```
+
+### 4. إضافة logging للتشخيص (مؤقت)
+
+```typescript
+console.log("Raw AI quantities:", data.analysis?.quantities);
+console.log("Normalized quantities:", normalizedQtys);
 ```
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/FastExtractionClassifier.tsx` | إضافة معالجة أخطاء محددة + تصنيف محلي |
-| `src/lib/local-file-classification.ts` | ملف جديد - منطق التصنيف المحلي |
+| `src/components/FastExtractionDrawingAnalyzer.tsx` | إضافة دالة التطبيع + تحديث معالجة النتائج |
 
-## منطق التصنيف المحلي الكامل
+## الكود التفصيلي
 
-التصنيف يعتمد على أنماط في اسم الملف:
+### FastExtractionDrawingAnalyzer.tsx
 
-| الفئة | الأنماط (إنجليزي) | الأنماط (عربي) |
-|-------|------------------|----------------|
-| BOQ | boq, bill, quantity, pricing | كمي، مقايس، تسعير، بنود |
-| Drawings | drawing, dwg, plan, section | رسم، مخطط، قطاع |
-| Specifications | spec, standard, technical | مواصفات، معايير، فني |
-| Contracts | contract, agreement, legal | عقد، اتفاقية، قانوني |
-| Quotations | quotation, quote, bid, offer | عرض سعر، مناقصة، تسعيرة |
-| Reports | report, analysis, study | تقرير، دراسة، تحليل |
-| Schedules | schedule, timeline, gantt | جدول زمني، برنامج |
-| General | (fallback) | (افتراضي) |
+#### إضافة دالة التطبيع (بعد الـ interfaces):
 
-## تجربة المستخدم بعد الإصلاح
+```typescript
+// Normalize quantities from AI response to handle different field names and types
+const normalizeQuantities = (quantities: any[]): ExtractedQuantity[] => {
+  if (!Array.isArray(quantities)) {
+    console.warn("Quantities is not an array:", quantities);
+    return [];
+  }
+  
+  return quantities.map((q, idx) => {
+    // Extract quantity from multiple possible field names
+    let qty = 0;
+    const rawQty = q?.quantity ?? q?.qty ?? q?.Quantity ?? q?.QTY ?? q?.amount ?? q?.Amount ?? 0;
+    
+    // Convert to number safely
+    if (typeof rawQty === 'number' && !isNaN(rawQty)) {
+      qty = rawQty;
+    } else if (typeof rawQty === 'string') {
+      // Remove commas, Arabic commas, and non-numeric chars except decimal point
+      const cleaned = rawQty.replace(/[,،\s]/g, '').replace(/[^\d.-]/g, '');
+      const parsed = parseFloat(cleaned);
+      qty = isNaN(parsed) ? 0 : parsed;
+    }
+    
+    return {
+      item_number: String(q?.item_number || q?.itemNumber || q?.no || q?.num || idx + 1),
+      category: q?.category || q?.Category || 'General',
+      subcategory: q?.subcategory || q?.subCategory || q?.sub_category || '',
+      description: q?.description || q?.Description || q?.desc || q?.name || '',
+      quantity: qty,
+      unit: q?.unit || q?.Unit || '-',
+      measurement_basis: q?.measurement_basis || q?.measurementBasis || q?.basis || '',
+      pipe_diameter: q?.pipe_diameter || q?.pipeDiameter || q?.diameter || q?.Diameter || '',
+      pipe_material: q?.pipe_material || q?.pipeMaterial || q?.material || q?.Material || '',
+      notes: q?.notes || q?.Notes || q?.remarks || ''
+    };
+  }).filter(q => q.description && q.description.trim() !== '');
+};
+```
 
-### السيناريو 1: AI يعمل بشكل طبيعي
-1. المستخدم يضغط "Auto Classify"
-2. يتم التصنيف عبر AI
-3. تظهر رسالة نجاح ✓
+#### تحديث معالجة النتائج:
 
-### السيناريو 2: نفاد رصيد AI (402)
-1. المستخدم يضغط "Auto Classify"
-2. يظهر تحذير: "نفد رصيد AI - يتم استخدام التصنيف المحلي"
-3. يتم التصنيف محلياً بناءً على اسم الملف
-4. الملفات تُصنف تلقائياً ✓
+```typescript
+// Line ~200-207
+const rawQuantities = data.analysis?.quantities || [];
+console.log("Raw AI quantities:", JSON.stringify(rawQuantities.slice(0, 3)));
 
-### السيناريو 3: تجاوز حد الطلبات (429)
-1. المستخدم يضغط "Auto Classify"
-2. يظهر خطأ: "تم تجاوز الحد الأقصى. يرجى المحاولة لاحقاً"
-3. المستخدم يمكنه استخدام "Quick Classify" أو التصنيف اليدوي
+const normalizedQuantities = normalizeQuantities(rawQuantities);
+console.log("Normalized quantities:", JSON.stringify(normalizedQuantities.slice(0, 3)));
+
+const result: DrawingAnalysisResult = {
+  fileId: file.id,
+  fileName: file.name,
+  success: data.success,
+  quantities: normalizedQuantities,
+  drawingInfo: data.analysis?.drawing_info || { title: file.name, type: drawingType, scale: "N/A" },
+  summary: {
+    totalItems: normalizedQuantities.length,
+    categories: [...new Set(normalizedQuantities.map(q => q.category))],
+    ...data.analysis?.summary
+  },
+};
+```
+
+#### تحديث عرض الجدول (سطر ~608):
+
+```typescript
+<TableCell className="text-right font-mono font-semibold">
+  {typeof q.quantity === 'number' ? q.quantity.toLocaleString() : '0'}
+</TableCell>
+```
+
+#### تحديث حساب الملخص (سطر ~552-557):
+
+```typescript
+{Object.entries(
+  allQuantities.reduce((acc, q) => {
+    const cat = q.category || "Other";
+    if (!acc[cat]) acc[cat] = { count: 0, totalQty: 0, unit: q.unit || '-' };
+    acc[cat].count++;
+    acc[cat].totalQty += (typeof q.quantity === 'number' ? q.quantity : 0);
+    return acc;
+  }, {} as Record<string, { count: number; totalQty: number; unit: string }>)
+).map(([category, data]) => {
+```
 
 ## مخطط التدفق
 
 ```text
-Auto Classify Click
-        │
-        ▼
-┌───────────────────┐
-│ Call Edge Function│
-│ classify-files    │
-└───────────────────┘
-        │
-        ▼
-    Response?
-   /    │    \
-  /     │     \
-200    402    429
- │      │      │
- ▼      ▼      ▼
-Apply  Local   Show
-AI     Fallback Error
-Results        Message
- │      │      │
- ▼      ▼      ▼
-   ┌─────────┐
-   │ Update  │
-   │ Files   │
-   └─────────┘
+AI Response
+     │
+     ▼
+┌─────────────────────────┐
+│ data.analysis.quantities│
+│ (raw, unvalidated)      │
+└───────────┬─────────────┘
+            │
+            ▼
+┌─────────────────────────┐
+│ normalizeQuantities()   │
+│ - Check field names     │
+│ - Convert to number     │
+│ - Handle strings        │
+│ - Filter empty items    │
+└───────────┬─────────────┘
+            │
+            ▼
+┌─────────────────────────┐
+│ ExtractedQuantity[]     │
+│ (validated, typed)      │
+└───────────┬─────────────┘
+            │
+            ▼
+┌─────────────────────────┐
+│ Display in Table        │
+│ q.quantity.toLocaleString()
+└─────────────────────────┘
 ```
-
-## التغييرات التفصيلية
-
-### ملف جديد: `src/lib/local-file-classification.ts`
-
-```typescript
-interface FileToClassify {
-  fileName: string;
-  fileType: string;
-}
-
-interface ClassificationResult {
-  fileName: string;
-  category: string;
-  confidence: number;
-}
-
-const CATEGORY_PATTERNS = {
-  boq: {
-    en: ['boq', 'bill of quantities', 'pricing', 'cost estimate', 'quantity'],
-    ar: ['كمي', 'مقايس', 'تسعير', 'بنود', 'جدول الكميات']
-  },
-  drawings: {
-    en: ['drawing', 'dwg', 'plan', 'section', 'elevation', 'detail', 'layout'],
-    ar: ['رسم', 'مخطط', 'قطاع', 'واجهة', 'تفصيل', 'تخطيط']
-  },
-  specifications: {
-    en: ['spec', 'specification', 'standard', 'technical', 'requirement'],
-    ar: ['مواصفات', 'معايير', 'فني', 'متطلبات', 'شروط']
-  },
-  contracts: {
-    en: ['contract', 'agreement', 'legal', 'terms', 'conditions'],
-    ar: ['عقد', 'اتفاقية', 'قانوني', 'شروط']
-  },
-  quotations: {
-    en: ['quotation', 'quote', 'bid', 'offer', 'proposal', 'tender'],
-    ar: ['عرض', 'سعر', 'مناقصة', 'تسعيرة', 'اقتراح']
-  },
-  reports: {
-    en: ['report', 'analysis', 'study', 'summary', 'review'],
-    ar: ['تقرير', 'دراسة', 'تحليل', 'ملخص', 'مراجعة']
-  },
-  schedules: {
-    en: ['schedule', 'timeline', 'gantt', 'program', 'milestone'],
-    ar: ['جدول', 'زمني', 'برنامج', 'مراحل']
-  }
-};
-
-export function classifyFilesLocally(files: FileToClassify[]): ClassificationResult[] {
-  return files.map(file => {
-    const name = file.fileName.toLowerCase();
-    
-    for (const [category, patterns] of Object.entries(CATEGORY_PATTERNS)) {
-      const allPatterns = [...patterns.en, ...patterns.ar];
-      if (allPatterns.some(pattern => name.includes(pattern))) {
-        return {
-          fileName: file.fileName,
-          category,
-          confidence: 0.75
-        };
-      }
-    }
-    
-    return {
-      fileName: file.fileName,
-      category: 'general',
-      confidence: 0.5
-    };
-  });
-}
-```
-
-### تحديث: `src/components/FastExtractionClassifier.tsx`
-
-التغييرات الرئيسية:
-1. استيراد دالة التصنيف المحلي
-2. تحديث `handleAutoClassify` للتعامل مع الأخطاء
-3. إضافة زر "Quick Classify" كبديل
 
 ## ملاحظات للاختبار
 
-1. ✅ اختبار مع رصيد AI متاح - يجب أن يعمل عادي
-2. ✅ اختبار مع نفاد رصيد AI - يجب استخدام الفallback
-3. ✅ اختبار زر Quick Classify - يجب أن يصنف محلياً
-4. ✅ التأكد من ظهور الرسائل بالعربية والإنجليزية
+بعد التنفيذ:
+1. ✅ تحليل نفس ملف PDF والتأكد من ظهور الكميات
+2. ✅ فحص Console Logs لمعرفة البيانات الخام من AI
+3. ✅ التأكد من أن الملخص يُظهر الأرقام الصحيحة
+4. ✅ تصدير Excel/PDF والتأكد من الكميات
+5. ✅ اختبار مع أنواع ملفات مختلفة (PDF, Image)
