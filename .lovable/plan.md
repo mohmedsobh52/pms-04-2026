@@ -1,101 +1,259 @@
 
+
+# خطة إضافة زر "تحليل الكل" مع اختيار تحديد الكل
+
 ## الهدف
-إصلاح مشكلة “التبويبات لا تعمل” بشكل جذري (سواء كانت تبويبات الصفحات داخل المحتوى، أو “تبويبات” شريط التنقل العلوي)، عبر منع أي طبقات/Overlays مخفية من حجب النقرات، وتطبيق حماية تفاعلية (z-index + pointer-events) للتبويبات بشكل موحد في كل التطبيق.
 
----
+إضافة زر لتحليل جميع عروض الأسعار دفعة واحدة مع إمكانية:
+1. تحديد الكل / إلغاء تحديد الكل
+2. تحليل جميع العروض المحددة بالتسلسل
 
-## ما توصلتُ له من الفحص الحالي
-- تبويبات صفحة **/quotations** لديها `tabs-navigation-safe` بالفعل، وفي بيئة الاختبار ظهرت قابلة للنقر.
-- غالباً سبب “التبويبات لا تعمل” في هذا المشروع يكون من:
-  1) **Overlay غير مرئي** (Dialog/Sheet/AlertDialog/CommandDialog) يبقى موجوداً أثناء الإغلاق (data-state=closed) لكنه ما زال يلتقط النقرات.
-  2) صفحة في حالة **تحميل** مع طبقة تغطي الواجهة (loader) فتبدو التبويبات “لا تستجيب”.
+## التصميم المقترح
 
-الحل الأكثر ثباتاً: معالجة الـOverlays من المصدر داخل مكونات UI نفسها بدل الاعتماد فقط على CSS عام قد لا يطابق عناصر Radix دائماً.
+### واجهة المستخدم
 
----
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│ عروض الأسعار المرفوعة (7)                                        │
+│                                                                   │
+│ ┌──────────────────────┐  ┌──────────────────┐  ┌──────────────┐ │
+│ │ ☑ تحديد الكل        │  │ ✨ تحليل المحدد  │  │ إلغاء التحديد│ │
+│ └──────────────────────┘  └──────────────────┘  └──────────────┘ │
+│                                                                   │
+│ ☐ SQ1-54260 HDPE QUOTATION SPS           [OCR] [تحليل AI] [👁] 🗑 │
+│ ☐ QUOTATION 38181 02.11.2025 RVK         [OCR] [تحليل AI] [👁] 🗑 │
+│ ☐ SPS Q1-54514                           [OCR] [تحليل AI] [👁] 🗑 │
+│ ...                                                               │
+└───────────────────────────────────────────────────────────────────┘
+```
 
-## خطوة توضيح سريعة (بدون تعقيد)
-قبل التنفيذ، سأحتاج منك تحديد واحد فقط:
-- أين لا تعمل التبويبات بالضبط؟
-  - A) تبويبات داخل الصفحة (مثل Upload/Compare في Quotations أو Projects/Reports في Projects)
-  - B) عناصر الشريط العلوي (Dashboard / Projects / Analysis / Library / Reports)
-  - C) الاثنين
+### حالة التحليل الجماعي
 
-(سأبني التحقق النهائي والاختبارات بناءً على إجابتك، لكن الخطة أدناه ستعالج أغلب السيناريوهات حتى لو لم نحدد بدقة.)
+```text
+┌──────────────────────────────────────────────────────────┐
+│ ████████████████████░░░░░░░░░░ 60%                       │
+│ جاري تحليل 3 من 5 عروض...                               │
+│ الحالي: SPS Q1-54514                                     │
+└──────────────────────────────────────────────────────────┘
+```
 
----
+## التغييرات المطلوبة
 
-## التغييرات المقترحة (تنفيذ)
-### 1) إصلاح جذري لمشكلة حجب النقرات بسبب Overlays
-سنعدل مكونات الـUI التي تنشئ Overlays لتصبح “غير قابلة لالتقاط النقرات” تلقائياً عند الإغلاق:
+### ملف: `src/components/QuotationUpload.tsx`
 
-**الملفات المستهدفة:**
-- `src/components/ui/dialog.tsx`
-- `src/components/ui/alert-dialog.tsx`
-- `src/components/ui/sheet.tsx`
+#### 1. إضافة State جديدة
 
-**التعديل:**
-- إضافة Tailwind state-variants مباشرة داخل `className` للـOverlay:
-  - `data-[state=closed]:pointer-events-none`
-  - `data-[state=closed]:opacity-0`
-  - (اختياري) `data-[state=open]:pointer-events-auto`
+```typescript
+// State للتحديد الجماعي
+const [selectedForBatch, setSelectedForBatch] = useState<Set<string>>(new Set());
+const [isBatchAnalyzing, setIsBatchAnalyzing] = useState(false);
+const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, currentName: '' });
+```
 
-النتيجة: حتى لو بَقِي عنصر Overlay جزء من الثانية في الـDOM أثناء الإغلاق، لن يمنع أي نقرات على التبويبات أو الأزرار.
+#### 2. إضافة دوال التحديد
 
----
+```typescript
+// تحديد الكل
+const handleSelectAll = () => {
+  const pendingIds = quotations
+    .filter(q => q.status !== 'analyzed')
+    .map(q => q.id);
+  setSelectedForBatch(new Set(pendingIds));
+};
 
-### 2) توحيد حماية التبويبات داخل مكوّن Tabs نفسه (بدلاً من تكرار class في كل صفحة)
-**الملف المستهدف:**
-- `src/components/ui/tabs.tsx`
+// إلغاء تحديد الكل
+const handleDeselectAll = () => {
+  setSelectedForBatch(new Set());
+};
 
-**التعديل:**
-- جعل `TabsList` يضيف `tabs-navigation-safe` افتراضياً ضمن `className` (مع الحفاظ على أي className يمرره المطور).
-- (اختياري) تعزيز `TabsTrigger` ليكون `relative` + `pointer-events-auto` دائماً.
+// تبديل تحديد عرض واحد
+const toggleSelection = (id: string) => {
+  setSelectedForBatch(prev => {
+    const newSet = new Set(prev);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    return newSet;
+  });
+};
+```
 
-النتيجة: أي تبويبات جديدة أو قديمة في أي صفحة ستصبح محمية تلقائياً من مشاكل الـz-index وpointer-events.
+#### 3. إضافة دالة التحليل الجماعي
 
----
+```typescript
+// تحليل جميع العروض المحددة
+const handleBatchAnalyze = async () => {
+  if (selectedForBatch.size === 0) {
+    toast({
+      title: "لا توجد عروض محددة",
+      description: "يرجى تحديد عرض واحد على الأقل",
+      variant: "destructive",
+    });
+    return;
+  }
 
-### 3) تحسين CSS كشبكة أمان (Fallback) للتبويبات
-**الملف المستهدف:**
-- `src/components/ui/dialog-custom.css`
+  const quotationsToAnalyze = quotations.filter(
+    q => selectedForBatch.has(q.id) && q.status !== 'analyzed'
+  );
 
-**إضافات بسيطة وآمنة:**
-- قواعد عامة على مستوى الأدوار لتقليل احتمالية “توقف النقر” حتى لو كانت هناك طبقة قريبة:
-  - `[role="tablist"] { position: relative; z-index: 55; }`
-  - `[role="tab"] { position: relative; z-index: 56; pointer-events: auto !important; }`
+  if (quotationsToAnalyze.length === 0) {
+    toast({
+      title: "جميع العروض محللة",
+      description: "العروض المحددة تم تحليلها مسبقاً",
+    });
+    return;
+  }
 
-(هذه لن تكسر التخطيط لأنها تعمل داخل سياق العنصر نفسه ولا تتجاوز فوق Dialog محتواه.)
+  setIsBatchAnalyzing(true);
+  setBatchProgress({ current: 0, total: quotationsToAnalyze.length, currentName: '' });
 
----
+  let successCount = 0;
+  let failCount = 0;
 
-## خطة اختبار سريعة بعد التنفيذ (مهم)
-1) الانتقال إلى `/quotations` وتجربة الضغط على:
-   - Upload Quotations
-   - Compare Quotations
-2) الانتقال إلى `/projects` وتجربة الضغط على:
-   - Projects / Analyze / Reports / Attachments
-3) فتح وإغلاق أي نافذة حوار (مثل OCR أو البحث العام ⌘K) ثم إعادة تجربة التبويبات للتأكد أن الإغلاق لا يترك Overlay “خفي”.
-4) اختبار نفس السيناريو على شاشة صغيرة (Mobile width) لأن التراكب يحصل كثيراً هناك.
+  for (let i = 0; i < quotationsToAnalyze.length; i++) {
+    const quotation = quotationsToAnalyze[i];
+    setBatchProgress({ 
+      current: i + 1, 
+      total: quotationsToAnalyze.length, 
+      currentName: quotation.name 
+    });
 
----
+    try {
+      await analyzeQuotation(quotation);
+      successCount++;
+    } catch (error) {
+      failCount++;
+      console.error(`Failed to analyze ${quotation.name}:`, error);
+    }
 
-## المخاطر المتوقعة وكيف سنمنعها
-- **خطر:** تعطيل pointer-events على عناصر مغلقة بشكل عام قد يكسر أزرار أخرى.
-  - **الحل:** لن نطبق قاعدة عامة على كل `[data-state=closed]`؛ سنطبقها فقط على Overlays المحددة (Dialog/AlertDialog/Sheet) من داخل مكوناتها.
+    // تأخير بسيط لتجنب حدود الـ rate limit
+    if (i < quotationsToAnalyze.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  }
 
----
+  setIsBatchAnalyzing(false);
+  setSelectedForBatch(new Set());
+  
+  toast({
+    title: "اكتمل التحليل الجماعي",
+    description: `نجح: ${successCount} | فشل: ${failCount}`,
+    variant: failCount > 0 ? "default" : "default",
+  });
+};
+```
 
-## مخرجات التنفيذ
-- التبويبات تعمل دائماً حتى بعد فتح/إغلاق أي Dialog/Sheet.
-- اختفاء حالات “واجهة لا تستجيب” الناتجة عن overlay غير مرئي.
-- تقليل الحاجة لإضافة `tabs-navigation-safe` يدوياً في كل صفحة.
+#### 4. تحديث واجهة المستخدم - إضافة شريط التحكم
 
----
+```tsx
+{/* Bulk Actions Bar */}
+{quotations.length > 0 && (
+  <Card>
+    <CardHeader>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <CardTitle className="text-base">
+          عروض الأسعار المرفوعة ({quotations.length})
+        </CardTitle>
+        
+        <div className="flex items-center gap-2">
+          {/* Select All / Deselect All */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={selectedForBatch.size > 0 ? handleDeselectAll : handleSelectAll}
+            disabled={isBatchAnalyzing}
+            className="gap-1.5"
+          >
+            {selectedForBatch.size > 0 ? (
+              <>
+                <X className="w-3.5 h-3.5" />
+                إلغاء التحديد ({selectedForBatch.size})
+              </>
+            ) : (
+              <>
+                <CheckSquare className="w-3.5 h-3.5" />
+                تحديد الكل
+              </>
+            )}
+          </Button>
 
-## قائمة الملفات التي سيتم تعديلها
-- `src/components/ui/dialog.tsx`
-- `src/components/ui/alert-dialog.tsx`
-- `src/components/ui/sheet.tsx`
-- `src/components/ui/tabs.tsx`
-- `src/components/ui/dialog-custom.css`
+          {/* Batch Analyze Button */}
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleBatchAnalyze}
+            disabled={selectedForBatch.size === 0 || isBatchAnalyzing}
+            className="gap-1.5 bg-primary"
+          >
+            {isBatchAnalyzing ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5" />
+            )}
+            تحليل المحدد ({selectedForBatch.size})
+          </Button>
+        </div>
+      </div>
+    </CardHeader>
+    
+    {/* Batch Progress */}
+    {isBatchAnalyzing && (
+      <div className="px-6 pb-4 space-y-2">
+        <Progress 
+          value={(batchProgress.current / batchProgress.total) * 100} 
+        />
+        <p className="text-sm text-muted-foreground text-center">
+          جاري تحليل {batchProgress.current} من {batchProgress.total}...
+          <span className="block text-xs">{batchProgress.currentName}</span>
+        </p>
+      </div>
+    )}
+    
+    <CardContent>
+      {/* Quotation items with checkboxes */}
+    </CardContent>
+  </Card>
+)}
+```
+
+#### 5. إضافة Checkbox لكل عرض
+
+```tsx
+<div className="flex items-center gap-4">
+  {/* Selection Checkbox */}
+  <Checkbox
+    checked={selectedForBatch.has(quotation.id)}
+    onCheckedChange={() => toggleSelection(quotation.id)}
+    disabled={isBatchAnalyzing || quotation.status === 'analyzed'}
+    className="h-5 w-5"
+  />
+  
+  {/* Existing file icon and info */}
+  <div className={`w-10 h-10 rounded-lg...`}>
+    ...
+  </div>
+</div>
+```
+
+## الملفات المتأثرة
+
+| الملف | التغيير |
+|-------|---------|
+| `src/components/QuotationUpload.tsx` | إضافة التحديد الجماعي والتحليل الجماعي |
+
+## مميزات الحل
+
+1. **تحديد سريع**: زر واحد لتحديد جميع العروض غير المحللة
+2. **تقدم مرئي**: شريط تقدم يظهر حالة التحليل الجماعي
+3. **حماية من الـ Rate Limit**: تأخير 2 ثانية بين كل تحليل
+4. **تخطي المحلل**: العروض التي تم تحليلها مسبقاً لا تظهر في التحديد
+5. **تقرير نهائي**: إظهار عدد الناجح والفاشل
+
+## ملاحظات
+
+- العروض التي تحتاج OCR (PDF ممسوح ضوئياً) ستفشل في التحليل التلقائي
+- يمكن للمستخدم تحديد عروض محددة بدلاً من تحديد الكل
+- الزر معطل أثناء التحليل الجماعي لمنع التداخل
+
