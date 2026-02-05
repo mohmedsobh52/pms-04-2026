@@ -461,13 +461,13 @@ export default function HomePage() {
 
         {/* Recent Actions Shortcuts */}
         {user && (
-          <section className="flex items-center justify-center gap-2 flex-wrap animate-fade-in">
+          <section className="flex items-center justify-center gap-2 flex-wrap animate-fade-in quick-shortcuts-safe">
             <span className="text-xs text-muted-foreground px-2">
               {isArabic ? "اختصارات سريعة:" : "Quick shortcuts:"}
             </span>
             {recentActions.map((action) => (
-              <Link key={action.href} to={action.href}>
-                <Button variant="outline" size="sm" className="gap-2 bg-card/60 backdrop-blur-sm hover:bg-primary/10 transition-all">
+              <Link key={action.href} to={action.href} className="pointer-events-auto">
+                <Button variant="outline" size="sm" className="gap-2 bg-card/60 backdrop-blur-sm hover:bg-primary/10 transition-all pointer-events-auto">
                   <action.icon className="w-3.5 h-3.5" />
                   <span className="text-xs">{isArabic ? action.label.ar : action.label.en}</span>
                 </Button>

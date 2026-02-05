@@ -284,7 +284,7 @@ export function PhaseActionsGrid({ activePhase }: PhaseActionsGridProps) {
                 <TooltipTrigger asChild>
                   <Link 
                     to={action.href}
-                    className="animate-scale-in block"
+                    className="animate-scale-in block pointer-events-auto relative z-10"
                     style={{ animationDelay: `${index * 0.1}s` }}
                   >
                     <Card className={cn(

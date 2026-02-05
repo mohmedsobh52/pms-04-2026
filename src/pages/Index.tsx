@@ -1840,7 +1840,7 @@ const Index = () => {
               {user && (
                 <div ref={tabsRef} className="glass-card p-6 animate-slide-up">
                   <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="w-full flex flex-wrap justify-start gap-1 h-auto p-1 bg-muted/50 mb-4">
+                    <TabsList className="w-full flex flex-wrap justify-start gap-1 h-auto p-1 bg-muted/50 mb-4 tabs-navigation-safe">
                       <TabsTrigger value="dashboard" className="gap-2">
                         <LayoutDashboard className="w-4 h-4" />
                         <span className="hidden sm:inline">{isArabic ? 'لوحة التحكم' : 'Dashboard'}</span>
@@ -1920,7 +1920,7 @@ const Index = () => {
                     </TabsContent>
                     <TabsContent value="subcontractors">
                       <Tabs defaultValue="management" className="space-y-4">
-                        <TabsList>
+                        <TabsList className="tabs-navigation-safe">
                           <TabsTrigger value="management">
                             {isArabic ? "إدارة المقاولين" : "Management"}
                           </TabsTrigger>
@@ -1947,7 +1947,7 @@ const Index = () => {
                     </TabsContent>
                     <TabsContent value="settings">
                       <Tabs defaultValue="notifications" className="space-y-4">
-                        <TabsList>
+                        <TabsList className="tabs-navigation-safe">
                           <TabsTrigger value="notifications">
                             {isArabic ? "الإشعارات" : "Notifications"}
                           </TabsTrigger>

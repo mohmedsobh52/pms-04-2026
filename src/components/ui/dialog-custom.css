@@ -479,3 +479,28 @@ button.header-search-box > * {
   transform: scale(0.98);
   transition: transform 50ms ease-out;
 }
+
+/* ============================================
+   QUICK SHORTCUTS PROTECTION
+   Ensure quick shortcut buttons are always clickable
+   ============================================ */
+
+.quick-shortcuts-safe {
+  position: relative;
+  z-index: 55;
+  pointer-events: auto !important;
+}
+
+.quick-shortcuts-safe a,
+.quick-shortcuts-safe button {
+  position: relative;
+  z-index: 56;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.quick-shortcuts-safe a:active,
+.quick-shortcuts-safe button:active {
+  transform: scale(0.98);
+  transition: transform 50ms ease-out;
+}
