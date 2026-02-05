@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
-import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign, ScanText, FileSearch, CheckCircle, Zap } from "lucide-react";
+import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign, ScanText, FileSearch, CheckCircle, Zap, CheckSquare, X, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -116,6 +117,35 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
   // Signed URL state for file viewing
   const [activeFileUrl, setActiveFileUrl] = useState<{ url: string; expiresAt: Date } | null>(null);
   const [isLoadingUrl, setIsLoadingUrl] = useState(false);
+
+  // Batch analysis state
+  const [selectedForBatch, setSelectedForBatch] = useState<Set<string>>(new Set());
+  const [isBatchAnalyzing, setIsBatchAnalyzing] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, currentName: '' });
+
+  // Batch selection handlers
+  const handleSelectAll = useCallback(() => {
+    const pendingIds = quotations
+      .filter(q => q.status !== 'analyzed')
+      .map(q => q.id);
+    setSelectedForBatch(new Set(pendingIds));
+  }, [quotations]);
+
+  const handleDeselectAll = useCallback(() => {
+    setSelectedForBatch(new Set());
+  }, []);
+
+  const toggleSelection = useCallback((id: string) => {
+    setSelectedForBatch(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  }, []);
 
   // Helper to get signed URL for a quotation file
   const getQuotationSignedUrl = useCallback(async (quotation: Quotation): Promise<string> => {
@@ -873,6 +903,66 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
     }
   };
 
+  // Batch analyze all selected quotations
+  const handleBatchAnalyze = async () => {
+    if (selectedForBatch.size === 0) {
+      toast({
+        title: "لا توجد عروض محددة",
+        description: "يرجى تحديد عرض واحد على الأقل",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const quotationsToAnalyze = quotations.filter(
+      q => selectedForBatch.has(q.id) && q.status !== 'analyzed'
+    );
+
+    if (quotationsToAnalyze.length === 0) {
+      toast({
+        title: "جميع العروض محللة",
+        description: "العروض المحددة تم تحليلها مسبقاً",
+      });
+      return;
+    }
+
+    setIsBatchAnalyzing(true);
+    setBatchProgress({ current: 0, total: quotationsToAnalyze.length, currentName: '' });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < quotationsToAnalyze.length; i++) {
+      const quotation = quotationsToAnalyze[i];
+      setBatchProgress({ 
+        current: i + 1, 
+        total: quotationsToAnalyze.length, 
+        currentName: quotation.name 
+      });
+
+      try {
+        await analyzeQuotation(quotation);
+        successCount++;
+      } catch (error) {
+        failCount++;
+        console.error(`Failed to analyze ${quotation.name}:`, error);
+      }
+
+      // Rate limit delay
+      if (i < quotationsToAnalyze.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+
+    setIsBatchAnalyzing(false);
+    setSelectedForBatch(new Set());
+    
+    toast({
+      title: "اكتمل التحليل الجماعي",
+      description: `نجح: ${successCount} | فشل: ${failCount}`,
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Upload Form */}
@@ -946,8 +1036,8 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
               ) : (
                 <div className="flex flex-col items-center gap-3">
                   <div className="flex gap-3">
-                    <FileText className="w-10 h-10 text-red-500" />
-                    <FileSpreadsheet className="w-10 h-10 text-green-500" />
+                    <FileText className="w-10 h-10 text-destructive" />
+                    <FileSpreadsheet className="w-10 h-10 text-primary" />
                   </div>
                   <div>
                     <p className="font-medium">اسحب الملف هنا أو انقر للاختيار</p>
@@ -961,7 +1051,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
           </div>
 
           {!user && (
-            <p className="text-sm text-amber-600 text-center">
+            <p className="text-sm text-muted-foreground text-center">
               يرجى تسجيل الدخول لرفع عروض الأسعار
             </p>
           )}
@@ -972,8 +1062,63 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
       {quotations.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">عروض الأسعار المرفوعة ({quotations.length})</CardTitle>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <CardTitle className="text-base">عروض الأسعار المرفوعة ({quotations.length})</CardTitle>
+              
+              <div className="flex items-center gap-2">
+                {/* Select All / Deselect All */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={selectedForBatch.size > 0 ? handleDeselectAll : handleSelectAll}
+                  disabled={isBatchAnalyzing}
+                  className="gap-1.5"
+                >
+                  {selectedForBatch.size > 0 ? (
+                    <>
+                      <X className="w-3.5 h-3.5" />
+                      إلغاء التحديد ({selectedForBatch.size})
+                    </>
+                  ) : (
+                    <>
+                      <CheckSquare className="w-3.5 h-3.5" />
+                      تحديد الكل
+                    </>
+                  )}
+                </Button>
+
+                {/* Batch Analyze Button */}
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleBatchAnalyze}
+                  disabled={selectedForBatch.size === 0 || isBatchAnalyzing}
+                  className="gap-1.5"
+                >
+                  {isBatchAnalyzing ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  )}
+                  تحليل المحدد ({selectedForBatch.size})
+                </Button>
+              </div>
+            </div>
           </CardHeader>
+          
+          {/* Batch Progress */}
+          {isBatchAnalyzing && (
+            <div className="px-6 pb-4 space-y-2">
+              <Progress 
+                value={(batchProgress.current / batchProgress.total) * 100} 
+              />
+              <p className="text-sm text-muted-foreground text-center">
+                جاري تحليل {batchProgress.current} من {batchProgress.total}...
+                <span className="block text-xs">{batchProgress.currentName}</span>
+              </p>
+            </div>
+          )}
+          
           <CardContent>
             <div className="space-y-3">
               {quotations.map((quotation) => (
@@ -985,14 +1130,22 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                   <div className="rounded-lg border border-border hover:border-primary/30 transition-colors overflow-hidden">
                     <div className="flex items-center justify-between p-4">
                       <div className="flex items-center gap-4">
+                        {/* Selection Checkbox */}
+                        <Checkbox
+                          checked={selectedForBatch.has(quotation.id)}
+                          onCheckedChange={() => toggleSelection(quotation.id)}
+                          disabled={isBatchAnalyzing || quotation.status === 'analyzed'}
+                          className="h-5 w-5"
+                        />
+                        
                         <div className={`
                           w-10 h-10 rounded-lg flex items-center justify-center
-                          ${quotation.file_type === 'pdf' ? 'bg-red-500/10' : 'bg-green-500/10'}
+                          ${quotation.file_type === 'pdf' ? 'bg-destructive/10' : 'bg-accent'}
                         `}>
                           {quotation.file_type === 'pdf' ? (
-                            <FileText className="w-5 h-5 text-red-500" />
+                            <FileText className="w-5 h-5 text-destructive" />
                           ) : (
-                            <FileSpreadsheet className="w-5 h-5 text-green-500" />
+                            <FileSpreadsheet className="w-5 h-5 text-primary" />
                           )}
                         </div>
                         <div>
@@ -1040,7 +1193,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                             size="sm"
                             onClick={() => handlePrepareLocalAnalysis(quotation)}
                             disabled={analyzingId === quotation.id}
-                            className="gap-1.5 border-green-500/50 text-green-600 hover:bg-green-500/10"
+                            className="gap-1.5 border-primary/50 text-primary hover:bg-primary/10"
                             title="تحليل محلي سريع بدون AI"
                           >
                             <Calculator className="w-3.5 h-3.5" />
@@ -1055,7 +1208,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                             size="sm"
                             onClick={() => handlePrepareChunkedAnalysis(quotation)}
                             disabled={analyzingId === quotation.id}
-                            className="gap-1.5 border-amber-500/50 text-amber-600 hover:bg-amber-500/10"
+                            className="gap-1.5 border-accent-foreground/30 text-accent-foreground hover:bg-accent"
                             title="تحليل مجزأ للملفات الكبيرة"
                           >
                             <Zap className="w-3.5 h-3.5" />
@@ -1404,7 +1557,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
         <DialogContent dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <FileSearch className="w-5 h-5 text-amber-500" />
+              <FileSearch className="w-5 h-5 text-muted-foreground" />
               ملف PDF ممسوح ضوئياً
             </DialogTitle>
             <DialogDescription>
