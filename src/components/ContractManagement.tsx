@@ -23,6 +23,8 @@ import {
   Percent,
   FileCheck,
   CheckCircle,
+  Sparkles,
+  Languages,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -114,6 +116,9 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  
+  // AI generation states
+  const [generatingField, setGeneratingField] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     // Step 1: Basic Info
@@ -414,6 +419,95 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
         return formData.contract_number && formData.contract_title;
       default:
         return true;
+    }
+  };
+
+  // AI content generation function
+  const generateWithAI = async (field: 'payment_terms' | 'scope_of_work' | 'notes') => {
+    setGeneratingField(field);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-contract-content', {
+        body: {
+          field,
+          contract_type: formData.contract_type,
+          contract_title: formData.contract_title,
+          contractor_category: formData.contractor_category,
+          language: isArabic ? 'ar' : 'en'
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.content) {
+        setFormData(prev => ({
+          ...prev,
+          [field]: data.content
+        }));
+        
+        toast({
+          title: isArabic ? "تم التوليد بنجاح" : "Generated successfully",
+          description: isArabic ? "يمكنك تعديل المحتوى حسب الحاجة" : "You can edit the content as needed"
+        });
+      }
+    } catch (err) {
+      console.error("AI generation error:", err);
+      toast({
+        title: isArabic ? "خطأ في التوليد" : "Generation failed",
+        description: isArabic ? "حاول مرة أخرى" : "Please try again",
+        variant: "destructive"
+      });
+    } finally {
+      setGeneratingField(null);
+    }
+  };
+
+  // Translate existing content
+  const translateContent = async (field: 'payment_terms' | 'scope_of_work' | 'notes') => {
+    const currentValue = formData[field];
+    if (!currentValue) {
+      toast({
+        title: isArabic ? "لا يوجد محتوى" : "No content",
+        description: isArabic ? "أضف محتوى أولاً" : "Add content first",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setGeneratingField(field);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-contract-content', {
+        body: {
+          field,
+          contract_type: formData.contract_type,
+          contract_title: formData.contract_title,
+          contractor_category: formData.contractor_category,
+          language: isArabic ? 'en' : 'ar' // Toggle to opposite language
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.content) {
+        setFormData(prev => ({
+          ...prev,
+          [field]: data.content
+        }));
+        
+        toast({
+          title: isArabic ? "تم الترجمة" : "Translated",
+          description: isArabic ? "تم تحويل المحتوى للإنجليزية" : "Content converted to Arabic"
+        });
+      }
+    } catch (err) {
+      console.error("Translation error:", err);
+      toast({
+        title: isArabic ? "خطأ" : "Error",
+        variant: "destructive"
+      });
+    } finally {
+      setGeneratingField(null);
     }
   };
 
@@ -751,33 +845,129 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
       case 5:
         return (
           <div className="space-y-4">
+            {/* Payment Terms */}
             <div className="space-y-2">
-              <Label>{isArabic ? "شروط الدفع" : "Payment Terms"}</Label>
+              <div className="flex items-center justify-between">
+                <Label>{isArabic ? "شروط الدفع" : "Payment Terms"}</Label>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => generateWithAI('payment_terms')}
+                    disabled={generatingField !== null}
+                    className="h-7 gap-1 text-xs text-primary hover:text-primary/80"
+                  >
+                    {generatingField === 'payment_terms' ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5" />
+                    )}
+                    {isArabic ? "توليد AI" : "AI Generate"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => translateContent('payment_terms')}
+                    disabled={generatingField !== null || !formData.payment_terms}
+                    className="h-7 gap-1 text-xs"
+                  >
+                    <Languages className="w-3.5 h-3.5" />
+                    {isArabic ? "EN" : "عربي"}
+                  </Button>
+                </div>
+              </div>
               <Textarea
                 value={formData.payment_terms}
                 onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })}
                 rows={3}
                 placeholder={isArabic ? "أدخل شروط الدفع..." : "Enter payment terms..."}
+                disabled={generatingField === 'payment_terms'}
               />
             </div>
 
+            {/* Scope of Work */}
             <div className="space-y-2">
-              <Label>{isArabic ? "نطاق العمل" : "Scope of Work"}</Label>
+              <div className="flex items-center justify-between">
+                <Label>{isArabic ? "نطاق العمل" : "Scope of Work"}</Label>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => generateWithAI('scope_of_work')}
+                    disabled={generatingField !== null}
+                    className="h-7 gap-1 text-xs text-primary hover:text-primary/80"
+                  >
+                    {generatingField === 'scope_of_work' ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5" />
+                    )}
+                    {isArabic ? "توليد AI" : "AI Generate"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => translateContent('scope_of_work')}
+                    disabled={generatingField !== null || !formData.scope_of_work}
+                    className="h-7 gap-1 text-xs"
+                  >
+                    <Languages className="w-3.5 h-3.5" />
+                    {isArabic ? "EN" : "عربي"}
+                  </Button>
+                </div>
+              </div>
               <Textarea
                 value={formData.scope_of_work}
                 onChange={(e) => setFormData({ ...formData, scope_of_work: e.target.value })}
                 rows={4}
                 placeholder={isArabic ? "أدخل نطاق العمل..." : "Enter scope of work..."}
+                disabled={generatingField === 'scope_of_work'}
               />
             </div>
 
+            {/* Additional Notes */}
             <div className="space-y-2">
-              <Label>{isArabic ? "ملاحظات إضافية" : "Additional Notes"}</Label>
+              <div className="flex items-center justify-between">
+                <Label>{isArabic ? "ملاحظات إضافية" : "Additional Notes"}</Label>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => generateWithAI('notes')}
+                    disabled={generatingField !== null}
+                    className="h-7 gap-1 text-xs text-primary hover:text-primary/80"
+                  >
+                    {generatingField === 'notes' ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5" />
+                    )}
+                    {isArabic ? "توليد AI" : "AI Generate"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => translateContent('notes')}
+                    disabled={generatingField !== null || !formData.notes}
+                    className="h-7 gap-1 text-xs"
+                  >
+                    <Languages className="w-3.5 h-3.5" />
+                    {isArabic ? "EN" : "عربي"}
+                  </Button>
+                </div>
+              </div>
               <Textarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 rows={3}
                 placeholder={isArabic ? "أي ملاحظات إضافية..." : "Any additional notes..."}
+                disabled={generatingField === 'notes'}
               />
             </div>
           </div>

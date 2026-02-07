@@ -65,3 +65,6 @@ verify_jwt = false
 
 [functions.classify-files]
 verify_jwt = false
+
+[functions.generate-contract-content]
+verify_jwt = false
