@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.generate-contract-content]
 verify_jwt = false
+
+[functions.search-offers]
+verify_jwt = false
