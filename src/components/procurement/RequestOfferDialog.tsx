@@ -6,159 +6,118 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useLanguage } from "@/hooks/useLanguage";
-import { Loader2, Send, Building2 } from "lucide-react";
-import { ExternalPartner } from "./PartnerCard";
+import { Loader2, Send, Mic, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 
 interface RequestOfferDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  partners: ExternalPartner[];
 }
+
+const suggestions = [
+  { en: "Need 10 laptops for development team", ar: "نحتاج 10 أجهزة لابتوب لفريق التطوير" },
+  { en: "Office furniture for 50 employees", ar: "أثاث مكتبي لـ 50 موظف" },
+  { en: "Construction materials for building project", ar: "مواد بناء لمشروع إنشائي" },
+  { en: "Electrical equipment and supplies", ar: "معدات ولوازم كهربائية" },
+  { en: "HVAC systems for commercial building", ar: "أنظمة تكييف لمبنى تجاري" },
+];
 
 export const RequestOfferDialog = ({
   open,
   onOpenChange,
-  partners,
 }: RequestOfferDialogProps) => {
   const { isArabic } = useLanguage();
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedPartners, setSelectedPartners] = useState<string[]>([]);
-  const [formData, setFormData] = useState({
-    subject: "",
-    description: "",
-    deadline: "",
-    attachments: "",
-  });
+  const [request, setRequest] = useState("");
 
-  const activePartners = partners.filter((p) => p.status === "active");
-
-  const togglePartner = (partnerId: string) => {
-    setSelectedPartners((prev) =>
-      prev.includes(partnerId)
-        ? prev.filter((id) => id !== partnerId)
-        : [...prev, partnerId]
-    );
+  const handleSuggestionClick = (suggestion: { en: string; ar: string }) => {
+    setRequest(isArabic ? suggestion.ar : suggestion.en);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!request.trim()) return;
+
     setIsLoading(true);
 
     // Simulate sending request
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
+    toast.success(
+      isArabic
+        ? "تم إرسال طلب عرض السعر بنجاح"
+        : "Offer request sent successfully"
+    );
+
     setIsLoading(false);
     onOpenChange(false);
-    setSelectedPartners([]);
-    setFormData({
-      subject: "",
-      description: "",
-      deadline: "",
-      attachments: "",
-    });
+    setRequest("");
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
             {isArabic ? "طلب عرض سعر" : "Request Offer"}
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 mt-4">
-          {/* Select Partners */}
+          {/* Main Input Section */}
+          <div className="bg-muted/50 rounded-xl p-4 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {isArabic
+                ? "أدخل طلبك بالتفصيل للحصول على أفضل عروض الأسعار من الموردين"
+                : "Enter your request in detail to get the best price quotes from suppliers"}
+            </p>
+
+            <div className="relative">
+              <Textarea
+                value={request}
+                onChange={(e) => setRequest(e.target.value)}
+                placeholder={
+                  isArabic
+                    ? "اكتب طلبك هنا..."
+                    : "Write your request here..."
+                }
+                rows={4}
+                className="resize-none pe-10 bg-background"
+              />
+              <button
+                type="button"
+                className="absolute end-3 top-3 text-muted-foreground hover:text-primary transition-colors"
+                title={isArabic ? "تسجيل صوتي" : "Voice input"}
+              >
+                <Mic className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Suggestions */}
           <div className="space-y-3">
-            <Label>
-              {isArabic ? "اختر الشركاء *" : "Select Partners *"}
-            </Label>
-            {activePartners.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {isArabic
-                  ? "لا يوجد شركاء نشطين. أضف شركاء أولاً."
-                  : "No active partners. Add partners first."}
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto p-1">
-                {activePartners.map((partner) => (
-                  <div
-                    key={partner.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selectedPartners.includes(partner.id)
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                    onClick={() => togglePartner(partner.id)}
-                  >
-                    <Checkbox
-                      checked={selectedPartners.includes(partner.id)}
-                      onCheckedChange={() => togglePartner(partner.id)}
-                    />
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Building2 className="w-4 h-4 text-primary" />
-                    </div>
-                    <span className="text-sm font-medium truncate">
-                      {partner.name}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Subject */}
-          <div className="space-y-2">
-            <Label>{isArabic ? "الموضوع *" : "Subject *"}</Label>
-            <Input
-              value={formData.subject}
-              onChange={(e) =>
-                setFormData({ ...formData, subject: e.target.value })
-              }
-              placeholder={
-                isArabic ? "موضوع طلب العرض" : "Subject of the offer request"
-              }
-              required
-            />
-          </div>
-
-          {/* Description */}
-          <div className="space-y-2">
-            <Label>{isArabic ? "الوصف التفصيلي *" : "Detailed Description *"}</Label>
-            <Textarea
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              placeholder={
-                isArabic
-                  ? "اكتب تفاصيل المواد أو الخدمات المطلوبة..."
-                  : "Write details of required materials or services..."
-              }
-              rows={5}
-              required
-            />
-          </div>
-
-          {/* Deadline */}
-          <div className="space-y-2">
-            <Label>{isArabic ? "الموعد النهائي للتقديم" : "Submission Deadline"}</Label>
-            <Input
-              type="date"
-              value={formData.deadline}
-              onChange={(e) =>
-                setFormData({ ...formData, deadline: e.target.value })
-              }
-            />
+            <p className="text-sm font-medium text-muted-foreground">
+              {isArabic ? "اقتراحات جاهزة:" : "Suggested requests:"}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {suggestions.map((suggestion, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => handleSuggestionClick(suggestion)}
+                  className="px-3 py-1.5 text-xs rounded-full border border-border bg-background hover:bg-accent hover:border-primary/50 transition-colors"
+                >
+                  {isArabic ? suggestion.ar : suggestion.en}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="flex justify-end gap-3 pt-2">
             <Button
               type="button"
               variant="outline"
@@ -168,12 +127,7 @@ export const RequestOfferDialog = ({
             </Button>
             <Button
               type="submit"
-              disabled={
-                isLoading ||
-                selectedPartners.length === 0 ||
-                !formData.subject ||
-                !formData.description
-              }
+              disabled={isLoading || !request.trim()}
               className="bg-primary hover:bg-primary/90"
             >
               {isLoading ? (
@@ -181,7 +135,7 @@ export const RequestOfferDialog = ({
               ) : (
                 <Send className="w-4 h-4 me-2" />
               )}
-              {isArabic ? "إرسال الطلب" : "Send Request"}
+              {isArabic ? "إرسال الطلب" : "Submit Request"}
             </Button>
           </div>
         </form>

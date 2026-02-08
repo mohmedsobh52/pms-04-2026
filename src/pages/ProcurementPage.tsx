@@ -109,7 +109,6 @@ const ProcurementPage = () => {
       <RequestOfferDialog
         open={requestOfferOpen}
         onOpenChange={setRequestOfferOpen}
-        partners={partners}
       />
     </PageLayout>
   );
