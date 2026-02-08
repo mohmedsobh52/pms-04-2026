@@ -53,6 +53,7 @@ const TenderSummaryPage = lazy(() => import("./pages/TenderSummaryPage"));
 const CompanySettingsPage = lazy(() => import("./pages/CompanySettingsPage"));
 const CostControlReportPage = lazy(() => import("./pages/CostControlReportPage"));
 const PricingAccuracyPage = lazy(() => import("./pages/PricingAccuracyPage"));
+const PartnerDetailsPage = lazy(() => import("./pages/PartnerDetailsPage"));
 const queryClient = new QueryClient();
 
 // Page loading component
@@ -100,6 +101,7 @@ const App = () => (
                         <Route path="/items" element={<BOQItemsPage />} />
                         <Route path="/analysis-tools" element={<AnalysisToolsPage />} />
                         <Route path="/procurement" element={<ProcurementPage />} />
+                        <Route path="/procurement/partner/:partnerId" element={<PartnerDetailsPage />} />
                         <Route path="/quotations" element={<QuotationsPage />} />
                         {/* Separate routes for contracts and subcontractors */}
                         <Route path="/contracts" element={<ContractsPage />} />

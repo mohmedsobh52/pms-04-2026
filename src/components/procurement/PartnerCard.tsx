@@ -1,9 +1,9 @@
-import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Star, Pencil, Calendar, Eye } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 
@@ -31,11 +31,12 @@ export interface ExternalPartner {
 interface PartnerCardProps {
   partner: ExternalPartner;
   onEdit: (partner: ExternalPartner) => void;
-  onViewDetails: (partner: ExternalPartner) => void;
+  onViewDetails?: (partner: ExternalPartner) => void;
 }
 
-export const PartnerCard = ({ partner, onEdit, onViewDetails }: PartnerCardProps) => {
+export const PartnerCard = ({ partner, onEdit }: PartnerCardProps) => {
   const { isArabic } = useLanguage();
+  const navigate = useNavigate();
 
   const statusLabels: Record<string, string> = {
     active: isArabic ? "نشط" : "Active",
@@ -151,7 +152,7 @@ export const PartnerCard = ({ partner, onEdit, onViewDetails }: PartnerCardProps
         <Button
           variant="outline"
           className="w-full mt-4"
-          onClick={() => onViewDetails(partner)}
+          onClick={() => navigate(`/procurement/partner/${partner.id}`)}
         >
           <Eye className="w-4 h-4 me-2" />
           {isArabic ? "عرض التفاصيل" : "View Details"}

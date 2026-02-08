@@ -984,6 +984,8 @@ export type Database = {
       external_partners: {
         Row: {
           address: string | null
+          category: string | null
+          contact_person: string | null
           contract_end_date: string | null
           contract_start_date: string | null
           created_at: string | null
@@ -1004,6 +1006,8 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          category?: string | null
+          contact_person?: string | null
           contract_end_date?: string | null
           contract_start_date?: string | null
           created_at?: string | null
@@ -1024,6 +1028,8 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          category?: string | null
+          contact_person?: string | null
           contract_end_date?: string | null
           contract_start_date?: string | null
           created_at?: string | null
@@ -1517,6 +1523,160 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      partner_contracts: {
+        Row: {
+          contract_file_name: string | null
+          contract_file_url: string | null
+          contract_type: string | null
+          contract_value: number | null
+          created_at: string | null
+          currency: string | null
+          end_date: string | null
+          id: string
+          notes: string | null
+          partner_id: string
+          project_id: string | null
+          start_date: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          contract_file_name?: string | null
+          contract_file_url?: string | null
+          contract_type?: string | null
+          contract_value?: number | null
+          created_at?: string | null
+          currency?: string | null
+          end_date?: string | null
+          id?: string
+          notes?: string | null
+          partner_id: string
+          project_id?: string | null
+          start_date?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          contract_file_name?: string | null
+          contract_file_url?: string | null
+          contract_type?: string | null
+          contract_value?: number | null
+          created_at?: string | null
+          currency?: string | null
+          end_date?: string | null
+          id?: string
+          notes?: string | null
+          partner_id?: string
+          project_id?: string | null
+          start_date?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_contracts_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "external_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_contracts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "saved_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_performance: {
+        Row: {
+          budget_compliance_score: number | null
+          communication_score: number | null
+          created_at: string | null
+          delivery_time_score: number | null
+          id: string
+          partner_id: string
+          quality_score: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          budget_compliance_score?: number | null
+          communication_score?: number | null
+          created_at?: string | null
+          delivery_time_score?: number | null
+          id?: string
+          partner_id: string
+          quality_score?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          budget_compliance_score?: number | null
+          communication_score?: number | null
+          created_at?: string | null
+          delivery_time_score?: number | null
+          id?: string
+          partner_id?: string
+          quality_score?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_performance_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: true
+            referencedRelation: "external_partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_reviews: {
+        Row: {
+          created_at: string | null
+          id: string
+          partner_id: string
+          rating: number | null
+          review_text: string | null
+          reviewer_name: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          partner_id: string
+          rating?: number | null
+          review_text?: string | null
+          reviewer_name: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          partner_id?: string
+          rating?: number | null
+          review_text?: string | null
+          reviewer_name?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_reviews_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "external_partners"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       price_quotations: {
         Row: {
