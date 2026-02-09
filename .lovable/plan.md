@@ -1,95 +1,221 @@
 
-# خطة إصلاح تفاعلية الأزرار في صفحة تفاصيل الشريك
+# خطة إضافة معاينة الطباعة للعقود مع تحسينات مقترحة
 
-## المشكلة
-جميع الأزرار والتبويبات وزر العودة في صفحة `/procurement/partner/:id` لا تعمل. تم التحقق من الكود واكتشاف أن المكونات الجديدة لم يتم تطبيق فئات CSS الخاصة بالحماية (Safety Classes) التي تضمن تفاعلية العناصر.
+## نظرة عامة
 
-## السبب الجذري
-يستخدم التطبيق نظام z-index وpointer-events معقد (موثق في `dialog-custom.css`) يتطلب تطبيق فئات CSS محددة على العناصر التفاعلية. بدون هذه الفئات، يمكن أن تُحجب الأزرار بسبب طبقات Radix UI غير المرئية.
-
-## الحل
-
-### 1. تحديث `PartnerDetailsPage.tsx`
-إضافة فئات الحماية للعناصر التفاعلية:
-
-| العنصر | الفئة المطلوبة |
-|--------|---------------|
-| زر العودة (Back) | `navigation-bar-safe` |
-| Breadcrumb | `breadcrumb-safe` |
-| Associated Projects badges | `pointer-events-auto` |
-
-### 2. تحديث `PartnerContracts.tsx`
-| العنصر | الفئة المطلوبة |
-|--------|---------------|
-| CardHeader + Actions | `card-actions-safe` |
-| Add Contract Button | `z-[65] pointer-events-auto` |
-| Dropdown Menu | تفعيل z-index أعلى |
-
-### 3. تحديث `PartnerPerformance.tsx`
-| العنصر | الفئة المطلوبة |
-|--------|---------------|
-| CardHeader | `card-actions-safe` |
-| Edit Button | `z-[65] pointer-events-auto` |
-
-### 4. تحديث `PartnerReviews.tsx`
-| العنصر | الفئة المطلوبة |
-|--------|---------------|
-| CardHeader + Actions | `card-actions-safe` |
-| Add Review Button | `z-[65] pointer-events-auto` |
-| Delete Button | `z-[65] pointer-events-auto` |
-
-### 5. تحديث Dialog Components
-إضافة `onOpenAutoFocus` و `onCloseAutoFocus` لمنع مشاكل focus trapping:
-- `AddPartnerContractDialog.tsx`
-- `AddPartnerReviewDialog.tsx`
-- Performance Edit Dialog (داخل `PartnerPerformance.tsx`)
+سيتم إضافة ميزة **معاينة الطباعة** لقائمة العقود تتيح للمستخدم:
+1. معاينة قائمة العقود بتنسيق جاهز للطباعة
+2. تخصيص محتوى التقرير (اختيار الأعمدة والبيانات)
+3. طباعة أو تصدير كـ PDF
 
 ---
 
-## التفاصيل التقنية
+## التصميم المقترح للمعاينة
 
-### فئات الحماية المستخدمة
-
-```css
-/* فئات من dialog-custom.css */
-.navigation-bar-safe     → z-index: 50
-.breadcrumb-safe         → z-index: 45
-.card-actions-safe       → z-index: 60
-button في card-actions   → z-index: 65
-```
-
-### نمط إصلاح Dialog Focus
-
-```tsx
-<DialogContent
-  onOpenAutoFocus={(e) => e.preventDefault()}
-  onCloseAutoFocus={(e) => e.preventDefault()}
->
+```text
+┌──────────────────────────────────────────────────────────────────────────┐
+│  [Logo]                  تقرير العقود                    [التاريخ]      │
+│                          Contract Report                                 │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─ ملخص ─────────────────────────────────────────────────────────────┐ │
+│  │  📊 إجمالي العقود: 2    ✅ نشطة: 0    💰 القيمة: SAR 3,500,000    │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+│                                                                          │
+│  ┌─ جدول العقود ──────────────────────────────────────────────────────┐ │
+│  │ # │ رقم العقد │ العنوان │ المقاول │ القيمة │ الحالة │ التقدم │      │ │
+│  ├───┼──────────┼─────────┼─────────┼────────┼────────┼────────┤      │ │
+│  │ 1 │ Con-2026 │ Aldalam │ Ahmed M.│ 2M SAR │ Draft  │ ██▓░ 2%│      │ │
+│  │ 2 │ 001-02   │ Aldalam │ Ahmed M.│ 1.5M   │ Draft  │ ████ 33%     │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+│                                                                          │
+│  ┌─ تحليل الحالات ────────┐  ┌─ توزيع القيم ───────────────────────┐   │
+│  │ [Pie Chart]            │  │ [Bar Chart بالقيمة لكل عقد]        │   │
+│  │ Draft: 100%            │  │                                     │   │
+│  │ Active: 0%             │  │                                     │   │
+│  └────────────────────────┘  └─────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## الملفات المتأثرة
+## الملفات المطلوبة
 
+### ملف جديد
+| الملف | الوصف |
+|-------|-------|
+| `src/components/contracts/ContractsPrintPreview.tsx` | مكون معاينة الطباعة الشاملة |
+
+### تحديث ملفات موجودة
 | الملف | التغيير |
 |-------|---------|
-| `src/pages/PartnerDetailsPage.tsx` | إضافة فئات الحماية للـ header و navigation |
-| `src/components/procurement/PartnerContracts.tsx` | إضافة فئات للـ CardHeader والأزرار |
-| `src/components/procurement/PartnerPerformance.tsx` | إضافة فئات للـ CardHeader + Dialog fix |
-| `src/components/procurement/PartnerReviews.tsx` | إضافة فئات للـ CardHeader والأزرار |
-| `src/components/procurement/AddPartnerContractDialog.tsx` | إضافة focus handlers |
-| `src/components/procurement/AddPartnerReviewDialog.tsx` | إضافة focus handlers |
+| `src/components/ContractManagement.tsx` | إضافة زر "Print Preview" في الـ CardHeader |
 
 ---
 
-## اختبار بعد الإصلاح
+## المكونات والميزات
 
-1. اذهب لصفحة `/procurement`
-2. اضغط **View Details** على أي شريك
-3. تحقق من:
-   - ✅ عمل زر العودة (السهم الخلفي)
-   - ✅ عمل روابط Breadcrumb (Home, Procurement)
-   - ✅ عمل زر "Add Contract"
-   - ✅ عمل زر "Edit" في Performance Metrics
-   - ✅ عمل زر "Add Review"
-   - ✅ فتح وإغلاق النوافذ الحوارية بشكل صحيح
+### 1. زر معاينة الطباعة
+- موقعه: بجانب زر "Add Contract" في `CardHeader`
+- الأيقونة: `Printer` من lucide-react
+
+### 2. نافذة تخصيص الطباعة
+خيارات قابلة للتحديد:
+- صفحة الغلاف (اختياري)
+- الملخص الإحصائي
+- جدول العقود
+- الرسوم البيانية (Pie Chart, Bar Chart)
+- تفاصيل كل عقد (اختياري)
+
+### 3. إعدادات الطباعة
+- حجم الورق (A4 / Letter)
+- الاتجاه (Portrait / Landscape)
+- ترقيم الصفحات
+- شعار الشركة
+
+### 4. الإخراج
+- نافذة معاينة منبثقة
+- زر طباعة مباشرة
+- زر تنزيل PDF
+
+---
+
+## التحسينات المقترحة الإضافية
+
+### 1. تصفية ما يُطبع
+```text
+☑️ تضمين العقود النشطة فقط
+☑️ تضمين العقود حسب الفترة (من/إلى)
+☑️ تضمين مقاولين محددين
+```
+
+### 2. تخصيص الأعمدة
+السماح للمستخدم باختيار الأعمدة المرئية:
+- رقم العقد ✓
+- العنوان ✓
+- المقاول ✓
+- القيمة ✓
+- الحالة ✓
+- التقدم الزمني ✓
+- تاريخ البدء
+- تاريخ الانتهاء
+- نوع العقد (FIDIC)
+
+### 3. قوالب تقارير جاهزة
+- **ملخص تنفيذي**: إحصائيات + رسوم بيانية فقط
+- **قائمة كاملة**: جدول شامل بكل التفاصيل
+- **تقرير مالي**: التركيز على القيم والدفعات
+- **تقرير الحالة**: التركيز على التقدم والمواعيد
+
+### 4. تصدير متعدد الصيغ
+- PDF (jsPDF + autoTable)
+- Excel (ExcelJS)
+- Word (docx)
+
+### 5. الرسوم البيانية في التقرير
+- **Pie Chart**: توزيع العقود حسب الحالة
+- **Bar Chart**: مقارنة قيم العقود
+- **Timeline Chart**: الجدول الزمني للعقود
+
+### 6. إضافة QR Code
+- رابط مباشر لصفحة العقود في التطبيق
+- معلومات سريعة عن التقرير
+
+---
+
+## تفاصيل التنفيذ التقني
+
+### هيكل المكون الجديد
+
+```typescript
+interface ContractsPrintPreviewProps {
+  contracts: Contract[];
+  totalValue: number;
+  activeCount: number;
+}
+
+// الحالات
+const [isOpen, setIsOpen] = useState(false);
+const [isPreviewing, setIsPreviewing] = useState(false);
+
+// خيارات التخصيص
+const [sections, setSections] = useState({
+  coverPage: true,
+  summary: true,
+  contractsTable: true,
+  charts: true,
+  detailedCards: false,
+});
+
+// إعدادات الطباعة
+const [printSettings, setPrintSettings] = useState({
+  paperSize: "a4",
+  orientation: "landscape", // أفضل للجداول
+  showPageNumbers: true,
+  includeCompanyLogo: true,
+});
+
+// أعمدة الجدول
+const [visibleColumns, setVisibleColumns] = useState({
+  contractNumber: true,
+  title: true,
+  contractor: true,
+  value: true,
+  status: true,
+  progress: true,
+  startDate: false,
+  endDate: false,
+  type: false,
+});
+```
+
+### استخدام CSS للطباعة
+
+```css
+@media print {
+  .no-print { display: none !important; }
+  .print-break { page-break-before: always; }
+  table { 
+    width: 100%; 
+    border-collapse: collapse; 
+  }
+  th, td { 
+    border: 1px solid #ddd; 
+    padding: 8px; 
+  }
+}
+```
+
+### تكامل مع المكتبات الموجودة
+
+- **jsPDF + autoTable**: لتوليد PDF
+- **Chart.js**: للرسوم البيانية (موجود في المشروع)
+- **date-fns**: لتنسيق التواريخ (موجود)
+
+---
+
+## خطوات التنفيذ
+
+1. **إنشاء** `ContractsPrintPreview.tsx` مع:
+   - Dialog للتخصيص
+   - Preview window
+   - Print functionality
+
+2. **تحديث** `ContractManagement.tsx`:
+   - استيراد المكون الجديد
+   - إضافة زر في CardHeader
+
+3. **اختبار**:
+   - تحقق من عمل نافذة المعاينة
+   - تحقق من الطباعة الفعلية
+   - تحقق من تصدير PDF
+
+---
+
+## ملاحظات تقنية
+
+- استخدام `window.open()` لفتح نافذة الطباعة
+- تطبيق أنماط CSS مخصصة للطباعة
+- دعم RTL للغة العربية
+- تحميل شعار الشركة من localStorage
+- استخدام الخطوط العربية (Cairo font)
