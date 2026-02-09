@@ -130,11 +130,15 @@ export const PartnerReviews = ({ partnerId, onReviewChange }: PartnerReviewsProp
   return (
     <>
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 card-actions-safe relative">
           <CardTitle className="text-lg font-semibold">
             {isArabic ? "تقييمات المديرين" : "Manager Reviews"}
           </CardTitle>
-          <Button size="sm" onClick={() => setDialogOpen(true)}>
+          <Button 
+            size="sm" 
+            onClick={() => setDialogOpen(true)}
+            className="z-[65] pointer-events-auto"
+          >
             <Plus className="w-4 h-4 me-1" />
             {isArabic ? "إضافة تقييم" : "Add Review"}
           </Button>
@@ -182,7 +186,7 @@ export const PartnerReviews = ({ partnerId, onReviewChange }: PartnerReviewsProp
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
+                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive z-[65] pointer-events-auto"
                             onClick={() => {
                               setSelectedReviewId(review.id);
                               setDeleteDialogOpen(true);
@@ -218,7 +222,10 @@ export const PartnerReviews = ({ partnerId, onReviewChange }: PartnerReviewsProp
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onCloseAutoFocus={(e) => e.preventDefault()}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>
               {isArabic ? "تأكيد الحذف" : "Confirm Delete"}

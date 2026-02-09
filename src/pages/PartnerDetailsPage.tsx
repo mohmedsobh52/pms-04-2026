@@ -119,27 +119,28 @@ const PartnerDetailsPage = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-4 mb-6 navigation-bar-safe relative">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate("/procurement")}
+            className="z-[65] pointer-events-auto"
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">{partner.name}</h1>
-            <Breadcrumb className="mt-1">
+            <Breadcrumb className="mt-1 breadcrumb-safe relative">
               <BreadcrumbList>
                 <BreadcrumbItem>
-                  <BreadcrumbLink href="/" className="flex items-center gap-1">
+                  <BreadcrumbLink href="/" className="flex items-center gap-1 pointer-events-auto">
                     <Home className="w-3.5 h-3.5" />
                     {isArabic ? "الرئيسية" : "Home"}
                   </BreadcrumbLink>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
-                  <BreadcrumbLink href="/procurement">
+                  <BreadcrumbLink href="/procurement" className="pointer-events-auto">
                     {isArabic ? "المشتريات" : "Procurement"}
                   </BreadcrumbLink>
                 </BreadcrumbItem>
@@ -161,12 +162,12 @@ const PartnerDetailsPage = () => {
             <h3 className="text-sm font-medium text-muted-foreground mb-3">
               {isArabic ? "المشاريع المرتبطة" : "Associated Projects"}
             </h3>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 relative z-[45]">
               {associatedProjects.map((project) => (
                 <Badge
                   key={project.id}
                   variant="secondary"
-                  className="cursor-pointer hover:bg-secondary/80 transition-colors"
+                  className="cursor-pointer hover:bg-secondary/80 transition-colors pointer-events-auto"
                   onClick={() => navigate(`/projects/${project.id}`)}
                 >
                   {project.name}
