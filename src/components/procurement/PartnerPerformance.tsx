@@ -158,11 +158,16 @@ export const PartnerPerformance = ({ partnerId }: PartnerPerformanceProps) => {
   return (
     <>
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 card-actions-safe relative">
           <CardTitle className="text-lg font-semibold">
             {isArabic ? "مؤشرات الأداء" : "Performance Metrics"}
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setDialogOpen(true)}
+            className="z-[65] pointer-events-auto"
+          >
             <Pencil className="w-4 h-4 me-1" />
             {isArabic ? "تعديل" : "Edit"}
           </Button>
@@ -210,7 +215,11 @@ export const PartnerPerformance = ({ partnerId }: PartnerPerformanceProps) => {
 
       {/* Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent 
+          className="sm:max-w-md"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onCloseAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>
               {isArabic ? "تعديل مؤشرات الأداء" : "Edit Performance Metrics"}

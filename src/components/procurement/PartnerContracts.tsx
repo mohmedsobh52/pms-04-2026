@@ -148,22 +148,23 @@ export const PartnerContracts = ({ partnerId }: PartnerContractsProps) => {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 card-actions-safe relative">
         <CardTitle className="text-lg font-semibold">
           {isArabic ? "العقود" : "Contracts"}
         </CardTitle>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 z-[65]">
           <div className="relative">
             <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder={isArabic ? "بحث..." : "Search..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="ps-9 w-40"
+              className="ps-9 w-40 pointer-events-auto"
             />
           </div>
           <Button
             size="sm"
+            className="z-[65] pointer-events-auto"
             onClick={() => {
               setSelectedContract(null);
               setDialogOpen(true);
@@ -231,7 +232,7 @@ export const PartnerContracts = ({ partnerId }: PartnerContractsProps) => {
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" className="z-[150]">
                           {contract.contract_file_url && (
                             <DropdownMenuItem
                               onClick={() => window.open(contract.contract_file_url!, "_blank")}
