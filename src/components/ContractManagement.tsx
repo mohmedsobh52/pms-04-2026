@@ -25,6 +25,7 @@ import {
   CheckCircle,
   Sparkles,
   Languages,
+  Printer,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,7 @@ import { ar, enUS } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { ContractsPrintPreview } from "@/components/contracts/ContractsPrintPreview";
 
 interface Contract {
   id: string;
@@ -116,6 +118,9 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  
+  // Print preview state
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
   
   // AI generation states
   const [generatingField, setGeneratingField] = useState<string | null>(null);
@@ -993,12 +998,31 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
               </p>
             </div>
           </div>
-          <Button onClick={() => { resetForm(); setIsDialogOpen(true); }} className="gap-2">
-            <Plus className="w-4 h-4" />
-            {isArabic ? "إضافة عقد" : "Add Contract"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsPrintPreviewOpen(true)} 
+              className="gap-2 z-[65] pointer-events-auto"
+            >
+              <Printer className="w-4 h-4" />
+              {isArabic ? "معاينة الطباعة" : "Print Preview"}
+            </Button>
+            <Button onClick={() => { resetForm(); setIsDialogOpen(true); }} className="gap-2 z-[65] pointer-events-auto">
+              <Plus className="w-4 h-4" />
+              {isArabic ? "إضافة عقد" : "Add Contract"}
+            </Button>
+          </div>
         </div>
       </CardHeader>
+
+      {/* Print Preview Dialog */}
+      <ContractsPrintPreview
+        open={isPrintPreviewOpen}
+        onOpenChange={setIsPrintPreviewOpen}
+        contracts={filteredContracts}
+        totalValue={totalValue}
+        activeCount={activeContracts}
+      />
 
       <CardContent className="p-4 space-y-4">
         {/* Search and Filter Bar */}
