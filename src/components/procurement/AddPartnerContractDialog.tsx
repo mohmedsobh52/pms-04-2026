@@ -288,16 +288,16 @@ export const AddPartnerContractDialog = ({
             <div className="space-y-2">
               <Label>{isArabic ? "المشروع" : "Project"}</Label>
               <Select
-                value={formData.project_id}
+                value={formData.project_id || "none"}
                 onValueChange={(value) =>
-                  setFormData({ ...formData, project_id: value })
+                  setFormData({ ...formData, project_id: value === "none" ? "" : value })
                 }
               >
                 <SelectTrigger>
                   <SelectValue placeholder={isArabic ? "اختر مشروع" : "Select project"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{isArabic ? "بدون مشروع" : "No project"}</SelectItem>
+                  <SelectItem value="none">{isArabic ? "بدون مشروع" : "No project"}</SelectItem>
                   {projects.map((project) => (
                     <SelectItem key={project.id} value={project.id}>
                       {project.name}
