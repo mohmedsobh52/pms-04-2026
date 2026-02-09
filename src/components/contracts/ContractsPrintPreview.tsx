@@ -37,6 +37,7 @@ import {
   Calendar,
   CheckCircle2,
   QrCode,
+  FolderOpen,
 } from "lucide-react";
 import {
   Table,
@@ -54,6 +55,10 @@ import autoTable from "jspdf-autotable";
 import QRCode from "qrcode";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from "chart.js";
 import { Pie, Bar } from "react-chartjs-2";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { LegalContractPreview } from "./LegalContractPreview";
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
@@ -118,8 +123,31 @@ export function ContractsPrintPreview({
   activeCount,
 }: ContractsPrintPreviewProps) {
   const { isArabic } = useLanguage();
+  const { user } = useAuth();
   const printRef = useRef<HTMLDivElement>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
+
+  // Legal contract preview state
+  const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
+  const [isLegalPreviewOpen, setIsLegalPreviewOpen] = useState(false);
+
+  // Project filter
+  const [selectedProjectId, setSelectedProjectId] = useState("all");
+
+  // Fetch projects
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects-for-contract-filter', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data } = await supabase
+        .from('project_data')
+        .select('id, name')
+        .eq('user_id', user.id)
+        .order('name');
+      return data || [];
+    },
+    enabled: !!user?.id && open,
+  });
 
   // Report sections
   const [sections, setSections] = useState({
@@ -148,14 +176,20 @@ export function ContractsPrintPreview({
     progress: true,
     startDate: false,
     endDate: false,
+    actions: true,
   });
 
   // Status filter
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const filteredContracts = statusFilter === "all"
+  // Apply filters: status and project
+  const statusFilteredContracts = statusFilter === "all"
     ? contracts
     : contracts.filter(c => c.status === statusFilter);
+
+  const filteredContracts = selectedProjectId === "all"
+    ? statusFilteredContracts
+    : statusFilteredContracts.filter(c => (c as any).project_id === selectedProjectId);
 
   const formatCurrency = (value: number, currency: string = "SAR") => {
     return new Intl.NumberFormat(isArabic ? "ar-SA" : "en-US", {
@@ -508,6 +542,7 @@ export function ContractsPrintPreview({
                   { key: "progress", label: { en: "Progress", ar: "التقدم" } },
                   { key: "startDate", label: { en: "Start Date", ar: "تاريخ البدء" } },
                   { key: "endDate", label: { en: "End Date", ar: "تاريخ الانتهاء" } },
+                  { key: "actions", label: { en: "Actions", ar: "إجراءات" } },
                 ].map(col => (
                   <div key={col.key} className="flex items-center gap-2">
                     <Checkbox
@@ -552,6 +587,26 @@ export function ContractsPrintPreview({
                       setPrintSettings(prev => ({ ...prev, showQRCode: checked }))
                     }
                   />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-sm flex items-center gap-1">
+                    <FolderOpen className="w-3 h-3" />
+                    {isArabic ? "المشروع" : "Project"}
+                  </Label>
+                  <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{isArabic ? "جميع المشاريع" : "All Projects"}</SelectItem>
+                      {projects.map(project => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-1">
@@ -673,21 +728,22 @@ export function ContractsPrintPreview({
                     <CardContent className="p-0">
                       <Table>
                         <TableHeader>
-                          <TableRow className="bg-blue-600 hover:bg-blue-600">
-                            {visibleColumns.contractNumber && <TableHead className="text-white">{isArabic ? "رقم العقد" : "Contract #"}</TableHead>}
-                            {visibleColumns.title && <TableHead className="text-white">{isArabic ? "العنوان" : "Title"}</TableHead>}
-                            {visibleColumns.contractor && <TableHead className="text-white">{isArabic ? "المقاول" : "Contractor"}</TableHead>}
-                            {visibleColumns.type && <TableHead className="text-white">{isArabic ? "النوع" : "Type"}</TableHead>}
-                            {visibleColumns.value && <TableHead className="text-white">{isArabic ? "القيمة" : "Value"}</TableHead>}
-                            {visibleColumns.status && <TableHead className="text-white">{isArabic ? "الحالة" : "Status"}</TableHead>}
-                            {visibleColumns.progress && <TableHead className="text-white">{isArabic ? "التقدم" : "Progress"}</TableHead>}
-                            {visibleColumns.startDate && <TableHead className="text-white">{isArabic ? "البدء" : "Start"}</TableHead>}
-                            {visibleColumns.endDate && <TableHead className="text-white">{isArabic ? "الانتهاء" : "End"}</TableHead>}
+                          <TableRow className="bg-primary hover:bg-primary">
+                            {visibleColumns.contractNumber && <TableHead className="text-primary-foreground">{isArabic ? "رقم العقد" : "Contract #"}</TableHead>}
+                            {visibleColumns.title && <TableHead className="text-primary-foreground">{isArabic ? "العنوان" : "Title"}</TableHead>}
+                            {visibleColumns.contractor && <TableHead className="text-primary-foreground">{isArabic ? "المقاول" : "Contractor"}</TableHead>}
+                            {visibleColumns.type && <TableHead className="text-primary-foreground">{isArabic ? "النوع" : "Type"}</TableHead>}
+                            {visibleColumns.value && <TableHead className="text-primary-foreground">{isArabic ? "القيمة" : "Value"}</TableHead>}
+                            {visibleColumns.status && <TableHead className="text-primary-foreground">{isArabic ? "الحالة" : "Status"}</TableHead>}
+                            {visibleColumns.progress && <TableHead className="text-primary-foreground">{isArabic ? "التقدم" : "Progress"}</TableHead>}
+                            {visibleColumns.startDate && <TableHead className="text-primary-foreground">{isArabic ? "البدء" : "Start"}</TableHead>}
+                            {visibleColumns.endDate && <TableHead className="text-primary-foreground">{isArabic ? "الانتهاء" : "End"}</TableHead>}
+                            {visibleColumns.actions && <TableHead className="text-primary-foreground no-print">{isArabic ? "إجراءات" : "Actions"}</TableHead>}
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {filteredContracts.map((contract, idx) => (
-                            <TableRow key={contract.id} className={idx % 2 === 0 ? "bg-gray-50" : ""}>
+                            <TableRow key={contract.id} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
                               {visibleColumns.contractNumber && <TableCell className="font-mono text-xs">{contract.contract_number}</TableCell>}
                               {visibleColumns.title && <TableCell className="font-medium">{contract.contract_title}</TableCell>}
                               {visibleColumns.contractor && <TableCell>{contract.contractor_name || "-"}</TableCell>}
@@ -733,6 +789,22 @@ export function ContractsPrintPreview({
                                   {contract.end_date ? format(new Date(contract.end_date), "yyyy-MM-dd") : "-"}
                                 </TableCell>
                               )}
+                              {visibleColumns.actions && (
+                                <TableCell className="no-print">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs gap-1"
+                                    onClick={() => {
+                                      setSelectedContract(contract as any);
+                                      setIsLegalPreviewOpen(true);
+                                    }}
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                    {isArabic ? "عرض" : "View"}
+                                  </Button>
+                                </TableCell>
+                              )}
                             </TableRow>
                           ))}
                         </TableBody>
@@ -759,6 +831,15 @@ export function ContractsPrintPreview({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Legal Contract Preview Dialog */}
+      {selectedContract && (
+        <LegalContractPreview
+          open={isLegalPreviewOpen}
+          onOpenChange={setIsLegalPreviewOpen}
+          contract={selectedContract}
+        />
+      )}
     </Dialog>
   );
 }
