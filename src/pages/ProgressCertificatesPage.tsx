@@ -17,7 +17,8 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { 
   FileText, Plus, Building2, DollarSign, TrendingUp, 
-  Calendar, Trash2, Eye, Percent, Calculator, Edit, Download
+  Calendar, Trash2, Eye, Percent, Calculator, Edit, Download,
+  AlertCircle, FileCheck, Link2
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -64,6 +65,26 @@ interface ProjectOption {
   name: string;
 }
 
+interface ContractOption {
+  id: string;
+  contract_number: string;
+  contract_title: string;
+  contract_value: number | null;
+  retention_percentage: number | null;
+  advance_payment_percentage: number | null;
+}
+
+interface PreviousCertsSummary {
+  count: number;
+  totalWorkDone: number;
+  totalNetPaid: number;
+  lastCert: {
+    number: number;
+    date: string | null;
+    status: string;
+  } | null;
+}
+
 const ProgressCertificatesPage = () => {
   const { user } = useAuth();
   const { isArabic } = useLanguage();
@@ -84,6 +105,7 @@ const ProgressCertificatesPage = () => {
   // Form state
   const [formProjectId, setFormProjectId] = useState("");
   const [formContractor, setFormContractor] = useState("");
+  const [formContractId, setFormContractId] = useState("");
   const [formPeriodFrom, setFormPeriodFrom] = useState("");
   const [formPeriodTo, setFormPeriodTo] = useState("");
   const [formRetention, setFormRetention] = useState(10);
@@ -93,16 +115,29 @@ const ProgressCertificatesPage = () => {
   const [formItems, setFormItems] = useState<CertificateItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
 
+  // New states for contracts and previous certs
+  const [availableContracts, setAvailableContracts] = useState<ContractOption[]>([]);
+  const [previousCertsSummary, setPreviousCertsSummary] = useState<PreviousCertsSummary | null>(null);
+  const [advancePercentage, setAdvancePercentage] = useState(0);
+  const [selectedContractValue, setSelectedContractValue] = useState<number | null>(null);
+
   useEffect(() => {
     if (user) fetchData();
   }, [user]);
+
+  // Auto-calculate advance deduction when currentWorkDone or advancePercentage changes
+  useEffect(() => {
+    if (advancePercentage > 0) {
+      setFormAdvanceDeduction(Math.round(currentWorkDone * advancePercentage / 100 * 100) / 100);
+    }
+  }, [formItems, advancePercentage]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const [certRes, projRes, subRes] = await Promise.all([
         supabase.from("progress_certificates").select("*").order("created_at", { ascending: false }),
-        supabase.from("saved_projects").select("id, name").order("created_at", { ascending: false }),
+        supabase.from("project_data").select("id, name").order("created_at", { ascending: false }),
         supabase.from("subcontractors").select("id, name, specialty").order("name")
       ]);
 
@@ -113,6 +148,82 @@ const ProgressCertificatesPage = () => {
       console.error("Error:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadContractsForSelection = async (projectId: string, contractorName: string) => {
+    if (!projectId || !contractorName) {
+      setAvailableContracts([]);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from("contracts")
+        .select("id, contract_number, contract_title, contract_value, retention_percentage, advance_payment_percentage")
+        .eq("project_id", projectId)
+        .eq("contractor_name", contractorName)
+        .order("created_at", { ascending: false });
+
+      if (!error && data) {
+        setAvailableContracts(data as ContractOption[]);
+        // Auto-select if only one contract
+        if (data.length === 1) {
+          handleContractSelect(data[0] as ContractOption);
+        }
+      } else {
+        setAvailableContracts([]);
+      }
+    } catch (err) {
+      console.error("Error loading contracts:", err);
+    }
+  };
+
+  const loadPreviousCertsSummary = async (projectId: string, contractorName: string) => {
+    if (!projectId || !contractorName) {
+      setPreviousCertsSummary(null);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from("progress_certificates")
+        .select("certificate_number, status, current_work_done, net_amount, period_to, created_at")
+        .eq("project_id", projectId)
+        .eq("contractor_name", contractorName)
+        .in("status", ["approved", "paid"])
+        .order("certificate_number", { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        const totalWork = data.reduce((s, c) => s + (c.current_work_done || 0), 0);
+        const totalNet = data.reduce((s, c) => s + (c.net_amount || 0), 0);
+        setPreviousCertsSummary({
+          count: data.length,
+          totalWorkDone: totalWork,
+          totalNetPaid: totalNet,
+          lastCert: {
+            number: data[0].certificate_number,
+            date: data[0].period_to,
+            status: data[0].status
+          }
+        });
+      } else {
+        setPreviousCertsSummary(null);
+      }
+    } catch (err) {
+      console.error("Error loading previous certs:", err);
+    }
+  };
+
+  const handleContractSelect = (contract: ContractOption) => {
+    setFormContractId(contract.id);
+    setFormRetention(contract.retention_percentage ?? 10);
+    setAdvancePercentage(contract.advance_payment_percentage ?? 0);
+    setSelectedContractValue(contract.contract_value);
+  };
+
+  const handleContractChange = (contractId: string) => {
+    const contract = availableContracts.find(c => c.id === contractId);
+    if (contract) {
+      handleContractSelect(contract);
     }
   };
 
@@ -180,15 +291,27 @@ const ProgressCertificatesPage = () => {
 
   const handleProjectChange = (projectId: string) => {
     setFormProjectId(projectId);
+    setFormContractId("");
+    setAvailableContracts([]);
+    setSelectedContractValue(null);
+    setAdvancePercentage(0);
     if (projectId && formContractor) {
       loadProjectItems(projectId);
+      loadContractsForSelection(projectId, formContractor);
+      loadPreviousCertsSummary(projectId, formContractor);
     }
   };
 
   const handleContractorChange = (name: string) => {
     setFormContractor(name);
+    setFormContractId("");
+    setAvailableContracts([]);
+    setSelectedContractValue(null);
+    setAdvancePercentage(0);
     if (formProjectId && name) {
       loadProjectItems(formProjectId);
+      loadContractsForSelection(formProjectId, name);
+      loadPreviousCertsSummary(formProjectId, name);
     }
   };
 
@@ -234,6 +357,7 @@ const ProgressCertificatesPage = () => {
         .insert({
           user_id: user.id,
           project_id: formProjectId,
+          contract_id: formContractId || null,
           contractor_name: formContractor,
           certificate_number: nextNumber,
           period_from: formPeriodFrom || null,
@@ -291,6 +415,7 @@ const ProgressCertificatesPage = () => {
   const resetForm = () => {
     setFormProjectId("");
     setFormContractor("");
+    setFormContractId("");
     setFormPeriodFrom("");
     setFormPeriodTo("");
     setFormRetention(10);
@@ -298,6 +423,10 @@ const ProgressCertificatesPage = () => {
     setFormOtherDeductions(0);
     setFormNotes("");
     setFormItems([]);
+    setAvailableContracts([]);
+    setPreviousCertsSummary(null);
+    setAdvancePercentage(0);
+    setSelectedContractValue(null);
   };
 
   const handleViewCertificate = async (cert: Certificate) => {
@@ -332,11 +461,9 @@ const ProgressCertificatesPage = () => {
       const doc = new jsPDF('p', 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.width;
 
-      // 1. Letterhead header
       let y = addPDFLetterheadHeader(doc);
       y += 4;
 
-      // 2. Certificate title
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(16);
       doc.setTextColor(30, 64, 175);
@@ -346,7 +473,6 @@ const ProgressCertificatesPage = () => {
       doc.text(title, pageWidth / 2, y, { align: 'center' });
       y += 10;
 
-      // 3. Certificate info
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
       doc.setTextColor(51, 65, 85);
@@ -373,7 +499,6 @@ const ProgressCertificatesPage = () => {
       });
       y += 4;
 
-      // 4. Items table
       const fmtNum = (v: number) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 
       const tableHeaders = isArabic
@@ -410,7 +535,6 @@ const ProgressCertificatesPage = () => {
 
       y = (doc as any).lastAutoTable.finalY + 10;
 
-      // 5. Financial summary
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
       doc.setTextColor(30, 41, 59);
@@ -442,7 +566,6 @@ const ProgressCertificatesPage = () => {
       doc.line(15, y, pageWidth - 15, y);
       y += 6;
 
-      // Deductions
       doc.setTextColor(220, 38, 38);
       const deductions: [string, number][] = [
         [isArabic ? `الاحتجاز (${cert.retention_percentage || 10}%)` : `Retention (${cert.retention_percentage || 10}%)`, cert.retention_amount],
@@ -466,14 +589,12 @@ const ProgressCertificatesPage = () => {
       doc.line(15, y, pageWidth - 15, y);
       y += 8;
 
-      // Net amount
       doc.setFontSize(13);
       doc.setTextColor(30, 64, 175);
       doc.setFont('helvetica', 'bold');
       doc.text(isArabic ? 'صافي المستحق' : 'Net Amount Due', 20, y);
       doc.text(`${fmtNum(cert.net_amount)} SAR`, pageWidth - 20, y, { align: 'right' });
 
-      // 6. Footer with QR
       await addPDFLetterheadFooterWithQR(doc, 1, 1);
 
       doc.save(`certificate-${cert.certificate_number}.pdf`);
@@ -499,7 +620,10 @@ const ProgressCertificatesPage = () => {
     return true;
   });
 
-  const formatCurrency = (v: number) => new Intl.NumberFormat(isArabic ? 'ar-SA' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+  const formatCurrency = (v: number) => {
+    if (v == null) return '0.00';
+    return new Intl.NumberFormat(isArabic ? 'ar-SA' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+  };
 
   const getStatusBadge = (status: string) => {
     const map: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
@@ -646,42 +770,133 @@ const ProgressCertificatesPage = () => {
         <Dialog open={showCreateDialog} onOpenChange={(open) => { setShowCreateDialog(open); if (!open) resetForm(); }}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{isArabic ? "إنشاء مستخلص جديد" : "Create New Certificate"}</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <FileCheck className="h-5 w-5 text-primary" />
+                {isArabic ? "إنشاء مستخلص جديد" : "Create New Certificate"}
+              </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>{isArabic ? "المشروع" : "Project"}</Label>
-                  <Select value={formProjectId} onValueChange={handleProjectChange}>
-                    <SelectTrigger><SelectValue placeholder={isArabic ? "اختر المشروع" : "Select project"} /></SelectTrigger>
-                    <SelectContent>
-                      {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>{isArabic ? "المقاول" : "Contractor"}</Label>
-                  <Select value={formContractor} onValueChange={handleContractorChange}>
-                    <SelectTrigger><SelectValue placeholder={isArabic ? "اختر المقاول" : "Select contractor"} /></SelectTrigger>
-                    <SelectContent>
-                      {contractors.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              {/* Section 1: Project, Contractor, Contract */}
+              <Card className="border-primary/20">
+                <CardHeader className="py-3 px-4">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    {isArabic ? "المشروع والمقاول والعقد" : "Project, Contractor & Contract"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>{isArabic ? "المشروع" : "Project"}</Label>
+                      <Select value={formProjectId} onValueChange={handleProjectChange}>
+                        <SelectTrigger><SelectValue placeholder={isArabic ? "اختر المشروع" : "Select project"} /></SelectTrigger>
+                        <SelectContent>
+                          {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>{isArabic ? "المقاول" : "Contractor"}</Label>
+                      <Select value={formContractor} onValueChange={handleContractorChange}>
+                        <SelectTrigger><SelectValue placeholder={isArabic ? "اختر المقاول" : "Select contractor"} /></SelectTrigger>
+                        <SelectContent>
+                          {contractors.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
 
+                  {/* Contract Selection */}
+                  {availableContracts.length > 0 && (
+                    <div>
+                      <Label className="flex items-center gap-1">
+                        <Link2 className="h-3.5 w-3.5" />
+                        {isArabic ? "العقد المرتبط" : "Linked Contract"}
+                      </Label>
+                      <Select value={formContractId} onValueChange={handleContractChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={isArabic ? "اختر العقد" : "Select contract"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableContracts.map(c => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.contract_number} - {c.contract_title}
+                              {c.contract_value ? ` (${formatCurrency(c.contract_value)})` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedContractValue && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {isArabic ? "قيمة العقد:" : "Contract Value:"} <span className="font-semibold text-primary">{formatCurrency(selectedContractValue)}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {formProjectId && formContractor && availableContracts.length === 0 && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      {isArabic ? "لا توجد عقود مسجلة لهذا المقاول في هذا المشروع" : "No contracts found for this contractor in this project"}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Section 2: Previous Certificates Summary */}
+              {previousCertsSummary && (
+                <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800">
+                  <CardHeader className="py-3 px-4">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-blue-600" />
+                      {isArabic ? "ملخص المستخلصات السابقة" : "Previous Certificates Summary"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="text-center p-2 bg-background rounded border">
+                        <p className="text-xs text-muted-foreground">{isArabic ? "عدد المستخلصات" : "Certificates"}</p>
+                        <p className="text-lg font-bold">{previousCertsSummary.count}</p>
+                      </div>
+                      <div className="text-center p-2 bg-background rounded border">
+                        <p className="text-xs text-muted-foreground">{isArabic ? "إجمالي الأعمال" : "Total Work"}</p>
+                        <p className="text-sm font-bold">{formatCurrency(previousCertsSummary.totalWorkDone)}</p>
+                      </div>
+                      <div className="text-center p-2 bg-background rounded border">
+                        <p className="text-xs text-muted-foreground">{isArabic ? "إجمالي المدفوع" : "Total Paid"}</p>
+                        <p className="text-sm font-bold text-green-600">{formatCurrency(previousCertsSummary.totalNetPaid)}</p>
+                      </div>
+                      {previousCertsSummary.lastCert && (
+                        <div className="text-center p-2 bg-background rounded border">
+                          <p className="text-xs text-muted-foreground">{isArabic ? "آخر مستخلص" : "Last Cert"}</p>
+                          <p className="text-sm font-bold">#{previousCertsSummary.lastCert.number}</p>
+                          <p className="text-xs text-muted-foreground">{previousCertsSummary.lastCert.date || '-'}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Section 3: Period */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>{isArabic ? "من تاريخ" : "Period From"}</Label>
+                  <Label className="flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5" />
+                    {isArabic ? "من تاريخ" : "Period From"}
+                  </Label>
                   <Input type="date" value={formPeriodFrom} onChange={e => setFormPeriodFrom(e.target.value)} />
                 </div>
                 <div>
-                  <Label>{isArabic ? "إلى تاريخ" : "Period To"}</Label>
+                  <Label className="flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5" />
+                    {isArabic ? "إلى تاريخ" : "Period To"}
+                  </Label>
                   <Input type="date" value={formPeriodTo} onChange={e => setFormPeriodTo(e.target.value)} />
                 </div>
               </div>
 
-              {/* Items Table */}
+              {/* Section 4: Items Table */}
               {formItems.length > 0 && (
                 <div className="space-y-2">
                   <Label className="text-lg font-semibold">{isArabic ? "بنود المشروع" : "Project Items"}</Label>
@@ -732,15 +947,27 @@ const ProgressCertificatesPage = () => {
 
               <Separator />
 
-              {/* Deductions */}
+              {/* Section 5: Deductions */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label>{isArabic ? "نسبة الاحتجاز %" : "Retention %"}</Label>
+                  <Label className="flex items-center gap-1">
+                    <Percent className="h-3.5 w-3.5" />
+                    {isArabic ? "نسبة الاحتجاز %" : "Retention %"}
+                    {formContractId && <span className="text-xs text-muted-foreground">({isArabic ? "من العقد" : "from contract"})</span>}
+                  </Label>
                   <Input type="number" value={formRetention} onChange={e => setFormRetention(parseFloat(e.target.value) || 0)} />
                 </div>
                 <div>
-                  <Label>{isArabic ? "خصم دفعة مقدمة" : "Advance Deduction"}</Label>
-                  <Input type="number" value={formAdvanceDeduction} onChange={e => setFormAdvanceDeduction(parseFloat(e.target.value) || 0)} />
+                  <Label className="flex items-center gap-1">
+                    {isArabic ? "خصم دفعة مقدمة" : "Advance Deduction"}
+                    {advancePercentage > 0 && <span className="text-xs text-muted-foreground">({advancePercentage}%)</span>}
+                  </Label>
+                  <Input type="number" value={formAdvanceDeduction} onChange={e => { setFormAdvanceDeduction(parseFloat(e.target.value) || 0); setAdvancePercentage(0); }} />
+                  {advancePercentage > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {isArabic ? "محسوب تلقائياً من العقد" : "Auto-calculated from contract"} ({advancePercentage}%)
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label>{isArabic ? "خصومات أخرى" : "Other Deductions"}</Label>
@@ -748,7 +975,7 @@ const ProgressCertificatesPage = () => {
                 </div>
               </div>
 
-              {/* Summary */}
+              {/* Section 6: Summary */}
               <Card className="bg-muted/50">
                 <CardContent className="pt-4 space-y-2">
                   <div className="flex justify-between"><span>{isArabic ? "الأعمال الحالية" : "Current Work Done"}</span><span className="font-bold">{formatCurrency(currentWorkDone)}</span></div>
@@ -756,7 +983,7 @@ const ProgressCertificatesPage = () => {
                   <div className="flex justify-between"><span>{isArabic ? "إجمالي الأعمال" : "Total Work Done"}</span><span>{formatCurrency(totalWorkDone)}</span></div>
                   <Separator />
                   <div className="flex justify-between text-destructive"><span>{isArabic ? "الاحتجاز" : "Retention"} ({formRetention}%)</span><span>-{formatCurrency(retentionAmount)}</span></div>
-                  {formAdvanceDeduction > 0 && <div className="flex justify-between text-destructive"><span>{isArabic ? "خصم دفعة مقدمة" : "Advance"}</span><span>-{formatCurrency(formAdvanceDeduction)}</span></div>}
+                  {formAdvanceDeduction > 0 && <div className="flex justify-between text-destructive"><span>{isArabic ? "خصم دفعة مقدمة" : "Advance"}{advancePercentage > 0 ? ` (${advancePercentage}%)` : ''}</span><span>-{formatCurrency(formAdvanceDeduction)}</span></div>}
                   {formOtherDeductions > 0 && <div className="flex justify-between text-destructive"><span>{isArabic ? "خصومات أخرى" : "Other"}</span><span>-{formatCurrency(formOtherDeductions)}</span></div>}
                   <Separator />
                   <div className="flex justify-between text-lg font-bold"><span>{isArabic ? "صافي المستحق" : "Net Amount"}</span><span className="text-primary">{formatCurrency(netAmount)}</span></div>
