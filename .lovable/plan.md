@@ -1,81 +1,133 @@
 
-# معالجة الخطأ وإضافة رابط المستخلصات
 
-## 1. معالجة خطأ "Cannot read properties of null (reading 'toLocaleString')"
+# تطوير زر "مستخلص جديد" في شاشة المستخلصات
 
-### السبب
-دالة `formatCurrency` في عدة ملفات تستدعي `value.toLocaleString()` بدون التحقق من أن `value` ليست `null`. كذلك Recharts Tooltip يمكن أن يمرر قيم `null`.
+## المشاكل الحالية
 
-### الملفات المتأثرة والتعديلات
+1. **المشاريع تُحمّل من `saved_projects`** بدلاً من `project_data` (الجدول المعتمد)
+2. **لا يوجد ربط بالعقود** - حقل `contract_id` موجود في الجدول لكنه لا يُستخدم
+3. **الدفعة المقدمة تُدخل يدوياً** بدلاً من استيرادها تلقائياً من العقد
+4. **نسبة الاحتجاز يدوية** بدلاً من جلبها من العقد
+5. **لا يوجد عرض للمستخلصات السابقة** للمقاول نفسه
 
-| الملف | التعديل |
-|-------|---------|
-| `src/pages/HomePage.tsx` | إضافة حماية null في `formatCurrency` و `formatDate` و Tooltip formatter |
-| `src/components/home/HeroSection.tsx` | إضافة حماية null في `formatCurrency` |
-| `src/components/MainDashboardOverview.tsx` | إضافة حماية null في `formatCurrency` |
+## التغييرات المطلوبة
 
-### التعديل المطلوب
-
-تغيير `formatCurrency` من:
-```typescript
-const formatCurrency = (value: number) => {
-  ...
-  return value.toLocaleString();
-};
-```
-
-إلى:
-```typescript
-const formatCurrency = (value: number) => {
-  if (value == null) return '0';
-  ...
-  return value.toLocaleString();
-};
-```
-
-تغيير `formatDate` لتقبل null:
-```typescript
-const formatDate = (dateString: string) => {
-  if (!dateString) return '-';
-  ...
-};
-```
-
-تغيير Recharts Tooltip formatter لتقبل null:
-```typescript
-<Tooltip formatter={(value: number) => formatCurrency(value ?? 0)} />
-```
+### ملف واحد: `src/pages/ProgressCertificatesPage.tsx`
 
 ---
 
-## 2. إضافة رابط المستخلصات
+### 1. إصلاح مصدر البيانات
 
-### الملفات المتأثرة
+| البيان | الحالي | الجديد |
+|--------|--------|--------|
+| المشاريع | `saved_projects` | `project_data` |
+| المقاولين | `subcontractors` فقط | `subcontractors` + `contracts` |
 
-| الملف | التعديل |
+### 2. إضافة ربط العقود
+
+عند اختيار المقاول والمشروع:
+- تحميل العقود المرتبطة بهذا المقاول والمشروع من جدول `contracts`
+- عرض قائمة منسدلة لاختيار العقد
+- عند اختيار العقد يتم تعبئة تلقائية:
+  - **نسبة الاحتجاز** من `contracts.retention_percentage`
+  - **نسبة الدفعة المقدمة** من `contracts.advance_payment_percentage`
+  - **قيمة العقد** للعرض كمرجع
+
+### 3. حساب خصم الدفعة المقدمة تلقائياً
+
+```text
+خصم الدفعة المقدمة = الأعمال الحالية x نسبة الدفعة المقدمة من العقد
+```
+
+مع إمكانية التعديل اليدوي.
+
+### 4. إضافة قسم "المستخلصات السابقة"
+
+عند اختيار المقاول والمشروع، عرض ملخص:
+- عدد المستخلصات السابقة
+- إجمالي الأعمال السابقة المعتمدة
+- إجمالي المبالغ المدفوعة
+- آخر مستخلص (رقمه وتاريخه وحالته)
+
+### 5. تحسين هيكل النافذة
+
+النافذة الجديدة ستكون مقسمة إلى أقسام واضحة:
+
+| القسم | المحتوى |
 |-------|---------|
-| `src/components/home/PhaseActionsGrid.tsx` | إضافة رابط المستخلصات في المرحلة 4 (العقود والتنفيذ) |
-| `src/pages/HomePage.tsx` | إضافة رابط المستخلصات في قسم Quick Access (mainModules) |
+| المشروع والمقاول | اختيار مشروع، اختيار مقاول، اختيار عقد (تلقائي) |
+| ملخص المستخلصات السابقة | عدد المستخلصات، إجمالي سابق، آخر مستخلص |
+| فترة المستخلص | من تاريخ، إلى تاريخ |
+| بنود المشروع | جدول البنود مع الكميات السابقة والحالية |
+| الخصومات | احتجاز (من العقد)، دفعة مقدمة (محسوبة)، أخرى |
+| الملخص المالي | الأعمال الحالية، السابقة، الإجمالي، الخصومات، صافي المستحق |
+| ملاحظات | حقل نصي |
 
-### التفاصيل
+### 6. حفظ `contract_id`
 
-**PhaseActionsGrid (المرحلة 4)** - إضافة عنصر جديد:
-- Icon: `FileText`
-- Label: المستخلصات / Progress Certificates
-- Description: مستخلصات المقاولين / Contractor invoices
-- href: `/progress-certificates`
-- isNew: true
+عند الحفظ، يتم تسجيل `contract_id` في جدول `progress_certificates` لربط المستخلص بالعقد.
 
-**mainModules في HomePage** - إضافة عنصر جديد:
-- Icon: `FileText`
-- Label: المستخلصات / Certificates
-- href: `/progress-certificates`
+---
+
+## التفاصيل التقنية
+
+### States الجديدة
+
+```typescript
+const [formContractId, setFormContractId] = useState("");
+const [availableContracts, setAvailableContracts] = useState([]);
+const [previousCertsSummary, setPreviousCertsSummary] = useState(null);
+const [advancePercentage, setAdvancePercentage] = useState(0);
+```
+
+### دالة تحميل العقود
+
+عند تغيير المقاول أو المشروع:
+
+```typescript
+// جلب العقود المرتبطة بالمقاول والمشروع
+const contracts = await supabase
+  .from("contracts")
+  .select("id, contract_number, contract_title, retention_percentage, advance_payment_percentage, contract_value")
+  .eq("contractor_name", selectedContractor)
+  .eq("project_id", selectedProjectId);
+```
+
+### دالة ملخص المستخلصات السابقة
+
+```typescript
+// جلب المستخلصات السابقة المعتمدة/المدفوعة
+const prevCerts = await supabase
+  .from("progress_certificates")
+  .select("certificate_number, status, current_work_done, net_amount, period_to")
+  .eq("project_id", projectId)
+  .eq("contractor_name", contractor)
+  .in("status", ["approved", "paid"])
+  .order("certificate_number", { ascending: false });
+```
+
+### تعبئة تلقائية من العقد
+
+عند اختيار العقد:
+- `formRetention` = `contract.retention_percentage` او 10 كقيمة افتراضية
+- `advancePercentage` = `contract.advance_payment_percentage` او 0
+- `formAdvanceDeduction` = `currentWorkDone * advancePercentage / 100` (يتم تحديثه تلقائياً)
+
+### تحديث دالة الحفظ
+
+إضافة `contract_id: formContractId || null` عند الـ insert.
 
 ---
 
 ## خطوات التنفيذ
 
-1. إصلاح null safety في `formatCurrency` و `formatDate` في `HomePage.tsx`
-2. إصلاح null safety في `HeroSection.tsx` و `MainDashboardOverview.tsx`
-3. إضافة رابط المستخلصات في `PhaseActionsGrid.tsx` (المرحلة 4)
-4. إضافة رابط المستخلصات في `mainModules` بالصفحة الرئيسية
+1. تغيير مصدر المشاريع من `saved_projects` إلى `project_data`
+2. إضافة states للعقود والمستخلصات السابقة
+3. إنشاء دالة تحميل العقود المرتبطة
+4. إنشاء دالة ملخص المستخلصات السابقة
+5. تحديث `handleProjectChange` و `handleContractorChange` لتحميل العقود والملخص
+6. إضافة اختيار العقد مع التعبئة التلقائية
+7. إضافة قسم ملخص المستخلصات السابقة في النافذة
+8. تحديث حساب خصم الدفعة المقدمة ليكون تلقائياً
+9. تحديث دالة `handleCreateCertificate` لحفظ `contract_id`
+
