@@ -17,8 +17,11 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { 
   FileText, Plus, Building2, DollarSign, TrendingUp, 
-  Calendar, Trash2, Eye, Percent, Calculator, Edit
+  Calendar, Trash2, Eye, Percent, Calculator, Edit, Download
 } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { addPDFLetterheadHeader, addPDFLetterheadFooterWithQR } from "@/lib/letterhead-utils";
 
 interface Certificate {
   id: string;
@@ -324,6 +327,172 @@ const ProgressCertificatesPage = () => {
     }
   };
 
+  const handleExportPDF = async (cert: Certificate, items: CertificateItem[]) => {
+    try {
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.width;
+
+      // 1. Letterhead header
+      let y = addPDFLetterheadHeader(doc);
+      y += 4;
+
+      // 2. Certificate title
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(30, 64, 175);
+      const title = isArabic
+        ? `مستخلص رقم: ${cert.certificate_number}`
+        : `Progress Certificate #${cert.certificate_number}`;
+      doc.text(title, pageWidth / 2, y, { align: 'center' });
+      y += 10;
+
+      // 3. Certificate info
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(51, 65, 85);
+
+      const statusLabels: Record<string, string> = {
+        draft: isArabic ? 'مسودة' : 'Draft',
+        submitted: isArabic ? 'مقدم' : 'Submitted',
+        approved: isArabic ? 'معتمد' : 'Approved',
+        paid: isArabic ? 'مدفوع' : 'Paid',
+      };
+
+      const infoLines = [
+        [isArabic ? 'المقاول' : 'Contractor', cert.contractor_name],
+        [isArabic ? 'الفترة' : 'Period', `${cert.period_from || '-'} → ${cert.period_to || '-'}`],
+        [isArabic ? 'الحالة' : 'Status', statusLabels[cert.status] || cert.status],
+      ];
+
+      infoLines.forEach(([label, value]) => {
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${label}:`, 15, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(value, 55, y);
+        y += 6;
+      });
+      y += 4;
+
+      // 4. Items table
+      const fmtNum = (v: number) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+
+      const tableHeaders = isArabic
+        ? ['المبلغ', 'إجمالي', 'حالي', 'سابق', 'السعر', 'الكمية', 'الوحدة', 'الوصف', 'رقم']
+        : ['#', 'Description', 'Unit', 'Qty', 'Price', 'Prev', 'Current', 'Total', 'Amount'];
+
+      const tableBody = items.map(item => {
+        const row = [
+          item.item_number,
+          item.description?.substring(0, 40) || '',
+          item.unit || '',
+          fmtNum(item.contract_quantity || 0),
+          fmtNum(item.unit_price || 0),
+          fmtNum(item.previous_quantity || 0),
+          fmtNum(item.current_quantity || 0),
+          fmtNum(item.total_quantity || 0),
+          fmtNum(item.current_amount || 0),
+        ];
+        return isArabic ? row.reverse() : row;
+      });
+
+      autoTable(doc, {
+        startY: y,
+        head: [tableHeaders],
+        body: tableBody,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 2, halign: isArabic ? 'right' : 'left' },
+        headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: 'bold', halign: 'center' },
+        columnStyles: isArabic
+          ? { 0: { halign: 'right' } }
+          : { 8: { halign: 'right' } },
+        margin: { left: 10, right: 10 },
+      });
+
+      y = (doc as any).lastAutoTable.finalY + 10;
+
+      // 5. Financial summary
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(30, 41, 59);
+      doc.text(isArabic ? 'الملخص المالي' : 'Financial Summary', 15, y);
+      y += 8;
+
+      doc.setDrawColor(30, 64, 175);
+      doc.setLineWidth(0.3);
+      doc.line(15, y - 2, pageWidth - 15, y - 2);
+
+      const summaryLines: [string, string, boolean?][] = [
+        [isArabic ? 'الأعمال الحالية' : 'Current Work Done', fmtNum(cert.current_work_done)],
+        [isArabic ? 'الأعمال السابقة' : 'Previous Work Done', fmtNum(cert.previous_work_done)],
+        [isArabic ? 'إجمالي الأعمال' : 'Total Work Done', fmtNum(cert.total_work_done)],
+      ];
+
+      doc.setFontSize(10);
+      summaryLines.forEach(([label, value]) => {
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(51, 65, 85);
+        doc.text(label, 20, y);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${value} SAR`, pageWidth - 20, y, { align: 'right' });
+        y += 6;
+      });
+
+      y += 2;
+      doc.setDrawColor(200, 200, 200);
+      doc.line(15, y, pageWidth - 15, y);
+      y += 6;
+
+      // Deductions
+      doc.setTextColor(220, 38, 38);
+      const deductions: [string, number][] = [
+        [isArabic ? `الاحتجاز (${cert.retention_percentage || 10}%)` : `Retention (${cert.retention_percentage || 10}%)`, cert.retention_amount],
+        [isArabic ? 'خصم دفعة مقدمة' : 'Advance Deduction', cert.advance_deduction],
+        [isArabic ? 'خصومات أخرى' : 'Other Deductions', cert.other_deductions],
+      ];
+
+      deductions.forEach(([label, value]) => {
+        if (value > 0) {
+          doc.setFont('helvetica', 'normal');
+          doc.text(label, 20, y);
+          doc.setFont('helvetica', 'bold');
+          doc.text(`-${fmtNum(value)} SAR`, pageWidth - 20, y, { align: 'right' });
+          y += 6;
+        }
+      });
+
+      y += 2;
+      doc.setDrawColor(30, 64, 175);
+      doc.setLineWidth(0.5);
+      doc.line(15, y, pageWidth - 15, y);
+      y += 8;
+
+      // Net amount
+      doc.setFontSize(13);
+      doc.setTextColor(30, 64, 175);
+      doc.setFont('helvetica', 'bold');
+      doc.text(isArabic ? 'صافي المستحق' : 'Net Amount Due', 20, y);
+      doc.text(`${fmtNum(cert.net_amount)} SAR`, pageWidth - 20, y, { align: 'right' });
+
+      // 6. Footer with QR
+      await addPDFLetterheadFooterWithQR(doc, 1, 1);
+
+      doc.save(`certificate-${cert.certificate_number}.pdf`);
+      toast.success(isArabic ? 'تم تصدير PDF بنجاح' : 'PDF exported successfully');
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast.error(isArabic ? 'خطأ في التصدير' : 'Export error');
+    }
+  };
+
+  const handleExportCertificatePDF = async (cert: Certificate) => {
+    const { data } = await supabase
+      .from("progress_certificate_items")
+      .select("*")
+      .eq("certificate_id", cert.id)
+      .order("item_number");
+    await handleExportPDF(cert, (data || []) as CertificateItem[]);
+  };
+
   const filtered = certificates.filter(c => {
     if (filterProjectId && c.project_id !== filterProjectId) return false;
     if (filterContractor && c.contractor_name !== filterContractor) return false;
@@ -438,8 +607,11 @@ const ProgressCertificatesPage = () => {
                     <TableCell>{getStatusBadge(cert.status)}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => handleViewCertificate(cert)}>
+                        <Button variant="ghost" size="icon" onClick={() => handleViewCertificate(cert)} title={isArabic ? "عرض" : "View"}>
                           <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleExportCertificatePDF(cert)} title={isArabic ? "تصدير PDF" : "Export PDF"}>
+                          <Download className="h-4 w-4" />
                         </Button>
                         {cert.status === 'draft' && (
                           <>
@@ -609,9 +781,17 @@ const ProgressCertificatesPage = () => {
         <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
-                {isArabic ? `مستخلص رقم ${viewingCertificate?.certificate_number}` : `Certificate #${viewingCertificate?.certificate_number}`}
-              </DialogTitle>
+              <div className="flex items-center justify-between">
+                <DialogTitle>
+                  {isArabic ? `مستخلص رقم ${viewingCertificate?.certificate_number}` : `Certificate #${viewingCertificate?.certificate_number}`}
+                </DialogTitle>
+                {viewingCertificate && (
+                  <Button variant="outline" size="sm" onClick={() => handleExportCertificatePDF(viewingCertificate)}>
+                    <Download className="h-4 w-4 mr-1" />
+                    {isArabic ? "تصدير PDF" : "Export PDF"}
+                  </Button>
+                )}
+              </div>
             </DialogHeader>
             {viewingCertificate && (
               <div className="space-y-4">
