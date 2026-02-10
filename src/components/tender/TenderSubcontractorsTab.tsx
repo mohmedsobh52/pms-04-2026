@@ -6,12 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Users, Plus, Trash2, Edit, Building2, FileText, DollarSign, Percent, Search } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Users, Plus, Trash2, Edit, Building2, FileText, DollarSign, Percent, Search, FolderOpen, ListChecks, FileCheck, Calculator } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -69,6 +70,25 @@ const TenderSubcontractorsTab = forwardRef<HTMLDivElement, TenderSubcontractorsT
     status: 'draft'
   });
 
+  // Enhanced form data for unified dialog
+  const [enhancedFormData, setEnhancedFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    specialty: "",
+    license_number: "",
+    notes: ""
+  });
+
+  // Projects & Items for linking
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [dbProjectItems, setDbProjectItems] = useState<any[]>([]);
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [dbItemSearchTerm, setDbItemSearchTerm] = useState("");
+  const [loadingItems, setLoadingItems] = useState(false);
+  const [contracts, setContracts] = useState<any[]>([]);
+
   useEffect(() => {
     if (initialData && initialData.length > 0) {
       setSubcontractors(initialData);
@@ -77,6 +97,7 @@ const TenderSubcontractorsTab = forwardRef<HTMLDivElement, TenderSubcontractorsT
 
   useEffect(() => {
     loadAvailableSubcontractors();
+    loadProjectsAndContracts();
   }, []);
 
   const loadAvailableSubcontractors = async () => {
@@ -97,6 +118,80 @@ const TenderSubcontractorsTab = forwardRef<HTMLDivElement, TenderSubcontractorsT
     }
   };
 
+  const loadProjectsAndContracts = async () => {
+    try {
+      const [projRes, contractRes] = await Promise.all([
+        supabase.from("project_data").select("id, name").order("created_at", { ascending: false }),
+        supabase.from("contracts").select("id, contract_number, contract_title, contractor_name, contract_value, status").order("created_at", { ascending: false })
+      ]);
+      if (projRes.data) setProjects(projRes.data);
+      if (contractRes.data) setContracts(contractRes.data);
+    } catch (error) {
+      console.error('Error loading projects:', error);
+    }
+  };
+
+  // Fetch project items when project is selected
+  useEffect(() => {
+    if (selectedProjectId && selectedProjectId !== "none") {
+      fetchProjectItems(selectedProjectId);
+    } else {
+      setDbProjectItems([]);
+      setSelectedItemIds([]);
+    }
+  }, [selectedProjectId]);
+
+  const fetchProjectItems = async (projectId: string) => {
+    setLoadingItems(true);
+    try {
+      const { data, error } = await supabase
+        .from("project_items")
+        .select("id, item_number, description, unit, quantity, unit_price, total_price, is_section")
+        .eq("project_id", projectId)
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      setDbProjectItems(data || []);
+    } catch (error) {
+      console.error("Error fetching items:", error);
+    } finally {
+      setLoadingItems(false);
+    }
+  };
+
+  // Filtered DB items based on search
+  const filteredDbItems = useMemo(() => {
+    const items = dbProjectItems.filter(i => !i.is_section);
+    if (!dbItemSearchTerm) return items;
+    const term = dbItemSearchTerm.toLowerCase();
+    return items.filter(i =>
+      i.item_number?.toLowerCase().includes(term) ||
+      i.description?.toLowerCase().includes(term)
+    );
+  }, [dbProjectItems, dbItemSearchTerm]);
+
+  // Calculate selected DB items value
+  const selectedDbItemsValue = useMemo(() => {
+    return dbProjectItems
+      .filter(item => selectedItemIds.includes(item.id))
+      .reduce((sum, item) => sum + (item.total_price || 0), 0);
+  }, [dbProjectItems, selectedItemIds]);
+
+  const handleToggleDbItem = (itemId: string) => {
+    setSelectedItemIds(prev =>
+      prev.includes(itemId)
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
+
+  const handleDbSelectAll = () => {
+    setSelectedItemIds(filteredDbItems.map(i => i.id));
+  };
+
+  const handleDbClearAll = () => {
+    setSelectedItemIds([]);
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat(isRTL ? 'ar-SA' : 'en-US', {
       style: 'decimal',
@@ -108,6 +203,82 @@ const TenderSubcontractorsTab = forwardRef<HTMLDivElement, TenderSubcontractorsT
   const totalSubcontractorsCost = subcontractors.reduce((sum, s) => sum + (s.contractValue || 0), 0);
   const subcontractorsPercentage = contractValue > 0 ? (totalSubcontractorsCost / contractValue) * 100 : 0;
   const linkedItemsCount = new Set(subcontractors.flatMap(s => s.linkedItems)).size;
+
+  // Enhanced save - saves to DB with all fields
+  const handleEnhancedSave = async (createContract = false) => {
+    if (!enhancedFormData.name) {
+      toast.error(isRTL ? "يرجى إدخال اسم المقاول" : "Please enter subcontractor name");
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Save to subcontractors table with all fields
+      const { data: subData, error: subError } = await supabase.from('subcontractors').insert({
+        user_id: user.id,
+        name: enhancedFormData.name,
+        email: enhancedFormData.email || null,
+        phone: enhancedFormData.phone || null,
+        specialty: enhancedFormData.specialty || null,
+        license_number: enhancedFormData.license_number || null,
+        notes: enhancedFormData.notes || null,
+        status: 'active'
+      }).select().single();
+
+      if (subError) throw subError;
+
+      // Create contract if requested
+      if (createContract) {
+        const contractNumber = `CON-${new Date().getFullYear()}-${String(contracts.length + 1).padStart(3, '0')}`;
+        const { error: contractError } = await supabase.from("contracts").insert({
+          user_id: user.id,
+          contract_number: contractNumber,
+          contract_title: `${isRTL ? "عقد مقاولة - " : "Subcontract - "}${enhancedFormData.name}`,
+          contractor_name: enhancedFormData.name,
+          contractor_phone: enhancedFormData.phone || null,
+          contractor_email: enhancedFormData.email || null,
+          contractor_license_number: enhancedFormData.license_number || null,
+          contract_value: selectedDbItemsValue > 0 ? selectedDbItemsValue : null,
+          project_id: selectedProjectId && selectedProjectId !== "none" ? selectedProjectId : null,
+          status: "draft"
+        });
+        if (contractError) throw contractError;
+      }
+
+      // Also add to local tender subcontractors list
+      const newItem: TenderSubcontractor = {
+        id: subData?.id || `sub-${Date.now()}`,
+        subcontractorId: subData?.id || "",
+        subcontractorName: enhancedFormData.name,
+        linkedItems: [],
+        scope: enhancedFormData.specialty || "",
+        contractValue: selectedDbItemsValue || 0,
+        paymentTerms: "",
+        retentionPercentage: 5,
+        status: 'draft'
+      };
+      const updatedList = [...subcontractors, newItem];
+      setSubcontractors(updatedList);
+      const total = updatedList.reduce((sum, s) => sum + (s.contractValue || 0), 0);
+      onDataChange(updatedList, total);
+
+      loadAvailableSubcontractors();
+      loadProjectsAndContracts();
+      setShowAddDialog(false);
+      resetEnhancedForm();
+      
+      toast.success(
+        createContract
+          ? (isRTL ? "تم الحفظ وإنشاء العقد بنجاح" : "Saved & Contract created successfully")
+          : (isRTL ? "تم الحفظ بنجاح" : "Saved successfully")
+      );
+    } catch (error) {
+      console.error('Error saving subcontractor:', error);
+      toast.error(isRTL ? "حدث خطأ أثناء الحفظ" : "Error saving subcontractor");
+    }
+  };
 
   const handleSave = async () => {
     if (!formData.subcontractorName || !formData.contractValue) {
@@ -122,7 +293,6 @@ const TenderSubcontractorsTab = forwardRef<HTMLDivElement, TenderSubcontractorsT
         s.id === editingItem.id ? { ...s, ...formData } as TenderSubcontractor : s
       );
     } else {
-      // Also save to subcontractors table in DB if it's a new name (not selected from list)
       if (!formData.subcontractorId && formData.subcontractorName) {
         try {
           const { data: { user } } = await supabase.auth.getUser();
@@ -193,6 +363,13 @@ const TenderSubcontractorsTab = forwardRef<HTMLDivElement, TenderSubcontractorsT
     });
   };
 
+  const resetEnhancedForm = () => {
+    setEnhancedFormData({ name: "", email: "", phone: "", specialty: "", license_number: "", notes: "" });
+    setSelectedProjectId("");
+    setSelectedItemIds([]);
+    setDbItemSearchTerm("");
+  };
+
   const handleSubcontractorSelect = (id: string) => {
     const selected = availableSubcontractors.find(s => s.id === id);
     if (selected) {
@@ -213,7 +390,6 @@ const TenderSubcontractorsTab = forwardRef<HTMLDivElement, TenderSubcontractorsT
     }
   };
 
-  // Filter project items by search term
   const filteredProjectItems = useMemo(() => {
     if (!itemSearchTerm.trim()) return projectItems;
     const term = itemSearchTerm.toLowerCase();
@@ -223,20 +399,14 @@ const TenderSubcontractorsTab = forwardRef<HTMLDivElement, TenderSubcontractorsT
     );
   }, [projectItems, itemSearchTerm]);
 
-  // Select all items
   const handleSelectAll = () => {
-    setFormData({ 
-      ...formData, 
-      linkedItems: projectItems.map(i => i.itemNumber) 
-    });
+    setFormData({ ...formData, linkedItems: projectItems.map(i => i.itemNumber) });
   };
 
-  // Deselect all items
   const handleDeselectAll = () => {
     setFormData({ ...formData, linkedItems: [] });
   };
 
-  // Calculate total of selected items
   const selectedItemsTotal = useMemo(() => {
     return (formData.linkedItems || []).reduce((sum, itemNo) => {
       const item = projectItems.find(i => i.itemNumber === itemNo);
@@ -318,6 +488,7 @@ const TenderSubcontractorsTab = forwardRef<HTMLDivElement, TenderSubcontractorsT
               if (!open) {
                 setEditingItem(null);
                 resetForm();
+                resetEnhancedForm();
               }
             }}>
               <DialogTrigger asChild>
@@ -326,211 +497,288 @@ const TenderSubcontractorsTab = forwardRef<HTMLDivElement, TenderSubcontractorsT
                   {isRTL ? "إضافة مقاول" : "Add Subcontractor"}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
+                onOpenAutoFocus={e => e.preventDefault()}
+                onCloseAutoFocus={e => e.preventDefault()}
+              >
                 <DialogHeader>
-                  <DialogTitle>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5" />
                     {editingItem 
                       ? (isRTL ? "تعديل مقاول الباطن" : "Edit Subcontractor")
-                      : (isRTL ? "إضافة مقاول باطن" : "Add Subcontractor")
+                      : (isRTL ? "إضافة مقاول فرعي جديد" : "Add New Subcontractor")
                     }
                   </DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4">
-                  {/* Subcontractor Selection */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>{isRTL ? "اختر من القائمة" : "Select from List"}</Label>
-                      <Select 
-                        value={formData.subcontractorId} 
-                        onValueChange={handleSubcontractorSelect}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={isRTL ? "اختر مقاول" : "Select subcontractor"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableSubcontractors.map(sub => (
-                            <SelectItem key={sub.id} value={sub.id}>
-                              {sub.name} - {sub.specialty}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>{isRTL ? "أو أدخل اسم جديد" : "Or Enter New Name"}</Label>
-                      <Input
-                        value={formData.subcontractorName}
-                        onChange={(e) => setFormData({ ...formData, subcontractorName: e.target.value })}
-                        placeholder={isRTL ? "اسم المقاول" : "Subcontractor name"}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Scope of Work */}
-                  <div>
-                    <Label>{isRTL ? "نطاق العمل" : "Scope of Work"}</Label>
-                    <Textarea
-                      value={formData.scope}
-                      onChange={(e) => setFormData({ ...formData, scope: e.target.value })}
-                      placeholder={isRTL ? "وصف نطاق العمل..." : "Describe scope of work..."}
-                      rows={3}
-                    />
-                  </div>
-
-                  {/* Contract Details */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <Label>{isRTL ? "قيمة العقد" : "Contract Value"}</Label>
-                      <Input
-                        type="number"
-                        value={formData.contractValue}
-                        onChange={(e) => setFormData({ ...formData, contractValue: parseFloat(e.target.value) || 0 })}
-                        placeholder="0"
-                      />
-                    </div>
-                    <div>
-                      <Label>{isRTL ? "نسبة الضمان المحتجز" : "Retention %"}</Label>
-                      <Input
-                        type="number"
-                        value={formData.retentionPercentage}
-                        onChange={(e) => setFormData({ ...formData, retentionPercentage: parseFloat(e.target.value) || 0 })}
-                        placeholder="5"
-                      />
-                    </div>
-                    <div>
-                      <Label>{isRTL ? "الحالة" : "Status"}</Label>
-                      <Select 
-                        value={formData.status} 
-                        onValueChange={(v) => setFormData({ ...formData, status: v as any })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="draft">{isRTL ? "مسودة" : "Draft"}</SelectItem>
-                          <SelectItem value="negotiating">{isRTL ? "تفاوض" : "Negotiating"}</SelectItem>
-                          <SelectItem value="confirmed">{isRTL ? "مؤكد" : "Confirmed"}</SelectItem>
-                          <SelectItem value="signed">{isRTL ? "موقع" : "Signed"}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Payment Terms */}
-                  <div>
-                    <Label>{isRTL ? "شروط الدفع" : "Payment Terms"}</Label>
-                    <Input
-                      value={formData.paymentTerms}
-                      onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
-                      placeholder={isRTL ? "مثال: 30 يوم من تاريخ الفاتورة" : "e.g., Net 30 days"}
-                    />
-                  </div>
-
-                  {/* Linked BOQ Items */}
-                  {projectItems.length > 0 && (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <Label>{isRTL ? "البنود المرتبطة" : "Linked BOQ Items"}</Label>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary">
-                            {(formData.linkedItems || []).length} / {projectItems.length}
-                          </Badge>
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            size="sm"
-                            onClick={handleSelectAll}
-                          >
-                            {isRTL ? "تحديد الكل" : "Select All"}
-                          </Button>
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={handleDeselectAll}
-                          >
-                            {isRTL ? "إلغاء الكل" : "Clear"}
-                          </Button>
-                        </div>
+                
+                {editingItem ? (
+                  /* Keep existing edit form for editing */
+                  <div className="space-y-4 overflow-y-auto flex-1">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>{isRTL ? "اختر من القائمة" : "Select from List"}</Label>
+                        <Select value={formData.subcontractorId} onValueChange={handleSubcontractorSelect}>
+                          <SelectTrigger>
+                            <SelectValue placeholder={isRTL ? "اختر مقاول" : "Select subcontractor"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableSubcontractors.map(sub => (
+                              <SelectItem key={sub.id} value={sub.id}>{sub.name} - {sub.specialty}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      
-                      {/* Search Box */}
-                      <div className="relative">
-                        <Search className={cn(
-                          "absolute top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground",
-                          isRTL ? "right-3" : "left-3"
-                        )} />
+                      <div>
+                        <Label>{isRTL ? "أو أدخل اسم جديد" : "Or Enter New Name"}</Label>
                         <Input
-                          placeholder={isRTL ? "بحث في البنود..." : "Search items..."}
-                          value={itemSearchTerm}
-                          onChange={(e) => setItemSearchTerm(e.target.value)}
-                          className={isRTL ? "pr-9" : "pl-9"}
+                          value={formData.subcontractorName}
+                          onChange={(e) => setFormData({ ...formData, subcontractorName: e.target.value })}
+                          placeholder={isRTL ? "اسم المقاول" : "Subcontractor name"}
                         />
                       </div>
-                      
-                      {/* Selected Total */}
-                      {(formData.linkedItems || []).length > 0 && (
-                        <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-2">
-                          {isRTL ? "إجمالي البنود المحددة:" : "Selected Items Total:"}{" "}
-                          <span className="font-semibold text-foreground">
-                            {formatCurrency(selectedItemsTotal)} {currency}
-                          </span>
-                        </div>
-                      )}
-                      
-                      {/* Items List */}
-                      <ScrollArea className="h-72 border rounded-lg">
-                        <div className="p-2 space-y-1">
-                          {filteredProjectItems.length === 0 ? (
-                            <div className="text-center py-8 text-muted-foreground">
-                              {isRTL ? "لا توجد بنود مطابقة" : "No matching items"}
-                            </div>
-                          ) : (
-                            filteredProjectItems.map((item) => {
-                              const isSelected = (formData.linkedItems || []).includes(item.itemNumber);
-                              return (
-                                <div 
-                                  key={item.itemNumber} 
-                                  className={cn(
-                                    "flex items-start gap-3 p-2 rounded-lg cursor-pointer transition-colors",
-                                    isSelected 
-                                      ? "bg-primary/10 border border-primary/30" 
-                                      : "hover:bg-muted/50"
-                                  )}
-                                  onClick={() => handleItemToggle(item.itemNumber, !isSelected)}
-                                >
-                                  <Checkbox
-                                    id={item.itemNumber}
-                                    checked={isSelected}
-                                    onCheckedChange={(checked) => handleItemToggle(item.itemNumber, checked as boolean)}
-                                    className="mt-0.5"
-                                  />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
-                                        {item.itemNumber}
-                                      </span>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                      {item.description}
-                                    </p>
-                                  </div>
-                                  <div className="text-sm font-medium whitespace-nowrap">
-                                    {formatCurrency(item.totalPrice)} {currency}
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-                      </ScrollArea>
                     </div>
-                  )}
+                    <div>
+                      <Label>{isRTL ? "نطاق العمل" : "Scope of Work"}</Label>
+                      <Textarea
+                        value={formData.scope}
+                        onChange={(e) => setFormData({ ...formData, scope: e.target.value })}
+                        placeholder={isRTL ? "وصف نطاق العمل..." : "Describe scope of work..."}
+                        rows={3}
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label>{isRTL ? "قيمة العقد" : "Contract Value"}</Label>
+                        <Input type="number" value={formData.contractValue} onChange={(e) => setFormData({ ...formData, contractValue: parseFloat(e.target.value) || 0 })} placeholder="0" />
+                      </div>
+                      <div>
+                        <Label>{isRTL ? "نسبة الضمان المحتجز" : "Retention %"}</Label>
+                        <Input type="number" value={formData.retentionPercentage} onChange={(e) => setFormData({ ...formData, retentionPercentage: parseFloat(e.target.value) || 0 })} placeholder="5" />
+                      </div>
+                      <div>
+                        <Label>{isRTL ? "الحالة" : "Status"}</Label>
+                        <Select value={formData.status} onValueChange={(v) => setFormData({ ...formData, status: v as any })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="draft">{isRTL ? "مسودة" : "Draft"}</SelectItem>
+                            <SelectItem value="negotiating">{isRTL ? "تفاوض" : "Negotiating"}</SelectItem>
+                            <SelectItem value="confirmed">{isRTL ? "مؤكد" : "Confirmed"}</SelectItem>
+                            <SelectItem value="signed">{isRTL ? "موقع" : "Signed"}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <Button onClick={handleSave} className="w-full">{isRTL ? "تحديث" : "Update"}</Button>
+                  </div>
+                ) : (
+                  /* New unified add form matching SubcontractorManagement */
+                  <ScrollArea className="flex-1 px-1">
+                    <div className="space-y-6">
+                      {/* Section 1: Contractor Info */}
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                          <Users className="w-4 h-4" />
+                          {isRTL ? "معلومات المقاول" : "Contractor Information"}
+                        </div>
+                        <Separator />
+                        <div>
+                          <Label>{isRTL ? "الاسم" : "Name"} *</Label>
+                          <Input 
+                            value={enhancedFormData.name}
+                            onChange={e => setEnhancedFormData(p => ({ ...p, name: e.target.value }))}
+                            placeholder={isRTL ? "اسم المقاول الفرعي" : "Subcontractor name"}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label>{isRTL ? "البريد الإلكتروني" : "Email"}</Label>
+                            <Input 
+                              type="email"
+                              value={enhancedFormData.email}
+                              onChange={e => setEnhancedFormData(p => ({ ...p, email: e.target.value }))}
+                              dir="ltr"
+                            />
+                          </div>
+                          <div>
+                            <Label>{isRTL ? "الهاتف" : "Phone"}</Label>
+                            <Input 
+                              value={enhancedFormData.phone}
+                              onChange={e => setEnhancedFormData(p => ({ ...p, phone: e.target.value }))}
+                              dir="ltr"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label>{isRTL ? "التخصص" : "Specialty"}</Label>
+                            <Input 
+                              value={enhancedFormData.specialty}
+                              onChange={e => setEnhancedFormData(p => ({ ...p, specialty: e.target.value }))}
+                            />
+                          </div>
+                          <div>
+                            <Label>{isRTL ? "رقم الرخصة" : "License No."}</Label>
+                            <Input 
+                              value={enhancedFormData.license_number}
+                              onChange={e => setEnhancedFormData(p => ({ ...p, license_number: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+                      </div>
 
-                  <Button onClick={handleSave} className="w-full">
-                    {editingItem ? (isRTL ? "تحديث" : "Update") : (isRTL ? "إضافة" : "Add")}
-                  </Button>
-                </div>
+                      {/* Section 2: Project & Items Linking */}
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                          <FolderOpen className="w-4 h-4" />
+                          {isRTL ? "ربط المشروع والبنود" : "Link Project & Items"}
+                        </div>
+                        <Separator />
+                        
+                        <div>
+                          <Label className="flex items-center gap-2">
+                            <FolderOpen className="w-4 h-4" />
+                            {isRTL ? "المشروع" : "Project"}
+                          </Label>
+                          <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                            <SelectTrigger>
+                              <SelectValue placeholder={isRTL ? "اختر المشروع..." : "Select project..."} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">{isRTL ? "بدون مشروع" : "No project"}</SelectItem>
+                              {projects.map(p => (
+                                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {selectedProjectId && selectedProjectId !== "none" && (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                              <Label className="flex items-center gap-2">
+                                <ListChecks className="w-4 h-4" />
+                                {isRTL ? "البنود المتعاقد عليها" : "Contracted Items"}
+                              </Label>
+                            </div>
+                            
+                            {/* Search & Bulk Actions */}
+                            <div className="flex items-center gap-2">
+                              <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <Input
+                                  placeholder={isRTL ? "بحث في البنود..." : "Search items..."}
+                                  value={dbItemSearchTerm}
+                                  onChange={e => setDbItemSearchTerm(e.target.value)}
+                                  className="pl-10 h-9"
+                                />
+                              </div>
+                              <Button variant="outline" size="sm" onClick={handleDbSelectAll}>
+                                {isRTL ? "تحديد الكل" : "Select All"}
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={handleDbClearAll}>
+                                {isRTL ? "إلغاء الكل" : "Clear"}
+                              </Button>
+                              {selectedItemIds.length > 0 && (
+                                <Badge variant="secondary">{selectedItemIds.length}</Badge>
+                              )}
+                            </div>
+
+                            {/* Items List */}
+                            <ScrollArea className="h-56 border rounded-lg">
+                              {loadingItems ? (
+                                <div className="p-4 text-center text-muted-foreground text-sm">
+                                  {isRTL ? "جاري التحميل..." : "Loading..."}
+                                </div>
+                              ) : filteredDbItems.length === 0 ? (
+                                <div className="p-4 text-center text-muted-foreground text-sm">
+                                  {isRTL ? "لا توجد بنود" : "No items found"}
+                                </div>
+                              ) : (
+                                <div className="divide-y">
+                                  {filteredDbItems.map(item => {
+                                    const isSelected = selectedItemIds.includes(item.id);
+                                    return (
+                                      <div 
+                                        key={item.id}
+                                        className={cn(
+                                          "flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors",
+                                          isSelected ? "bg-primary/5 border-r-2 border-r-primary" : ""
+                                        )}
+                                        onClick={() => handleToggleDbItem(item.id)}
+                                      >
+                                        <Checkbox checked={isSelected} />
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2">
+                                            <Badge variant="outline" className="text-xs shrink-0">{item.item_number}</Badge>
+                                            <span className="text-sm truncate">{item.description || "-"}</span>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm font-medium text-muted-foreground shrink-0">
+                                          {(item.total_price || 0).toLocaleString()} {currency}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </ScrollArea>
+
+                            {/* Selection Summary */}
+                            {selectedItemIds.length > 0 && (
+                              <div className="flex items-center justify-between p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Calculator className="w-4 h-4 text-primary" />
+                                  <span>{isRTL ? "البنود المختارة:" : "Selected items:"} <strong>{selectedItemIds.length}</strong></span>
+                                </div>
+                                <div className="text-sm font-bold text-primary">
+                                  {selectedDbItemsValue.toLocaleString()} {currency}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Section 3: Notes */}
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                          <FileText className="w-4 h-4" />
+                          {isRTL ? "ملاحظات" : "Notes"}
+                        </div>
+                        <Separator />
+                        <Textarea 
+                          value={enhancedFormData.notes}
+                          onChange={e => setEnhancedFormData(p => ({ ...p, notes: e.target.value }))}
+                          placeholder={isRTL ? "ملاحظات إضافية..." : "Additional notes..."}
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+                  </ScrollArea>
+                )}
+
+                {!editingItem && (
+                  <DialogFooter className="gap-2 pt-4 border-t">
+                    <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+                      {isRTL ? "إلغاء" : "Cancel"}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleEnhancedSave(true)}
+                      disabled={!enhancedFormData.name}
+                      className="gap-2"
+                    >
+                      <FileCheck className="w-4 h-4" />
+                      {isRTL ? "حفظ وإنشاء عقد" : "Save & Create Contract"}
+                    </Button>
+                    <Button 
+                      onClick={() => handleEnhancedSave(false)} 
+                      disabled={!enhancedFormData.name}
+                    >
+                      {isRTL ? "حفظ" : "Save"}
+                    </Button>
+                  </DialogFooter>
+                )}
               </DialogContent>
             </Dialog>
           </div>
