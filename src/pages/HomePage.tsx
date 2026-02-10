@@ -21,7 +21,8 @@ import {
   Briefcase,
   FileUp,
   Zap,
-  Search
+  Search,
+  FileText
 } from "lucide-react";
 import developerPhoto from "@/assets/developer/mohamed-sobh.jpg";
 import alimtyazLogo from "@/assets/company/alimtyaz-logo.jpg";
@@ -85,6 +86,7 @@ const mainModules = [
   { icon: Package, label: { ar: "المشتريات", en: "Procurement" }, href: "/procurement", count: "pendingProcurement" },
   { icon: AlertTriangle, label: { ar: "المخاطر", en: "Risks" }, href: "/risk", count: "activeRisks" },
   { icon: Settings2, label: { ar: "الإعدادات", en: "Settings" }, href: "/settings", count: null },
+  { icon: FileText, label: { ar: "المستخلصات", en: "Certificates" }, href: "/progress-certificates", count: null },
 ];
 
 export default function HomePage() {
@@ -277,6 +279,7 @@ export default function HomePage() {
   };
 
   const formatCurrency = (value: number) => {
+    if (value == null) return '0';
     if (value >= 1000000) {
       return `${(value / 1000000).toFixed(1)}M`;
     }
@@ -293,6 +296,7 @@ export default function HomePage() {
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
     const date = new Date(dateString);
     return date.toLocaleDateString(isArabic ? 'ar-SA' : 'en-US', {
       year: 'numeric',
@@ -663,7 +667,7 @@ export default function HomePage() {
                               <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          <Tooltip formatter={(value: any) => formatCurrency(value ?? 0)} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>

@@ -179,6 +179,14 @@ const phaseConfigs: PhaseConfig[] = [
         href: "/templates",
         isNew: true,
         previewText: { ar: "قوالب FIDIC وعقود جاهزة", en: "FIDIC templates and ready contracts" }
+      },
+      { 
+        icon: FileText, 
+        label: { ar: "المستخلصات", en: "Progress Certificates" }, 
+        description: { ar: "مستخلصات المقاولين", en: "Contractor invoices" },
+        href: "/progress-certificates",
+        isNew: true,
+        previewText: { ar: "إدارة مستخلصات المقاولين والدفعات", en: "Manage contractor certificates and payments" }
       }
     ]
   },
