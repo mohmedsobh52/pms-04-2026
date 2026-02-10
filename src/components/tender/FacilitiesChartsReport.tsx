@@ -21,12 +21,15 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 
 const FACILITY_TYPE_LABELS: Record<string, { ar: string; en: string }> = {
   office: { ar: "مكاتب", en: "Offices" },
-  storage: { ar: "تخزين", en: "Storage" },
-  accommodation: { ar: "سكن", en: "Accommodation" },
-  workshop: { ar: "ورشة", en: "Workshop" },
-  utility: { ar: "خدمات", en: "Utilities" },
-  security: { ar: "أمن", en: "Security" },
-  parking: { ar: "مواقف", en: "Parking" },
+  accommodation: { ar: "سكن العمال", en: "Workers Accommodation" },
+  toilets: { ar: "دورات مياه", en: "Toilets" },
+  generator: { ar: "مولد كهربائي", en: "Generator" },
+  vehicle: { ar: "مركبة", en: "Vehicle" },
+  storage: { ar: "مخازن", en: "Storage" },
+  equipment: { ar: "معدات", en: "Equipment" },
+  heavy_equipment: { ar: "معدات ثقيلة", en: "Heavy Equipment" },
+  communications: { ar: "اتصالات", en: "Communications" },
+  utilities: { ar: "مرافق", en: "Utilities" },
   other: { ar: "أخرى", en: "Other" },
 };
 

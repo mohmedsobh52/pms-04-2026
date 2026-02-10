@@ -66,10 +66,15 @@ export interface Facility {
 
 const FACILITY_TYPES = [
   { value: "office", labelAr: "مكاتب", labelEn: "Offices" },
-  { value: "accommodation", labelAr: "سكن", labelEn: "Accommodation" },
+  { value: "accommodation", labelAr: "سكن العمال", labelEn: "Workers Accommodation" },
+  { value: "toilets", labelAr: "دورات مياه", labelEn: "Toilets" },
+  { value: "generator", labelAr: "مولد كهربائي", labelEn: "Generator" },
+  { value: "vehicle", labelAr: "مركبة", labelEn: "Vehicle" },
   { value: "storage", labelAr: "مخازن", labelEn: "Storage" },
   { value: "equipment", labelAr: "معدات", labelEn: "Equipment" },
-  { value: "utilities", labelAr: "مرافق عامة", labelEn: "Utilities" },
+  { value: "heavy_equipment", labelAr: "معدات ثقيلة", labelEn: "Heavy Equipment" },
+  { value: "communications", labelAr: "اتصالات", labelEn: "Communications" },
+  { value: "utilities", labelAr: "مرافق", labelEn: "Utilities" },
   { value: "other", labelAr: "أخرى", labelEn: "Other" },
 ];
 
