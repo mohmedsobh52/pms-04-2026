@@ -109,7 +109,7 @@ const TenderSubcontractorsTab = forwardRef<HTMLDivElement, TenderSubcontractorsT
   const subcontractorsPercentage = contractValue > 0 ? (totalSubcontractorsCost / contractValue) * 100 : 0;
   const linkedItemsCount = new Set(subcontractors.flatMap(s => s.linkedItems)).size;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.subcontractorName || !formData.contractValue) {
       toast.error(isRTL ? "يرجى ملء الحقول المطلوبة" : "Please fill required fields");
       return;
@@ -122,6 +122,26 @@ const TenderSubcontractorsTab = forwardRef<HTMLDivElement, TenderSubcontractorsT
         s.id === editingItem.id ? { ...s, ...formData } as TenderSubcontractor : s
       );
     } else {
+      // Also save to subcontractors table in DB if it's a new name (not selected from list)
+      if (!formData.subcontractorId && formData.subcontractorName) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { error } = await supabase.from('subcontractors').insert({
+              user_id: user.id,
+              name: formData.subcontractorName,
+              specialty: formData.scope || null,
+              status: 'active'
+            });
+            if (!error) {
+              loadAvailableSubcontractors();
+            }
+          }
+        } catch (e) {
+          console.error('Error syncing subcontractor to DB:', e);
+        }
+      }
+
       const newItem: TenderSubcontractor = {
         id: `sub-${Date.now()}`,
         subcontractorId: formData.subcontractorId || "",

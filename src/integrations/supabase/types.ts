@@ -1891,6 +1891,153 @@ export type Database = {
           },
         ]
       }
+      progress_certificate_items: {
+        Row: {
+          certificate_id: string
+          contract_quantity: number | null
+          created_at: string
+          current_amount: number | null
+          current_quantity: number | null
+          description: string
+          id: string
+          item_number: string | null
+          previous_quantity: number | null
+          project_item_id: string | null
+          total_quantity: number | null
+          unit: string | null
+          unit_price: number | null
+        }
+        Insert: {
+          certificate_id: string
+          contract_quantity?: number | null
+          created_at?: string
+          current_amount?: number | null
+          current_quantity?: number | null
+          description: string
+          id?: string
+          item_number?: string | null
+          previous_quantity?: number | null
+          project_item_id?: string | null
+          total_quantity?: number | null
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Update: {
+          certificate_id?: string
+          contract_quantity?: number | null
+          created_at?: string
+          current_amount?: number | null
+          current_quantity?: number | null
+          description?: string
+          id?: string
+          item_number?: string | null
+          previous_quantity?: number | null
+          project_item_id?: string | null
+          total_quantity?: number | null
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "progress_certificate_items_certificate_id_fkey"
+            columns: ["certificate_id"]
+            isOneToOne: false
+            referencedRelation: "progress_certificates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "progress_certificate_items_project_item_id_fkey"
+            columns: ["project_item_id"]
+            isOneToOne: false
+            referencedRelation: "project_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      progress_certificates: {
+        Row: {
+          advance_deduction: number | null
+          certificate_number: number
+          contract_id: string | null
+          contractor_name: string
+          created_at: string
+          current_work_done: number | null
+          id: string
+          net_amount: number | null
+          notes: string | null
+          other_deductions: number | null
+          period_from: string | null
+          period_to: string | null
+          previous_work_done: number | null
+          project_id: string | null
+          retention_amount: number | null
+          retention_percentage: number | null
+          status: string | null
+          total_work_done: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          advance_deduction?: number | null
+          certificate_number?: number
+          contract_id?: string | null
+          contractor_name: string
+          created_at?: string
+          current_work_done?: number | null
+          id?: string
+          net_amount?: number | null
+          notes?: string | null
+          other_deductions?: number | null
+          period_from?: string | null
+          period_to?: string | null
+          previous_work_done?: number | null
+          project_id?: string | null
+          retention_amount?: number | null
+          retention_percentage?: number | null
+          status?: string | null
+          total_work_done?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          advance_deduction?: number | null
+          certificate_number?: number
+          contract_id?: string | null
+          contractor_name?: string
+          created_at?: string
+          current_work_done?: number | null
+          id?: string
+          net_amount?: number | null
+          notes?: string | null
+          other_deductions?: number | null
+          period_from?: string | null
+          period_to?: string | null
+          previous_work_done?: number | null
+          project_id?: string | null
+          retention_amount?: number | null
+          retention_percentage?: number | null
+          status?: string | null
+          total_work_done?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "progress_certificates_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "progress_certificates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "saved_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_attachments: {
         Row: {
           analysis_result: Json | null

@@ -54,6 +54,7 @@ const CompanySettingsPage = lazy(() => import("./pages/CompanySettingsPage"));
 const CostControlReportPage = lazy(() => import("./pages/CostControlReportPage"));
 const PricingAccuracyPage = lazy(() => import("./pages/PricingAccuracyPage"));
 const PartnerDetailsPage = lazy(() => import("./pages/PartnerDetailsPage"));
+const ProgressCertificatesPage = lazy(() => import("./pages/ProgressCertificatesPage"));
 const queryClient = new QueryClient();
 
 // Page loading component
@@ -122,6 +123,7 @@ const App = () => (
                         <Route path="/library" element={<LibraryPage />} />
                         <Route path="/cost-control-report" element={<CostControlReportPage />} />
                         <Route path="/pricing-accuracy" element={<PricingAccuracyPage />} />
+                        <Route path="/progress-certificates" element={<ProgressCertificatesPage />} />
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />
                       </Routes>
