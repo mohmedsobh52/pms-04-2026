@@ -16,7 +16,18 @@ import { extractTextFromPDF, validateExtractedText } from "@/lib/pdf-utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import * as pdfjsLib from 'pdfjs-dist';
+// pdfjs-dist is loaded dynamically to prevent crashes
+let pdfjsLib: any = null;
+const loadPdfJs = async () => {
+  if (!pdfjsLib) {
+    try {
+      pdfjsLib = await import('pdfjs-dist');
+    } catch (e) {
+      console.warn('Failed to load pdfjs-dist:', e);
+    }
+  }
+  return pdfjsLib;
+};
 import {
   Table,
   TableBody,
@@ -192,6 +203,8 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
   useEffect(() => {
     loadQuotations();
   }, [loadQuotations]);
+
+
 
   const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -962,6 +975,16 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
       description: `نجح: ${successCount} | فشل: ${failCount}`,
     });
   };
+
+  if (!user) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <p className="text-muted-foreground">يرجى تسجيل الدخول لاستخدام عروض الأسعار / Please login to use quotations</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
