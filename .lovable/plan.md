@@ -1,52 +1,65 @@
 
-# تنفيذ الخطة المعتمدة: تطوير زر "مستخلص جديد"
 
-هذه الخطة تم اعتمادها مسبقاً وسيتم تنفيذها الآن.
+# خطة إصلاح وتطوير شاشات المستخلصات وعروض الأسعار
 
-## التغييرات في ملف `src/pages/ProgressCertificatesPage.tsx`
+## المشاكل المكتشفة
 
-### 1. تغيير مصدر المشاريع
-- استبدال `saved_projects` بـ `project_data` في `fetchData`
+### 1. خطأ حرج: قيد المفتاح الأجنبي (FK) في جدول المستخلصات
+عمود `project_id` في جدول `progress_certificates` مرتبط بجدول `saved_projects` (القديم)، بينما الكود يستخدم `project_data` (الجديد). هذا يعني أن **حفظ أي مستخلص جديد سيفشل** بسبب انتهاك قيد FK.
 
-### 2. إضافة States جديدة
-- `formContractId` - العقد المختار
-- `availableContracts` - العقود المتاحة
-- `previousCertsSummary` - ملخص المستخلصات السابقة
-- `advancePercentage` - نسبة الدفعة المقدمة من العقد
+**الحل**: تعديل قاعدة البيانات لتغيير FK من `saved_projects` إلى `project_data`.
 
-### 3. إضافة دوال جديدة
-- `loadContractsForSelection` - تحميل العقود بناءً على المشروع والمقاول
-- `loadPreviousCertsSummary` - تحميل ملخص المستخلصات السابقة
-- تحديث `handleProjectChange` و `handleContractorChange` لاستدعاء الدوال الجديدة
+### 2. شاشة عروض الأسعار (Quotations) تغلق تلقائياً
+مكون `QuotationUpload` يستورد `pdfjs-dist` مباشرة على مستوى الملف (سطر 19). إذا فشل تحميل المكتبة أو إعداد الـ worker، تنهار الشاشة بالكامل. المكون أيضاً لا يتعامل مع حالة عدم تسجيل الدخول (user = null) بشكل سليم مما يسبب أخطاء.
 
-### 4. تحديث واجهة نافذة الإنشاء
-- إضافة قائمة منسدلة لاختيار العقد (بعد المشروع والمقاول)
-- إضافة قسم "ملخص المستخلصات السابقة" (عدد، إجمالي سابق، آخر مستخلص)
-- تحديث حقل الدفعة المقدمة ليعرض النسبة من العقد مع الحساب التلقائي
-- إضافة عرض قيمة العقد كمرجع
+**الحل**: إضافة حماية ضد الأخطاء ومعالجة حالة عدم وجود مستخدم.
 
-### 5. تحديث دالة الحفظ
-- إضافة `contract_id: formContractId || null` في insert
+### 3. زر "New Certificate" - يعمل لكن الحفظ يفشل
+الزر يفتح النافذة بنجاح، لكن عملية الحفظ تفشل بسبب مشكلة FK المذكورة أعلاه.
 
-### 6. تحديث `resetForm`
-- إضافة تصفير الحقول الجديدة
+---
 
-## التفاصيل التقنية
+## التغييرات المطلوبة
 
-### التعبئة التلقائية من العقد
-عند اختيار عقد:
-- `formRetention` = `contract.retention_percentage` او 10
-- `advancePercentage` = `contract.advance_payment_percentage` او 0
-- `formAdvanceDeduction` = `currentWorkDone * advancePercentage / 100` (يتحدث تلقائياً عبر useEffect)
+### تغيير 1: تعديل قاعدة البيانات (Migration)
 
-### ملخص المستخلصات السابقة
-يعرض:
-- عدد المستخلصات السابقة
-- إجمالي الأعمال السابقة
-- إجمالي المبالغ المدفوعة
-- آخر مستخلص (رقم، تاريخ، حالة)
+```sql
+ALTER TABLE progress_certificates 
+  DROP CONSTRAINT progress_certificates_project_id_fkey;
 
-### ربط العقود
+ALTER TABLE progress_certificates 
+  ADD CONSTRAINT progress_certificates_project_id_fkey 
+  FOREIGN KEY (project_id) REFERENCES project_data(id);
 ```
-contracts WHERE contractor_name = selected AND project_id = selected
-```
+
+### تغيير 2: إصلاح شاشة عروض الأسعار
+
+**ملف: `src/components/QuotationUpload.tsx`**
+- تغيير استيراد `pdfjs-dist` من استيراد ثابت إلى استيراد ديناميكي (dynamic import) داخل الدوال التي تحتاجه
+- إضافة معالجة لحالة عدم وجود مستخدم مسجل (عرض رسالة بدلاً من الانهيار)
+
+**ملف: `src/pages/QuotationsPage.tsx`**
+- إضافة ErrorBoundary حول المكونات لمنع انهيار الصفحة
+
+### تغيير 3: التأكد من عمل زر "New Certificate"
+
+بعد إصلاح FK، الكود الحالي سيعمل بشكل صحيح. سأضيف أيضاً:
+- رسالة تنبيه واضحة عند عدم تسجيل الدخول
+- معالجة أفضل للأخطاء في عمليات الحفظ
+
+---
+
+## ملخص الملفات المتأثرة
+
+| الملف | نوع التعديل |
+|-------|-------------|
+| Migration SQL | تغيير FK من `saved_projects` إلى `project_data` |
+| `src/components/QuotationUpload.tsx` | استيراد ديناميكي لـ pdfjs-dist + حماية null |
+| `src/pages/QuotationsPage.tsx` | إضافة ErrorBoundary |
+| `src/pages/ProgressCertificatesPage.tsx` | تحسين معالجة الأخطاء |
+
+## ملاحظات
+- تصدير PDF للمستخلص **موجود بالفعل** ويعمل (زر Download في كل صف + زر في نافذة العرض)
+- ربط المقاولين بين الشاشات **موجود بالفعل** عبر جدول `subcontractors` الموحد
+- ربط العقود **موجود بالفعل** في نافذة الإنشاء
+
