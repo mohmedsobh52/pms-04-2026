@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -98,6 +98,7 @@ const ProgressCertificatesPage = () => {
   const [filterContractor, setFilterContractor] = useState("");
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const createDialogCloseRef = useRef<HTMLButtonElement>(null);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [viewingCertificate, setViewingCertificate] = useState<Certificate | null>(null);
   const [viewItems, setViewItems] = useState<CertificateItem[]>([]);
@@ -404,6 +405,7 @@ const ProgressCertificatesPage = () => {
 
       toast.success(isArabic ? `تم إنشاء المستخلص رقم ${nextNumber}` : `Certificate #${nextNumber} created`);
       setShowCreateDialog(false);
+      createDialogCloseRef.current?.click();
       resetForm();
       fetchData();
     } catch (error) {
@@ -653,362 +655,254 @@ const ProgressCertificatesPage = () => {
               {isArabic ? "إدارة مستخلصات المقاولين ومقاولي الباطن" : "Manage contractor & subcontractor invoices"}
             </p>
           </div>
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className="h-4 w-4 mr-1" />
-            {isArabic ? "مستخلص جديد" : "New Certificate"}
-          </Button>
-        </div>
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <Card><CardContent className="pt-4 flex items-center gap-3">
-            <FileText className="h-5 w-5 text-muted-foreground" />
-            <div><p className="text-sm text-muted-foreground">{isArabic ? "إجمالي المستخلصات" : "Total Certificates"}</p><p className="text-2xl font-bold">{filtered.length}</p></div>
-          </CardContent></Card>
-          <Card><CardContent className="pt-4 flex items-center gap-3">
-            <DollarSign className="h-5 w-5 text-muted-foreground" />
-            <div><p className="text-sm text-muted-foreground">{isArabic ? "الأعمال الحالية" : "Current Work"}</p><p className="text-2xl font-bold">{formatCurrency(totalCurrent)}</p></div>
-          </CardContent></Card>
-          <Card><CardContent className="pt-4 flex items-center gap-3">
-            <Calculator className="h-5 w-5 text-muted-foreground" />
-            <div><p className="text-sm text-muted-foreground">{isArabic ? "صافي المستحق" : "Net Amount"}</p><p className="text-2xl font-bold">{formatCurrency(totalNet)}</p></div>
-          </CardContent></Card>
-          <Card><CardContent className="pt-4 flex items-center gap-3">
-            <TrendingUp className="h-5 w-5 text-muted-foreground" />
-            <div><p className="text-sm text-muted-foreground">{isArabic ? "معتمد / مدفوع" : "Approved/Paid"}</p><p className="text-2xl font-bold">{approvedCount}</p></div>
-          </CardContent></Card>
-        </div>
-
-        {/* Filters */}
-        <div className="flex gap-4 flex-wrap">
-          <Select value={filterProjectId} onValueChange={setFilterProjectId}>
-            <SelectTrigger className="w-[220px]"><SelectValue placeholder={isArabic ? "كل المشاريع" : "All Projects"} /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{isArabic ? "كل المشاريع" : "All Projects"}</SelectItem>
-              {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={filterContractor} onValueChange={setFilterContractor}>
-            <SelectTrigger className="w-[220px]"><SelectValue placeholder={isArabic ? "كل المقاولين" : "All Contractors"} /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{isArabic ? "كل المقاولين" : "All Contractors"}</SelectItem>
-              {contractors.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Certificates Table */}
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{isArabic ? "رقم" : "#"}</TableHead>
-                  <TableHead>{isArabic ? "المقاول" : "Contractor"}</TableHead>
-                  <TableHead>{isArabic ? "الفترة" : "Period"}</TableHead>
-                  <TableHead>{isArabic ? "الأعمال الحالية" : "Current Work"}</TableHead>
-                  <TableHead>{isArabic ? "الخصومات" : "Deductions"}</TableHead>
-                  <TableHead>{isArabic ? "صافي المستحق" : "Net Amount"}</TableHead>
-                  <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
-                  <TableHead>{isArabic ? "إجراءات" : "Actions"}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                    {isArabic ? "لا توجد مستخلصات" : "No certificates found"}
-                  </TableCell></TableRow>
-                ) : filtered.map(cert => (
-                  <TableRow key={cert.id}>
-                    <TableCell className="font-medium">{cert.certificate_number}</TableCell>
-                    <TableCell>{cert.contractor_name}</TableCell>
-                    <TableCell className="text-sm">
-                      {cert.period_from && cert.period_to ? `${cert.period_from} → ${cert.period_to}` : "-"}
-                    </TableCell>
-                    <TableCell>{formatCurrency(cert.current_work_done)}</TableCell>
-                    <TableCell>{formatCurrency(cert.retention_amount + cert.advance_deduction + cert.other_deductions)}</TableCell>
-                    <TableCell className="font-bold">{formatCurrency(cert.net_amount)}</TableCell>
-                    <TableCell>{getStatusBadge(cert.status)}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => handleViewCertificate(cert)} title={isArabic ? "عرض" : "View"}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleExportCertificatePDF(cert)} title={isArabic ? "تصدير PDF" : "Export PDF"}>
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        {cert.status === 'draft' && (
-                          <>
-                            <Button variant="ghost" size="icon" onClick={() => handleUpdateStatus(cert.id, 'submitted')}>
-                              <TrendingUp className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleDelete(cert.id)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </>
-                        )}
-                        {cert.status === 'submitted' && (
-                          <Button variant="ghost" size="sm" onClick={() => handleUpdateStatus(cert.id, 'approved')}>
-                            {isArabic ? "اعتماد" : "Approve"}
-                          </Button>
-                        )}
-                        {cert.status === 'approved' && (
-                          <Button variant="ghost" size="sm" onClick={() => handleUpdateStatus(cert.id, 'paid')}>
-                            {isArabic ? "تم الدفع" : "Mark Paid"}
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        {/* Create Dialog */}
-        {showCreateDialog && (
-        <div className="fixed inset-0 z-[200]" role="dialog" aria-modal="true">
-          <div className="fixed inset-0 bg-black/80 z-[200]" onClick={() => { setShowCreateDialog(false); resetForm(); }} />
-          <div className="fixed left-[50%] top-[50%] z-[201] w-full max-w-4xl max-h-[90vh] translate-x-[-50%] translate-y-[-50%] overflow-y-auto border bg-background p-6 shadow-lg sm:rounded-lg">
-            <button onClick={() => { setShowCreateDialog(false); resetForm(); }} className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100">
-              <X className="h-4 w-4" />
-            </button>
-            <div className="flex flex-col space-y-1.5 text-center sm:text-left">
-              <h2 className="text-lg font-semibold leading-none tracking-tight flex items-center gap-2">
-                <FileCheck className="h-5 w-5 text-primary" />
-                {isArabic ? "إنشاء مستخلص جديد" : "Create New Certificate"}
-              </h2>
-            </div>
-            <div className="space-y-4">
-              {/* Section 1: Project, Contractor, Contract */}
-              <Card className="border-primary/20">
-                <CardHeader className="py-3 px-4">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Building2 className="h-4 w-4" />
-                    {isArabic ? "المشروع والمقاول والعقد" : "Project, Contractor & Contract"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>{isArabic ? "المشروع" : "Project"}</Label>
-                      <Select value={formProjectId} onValueChange={handleProjectChange}>
-                        <SelectTrigger><SelectValue placeholder={isArabic ? "اختر المشروع" : "Select project"} /></SelectTrigger>
-                        <SelectContent>
-                          {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>{isArabic ? "المقاول" : "Contractor"}</Label>
-                      <Select value={formContractor} onValueChange={handleContractorChange}>
-                        <SelectTrigger><SelectValue placeholder={isArabic ? "اختر المقاول" : "Select contractor"} /></SelectTrigger>
-                        <SelectContent>
-                          {contractors.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Contract Selection */}
-                  {availableContracts.length > 0 && (
-                    <div>
-                      <Label className="flex items-center gap-1">
-                        <Link2 className="h-3.5 w-3.5" />
-                        {isArabic ? "العقد المرتبط" : "Linked Contract"}
-                      </Label>
-                      <Select value={formContractId} onValueChange={handleContractChange}>
-                        <SelectTrigger>
-                          <SelectValue placeholder={isArabic ? "اختر العقد" : "Select contract"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableContracts.map(c => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.contract_number} - {c.contract_title}
-                              {c.contract_value ? ` (${formatCurrency(c.contract_value)})` : ''}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {selectedContractValue && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {isArabic ? "قيمة العقد:" : "Contract Value:"} <span className="font-semibold text-primary">{formatCurrency(selectedContractValue)}</span>
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {formProjectId && formContractor && availableContracts.length === 0 && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                      <AlertCircle className="h-3.5 w-3.5" />
-                      {isArabic ? "لا توجد عقود مسجلة لهذا المقاول في هذا المشروع" : "No contracts found for this contractor in this project"}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Section 2: Previous Certificates Summary */}
-              {previousCertsSummary && (
-                <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800">
+          <Dialog open={showCreateDialog} onOpenChange={(open) => { if (!open) { setShowCreateDialog(false); resetForm(); } else { setShowCreateDialog(true); } }}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-1" />
+                {isArabic ? "مستخلص جديد" : "New Certificate"}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()}>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <FileCheck className="h-5 w-5 text-primary" />
+                  {isArabic ? "إنشاء مستخلص جديد" : "Create New Certificate"}
+                </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Create a new progress certificate
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                {/* Section 1: Project, Contractor, Contract */}
+                <Card className="border-primary/20">
                   <CardHeader className="py-3 px-4">
                     <CardTitle className="text-sm flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-blue-600" />
-                      {isArabic ? "ملخص المستخلصات السابقة" : "Previous Certificates Summary"}
+                      <Building2 className="h-4 w-4" />
+                      {isArabic ? "المشروع والمقاول والعقد" : "Project, Contractor & Contract"}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="px-4 pb-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <div className="text-center p-2 bg-background rounded border">
-                        <p className="text-xs text-muted-foreground">{isArabic ? "عدد المستخلصات" : "Certificates"}</p>
-                        <p className="text-lg font-bold">{previousCertsSummary.count}</p>
+                  <CardContent className="px-4 pb-4 space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>{isArabic ? "المشروع" : "Project"}</Label>
+                        <Select value={formProjectId} onValueChange={handleProjectChange}>
+                          <SelectTrigger><SelectValue placeholder={isArabic ? "اختر المشروع" : "Select project"} /></SelectTrigger>
+                          <SelectContent>
+                            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <div className="text-center p-2 bg-background rounded border">
-                        <p className="text-xs text-muted-foreground">{isArabic ? "إجمالي الأعمال" : "Total Work"}</p>
-                        <p className="text-sm font-bold">{formatCurrency(previousCertsSummary.totalWorkDone)}</p>
+                      <div>
+                        <Label>{isArabic ? "المقاول" : "Contractor"}</Label>
+                        <Select value={formContractor} onValueChange={handleContractorChange}>
+                          <SelectTrigger><SelectValue placeholder={isArabic ? "اختر المقاول" : "Select contractor"} /></SelectTrigger>
+                          <SelectContent>
+                            {contractors.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <div className="text-center p-2 bg-background rounded border">
-                        <p className="text-xs text-muted-foreground">{isArabic ? "إجمالي المدفوع" : "Total Paid"}</p>
-                        <p className="text-sm font-bold text-green-600">{formatCurrency(previousCertsSummary.totalNetPaid)}</p>
-                      </div>
-                      {previousCertsSummary.lastCert && (
-                        <div className="text-center p-2 bg-background rounded border">
-                          <p className="text-xs text-muted-foreground">{isArabic ? "آخر مستخلص" : "Last Cert"}</p>
-                          <p className="text-sm font-bold">#{previousCertsSummary.lastCert.number}</p>
-                          <p className="text-xs text-muted-foreground">{previousCertsSummary.lastCert.date || '-'}</p>
-                        </div>
-                      )}
                     </div>
+
+                    {/* Contract Selection */}
+                    {availableContracts.length > 0 && (
+                      <div>
+                        <Label className="flex items-center gap-1">
+                          <Link2 className="h-3.5 w-3.5" />
+                          {isArabic ? "العقد المرتبط" : "Linked Contract"}
+                        </Label>
+                        <Select value={formContractId} onValueChange={handleContractChange}>
+                          <SelectTrigger>
+                            <SelectValue placeholder={isArabic ? "اختر العقد" : "Select contract"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableContracts.map(c => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.contract_number} - {c.contract_title}
+                                {c.contract_value ? ` (${formatCurrency(c.contract_value)})` : ''}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {selectedContractValue && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {isArabic ? "قيمة العقد:" : "Contract Value:"} <span className="font-semibold text-primary">{formatCurrency(selectedContractValue)}</span>
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {formProjectId && formContractor && availableContracts.length === 0 && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                        <AlertCircle className="h-3.5 w-3.5" />
+                        {isArabic ? "لا توجد عقود مسجلة لهذا المقاول في هذا المشروع" : "No contracts found for this contractor in this project"}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
-              )}
 
-              {/* Section 3: Period */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
-                    {isArabic ? "من تاريخ" : "Period From"}
-                  </Label>
-                  <Input type="date" value={formPeriodFrom} onChange={e => setFormPeriodFrom(e.target.value)} />
-                </div>
-                <div>
-                  <Label className="flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
-                    {isArabic ? "إلى تاريخ" : "Period To"}
-                  </Label>
-                  <Input type="date" value={formPeriodTo} onChange={e => setFormPeriodTo(e.target.value)} />
-                </div>
-              </div>
+                {/* Section 2: Previous Certificates Summary */}
+                {previousCertsSummary && (
+                  <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800">
+                    <CardHeader className="py-3 px-4">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-blue-600" />
+                        {isArabic ? "ملخص المستخلصات السابقة" : "Previous Certificates Summary"}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="text-center p-2 bg-background rounded border">
+                          <p className="text-xs text-muted-foreground">{isArabic ? "عدد المستخلصات" : "Certificates"}</p>
+                          <p className="text-lg font-bold">{previousCertsSummary.count}</p>
+                        </div>
+                        <div className="text-center p-2 bg-background rounded border">
+                          <p className="text-xs text-muted-foreground">{isArabic ? "إجمالي الأعمال" : "Total Work"}</p>
+                          <p className="text-sm font-bold">{formatCurrency(previousCertsSummary.totalWorkDone)}</p>
+                        </div>
+                        <div className="text-center p-2 bg-background rounded border">
+                          <p className="text-xs text-muted-foreground">{isArabic ? "إجمالي المدفوع" : "Total Paid"}</p>
+                          <p className="text-sm font-bold text-green-600">{formatCurrency(previousCertsSummary.totalNetPaid)}</p>
+                        </div>
+                        {previousCertsSummary.lastCert && (
+                          <div className="text-center p-2 bg-background rounded border">
+                            <p className="text-xs text-muted-foreground">{isArabic ? "آخر مستخلص" : "Last Cert"}</p>
+                            <p className="text-sm font-bold">#{previousCertsSummary.lastCert.number}</p>
+                            <p className="text-xs text-muted-foreground">{previousCertsSummary.lastCert.date || '-'}</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
-              {/* Section 4: Items Table */}
-              {formItems.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-lg font-semibold">{isArabic ? "بنود المشروع" : "Project Items"}</Label>
-                  <ScrollArea className="h-[300px] border rounded-md">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[80px]">{isArabic ? "رقم" : "#"}</TableHead>
-                          <TableHead>{isArabic ? "الوصف" : "Description"}</TableHead>
-                          <TableHead className="w-[60px]">{isArabic ? "وحدة" : "Unit"}</TableHead>
-                          <TableHead className="w-[80px]">{isArabic ? "الكمية" : "Qty"}</TableHead>
-                          <TableHead className="w-[90px]">{isArabic ? "سعر" : "Price"}</TableHead>
-                          <TableHead className="w-[80px]">{isArabic ? "سابق" : "Prev"}</TableHead>
-                          <TableHead className="w-[100px]">{isArabic ? "حالي" : "Current"}</TableHead>
-                          <TableHead className="w-[80px]">{isArabic ? "إجمالي" : "Total"}</TableHead>
-                          <TableHead className="w-[100px]">{isArabic ? "المبلغ" : "Amount"}</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {formItems.map((item, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell className="text-xs">{item.item_number}</TableCell>
-                            <TableCell className="text-xs max-w-[200px] truncate">{item.description}</TableCell>
-                            <TableCell className="text-xs">{item.unit}</TableCell>
-                            <TableCell className="text-xs">{item.contract_quantity}</TableCell>
-                            <TableCell className="text-xs">{item.unit_price.toFixed(2)}</TableCell>
-                            <TableCell className="text-xs">{item.previous_quantity}</TableCell>
-                            <TableCell>
-                              <Input
-                                type="number"
-                                className="h-7 text-xs w-[80px]"
-                                value={item.current_quantity || ""}
-                                onChange={e => updateItemQuantity(idx, parseFloat(e.target.value) || 0)}
-                                max={item.contract_quantity - item.previous_quantity}
-                              />
-                            </TableCell>
-                            <TableCell className="text-xs font-medium">{item.total_quantity}</TableCell>
-                            <TableCell className="text-xs font-bold">{formatCurrency(item.current_amount)}</TableCell>
+                {/* Section 3: Period */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      {isArabic ? "من تاريخ" : "Period From"}
+                    </Label>
+                    <Input type="date" value={formPeriodFrom} onChange={e => setFormPeriodFrom(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      {isArabic ? "إلى تاريخ" : "Period To"}
+                    </Label>
+                    <Input type="date" value={formPeriodTo} onChange={e => setFormPeriodTo(e.target.value)} />
+                  </div>
+                </div>
+
+                {/* Section 4: Items Table */}
+                {formItems.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-lg font-semibold">{isArabic ? "بنود المشروع" : "Project Items"}</Label>
+                    <ScrollArea className="h-[300px] border rounded-md">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[80px]">{isArabic ? "رقم" : "#"}</TableHead>
+                            <TableHead>{isArabic ? "الوصف" : "Description"}</TableHead>
+                            <TableHead className="w-[60px]">{isArabic ? "وحدة" : "Unit"}</TableHead>
+                            <TableHead className="w-[80px]">{isArabic ? "الكمية" : "Qty"}</TableHead>
+                            <TableHead className="w-[90px]">{isArabic ? "سعر" : "Price"}</TableHead>
+                            <TableHead className="w-[80px]">{isArabic ? "سابق" : "Prev"}</TableHead>
+                            <TableHead className="w-[100px]">{isArabic ? "حالي" : "Current"}</TableHead>
+                            <TableHead className="w-[80px]">{isArabic ? "إجمالي" : "Total"}</TableHead>
+                            <TableHead className="w-[100px]">{isArabic ? "المبلغ" : "Amount"}</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </div>
-              )}
+                        </TableHeader>
+                        <TableBody>
+                          {formItems.map((item, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="text-xs">{item.item_number}</TableCell>
+                              <TableCell className="text-xs max-w-[200px] truncate">{item.description}</TableCell>
+                              <TableCell className="text-xs">{item.unit}</TableCell>
+                              <TableCell className="text-xs">{item.contract_quantity}</TableCell>
+                              <TableCell className="text-xs">{item.unit_price.toFixed(2)}</TableCell>
+                              <TableCell className="text-xs">{item.previous_quantity}</TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  className="h-7 text-xs w-[80px]"
+                                  value={item.current_quantity || ""}
+                                  onChange={e => updateItemQuantity(idx, parseFloat(e.target.value) || 0)}
+                                  max={item.contract_quantity - item.previous_quantity}
+                                />
+                              </TableCell>
+                              <TableCell className="text-xs font-medium">{item.total_quantity}</TableCell>
+                              <TableCell className="text-xs font-bold">{formatCurrency(item.current_amount)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </div>
+                )}
 
-              {loadingItems && <p className="text-center text-muted-foreground py-4">{isArabic ? "جاري تحميل البنود..." : "Loading items..."}</p>}
+                {loadingItems && <p className="text-center text-muted-foreground py-4">{isArabic ? "جاري تحميل البنود..." : "Loading items..."}</p>}
 
-              <Separator />
+                <Separator />
 
-              {/* Section 5: Deductions */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label className="flex items-center gap-1">
-                    <Percent className="h-3.5 w-3.5" />
-                    {isArabic ? "نسبة الاحتجاز %" : "Retention %"}
-                    {formContractId && <span className="text-xs text-muted-foreground">({isArabic ? "من العقد" : "from contract"})</span>}
-                  </Label>
-                  <Input type="number" value={formRetention} onChange={e => setFormRetention(parseFloat(e.target.value) || 0)} />
+                {/* Section 5: Deductions */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label className="flex items-center gap-1">
+                      <Percent className="h-3.5 w-3.5" />
+                      {isArabic ? "نسبة الاحتجاز %" : "Retention %"}
+                      {formContractId && <span className="text-xs text-muted-foreground">({isArabic ? "من العقد" : "from contract"})</span>}
+                    </Label>
+                    <Input type="number" value={formRetention} onChange={e => setFormRetention(parseFloat(e.target.value) || 0)} />
+                  </div>
+                  <div>
+                    <Label className="flex items-center gap-1">
+                      {isArabic ? "خصم دفعة مقدمة" : "Advance Deduction"}
+                      {advancePercentage > 0 && <span className="text-xs text-muted-foreground">({advancePercentage}%)</span>}
+                    </Label>
+                    <Input type="number" value={formAdvanceDeduction} onChange={e => { setFormAdvanceDeduction(parseFloat(e.target.value) || 0); setAdvancePercentage(0); }} />
+                    {advancePercentage > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {isArabic ? "محسوب تلقائياً من العقد" : "Auto-calculated from contract"} ({advancePercentage}%)
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label>{isArabic ? "خصومات أخرى" : "Other Deductions"}</Label>
+                    <Input type="number" value={formOtherDeductions} onChange={e => setFormOtherDeductions(parseFloat(e.target.value) || 0)} />
+                  </div>
                 </div>
+
+                {/* Section 6: Summary */}
+                <Card className="bg-muted/50">
+                  <CardContent className="pt-4 space-y-2">
+                    <div className="flex justify-between"><span>{isArabic ? "الأعمال الحالية" : "Current Work Done"}</span><span className="font-bold">{formatCurrency(currentWorkDone)}</span></div>
+                    <div className="flex justify-between"><span>{isArabic ? "الأعمال السابقة" : "Previous Work Done"}</span><span>{formatCurrency(previousWorkDone)}</span></div>
+                    <div className="flex justify-between"><span>{isArabic ? "إجمالي الأعمال" : "Total Work Done"}</span><span>{formatCurrency(totalWorkDone)}</span></div>
+                    <Separator />
+                    <div className="flex justify-between text-destructive"><span>{isArabic ? "الاحتجاز" : "Retention"} ({formRetention}%)</span><span>-{formatCurrency(retentionAmount)}</span></div>
+                    {formAdvanceDeduction > 0 && <div className="flex justify-between text-destructive"><span>{isArabic ? "خصم دفعة مقدمة" : "Advance"}{advancePercentage > 0 ? ` (${advancePercentage}%)` : ''}</span><span>-{formatCurrency(formAdvanceDeduction)}</span></div>}
+                    {formOtherDeductions > 0 && <div className="flex justify-between text-destructive"><span>{isArabic ? "خصومات أخرى" : "Other"}</span><span>-{formatCurrency(formOtherDeductions)}</span></div>}
+                    <Separator />
+                    <div className="flex justify-between text-lg font-bold"><span>{isArabic ? "صافي المستحق" : "Net Amount"}</span><span className="text-primary">{formatCurrency(netAmount)}</span></div>
+                  </CardContent>
+                </Card>
+
                 <div>
-                  <Label className="flex items-center gap-1">
-                    {isArabic ? "خصم دفعة مقدمة" : "Advance Deduction"}
-                    {advancePercentage > 0 && <span className="text-xs text-muted-foreground">({advancePercentage}%)</span>}
-                  </Label>
-                  <Input type="number" value={formAdvanceDeduction} onChange={e => { setFormAdvanceDeduction(parseFloat(e.target.value) || 0); setAdvancePercentage(0); }} />
-                  {advancePercentage > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {isArabic ? "محسوب تلقائياً من العقد" : "Auto-calculated from contract"} ({advancePercentage}%)
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label>{isArabic ? "خصومات أخرى" : "Other Deductions"}</Label>
-                  <Input type="number" value={formOtherDeductions} onChange={e => setFormOtherDeductions(parseFloat(e.target.value) || 0)} />
+                  <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
+                  <Textarea value={formNotes} onChange={e => setFormNotes(e.target.value)} rows={2} />
                 </div>
               </div>
-
-              {/* Section 6: Summary */}
-              <Card className="bg-muted/50">
-                <CardContent className="pt-4 space-y-2">
-                  <div className="flex justify-between"><span>{isArabic ? "الأعمال الحالية" : "Current Work Done"}</span><span className="font-bold">{formatCurrency(currentWorkDone)}</span></div>
-                  <div className="flex justify-between"><span>{isArabic ? "الأعمال السابقة" : "Previous Work Done"}</span><span>{formatCurrency(previousWorkDone)}</span></div>
-                  <div className="flex justify-between"><span>{isArabic ? "إجمالي الأعمال" : "Total Work Done"}</span><span>{formatCurrency(totalWorkDone)}</span></div>
-                  <Separator />
-                  <div className="flex justify-between text-destructive"><span>{isArabic ? "الاحتجاز" : "Retention"} ({formRetention}%)</span><span>-{formatCurrency(retentionAmount)}</span></div>
-                  {formAdvanceDeduction > 0 && <div className="flex justify-between text-destructive"><span>{isArabic ? "خصم دفعة مقدمة" : "Advance"}{advancePercentage > 0 ? ` (${advancePercentage}%)` : ''}</span><span>-{formatCurrency(formAdvanceDeduction)}</span></div>}
-                  {formOtherDeductions > 0 && <div className="flex justify-between text-destructive"><span>{isArabic ? "خصومات أخرى" : "Other"}</span><span>-{formatCurrency(formOtherDeductions)}</span></div>}
-                  <Separator />
-                  <div className="flex justify-between text-lg font-bold"><span>{isArabic ? "صافي المستحق" : "Net Amount"}</span><span className="text-primary">{formatCurrency(netAmount)}</span></div>
-                </CardContent>
-              </Card>
-
-              <div>
-                <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
-                <Textarea value={formNotes} onChange={e => setFormNotes(e.target.value)} rows={2} />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCreateDialog(false)}>{isArabic ? "إلغاء" : "Cancel"}</Button>
-              <Button onClick={handleCreateCertificate} disabled={!formProjectId || !formContractor}>
-                {isArabic ? "حفظ المستخلص" : "Save Certificate"}
-              </Button>
-            </DialogFooter>
-          </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline" ref={createDialogCloseRef}>{isArabic ? "إلغاء" : "Cancel"}</Button>
+                </DialogClose>
+                <Button onClick={handleCreateCertificate} disabled={!formProjectId || !formContractor}>
+                  {isArabic ? "حفظ المستخلص" : "Save Certificate"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
-        )}
-
         {/* View Dialog */}
         {showViewDialog && (
         <Dialog open={true} onOpenChange={(open) => { if (!open) setShowViewDialog(false); }}>
