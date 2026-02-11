@@ -1,90 +1,82 @@
 
-# إصلاح جذري لزر "New Certificate" 
 
-## التشخيص النهائي
+# إصلاح نهائي لزر "New Certificate" باستخدام createPortal
 
-بعد اختبار مباشر في المتصفح:
-- الضغط على الزر ينجح (لا أخطاء)
-- لكن لا يظهر أي عنصر dialog أو modal في DOM
-- لا أخطاء في Console إطلاقاً
-- حتى الـ custom modal (div عادي بدون Radix) لم يظهر
+## التشخيص
 
-هذا يعني أن المشكلة ليست في Radix نفسه، بل في آلية تحديث الـ state أو إعادة الرسم في بيئة المعاينة.
+بعد 4 محاولات سابقة (Radix controlled, forwardRef, custom div, DialogTrigger) - جميعها فشلت. اختبار المتصفح المباشر أكد: **الضغط على الزر لا ينتج أي عنصر في DOM إطلاقاً**.
 
-## الحل: استخدام نمط DialogTrigger asChild
+السبب: المكون كبير جداً (978 سطر) وRadix Dialog يفشل في عمل mount للمحتوى داخل هذه الشجرة المعقدة.
 
-بدلاً من التحكم بالحالة يدوياً (`open` prop + `useState`)، سنستخدم نمط `DialogTrigger asChild` حيث يتحكم Radix بفتح وإغلاق النافذة داخلياً بدون أي state خارجي.
+## الحل: فصل نموذج الإنشاء إلى مكون منفصل + createPortal
 
-## التغييرات المطلوبة
+### الخطوة 1: إنشاء مكون جديد `CreateCertificateModal.tsx`
 
-### ملف: `src/pages/ProgressCertificatesPage.tsx`
-
-**1. إزالة state غير ضرورية:**
-- إزالة `showCreateDialog` و `setShowCreateDialog` من الاستخدام المباشر لفتح النافذة
-- استخدام `DialogTrigger` لفتح النافذة تلقائياً
-
-**2. تغيير بنية نافذة الإنشاء:**
-
-قبل (لا يعمل):
-```tsx
-<Button onClick={() => setShowCreateDialog(true)}>New Certificate</Button>
-...
-{showCreateDialog && (
-  <div className="fixed inset-0 z-[200]">...</div>
-)}
+```
+src/components/certificates/CreateCertificateModal.tsx
 ```
 
-بعد (الحل):
-```tsx
-<Dialog>
-  <DialogTrigger asChild>
-    <Button>
-      <Plus className="h-4 w-4 mr-1" />
-      New Certificate
-    </Button>
-  </DialogTrigger>
-  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto"
-    onOpenAutoFocus={(e) => e.preventDefault()}
-    onCloseAutoFocus={(e) => e.preventDefault()}>
-    <DialogHeader>
-      <DialogTitle>Create New Certificate</DialogTitle>
-      <DialogDescription className="sr-only">
-        Create a new progress certificate
-      </DialogDescription>
-    </DialogHeader>
-    {/* ... محتوى النموذج ... */}
-    <DialogFooter>
-      <DialogClose asChild>
-        <Button variant="outline">Cancel</Button>
-      </DialogClose>
-      <Button onClick={handleCreateCertificate}>Save</Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
+- مكون منفصل تماماً عن الصفحة الرئيسية
+- يستخدم `ReactDOM.createPortal(modalContent, document.body)` لعرض المحتوى مباشرة في body
+- بدون أي اعتماد على Radix Dialog
+- يتلقى props: `isOpen`, `onClose`, `onSave`, `projects`, `contractors`, `isArabic`
+- يحتوي على كل منطق النموذج (form state, items, calculations) داخلياً
+
+### الخطوة 2: تبسيط `ProgressCertificatesPage.tsx`
+
+- إزالة كل كود Radix Dialog للإنشاء (حوالي 250 سطر)
+- استبدالها بـ:
+
+```text
+<Button onClick={() => setShowCreateDialog(true)}>
+  New Certificate
+</Button>
+<CreateCertificateModal 
+  isOpen={showCreateDialog}
+  onClose={() => { setShowCreateDialog(false); }}
+  onSave={() => { setShowCreateDialog(false); fetchData(); }}
+  projects={projects}
+  contractors={contractors}
+  isArabic={isArabic}
+  userId={user?.id}
+/>
 ```
 
-**3. إضافة `DialogClose` في الاستيراد:**
-```tsx
-import { Dialog, DialogContent, DialogHeader, DialogTitle, 
-         DialogTrigger, DialogFooter, DialogDescription, DialogClose } 
-  from "@/components/ui/dialog";
+### الخطوة 3: بنية المكون الجديد
+
+المكون الجديد سيستخدم هذا النمط:
+
+```text
+if (!isOpen) return null;
+
+return createPortal(
+  <div className="fixed inset-0 z-[9999]">
+    <div className="fixed inset-0 bg-black/80" onClick={onClose} />
+    <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+                    w-full max-w-4xl max-h-[90vh] overflow-y-auto
+                    bg-background border rounded-lg shadow-2xl p-6 z-[10000]">
+      {/* Form content */}
+    </div>
+  </div>,
+  document.body
+);
 ```
-
-**4. تحديث دالة الحفظ:**
-بعد الحفظ الناجح، إغلاق النافذة برمجياً باستخدام `document.querySelector` أو ref للـ close button.
-
-**5. نافذة العرض:**
-تبقى كما هي (تعمل بنمط state-controlled) لأنها تُفتح من أزرار متعددة في الجدول.
-
-## الملفات المتأثرة
-
-| الملف | التعديل |
-|-------|---------|
-| `src/pages/ProgressCertificatesPage.tsx` | تغيير نافذة الإنشاء لنمط DialogTrigger + إضافة DialogClose |
 
 ## لماذا هذا الحل سيعمل
 
-1. **DialogTrigger asChild** يجعل Radix يتحكم بالفتح/الإغلاق داخلياً بدون الحاجة لـ useState
-2. هذا النمط موثق كأفضل ممارسة في ذاكرة المشروع (radix-ui-dialog-trigger-pattern)
-3. يتجنب أي مشاكل مع state-sync أو pointer-events أو HMR stale state
-4. **onOpenAutoFocus** و **onCloseAutoFocus** مع `preventDefault()` تمنع مشاكل focus-trapping
+1. **createPortal** يعرض المحتوى مباشرة في `document.body` - خارج شجرة React تماماً
+2. **مكون منفصل** يقلل حجم الصفحة الرئيسية ويحل مشكلة reconciliation
+3. **بدون Radix Dialog** يتجنب أي مشاكل مع ref forwarding أو context providers
+4. **z-index عالي جداً (9999)** يضمن ظهور النافذة فوق كل شيء
+
+## الملفات
+
+| الملف | التعديل |
+|-------|---------|
+| `src/components/certificates/CreateCertificateModal.tsx` | ملف جديد - نموذج الإنشاء مع createPortal |
+| `src/pages/ProgressCertificatesPage.tsx` | استبدال Dialog الإنشاء بالمكون الجديد + تبسيط الكود |
+
+## ملاحظة
+
+نافذة العرض (View Dialog) ستبقى كما هي مؤقتاً لأنها لم يتم اختبارها بعد. إذا كانت تعمل فلا داعي لتغييرها.
+
