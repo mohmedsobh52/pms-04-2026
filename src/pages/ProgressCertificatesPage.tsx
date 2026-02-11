@@ -16,7 +16,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { 
-  FileText, Plus, Building2, DollarSign, TrendingUp, 
+  FileText, Plus, Building2, DollarSign, TrendingUp, X,
   Calendar, Trash2, Eye, Percent, Calculator, Edit, Download,
   AlertCircle, FileCheck, Link2
 } from "lucide-react";
@@ -658,7 +658,6 @@ const ProgressCertificatesPage = () => {
             {isArabic ? "مستخلص جديد" : "New Certificate"}
           </Button>
         </div>
-
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <Card><CardContent className="pt-4 flex items-center gap-3">
@@ -767,15 +766,19 @@ const ProgressCertificatesPage = () => {
         </Card>
 
         {/* Create Dialog */}
-        <Dialog open={showCreateDialog} onOpenChange={(open) => { setShowCreateDialog(open); if (!open) resetForm(); }}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
+        {showCreateDialog && (
+        <div className="fixed inset-0 z-[200]" role="dialog" aria-modal="true">
+          <div className="fixed inset-0 bg-black/80 z-[200]" onClick={() => { setShowCreateDialog(false); resetForm(); }} />
+          <div className="fixed left-[50%] top-[50%] z-[201] w-full max-w-4xl max-h-[90vh] translate-x-[-50%] translate-y-[-50%] overflow-y-auto border bg-background p-6 shadow-lg sm:rounded-lg">
+            <button onClick={() => { setShowCreateDialog(false); resetForm(); }} className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100">
+              <X className="h-4 w-4" />
+            </button>
+            <div className="flex flex-col space-y-1.5 text-center sm:text-left">
+              <h2 className="text-lg font-semibold leading-none tracking-tight flex items-center gap-2">
                 <FileCheck className="h-5 w-5 text-primary" />
                 {isArabic ? "إنشاء مستخلص جديد" : "Create New Certificate"}
-              </DialogTitle>
-              <DialogDescription className="sr-only">Create a new progress certificate</DialogDescription>
-            </DialogHeader>
+              </h2>
+            </div>
             <div className="space-y-4">
               {/* Section 1: Project, Contractor, Contract */}
               <Card className="border-primary/20">
@@ -1002,12 +1005,14 @@ const ProgressCertificatesPage = () => {
                 {isArabic ? "حفظ المستخلص" : "Save Certificate"}
               </Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </div>
+        </div>
+        )}
 
         {/* View Dialog */}
-        <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        {showViewDialog && (
+        <Dialog open={true} onOpenChange={(open) => { if (!open) setShowViewDialog(false); }}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogDescription className="sr-only">View certificate details</DialogDescription>
               <div className="flex items-center justify-between">
@@ -1070,6 +1075,7 @@ const ProgressCertificatesPage = () => {
             )}
           </DialogContent>
         </Dialog>
+        )}
       </div>
     </PageLayout>
   );
