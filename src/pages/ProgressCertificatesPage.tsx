@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -774,6 +774,7 @@ const ProgressCertificatesPage = () => {
                 <FileCheck className="h-5 w-5 text-primary" />
                 {isArabic ? "إنشاء مستخلص جديد" : "Create New Certificate"}
               </DialogTitle>
+              <DialogDescription className="sr-only">Create a new progress certificate</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               {/* Section 1: Project, Contractor, Contract */}
@@ -1008,6 +1009,7 @@ const ProgressCertificatesPage = () => {
         <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
+              <DialogDescription className="sr-only">View certificate details</DialogDescription>
               <div className="flex items-center justify-between">
                 <DialogTitle>
                   {isArabic ? `مستخلص رقم ${viewingCertificate?.certificate_number}` : `Certificate #${viewingCertificate?.certificate_number}`}
