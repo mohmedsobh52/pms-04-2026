@@ -2,50 +2,20 @@
 
 # إصلاح نهائي لزر "New Certificate" باستخدام createPortal
 
-## التشخيص
+## المشكلة
+بعد 4 محاولات (Radix controlled, forwardRef, custom div, DialogTrigger) - جميعها فشلت. الضغط على الزر لا ينتج أي عنصر في DOM. السبب: الصفحة كبيرة (978 سطر) و Radix Dialog يفشل في mount المحتوى في بيئة المعاينة.
 
-بعد 4 محاولات سابقة (Radix controlled, forwardRef, custom div, DialogTrigger) - جميعها فشلت. اختبار المتصفح المباشر أكد: **الضغط على الزر لا ينتج أي عنصر في DOM إطلاقاً**.
+## الحل: فصل نموذج الإنشاء + createPortal
 
-السبب: المكون كبير جداً (978 سطر) وRadix Dialog يفشل في عمل mount للمحتوى داخل هذه الشجرة المعقدة.
+### الخطوة 1: إنشاء ملف جديد `src/components/certificates/CreateCertificateModal.tsx`
 
-## الحل: فصل نموذج الإنشاء إلى مكون منفصل + createPortal
+مكون منفصل يحتوي على:
+- كل منطق النموذج (form state, items, calculations) داخلياً
+- `ReactDOM.createPortal(content, document.body)` لعرض المحتوى مباشرة في body
+- بدون Radix Dialog - modal نقي بـ HTML/CSS
+- Props: `isOpen`, `onClose`, `onSave`, `projects`, `contractors`, `isArabic`, `userId`
 
-### الخطوة 1: إنشاء مكون جديد `CreateCertificateModal.tsx`
-
-```
-src/components/certificates/CreateCertificateModal.tsx
-```
-
-- مكون منفصل تماماً عن الصفحة الرئيسية
-- يستخدم `ReactDOM.createPortal(modalContent, document.body)` لعرض المحتوى مباشرة في body
-- بدون أي اعتماد على Radix Dialog
-- يتلقى props: `isOpen`, `onClose`, `onSave`, `projects`, `contractors`, `isArabic`
-- يحتوي على كل منطق النموذج (form state, items, calculations) داخلياً
-
-### الخطوة 2: تبسيط `ProgressCertificatesPage.tsx`
-
-- إزالة كل كود Radix Dialog للإنشاء (حوالي 250 سطر)
-- استبدالها بـ:
-
-```text
-<Button onClick={() => setShowCreateDialog(true)}>
-  New Certificate
-</Button>
-<CreateCertificateModal 
-  isOpen={showCreateDialog}
-  onClose={() => { setShowCreateDialog(false); }}
-  onSave={() => { setShowCreateDialog(false); fetchData(); }}
-  projects={projects}
-  contractors={contractors}
-  isArabic={isArabic}
-  userId={user?.id}
-/>
-```
-
-### الخطوة 3: بنية المكون الجديد
-
-المكون الجديد سيستخدم هذا النمط:
-
+البنية:
 ```text
 if (!isOpen) return null;
 
@@ -55,28 +25,59 @@ return createPortal(
     <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
                     w-full max-w-4xl max-h-[90vh] overflow-y-auto
                     bg-background border rounded-lg shadow-2xl p-6 z-[10000]">
-      {/* Form content */}
+      {/* محتوى النموذج بالكامل - نفس الكود الموجود حالياً */}
     </div>
   </div>,
   document.body
 );
 ```
 
-## لماذا هذا الحل سيعمل
+المكون سيتضمن داخلياً:
+- جميع states النموذج (formProjectId, formContractor, formItems, etc.)
+- دوال التحميل (loadProjectItems, loadContractsForSelection, loadPreviousCertsSummary)
+- دالة الحفظ handleCreateCertificate
+- دالة resetForm
+- الحسابات (currentWorkDone, retentionAmount, netAmount)
+- كل أقسام الفورم الستة الموجودة حالياً
 
-1. **createPortal** يعرض المحتوى مباشرة في `document.body` - خارج شجرة React تماماً
-2. **مكون منفصل** يقلل حجم الصفحة الرئيسية ويحل مشكلة reconciliation
-3. **بدون Radix Dialog** يتجنب أي مشاكل مع ref forwarding أو context providers
-4. **z-index عالي جداً (9999)** يضمن ظهور النافذة فوق كل شيء
+### الخطوة 2: تبسيط `src/pages/ProgressCertificatesPage.tsx`
+
+- إزالة كل كود Dialog الإنشاء (من سطر 658 إلى 904 تقريباً - حوالي 250 سطر)
+- إزالة كل states النموذج من الصفحة الرئيسية (formProjectId, formContractor, formItems, etc.)
+- إزالة الدوال المنقولة (loadProjectItems, loadContractsForSelection, etc.)
+- إبقاء: state الـ `showCreateDialog` فقط + زر الفتح + المكون الجديد
+- إبقاء: نافذة العرض (View Dialog) كما هي
+
+الاستخدام الجديد:
+```text
+<Button onClick={() => setShowCreateDialog(true)}>
+  <Plus className="h-4 w-4 mr-1" />
+  {isArabic ? "مستخلص جديد" : "New Certificate"}
+</Button>
+
+<CreateCertificateModal
+  isOpen={showCreateDialog}
+  onClose={() => setShowCreateDialog(false)}
+  onSave={() => { setShowCreateDialog(false); fetchData(); }}
+  projects={projects}
+  contractors={contractors}
+  isArabic={isArabic}
+  userId={user?.id}
+/>
+```
 
 ## الملفات
 
 | الملف | التعديل |
 |-------|---------|
 | `src/components/certificates/CreateCertificateModal.tsx` | ملف جديد - نموذج الإنشاء مع createPortal |
-| `src/pages/ProgressCertificatesPage.tsx` | استبدال Dialog الإنشاء بالمكون الجديد + تبسيط الكود |
+| `src/pages/ProgressCertificatesPage.tsx` | إزالة ~250 سطر من Dialog + استبدالها بالمكون الجديد |
 
-## ملاحظة
+## لماذا سيعمل
 
-نافذة العرض (View Dialog) ستبقى كما هي مؤقتاً لأنها لم يتم اختبارها بعد. إذا كانت تعمل فلا داعي لتغييرها.
+1. **createPortal** يعرض المحتوى مباشرة في document.body - خارج شجرة React المعقدة
+2. **مكون منفصل** يقلل حجم الصفحة من 978 إلى ~700 سطر
+3. **بدون Radix Dialog** يتجنب مشاكل ref forwarding و context providers
+4. **z-index: 9999** يضمن الظهور فوق كل شيء
+5. نافذة العرض (View Dialog) تبقى كما هي لأنها لم تُختبر بعد
 
