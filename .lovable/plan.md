@@ -1,56 +1,47 @@
 
-# إصلاح زر "مستخلص جديد" - الحل النهائي
 
-## المشكلة الجذرية
+# إصلاح العناصر غير التفاعلية في صفحة إنشاء المستخلص الجديد
 
-ملف `dialog-custom.css` يحتوي على 536 سطر من قواعد CSS تتحكم في `pointer-events` و `z-index` لعناصر Radix UI. عند استخدام `Button asChild` مع `Link`، يقوم Radix Slot بدمج خصائص HTML button (مثل `type="button"`) على عنصر `<a>`. هذا مع قواعد CSS المعقدة يمنع التنقل.
+## المشكلة
 
-بالإضافة لذلك، يوجد Select components في نفس الصفحة تُصدر تحذيرات React ref، مما يشير لمشاكل في Radix على هذه الصفحة.
+حقول التاريخ، زر الحفظ، ومربع الملاحظات لا تستجيب للنقر في صفحة `/progress-certificates/new`. السبب هو أن ملف `dialog-custom.css` يحتوي على قواعد CSS معقدة تتحكم في `z-index` و `pointer-events`، والصفحة الجديدة لا تستخدم أي من الفئات (classes) الوقائية الموجودة مسبقا في النظام.
+
+## التحليل
+
+ملف `dialog-custom.css` يحتوي على فئات CSS وقائية جاهزة:
+- `form-card-safe` - تحمي عناصر النماذج داخل البطاقات (inputs, textareas, selects)
+- `form-actions-safe` - تحمي أزرار الإجراءات (Save, Cancel)
+
+صفحة `NewCertificatePage.tsx` لا تستخدم أيا من هذه الفئات، مما يجعل عناصرها تقع تحت طبقات CSS أخرى.
 
 ## الحل
 
-استبدال `Button asChild` + `Link` بـ `Link` مباشرة مع تطبيق تنسيقات الزر يدوياً باستخدام `buttonVariants` + إضافة class حماية لضمان عدم حجب الزر.
+إضافة الفئات الوقائية الموجودة مسبقا إلى العناصر في `NewCertificatePage.tsx`:
 
-### التغيير في `src/pages/ProgressCertificatesPage.tsx`
+### التغييرات في `src/pages/NewCertificatePage.tsx`:
 
-**قبل:**
-```
-<Button asChild>
-  <Link to="/progress-certificates/new">
-    <Plus className="h-4 w-4 mr-1" />
-    {isArabic ? "مستخلص جديد" : "New Certificate"}
-  </Link>
-</Button>
-```
+1. **الحاوية الرئيسية** (سطر 239): إضافة `form-card-safe` إلى `div` الرئيسي
+   - يحمي كل عناصر النموذج (date inputs, textarea, select triggers)
 
-**بعد:**
-```
-<Link 
-  to="/progress-certificates/new"
-  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium h-10 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 relative z-[70] pointer-events-auto"
->
-  <Plus className="h-4 w-4 mr-1" />
-  {isArabic ? "مستخلص جديد" : "New Certificate"}
-</Link>
-```
+2. **حقول التاريخ** (أسطر 354-363): ستصبح تفاعلية تلقائيا بفضل `form-card-safe` على الحاوية الأب
 
-التغييرات:
-1. `Link` مباشرة بدون `Button asChild` - يتجنب Radix Slot تماما
-2. تنسيقات الزر مطبقة كـ className مباشرة
-3. `z-[70]` و `pointer-events-auto` لضمان عدم حجب الزر
-4. إزالة استيراد `Link` من الأعلى غير ضروري لأنه مستورد بالفعل
-5. يمكن حذف `Button` من الاستيرادات إذا لم يعد مستخدما في هذا السياق (لكنه مستخدم في أماكن أخرى في الصفحة)
+3. **مربع الملاحظات** (سطر 452): نفس الأمر - محمي بالفئة على الحاوية
+
+4. **أزرار الإجراءات** (سطر 457): إضافة `form-actions-safe` إلى `div` أزرار Cancel و Save
+
+| الموقع | التغيير |
+|--------|---------|
+| سطر 239 - div الرئيسي | إضافة class `form-card-safe` |
+| سطر 457 - div الأزرار | إضافة class `form-actions-safe` |
 
 ### ملف واحد يتأثر
 
-| الملف | التعديل |
-|-------|---------|
-| `src/pages/ProgressCertificatesPage.tsx` | استبدال Button+Link بـ Link مباشر مع تنسيقات الزر |
+`src/pages/NewCertificatePage.tsx`
 
 ### لماذا سيعمل
 
-1. عنصر `<a>` نقي بدون أي تدخل من Radix Slot
-2. React Router's Link يتحكم في التنقل عبر `onClick` الخاص به
-3. `z-[70]` أعلى من كل القواعد في dialog-custom.css (أعلى z-index هناك هو 65)
-4. `pointer-events-auto` صريح يتجاوز أي قاعدة CSS أخرى
-5. لا يوجد أي مكون Radix متورط - فقط عنصر HTML عادي
+1. الفئة `form-card-safe` تضيف `pointer-events: auto !important` و `z-index` مناسب لكل inputs و textareas و buttons داخلها
+2. الفئة `form-actions-safe` تضيف `z-index: 65` و `pointer-events: auto !important` للأزرار
+3. هذه الفئات مستخدمة بنجاح في صفحات أخرى في المشروع (Settings, Tender)
+4. لا حاجة لإضافة قواعد CSS جديدة - فقط استخدام ما هو موجود
+
