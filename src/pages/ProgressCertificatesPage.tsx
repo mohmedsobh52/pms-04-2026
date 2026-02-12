@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
@@ -211,9 +211,11 @@ const ProgressCertificatesPage = () => {
               {isArabic ? "إدارة مستخلصات المقاولين ومقاولي الباطن" : "Manage contractor & subcontractor invoices"}
             </p>
           </div>
-          <Button onClick={() => navigate('/progress-certificates/new')}>
-            <Plus className="h-4 w-4 mr-1" />
-            {isArabic ? "مستخلص جديد" : "New Certificate"}
+          <Button asChild>
+            <Link to="/progress-certificates/new">
+              <Plus className="h-4 w-4 mr-1" />
+              {isArabic ? "مستخلص جديد" : "New Certificate"}
+            </Link>
           </Button>
         </div>
 
