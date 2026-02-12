@@ -211,12 +211,13 @@ const ProgressCertificatesPage = () => {
               {isArabic ? "إدارة مستخلصات المقاولين ومقاولي الباطن" : "Manage contractor & subcontractor invoices"}
             </p>
           </div>
-          <Button asChild>
-            <Link to="/progress-certificates/new">
-              <Plus className="h-4 w-4 mr-1" />
-              {isArabic ? "مستخلص جديد" : "New Certificate"}
-            </Link>
-          </Button>
+          <Link 
+            to="/progress-certificates/new"
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium h-10 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 relative z-[70] pointer-events-auto"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            {isArabic ? "مستخلص جديد" : "New Certificate"}
+          </Link>
         </div>
 
         {/* Stats Cards */}
