@@ -1396,9 +1396,9 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                                           <TableCell className="font-mono text-xs font-medium">{item.item_number || idx + 1}</TableCell>
                                           <TableCell className="text-sm">{item.description}</TableCell>
                                           <TableCell className="text-sm text-center">{item.unit || '-'}</TableCell>
-                                          <TableCell className="text-sm font-medium text-center">{item.quantity?.toLocaleString() || '-'}</TableCell>
-                                          <TableCell className="text-sm font-medium">{item.unit_price?.toLocaleString() || '-'} {quotation.currency}</TableCell>
-                                          <TableCell className="font-bold text-primary bg-primary/5">{displayTotal?.toLocaleString()} {quotation.currency}</TableCell>
+                                          <TableCell className="text-sm font-medium text-center">{(item.quantity ?? 0).toLocaleString()}</TableCell>
+                                          <TableCell className="text-sm font-medium">{(item.unit_price ?? 0).toLocaleString()} {quotation.currency}</TableCell>
+                                          <TableCell className="font-bold text-primary bg-primary/5">{(displayTotal ?? 0).toLocaleString()} {quotation.currency}</TableCell>
                                         </TableRow>
                                       );
                                     })}
@@ -1436,7 +1436,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                                 {quotation.ai_analysis.totals.subtotal !== undefined && (
                                   <div className="flex justify-between">
                                     <span className="text-muted-foreground">المجموع الفرعي:</span>
-                                    <span>{quotation.ai_analysis.totals.subtotal.toLocaleString()}</span>
+                                    <span>{(quotation.ai_analysis.totals.subtotal ?? 0).toLocaleString()}</span>
                                   </div>
                                 )}
                                 {quotation.ai_analysis.totals.tax !== undefined && (
@@ -1444,18 +1444,18 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                                     <span className="text-muted-foreground">
                                       الضريبة {quotation.ai_analysis.totals.tax_percentage ? `(${quotation.ai_analysis.totals.tax_percentage}%)` : ''}:
                                     </span>
-                                    <span>{quotation.ai_analysis.totals.tax.toLocaleString()}</span>
+                                    <span>{(quotation.ai_analysis.totals.tax ?? 0).toLocaleString()}</span>
                                   </div>
                                 )}
                                 {quotation.ai_analysis.totals.discount !== undefined && quotation.ai_analysis.totals.discount > 0 && (
                                   <div className="flex justify-between text-success">
                                     <span>الخصم:</span>
-                                    <span>-{quotation.ai_analysis.totals.discount.toLocaleString()}</span>
+                                    <span>-{(quotation.ai_analysis.totals.discount ?? 0).toLocaleString()}</span>
                                   </div>
                                 )}
                                 <div className="flex justify-between font-bold pt-1 border-t">
                                   <span>الإجمالي:</span>
-                                  <span>{quotation.ai_analysis.totals.grand_total?.toLocaleString()} {quotation.currency}</span>
+                                  <span>{(quotation.ai_analysis.totals.grand_total ?? 0).toLocaleString()} {quotation.currency}</span>
                                 </div>
                               </div>
                             </div>
