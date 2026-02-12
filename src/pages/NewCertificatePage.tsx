@@ -236,7 +236,7 @@ const NewCertificatePage = () => {
 
   return (
     <PageLayout>
-      <div className="container mx-auto p-4 md:p-6 space-y-6" dir={isArabic ? "rtl" : "ltr"}>
+      <div className="container mx-auto p-4 md:p-6 space-y-6 form-card-safe" dir={isArabic ? "rtl" : "ltr"}>
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
@@ -454,7 +454,7 @@ const NewCertificatePage = () => {
         </div>
 
         {/* Footer Actions */}
-        <div className="flex justify-end gap-2 pt-4 border-t">
+        <div className="flex justify-end gap-2 pt-4 border-t form-actions-safe">
           <Button variant="outline" onClick={() => navigate(-1)}>{isArabic ? "إلغاء" : "Cancel"}</Button>
           <Button onClick={handleCreateCertificate} disabled={!formProjectId || !formContractor || saving}>
             {saving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "حفظ المستخلص" : "Save Certificate")}
