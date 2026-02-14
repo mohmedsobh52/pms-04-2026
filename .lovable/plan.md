@@ -1,50 +1,47 @@
 
 
-# إضافة شريط بحث عن الملفات باسم المورد
+# إضافة أنواع ضمانات جديدة
 
 ## التغيير
 
-إضافة حقل بحث أعلى قائمة "عروض الأسعار المرفوعة" يتيح تصفية العروض حسب اسم المورد.
+توسيع قائمة أنواع الضمانات في تبويب "الضمانات البنكية" لتتوافق مع الأنواع المطلوبة كما في الصورة المرجعية.
+
+## الأنواع الحالية (4 أنواع)
+
+| المفتاح | عربي | إنجليزي |
+|---------|------|---------|
+| bid_bond | ضمان ابتدائي | Bid Bond |
+| performance_bond | ضمان حسن التنفيذ | Performance Bond |
+| advance_payment | ضمان الدفعة المقدمة | Advance Payment Bond |
+| retention | ضمان المحتجزات | Retention Bond |
+
+## الأنواع بعد التعديل (6 أنواع)
+
+| المفتاح | عربي | إنجليزي |
+|---------|------|---------|
+| bid_bond | ضمان العطاء | Bid Bond |
+| performance_bond | ضمان الأداء | Performance Bond |
+| advance_payment | الدفعة المقدمة | Advance Payment Bond |
+| retention | الاحتجاز | Retention Bond |
+| **maintenance** | **الصيانة** | **Maintenance Bond** |
+| **other** | **أخرى** | **Other** |
 
 ## التفاصيل التقنية
 
-### الملف: `src/components/QuotationUpload.tsx`
+### الملف: `src/components/tender/GuaranteesTab.tsx`
 
-1. إضافة state جديد للبحث:
-```
-const [searchQuery, setSearchQuery] = useState("");
-```
+1. تحديث كائن `guaranteeTypes` (سطر 72-77):
+   - تعديل التسميات العربية لتتوافق مع المرجع
+   - إضافة نوعين جديدين: `maintenance` و `other`
 
-2. إضافة متغير للتصفية:
-```
-const filteredQuotations = quotations.filter(q =>
-  !searchQuery || q.supplier_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-  q.name?.toLowerCase().includes(searchQuery.toLowerCase())
-);
-```
+2. تحديث نوع TypeScript في واجهة `Guarantee` (سطر ~56) لإضافة الأنواع الجديدة إلى union type
 
-3. إضافة شريط بحث بعد عنوان "عروض الأسعار المرفوعة" وقبل القائمة (بعد سطر 1136 تقريبا):
-```
-<div className="px-6 pb-2">
-  <div className="relative">
-    <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-    <Input
-      placeholder="بحث باسم المورد أو اسم العرض..."
-      value={searchQuery}
-      onChange={(e) => setSearchQuery(e.target.value)}
-      className="pr-9 relative z-[70] pointer-events-auto"
-    />
-  </div>
-</div>
-```
-
-4. استبدال `quotations.map` بـ `filteredQuotations.map` في عرض القائمة
-
-5. إضافة `Search` إلى استيرادات `lucide-react`
+| الموقع | التعديل |
+|--------|---------|
+| سطر 72-77 | تحديث كائن `guaranteeTypes` بإضافة نوعين وتعديل التسميات |
+| واجهة `Guarantee` | تحديث نوع `type` |
 
 ### ملف واحد يتأثر
 
-| الملف | التعديل |
-|-------|---------|
-| `src/components/QuotationUpload.tsx` | إضافة state بحث + حقل Input + تصفية القائمة |
+`src/components/tender/GuaranteesTab.tsx`
 
