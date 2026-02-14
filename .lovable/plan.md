@@ -1,47 +1,103 @@
 
 
-# إضافة أنواع ضمانات جديدة
+# Improving Tender Summary PDF Report Quality
 
-## التغيير
+## Problems Identified from the PDF
 
-توسيع قائمة أنواع الضمانات في تبويب "الضمانات البنكية" لتتوافق مع الأنواع المطلوبة كما في الصورة المرجعية.
+1. **Guarantee types show raw database keys** like `bid_bond`, `performance_bond` instead of readable labels like "Bid Bond", "Performance Bond"
+2. **Indirect cost categories show raw keys** like `headquarters`, `operational` instead of "Headquarters", "Operational Expenses"
+3. **Arabic text is corrupted** in the PDF because jsPDF does not support Arabic fonts natively -- Arabic item names and category names appear as garbled characters (`þ"þóþ-...`)
+4. **Indirect cost item names** default to Arabic (`c.name`) which corrupts in the PDF -- should use English names (`c.nameEn`)
 
-## الأنواع الحالية (4 أنواع)
+## Solution
 
-| المفتاح | عربي | إنجليزي |
-|---------|------|---------|
-| bid_bond | ضمان ابتدائي | Bid Bond |
-| performance_bond | ضمان حسن التنفيذ | Performance Bond |
-| advance_payment | ضمان الدفعة المقدمة | Advance Payment Bond |
-| retention | ضمان المحتجزات | Retention Bond |
+All changes are in a single file: `src/components/tender/TenderPDFExport.tsx`
 
-## الأنواع بعد التعديل (6 أنواع)
+### 1. Add Guarantee Type Labels Map
 
-| المفتاح | عربي | إنجليزي |
-|---------|------|---------|
-| bid_bond | ضمان العطاء | Bid Bond |
-| performance_bond | ضمان الأداء | Performance Bond |
-| advance_payment | الدفعة المقدمة | Advance Payment Bond |
-| retention | الاحتجاز | Retention Bond |
-| **maintenance** | **الصيانة** | **Maintenance Bond** |
-| **other** | **أخرى** | **Other** |
+Add a lookup object at the top of the component to translate raw guarantee type keys to proper English labels:
 
-## التفاصيل التقنية
+```
+const guaranteeTypeLabels: Record<string, string> = {
+  bid_bond: "Bid Bond",
+  performance_bond: "Performance Bond",
+  advance_payment: "Advance Payment Bond",
+  retention: "Retention Bond",
+  maintenance: "Maintenance Bond",
+  other: "Other",
+};
+```
 
-### الملف: `src/components/tender/GuaranteesTab.tsx`
+### 2. Add Indirect Cost Category Labels Map
 
-1. تحديث كائن `guaranteeTypes` (سطر 72-77):
-   - تعديل التسميات العربية لتتوافق مع المرجع
-   - إضافة نوعين جديدين: `maintenance` و `other`
+```
+const indirectCategoryLabels: Record<string, string> = {
+  headquarters: "Headquarters",
+  operational: "Operational Expenses",
+  financial: "Financial Costs",
+  reserve: "Reserve",
+  technical: "Technical Expenses",
+  legal: "Legal Expenses",
+  marketing: "Marketing & Relations",
+  training: "Training & Development",
+  safety: "Safety & Health",
+  quality: "Quality Control",
+  environmental: "Environmental",
+  transport: "Transportation",
+  other: "Other",
+};
+```
 
-2. تحديث نوع TypeScript في واجهة `Guarantee` (سطر ~56) لإضافة الأنواع الجديدة إلى union type
+### 3. Fix Guarantee Table Data (line ~288-289)
 
-| الموقع | التعديل |
-|--------|---------|
-| سطر 72-77 | تحديث كائن `guaranteeTypes` بإضافة نوعين وتعديل التسميات |
-| واجهة `Guarantee` | تحديث نوع `type` |
+Change from displaying the raw key to using the labels map:
 
-### ملف واحد يتأثر
+**Before:** `g.type || g.typeEn`
+**After:** `guaranteeTypeLabels[g.type] || g.typeEn || g.type`
 
-`src/components/tender/GuaranteesTab.tsx`
+### 4. Fix Indirect Costs Table Data (lines ~319-321)
+
+Change category and name to always prefer English:
+
+**Before:**
+- Category: `c.category || c.categoryEn`
+- Name: `c.name || c.nameEn`
+
+**After:**
+- Category: `indirectCategoryLabels[c.category] || c.categoryEn || c.category`
+- Name: `c.nameEn || c.name`
+
+### 5. Fix Staff Table (line ~194-195)
+
+Prefer English position names to avoid Arabic corruption:
+
+**Before:** `s.position || s.positionEn`
+**After:** `s.positionEn || s.position`
+
+### 6. Fix Facilities Table (line ~227)
+
+**Before:** `f.name || f.nameEn`
+**After:** `f.nameEn || f.name`
+
+### 7. Fix Insurance Table (line ~258)
+
+**Before:** `i.type || i.typeEn`
+**After:** `i.typeEn || i.type`
+
+### 8. Fix Subcontractors Table (line ~352)
+
+**Before:** `s.subcontractorName || s.name || s.nameEn`
+**After:** `s.subcontractorName || s.nameEn || s.name`
+
+## Summary of Impact
+
+| Issue | Before | After |
+|-------|--------|-------|
+| Guarantee type column | `bid_bond` | Bid Bond |
+| Indirect cost category | `headquarters` | Headquarters |
+| Arabic text in all tables | Corrupted characters | English labels used |
+
+### File affected
+
+`src/components/tender/TenderPDFExport.tsx` -- single file, all changes are label mapping and field priority fixes.
 
