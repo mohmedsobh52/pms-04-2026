@@ -1,35 +1,61 @@
 
-# اصلاح فساد الارقام في تقرير PDF ملخص المناقصة
 
-## المشكلة الرئيسية
+# Adding Page Tips Box to Every Page
 
-رموز Unicode (`─────`, `═════`) في صفوف الفواصل تفسد ترميز الخطوط في jsPDF، مما يجعل الارقام تظهر بشكل خاطئ (مثلا: "60,T50" بدلا من "60,750").
+## Overview
 
-## الحل
+Create a collapsible "Tips" box that appears on every page, providing contextual usage guidance for each section of the application. The tips will be page-specific based on the current route.
 
-ملف واحد: `src/components/tender/TenderPDFExport.tsx`
+## Design
 
-### 1. ازالة صفوف Unicode من summaryData (سطور 416-443)
+- A collapsible card with a lightbulb icon, initially collapsed to avoid cluttering the UI
+- Users can expand/collapse it; the collapsed state is saved in localStorage
+- Each page gets its own set of tips (bilingual: English + Arabic)
+- Placed inside `PageLayout` so it automatically appears on all pages
 
-حذف الصفوف الثلاثة التي تحتوي على `─────` والصفين `═════` واستبدالها بلا شيء. البيانات الجديدة ستكون 15 صفا بدلا من 19-20.
+## Technical Details
 
-### 2. اضافة صف Price per sqm بدون فاصل Unicode (سطر 440)
+### 1. New Component: `src/components/PageTipsBox.tsx`
 
-حذف سطر الفاصل `─────` قبل Built Area و Price per m2.
+A reusable collapsible tips component that:
+- Accepts tips as props OR auto-detects from the current route using `useLocation()`
+- Uses `Collapsible` from Radix UI (already installed)
+- Shows a `Lightbulb` icon with "Usage Tips" title
+- Stores open/closed state in localStorage per page
+- Supports bilingual tips (English/Arabic)
 
-### 3. تحديث didParseCell (سطور 454-477)
+### 2. Tips Data: `src/lib/page-tips.ts`
 
-تعديل مؤشرات الصفوف لتتوافق مع البيانات بعد حذف صفوف الفواصل:
+A centralized map of route patterns to tips arrays:
 
-| الصف | المؤشر القديم | المؤشر الجديد | التنسيق |
-|------|--------------|--------------|---------|
-| Direct Costs | 0 | 0 | خلفية خضراء |
-| Total Indirect | 12 (بعد فاصل) | 10 | خلفية رمادية + حد علوي |
-| TOTAL ALL COSTS | 14 | 11 | خلفية رمادية + حد علوي سميك |
-| GRAND TOTAL | 18 | 14 | خلفية زرقاء + نص ابيض |
+| Route Pattern | Page | Example Tips |
+|---------------|------|-------------|
+| `/dashboard` | Dashboard | "View all your projects at a glance", "Click on a project to see details" |
+| `/projects/:id` | Project Details | "Use the BOQ tab to manage items", "Export reports from the Documents tab" |
+| `/tender/:id` | Tender Summary | "Add staff, facilities, and insurance costs", "Export PDF from the top toolbar" |
+| `/reports` | Reports | "Compare multiple projects side by side", "Export data in Excel or PDF format" |
+| `/procurement` | Procurement | "Manage external partners and contracts", "Track partner performance" |
+| `/contracts` | Contracts | "Create and manage project contracts", "Set milestones and payment schedules" |
+| `/risk` | Risk Management | "Identify and assess project risks", "Set mitigation strategies" |
+| `/library` | Library | "Manage materials, labor, and equipment rates", "Import rates from Excel" |
+| `/quotations` | Quotations | "Upload and compare supplier quotations" |
+| `/resources` | Resources | "Plan resource allocation with Gantt charts" |
+| `/historical-pricing` | Historical Pricing | "Compare prices across past projects" |
+| `/saved-projects` | Saved Projects | "Load, compare, or delete saved projects" |
+| `/settings` | Settings | "Configure application preferences" |
+| ... and more for each page |
 
-اضافة حدود علوية (lineWidth) للصفوف التي كانت تسبقها فواصل Unicode بدلا من رموز الخطوط.
+Each tip entry has `{ en: string, ar: string }` for bilingual support.
 
-### ملف واحد يتاثر
+### 3. Modify `PageLayout.tsx`
 
-`src/components/tender/TenderPDFExport.tsx` - تعديل summaryData و didParseCell فقط.
+Add the `PageTipsBox` component after the `NavigationBar` and before the `PageTransition` content. The component auto-detects the current route and shows relevant tips.
+
+### Files to Create/Modify
+
+| File | Action |
+|------|--------|
+| `src/lib/page-tips.ts` | Create - tips data map |
+| `src/components/PageTipsBox.tsx` | Create - reusable tips component |
+| `src/components/PageLayout.tsx` | Modify - add PageTipsBox |
+
