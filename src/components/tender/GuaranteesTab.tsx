@@ -49,7 +49,7 @@ import { differenceInDays, addMonths, format } from "date-fns";
 
 export interface Guarantee {
   id: string;
-  type: "bid_bond" | "performance_bond" | "advance_payment" | "retention";
+  type: "bid_bond" | "performance_bond" | "advance_payment" | "retention" | "maintenance" | "other";
   name: string;
   nameEn: string;
   percentage: number;
@@ -70,10 +70,12 @@ export interface Guarantee {
 }
 
 const guaranteeTypes = {
-  bid_bond: { ar: "ضمان ابتدائي", en: "Bid Bond" },
-  performance_bond: { ar: "ضمان حسن التنفيذ", en: "Performance Bond" },
-  advance_payment: { ar: "ضمان الدفعة المقدمة", en: "Advance Payment Bond" },
-  retention: { ar: "ضمان المحتجزات", en: "Retention Bond" },
+  bid_bond: { ar: "ضمان العطاء", en: "Bid Bond" },
+  performance_bond: { ar: "ضمان الأداء", en: "Performance Bond" },
+  advance_payment: { ar: "الدفعة المقدمة", en: "Advance Payment Bond" },
+  retention: { ar: "الاحتجاز", en: "Retention Bond" },
+  maintenance: { ar: "الصيانة", en: "Maintenance Bond" },
+  other: { ar: "أخرى", en: "Other" },
 };
 
 const SAUDI_BANKS = [
