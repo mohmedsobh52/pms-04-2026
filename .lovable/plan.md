@@ -1,103 +1,69 @@
 
+# اصلاح شامل لجودة تقرير PDF ملخص المناقصة
 
-# Improving Tender Summary PDF Report Quality
+## المشاكل المكتشفة
 
-## Problems Identified from the PDF
+### 1. فساد الارقام في الملخص المالي (مشكلة حرجة)
+الارقام تظهر بشكل خاطئ: "60,T50" بدلا من "60,750" و "1,0T2,000" بدلا من "1,072,000". السبب: استخدام رموز Unicode للفواصل (`─────`, `═════`) يفسد ترميز الخطوط في jsPDF مما يجعل الرقم 7 يظهر كحرف T والرقم 9 يظهر كحرف V.
 
-1. **Guarantee types show raw database keys** like `bid_bond`, `performance_bond` instead of readable labels like "Bid Bond", "Performance Bond"
-2. **Indirect cost categories show raw keys** like `headquarters`, `operational` instead of "Headquarters", "Operational Expenses"
-3. **Arabic text is corrupted** in the PDF because jsPDF does not support Arabic fonts natively -- Arabic item names and category names appear as garbled characters (`þ"þóþ-...`)
-4. **Indirect cost item names** default to Arabic (`c.name`) which corrupts in the PDF -- should use English names (`c.nameEn`)
+### 2. النصوص العربية مشوهة في عمود "Item" بالتكاليف غير المباشرة
+### 3. انواع الضمانات تظهر كمفاتيح خام (bid_bond بدلا من Bid Bond)
+### 4. فئات التكاليف غير المباشرة تظهر كمفاتيح خام (headquarters بدلا من Headquarters)
 
-## Solution
+## الحل
 
-All changes are in a single file: `src/components/tender/TenderPDFExport.tsx`
+جميع التعديلات في ملف واحد: `src/components/tender/TenderPDFExport.tsx`
 
-### 1. Add Guarantee Type Labels Map
+### 1. ازالة رموز Unicode من الملخص المالي (الاصلاح الاهم)
 
-Add a lookup object at the top of the component to translate raw guarantee type keys to proper English labels:
+استبدال صفوف الفواصل التي تستخدم `─────` و `═════` والتي تفسد ترميز الخطوط.
 
+**قبل:**
 ```
-const guaranteeTypeLabels: Record<string, string> = {
-  bid_bond: "Bid Bond",
-  performance_bond: "Performance Bond",
-  advance_payment: "Advance Payment Bond",
-  retention: "Retention Bond",
-  maintenance: "Maintenance Bond",
-  other: "Other",
-};
+["─────────────────", "─────────────"],
+["═══════════════", "═══════════"],
 ```
 
-### 2. Add Indirect Cost Category Labels Map
+**بعد:**
+ازالة هذه الصفوف بالكامل واستخدام تنسيق الجدول (`didParseCell`) لاضافة حدود وفواصل بصرية بدلا منها عبر تغيير لون الخلفية والحدود.
 
+### 2. تحسين الملخص المالي ليعمل بدون Unicode
+
+اعادة هيكلة بيانات الملخص المالي لتكون:
 ```
-const indirectCategoryLabels: Record<string, string> = {
-  headquarters: "Headquarters",
-  operational: "Operational Expenses",
-  financial: "Financial Costs",
-  reserve: "Reserve",
-  technical: "Technical Expenses",
-  legal: "Legal Expenses",
-  marketing: "Marketing & Relations",
-  training: "Training & Development",
-  safety: "Safety & Health",
-  quality: "Quality Control",
-  environmental: "Environmental",
-  transport: "Transportation",
-  other: "Other",
-};
+["Direct Costs (BOQ)", "SAR ..."],
+["  - Materials", "SAR ..."],
+["  - Labor", "SAR ..."],
+["  - Equipment", "SAR ..."],
+["Site Staff Costs", "SAR ..."],
+["Facilities Costs", "SAR ..."],
+["Insurance Costs", "SAR ..."],
+["Guarantees Costs", "SAR ..."],
+["Other Indirect Costs", "SAR ..."],
+["Subcontractors Costs", "SAR ..."],
+["Total Indirect Costs", "SAR ..."],
+["TOTAL ALL COSTS", "SAR ..."],
+["Profit (%)", "+ SAR ..."],
+["Contingency (%)", "+ SAR ..."],
+["GRAND TOTAL", "SAR ..."],
 ```
 
-### 3. Fix Guarantee Table Data (line ~288-289)
+### 3. تحسين تنسيق صفوف الملخص باستخدام `didParseCell`
 
-Change from displaying the raw key to using the labels map:
+تحديث مؤشرات الصفوف في `didParseCell` لتتوافق مع البيانات الجديدة بعد ازالة صفوف الفواصل، واضافة حدود علوية سميكة بدلا من الرموز Unicode للفصل البصري بين الاقسام.
 
-**Before:** `g.type || g.typeEn`
-**After:** `guaranteeTypeLabels[g.type] || g.typeEn || g.type`
+### 4. التاكد من عمل خرائط التسميات
 
-### 4. Fix Indirect Costs Table Data (lines ~319-321)
+الخرائط المضافة سابقا (`guaranteeTypeLabels` و `indirectCategoryLabels`) موجودة وصحيحة، ولكن يجب التاكد من عدم وجود تعارض مع ترميز الخطوط.
 
-Change category and name to always prefer English:
+## التفاصيل التقنية
 
-**Before:**
-- Category: `c.category || c.categoryEn`
-- Name: `c.name || c.nameEn`
+### الملف: `src/components/tender/TenderPDFExport.tsx`
 
-**After:**
-- Category: `indirectCategoryLabels[c.category] || c.categoryEn || c.category`
-- Name: `c.nameEn || c.name`
+| الموقع | التعديل |
+|--------|---------|
+| سطور 416-436 | ازالة صفوف الفواصل Unicode من `summaryData` |
+| سطور 450-477 | تحديث `didParseCell` لتتوافق مع الفهارس الجديدة واضافة حدود بصرية |
 
-### 5. Fix Staff Table (line ~194-195)
-
-Prefer English position names to avoid Arabic corruption:
-
-**Before:** `s.position || s.positionEn`
-**After:** `s.positionEn || s.position`
-
-### 6. Fix Facilities Table (line ~227)
-
-**Before:** `f.name || f.nameEn`
-**After:** `f.nameEn || f.name`
-
-### 7. Fix Insurance Table (line ~258)
-
-**Before:** `i.type || i.typeEn`
-**After:** `i.typeEn || i.type`
-
-### 8. Fix Subcontractors Table (line ~352)
-
-**Before:** `s.subcontractorName || s.name || s.nameEn`
-**After:** `s.subcontractorName || s.nameEn || s.name`
-
-## Summary of Impact
-
-| Issue | Before | After |
-|-------|--------|-------|
-| Guarantee type column | `bid_bond` | Bid Bond |
-| Indirect cost category | `headquarters` | Headquarters |
-| Arabic text in all tables | Corrupted characters | English labels used |
-
-### File affected
-
-`src/components/tender/TenderPDFExport.tsx` -- single file, all changes are label mapping and field priority fixes.
-
+### ملف واحد يتاثر
+`src/components/tender/TenderPDFExport.tsx`
