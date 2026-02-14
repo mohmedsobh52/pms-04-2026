@@ -3,6 +3,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { UnifiedHeader } from "./UnifiedHeader";
 import { NavigationBar } from "./NavigationBar";
 import { PageTransition } from "./PageTransition";
+import { PageTipsBox } from "./PageTipsBox";
 import BackgroundImage from "./BackgroundImage";
 
 interface PageLayoutProps {
@@ -22,6 +23,7 @@ export function PageLayout({ children, showBackground = false, className = "" }:
       
       <main className={`flex-1 container mx-auto px-4 py-6 md:py-8 ${className}`}>
         <NavigationBar />
+        <PageTipsBox />
         
         <PageTransition>
           {children}
