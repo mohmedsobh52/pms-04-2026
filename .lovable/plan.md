@@ -1,61 +1,95 @@
 
 
-# Adding Page Tips Box to Every Page
+# تحسين عرض البيانات التاريخية بجدول BOQ منظم مع التعديل والربط بالتحليل
 
-## Overview
+## الهدف
 
-Create a collapsible "Tips" box that appears on every page, providing contextual usage guidance for each section of the application. The tips will be page-specific based on the current route.
+تحويل عرض البيانات التاريخية من جدول ديناميكي (أعمدة عشوائية من الملف) إلى جدول BOQ منظم بأعمدة ثابتة:
+**Item No | Description | وصف البند | Unit | Quantity | Unit Price | Total | Item Code**
 
-## Design
+مع إمكانية التعديل والحذف والإضافة لكل بند، وربط البيانات بتحليل البنود والتسعير.
 
-- A collapsible card with a lightbulb icon, initially collapsed to avoid cluttering the UI
-- Users can expand/collapse it; the collapsed state is saved in localStorage
-- Each page gets its own set of tips (bilingual: English + Arabic)
-- Placed inside `PageLayout` so it automatically appears on all pages
+---
 
-## Technical Details
+## التعديلات المطلوبة
 
-### 1. New Component: `src/components/PageTipsBox.tsx`
+### 1. تحويل بيانات الملفات عند الاستيراد (Normalization)
 
-A reusable collapsible tips component that:
-- Accepts tips as props OR auto-detects from the current route using `useLocation()`
-- Uses `Collapsible` from Radix UI (already installed)
-- Shows a `Lightbulb` icon with "Usage Tips" title
-- Stores open/closed state in localStorage per page
-- Supports bilingual tips (English/Arabic)
+عند رفع ملف Excel/PDF، يتم تحويل البيانات المستخرجة إلى نسق موحد قبل الحفظ:
 
-### 2. Tips Data: `src/lib/page-tips.ts`
+| العمود الموحد | الأسماء المتوقعة من الملف |
+|---|---|
+| `item_number` | Item, No, رقم البند, item_number, البند |
+| `description` | Description, DESCRIPTION, الوصف الانجليزي |
+| `description_ar` | وصف البند, الوصف |
+| `unit` | Unit, الوحدة, unit |
+| `quantity` | Quantity, الكمية, qty, quantity |
+| `unit_price` | Price, سعر الوحدة, unit_price, price |
+| `total_price` | Total, الإجمالي, total, total_price |
+| `item_code` | Item code, كود البند, item_code |
 
-A centralized map of route patterns to tips arrays:
+### 2. انشاء مكون `src/components/HistoricalItemsTable.tsx`
 
-| Route Pattern | Page | Example Tips |
-|---------------|------|-------------|
-| `/dashboard` | Dashboard | "View all your projects at a glance", "Click on a project to see details" |
-| `/projects/:id` | Project Details | "Use the BOQ tab to manage items", "Export reports from the Documents tab" |
-| `/tender/:id` | Tender Summary | "Add staff, facilities, and insurance costs", "Export PDF from the top toolbar" |
-| `/reports` | Reports | "Compare multiple projects side by side", "Export data in Excel or PDF format" |
-| `/procurement` | Procurement | "Manage external partners and contracts", "Track partner performance" |
-| `/contracts` | Contracts | "Create and manage project contracts", "Set milestones and payment schedules" |
-| `/risk` | Risk Management | "Identify and assess project risks", "Set mitigation strategies" |
-| `/library` | Library | "Manage materials, labor, and equipment rates", "Import rates from Excel" |
-| `/quotations` | Quotations | "Upload and compare supplier quotations" |
-| `/resources` | Resources | "Plan resource allocation with Gantt charts" |
-| `/historical-pricing` | Historical Pricing | "Compare prices across past projects" |
-| `/saved-projects` | Saved Projects | "Load, compare, or delete saved projects" |
-| `/settings` | Settings | "Configure application preferences" |
-| ... and more for each page |
+مكون جدول BOQ منظم يعرض البنود التاريخية بالأعمدة الثابتة أعلاه، مع:
 
-Each tip entry has `{ en: string, ar: string }` for bilingual support.
+- **تعديل مباشر (Inline Editing)**: الضغط على أي خلية يحولها لحقل إدخال (Input) قابل للتعديل
+- **حذف بند**: زر حذف لكل صف
+- **إضافة بند جديد**: زر "إضافة بند" يضيف صفاً فارغاً في نهاية الجدول
+- **حفظ التعديلات**: زر حفظ يرسل التحديثات لقاعدة البيانات (تحديث عمود `items` في جدول `historical_pricing_files`)
+- **تصدير إلى Excel**: تصدير البيانات المنظمة
+- **بحث وفلترة**: البحث داخل بنود الملف الواحد
 
-### 3. Modify `PageLayout.tsx`
+### 3. تعديل `src/pages/HistoricalPricingPage.tsx`
 
-Add the `PageTipsBox` component after the `NavigationBar` and before the `PageTransition` content. The component auto-detects the current route and shows relevant tips.
+- **حوار العرض (View Dialog)**: استبدال الجدول الديناميكي الحالي (سطور 879-914) بالمكون الجديد `HistoricalItemsTable` مع تمرير البنود والـ fileId
+- **حوار الرفع (Upload Dialog)**: استبدال معاينة البيانات (سطور 600-653) بنفس المكون لمعاينة وتعديل البيانات قبل الحفظ
+- **إضافة دالة التحويل (normalizeHistoricalItems)**: تحويل البيانات الخام من الملف إلى النسق الموحد عند الرفع
 
-### Files to Create/Modify
+### 4. إضافة دالة `normalizeHistoricalItems` في `src/lib/historical-data-utils.ts`
 
-| File | Action |
-|------|--------|
-| `src/lib/page-tips.ts` | Create - tips data map |
-| `src/components/PageTipsBox.tsx` | Create - reusable tips component |
-| `src/components/PageLayout.tsx` | Modify - add PageTipsBox |
+ملف مساعد يحتوي على:
+- **normalizeHistoricalItems**: تحويل بيانات خام (أعمدة مختلفة) إلى النسق الموحد
+- **matchColumnName**: مطابقة أسماء الأعمدة بالعربي والإنجليزي
+- **calculateTotal**: حساب الإجمالي تلقائياً (الكمية × سعر الوحدة)
+
+### 5. ربط البيانات التاريخية بالتحليل والتسعير
+
+تحسين مكون `HistoricalPriceComparison.tsx` الموجود:
+- تعديل دالة `findSimilarItems` لتقرأ البنود بالنسق الموحد الجديد (item_number, description, unit_price) بدلاً من البحث العشوائي
+- هذا يحسن دقة المطابقة التاريخية تلقائياً لأن أسماء الحقول أصبحت ثابتة
+
+---
+
+## الملفات المتأثرة
+
+| الملف | الإجراء |
+|---|---|
+| `src/lib/historical-data-utils.ts` | إنشاء - دوال التحويل والتطبيع |
+| `src/components/HistoricalItemsTable.tsx` | إنشاء - جدول BOQ تفاعلي |
+| `src/pages/HistoricalPricingPage.tsx` | تعديل - استخدام الجدول الجديد + التحويل |
+| `src/components/HistoricalPriceComparison.tsx` | تعديل - قراءة البنود بالنسق الموحد |
+
+---
+
+## التفاصيل التقنية
+
+### هيكل البند الموحد (Normalized Item)
+
+```text
+interface NormalizedHistoricalItem {
+  id: string;           // معرف فريد (UUID)
+  item_number: string;  // رقم البند
+  description: string;  // الوصف بالإنجليزية
+  description_ar: string; // وصف البند بالعربية
+  unit: string;         // الوحدة
+  quantity: number;     // الكمية
+  unit_price: number;   // سعر الوحدة
+  total_price: number;  // الإجمالي
+  item_code: string;    // كود البند
+}
+```
+
+### طريقة الحفظ
+
+البنود تبقى محفوظة في عمود `items` (jsonb) في جدول `historical_pricing_files` - لكن بالنسق الموحد بدلاً من البيانات الخام. عند التعديل/الحذف/الإضافة يتم تحديث هذا العمود مباشرة.
 
