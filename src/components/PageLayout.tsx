@@ -34,7 +34,7 @@ export function PageLayout({ children, showBackground = false, className = "" }:
       <footer className="border-t border-border py-4 md:py-6 bg-muted/10">
         <div className="container mx-auto px-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span>© 2024 BOQ Analyzer Pro</span>
+            <span>© 2025 PMS - {isArabic ? "نظام إدارة المشاريع" : "Project Management System"}</span>
             <div className="flex items-center gap-1">
               <span>{isArabic ? "تطوير:" : "Developed by:"}</span>
               <span className="font-medium text-foreground">Dr.Eng. Mohamed Sobh</span>

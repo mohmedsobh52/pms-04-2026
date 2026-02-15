@@ -191,16 +191,7 @@ export function UnifiedHeader({ showQuickNav = true }: UnifiedHeaderProps) {
           <ThemeToggle />
           <LanguageToggle />
           
-          <Link to="/projects?tab=reports" className="hidden sm:block">
-            <Button 
-              variant={location.search.includes("reports") ? "secondary" : "ghost"} 
-              size="icon" 
-              className="h-9 w-9"
-              title={isArabic ? "التقارير" : "Reports"}
-            >
-              <FileBarChart className="h-4 w-4" />
-            </Button>
-          </Link>
+          {/* Removed duplicate Reports icon - already in nav */}
           
           <Link to="/settings" className="hidden sm:block">
             <Button variant="ghost" size="icon" className="h-9 w-9">
