@@ -15,6 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { PMSLogo } from "@/components/PMSLogo";
 import { PageLayout } from "@/components/PageLayout";
+import developerPhoto from "@/assets/developer/mohamed-sobh.jpg";
+import alimtyazLogo from "@/assets/company/alimtyaz-logo.jpg";
 import { LifecycleFlow } from "@/components/home/LifecycleFlow";
 import { PhaseActionsGrid } from "@/components/home/PhaseActionsGrid";
 import { cn } from "@/lib/utils";
@@ -232,24 +234,33 @@ export default function HomePage() {
       <div className="space-y-6">
         {/* Welcome Banner */}
         {user && (
-          <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-card/80 backdrop-blur-md p-5 md:p-6">
+         <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-card/80 backdrop-blur-md p-5 md:p-6">
             <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <h1 className="text-2xl md:text-3xl font-bold">
-                  {greeting()} 👋
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  {new Date().toLocaleDateString(isArabic ? 'ar-SA' : 'en-US', { 
-                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-                  })}
-                </p>
-                {stats && stats.totalProjects > 0 && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    <span className="font-semibold text-foreground">{stats.totalProjects}</span>{" "}
-                    {isArabic ? "مشروع نشط" : "active projects"}
+              {/* Developer Photo + Greeting */}
+              <div className="flex items-center gap-4">
+                <img 
+                  src={developerPhoto} 
+                  alt="Dr.Eng. Mohamed Sobh"
+                  className="w-14 h-14 rounded-full object-cover ring-2 ring-primary/30 shadow-lg flex-shrink-0"
+                />
+                <div className="space-y-1">
+                  <h1 className="text-2xl md:text-3xl font-bold">
+                    {greeting()} 👋
+                  </h1>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date().toLocaleDateString(isArabic ? 'ar-SA' : 'en-US', { 
+                      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+                    })}
                   </p>
-                )}
+                  {stats && stats.totalProjects > 0 && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      <span className="font-semibold text-foreground">{stats.totalProjects}</span>{" "}
+                      {isArabic ? "مشروع نشط" : "active projects"}
+                    </p>
+                  )}
+                </div>
               </div>
+              {/* Company Logo + Actions */}
               <div className="flex items-center gap-3">
                 <Link to="/projects/new">
                   <Button size="sm" className="gap-2 shadow-md">
@@ -257,6 +268,11 @@ export default function HomePage() {
                     {isArabic ? "مشروع جديد" : "New Project"}
                   </Button>
                 </Link>
+                <img 
+                  src={alimtyazLogo} 
+                  alt="AL IMTYAZ ALWATANIYA"
+                  className="w-12 h-12 rounded-lg object-contain border border-border/50 bg-white/90 p-0.5 shadow-sm flex-shrink-0"
+                />
                 <PMSLogo size="md" />
               </div>
             </div>
