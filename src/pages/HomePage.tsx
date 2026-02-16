@@ -232,7 +232,7 @@ export default function HomePage() {
       <div className="space-y-6">
         {/* Welcome Banner */}
         {user && (
-          <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-r from-primary/10 via-accent/5 to-transparent p-5 md:p-6">
+          <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-card/80 backdrop-blur-md p-5 md:p-6">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <h1 className="text-2xl md:text-3xl font-bold">
@@ -271,7 +271,7 @@ export default function HomePage() {
             {kpiConfig.map((kpi) => {
               const Icon = kpi.icon;
               return (
-                <Card key={kpi.key} className={cn("border-t-2 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5", kpi.borderClass)}>
+                <Card key={kpi.key} className={cn("border-t-2 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 bg-card/80 backdrop-blur-md", kpi.borderClass)}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", kpi.iconBg)}>
@@ -301,8 +301,8 @@ export default function HomePage() {
         {user && stats && (
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Recent Projects - Enhanced */}
-            <Card className="overflow-hidden">
-              <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 bg-muted/20">
+             <Card className="overflow-hidden bg-card/80 backdrop-blur-md">
+              <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 bg-muted/10">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Clock className="h-4 w-4 text-primary" />
                   {isArabic ? "المشاريع الأخيرة" : "Recent Projects"}
@@ -363,8 +363,8 @@ export default function HomePage() {
             </Card>
 
             {/* Quick Access - Enhanced */}
-            <Card className="overflow-hidden">
-              <CardHeader className="border-b border-border/50 bg-muted/20">
+             <Card className="overflow-hidden bg-card/80 backdrop-blur-md">
+              <CardHeader className="border-b border-border/50 bg-muted/10">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Layers className="h-4 w-4 text-primary" />
                   {isArabic ? "الوصول السريع" : "Quick Access"}
@@ -394,8 +394,8 @@ export default function HomePage() {
         )}
 
         {/* Lifecycle Flow */}
-        <Card className="overflow-hidden">
-          <CardHeader className="pb-2 border-b border-border/50 bg-muted/20">
+         <Card className="overflow-hidden bg-card/80 backdrop-blur-md">
+          <CardHeader className="pb-2 border-b border-border/50 bg-muted/10">
             <CardTitle className="text-center text-base">
               {isArabic ? "🏗️ دورة حياة المشروع" : "🏗️ Project Lifecycle"}
             </CardTitle>
