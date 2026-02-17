@@ -28,9 +28,8 @@ const MAX_HISTORY = 15;
 const routeMap: Record<string, RouteInfo> = {
   "/": { labelEn: "Home", labelAr: "الرئيسية", icon: "Home" },
   "/dashboard": { labelEn: "Dashboard", labelAr: "لوحة التحكم", icon: "LayoutDashboard" },
-  "/projects": { labelEn: "Projects", labelAr: "المشاريع", icon: "FolderOpen" },
+  "/projects": { labelEn: "Projects & Analysis", labelAr: "المشاريع والتحليل", icon: "FolderOpen" },
   "/projects/new": { labelEn: "New Project", labelAr: "مشروع جديد", icon: "Plus" },
-  "/analyze": { labelEn: "BOQ Analyzer", labelAr: "محلل الكميات", icon: "FileText" },
   "/items": { labelEn: "BOQ Items", labelAr: "بنود الكميات", icon: "FileText" },
   "/cost-analysis": { labelEn: "Cost Analysis", labelAr: "تحليل التكاليف", icon: "BarChart3" },
   "/quotations": { labelEn: "Quotations", labelAr: "عروض الأسعار", icon: "DollarSign" },

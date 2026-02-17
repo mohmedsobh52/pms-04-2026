@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
-import { 
-  FolderOpen, Trash2, Loader2, Calendar, FileText, Search, 
+import {
+  FolderOpen, Trash2, Loader2, Calendar, FileText, Search,
   ArrowLeft, Eye, Edit, DollarSign, Package, Filter, X,
-  SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3, Paperclip
+  SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3, Paperclip, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,6 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
-import { BOQAnalyzerPanel } from "@/components/BOQAnalyzerPanel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -87,25 +86,24 @@ export default function SavedProjectsPage() {
   // Tab state - check URL for initial tab and mode
   const urlTab = searchParams.get("tab");
   const urlMode = searchParams.get("mode");
-  const initialTab = urlTab === "analyze" ? "analyze" : 
-                     urlTab === "reports" ? "reports" : 
+  const initialTab = urlTab === "reports" ? "reports" :
                      urlTab === "attachments" ? "attachments" : "projects";
   const [activeTab, setActiveTab] = useState(initialTab);
   const [extractionMode, setExtractionMode] = useState(urlMode === "extraction");
-  
+
   // Update tab when URL changes
   useEffect(() => {
     const tab = searchParams.get("tab");
     const mode = searchParams.get("mode");
-    if (tab === "analyze") {
-      setActiveTab("analyze");
-    } else if (tab === "reports") {
+    if (tab === "reports") {
       setActiveTab("reports");
     } else if (tab === "attachments") {
       setActiveTab("attachments");
       if (mode === "extraction") {
         setExtractionMode(true);
       }
+    } else {
+      setActiveTab("projects");
     }
   }, [searchParams]);
 
@@ -357,9 +355,9 @@ export default function SavedProjectsPage() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <TabsList className="grid w-full sm:w-auto grid-cols-4 p-1 h-auto tabs-navigation-safe bg-muted/50 backdrop-blur-sm">
-              <TabsTrigger 
-                value="projects" 
+            <TabsList className="grid w-full sm:w-auto grid-cols-3 p-1 h-auto tabs-navigation-safe bg-muted/50 backdrop-blur-sm">
+              <TabsTrigger
+                value="projects"
                 className="gap-2 py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50"
               >
                 <FolderOpen className="w-4 h-4" />
@@ -370,39 +368,61 @@ export default function SavedProjectsPage() {
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger 
-                value="analyze" 
-                className="gap-2 py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50"
-              >
-                <FileUp className="w-4 h-4" />
-                <span className="hidden sm:inline">{isArabic ? "تحليل BOQ" : "Analyze"}</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="reports" 
+              <TabsTrigger
+                value="reports"
                 className="gap-2 py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50"
               >
                 <BarChart3 className="w-4 h-4" />
                 <span className="hidden sm:inline">{isArabic ? "التقارير" : "Reports"}</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="attachments" 
+              <TabsTrigger
+                value="attachments"
                 className="gap-2 py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50"
               >
                 <Paperclip className="w-4 h-4" />
                 <span className="hidden sm:inline">{isArabic ? "المرفقات" : "Attachments"}</span>
               </TabsTrigger>
             </TabsList>
-            
+
             {activeTab === "projects" && (
-              <Button onClick={() => navigate("/projects/new")} className="gap-2 shadow-sm">
-                <Plus className="w-4 h-4" />
-                {isArabic ? "مشروع جديد" : "New Project"}
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={() => navigate("/projects/new")} className="gap-2 shadow-sm">
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline">{isArabic ? "مشروع جديد" : "New Project"}</span>
+                </Button>
+              </div>
             )}
           </div>
           
           {/* Projects Tab */}
           <TabsContent value="projects" className="space-y-6">
+            {/* Quick Upload & Analyze Section */}
+            <div className="glass-card p-6 bg-gradient-to-br from-primary/5 to-accent/5 border-primary/10">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <FileUp className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-display font-semibold text-lg">
+                        {isArabic ? "رفع وتحليل BOQ جديد" : "Upload & Analyze New BOQ"}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {isArabic ? "حلل ملفات PDF أو Excel أو Word لاستخراج بنود جدول الكميات تلقائياً" : "Analyze PDF, Excel, or Word files to extract BOQ items automatically"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={() => navigate("/analyze")} className="gap-2 btn-gradient shadow-md hover:shadow-lg transition-all">
+                    <Sparkles className="w-4 h-4" />
+                    {isArabic ? "ابدأ التحليل" : "Start Analysis"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
             {/* Search and Filter Bar */}
             <div className="glass-card p-4">
               <div className="flex flex-col sm:flex-row gap-3">
@@ -591,18 +611,6 @@ export default function SavedProjectsPage() {
             ))}
           </div>
         )}
-          </TabsContent>
-          
-          {/* Analyze BOQ Tab */}
-          <TabsContent value="analyze">
-            <BOQAnalyzerPanel 
-              embedded 
-              onProjectSaved={(projectId) => {
-                setActiveTab("projects");
-                fetchProjects();
-                navigate(`/projects/${projectId}`);
-              }} 
-            />
           </TabsContent>
 
           {/* Reports Tab */}

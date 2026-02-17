@@ -78,11 +78,11 @@ const staticPages: SearchItem[] = [
   {
     id: 'analyze',
     type: 'page',
-    label: 'Analyze BOQ',
-    labelAr: 'تحليل جدول الكميات',
+    label: 'Upload & Analyze BOQ',
+    labelAr: 'رفع وتحليل جدول الكميات',
     icon: 'FileSpreadsheet',
-    href: '/analyze',
-    keywords: ['analyze', 'تحليل', 'boq', 'كميات', 'upload'],
+    href: '/projects',
+    keywords: ['analyze', 'تحليل', 'boq', 'كميات', 'upload', 'رفع'],
   },
   {
     id: 'cost-analysis',

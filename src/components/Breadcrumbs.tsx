@@ -24,7 +24,6 @@ interface RouteConfig {
 const routeConfigs: RouteConfig[] = [
   { path: "/", labelEn: "Home", labelAr: "الرئيسية", icon: Home },
   { path: "/dashboard", labelEn: "Dashboard", labelAr: "لوحة التحكم", parent: "/", icon: BarChart3 },
-  { path: "/analyze", labelEn: "New Analysis", labelAr: "تحليل جديد", parent: "/", icon: FileText },
   { path: "/items", labelEn: "BOQ Items", labelAr: "بنود الكميات", parent: "/", icon: ClipboardList },
   { path: "/analysis-tools", labelEn: "Analysis Tools", labelAr: "أدوات التحليل", parent: "/", icon: Settings },
   { path: "/procurement", labelEn: "Procurement", labelAr: "المشتريات", parent: "/", icon: Package },

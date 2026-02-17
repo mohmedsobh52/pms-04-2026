@@ -87,7 +87,7 @@ const App = () => (
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
                         <Route path="/" element={<HomePage />} />
-                        <Route path="/analyze" element={<Index />} />
+                        <Route path="/analyze" element={<Navigate to="/projects" replace />} />
                         <Route path="/auth" element={<Auth />} />
                         <Route path="/shared/:shareCode" element={<SharedView />} />
                         <Route path="/projects" element={<SavedProjectsPage />} />
