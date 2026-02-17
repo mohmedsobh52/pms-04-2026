@@ -176,12 +176,15 @@ export function MainDashboardOverview() {
         const analysis = p.analysis_data as any;
         analysis?.items?.forEach((item: any) => {
           const cat = item.category || (isArabic ? "غير مصنف" : "Uncategorized");
-          categories[cat] = (categories[cat] || 0) + (item.total_price || 0);
+          const itemTotal = item.total || item.total_price ||
+            (item.unit_price && item.quantity ? item.unit_price * item.quantity : 0);
+          categories[cat] = (categories[cat] || 0) + itemTotal;
         });
       });
 
       const categoryData = Object.entries(categories)
         .map(([name, value]) => ({ name, value }))
+        .filter(([_, value]) => value > 0)
         .sort((a, b) => b.value - a.value)
         .slice(0, 5);
 

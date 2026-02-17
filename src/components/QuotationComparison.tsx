@@ -24,6 +24,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { ItemComparison } from "./ItemComparison";
 import { QuotationCostChart } from "./QuotationCostChart";
 import { XLSX } from '@/lib/exceljs-utils';
+import { usePagination } from "@/hooks/usePagination";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
   Table,
   TableBody,
@@ -113,6 +115,7 @@ export function QuotationComparison() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { isArabic } = useLanguage();
+  const pagination = usePagination({ pageSize: 12 });
 
   const loadQuotations = useCallback(async () => {
     if (!user) {
@@ -121,18 +124,26 @@ export function QuotationComparison() {
     }
 
     try {
+      const { count } = await supabase
+        .from('price_quotations')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      pagination.setTotalItems(count || 0);
+
       const { data, error } = await supabase
         .from('price_quotations')
         .select('*')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(pagination.from, pagination.to);
 
       if (error) throw error;
 
       const parsed = (data || []).map(q => ({
         ...q,
-        ai_analysis: typeof q.ai_analysis === 'string' 
-          ? JSON.parse(q.ai_analysis) 
+        ai_analysis: typeof q.ai_analysis === 'string'
+          ? JSON.parse(q.ai_analysis)
           : q.ai_analysis
       }));
 
@@ -147,7 +158,7 @@ export function QuotationComparison() {
     } finally {
       setIsLoading(false);
     }
-  }, [user, toast, isArabic]);
+  }, [user, toast, isArabic, pagination.from, pagination.to]);
 
   useEffect(() => {
     loadQuotations();
@@ -444,14 +455,32 @@ export function QuotationComparison() {
             })}
           </div>
 
-          <Button 
-            onClick={runComparison} 
+          <Button
+            onClick={runComparison}
             disabled={selectedIds.length < 2}
             className="w-full mt-4 gap-2"
           >
             <Scale className="h-4 w-4" />
             {isArabic ? "مقارنة عروض الأسعار المحددة" : "Compare Selected Quotations"}
           </Button>
+
+          {comparableQuotations.length > pagination.pageSize && (
+            <PaginationControls
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              pageSize={pagination.pageSize}
+              from={pagination.from}
+              to={pagination.to}
+              hasNext={pagination.hasNext}
+              hasPrevious={pagination.hasPrevious}
+              onPageChange={pagination.goToPage}
+              onPageSizeChange={pagination.setPageSize}
+              onNextPage={pagination.nextPage}
+              onPreviousPage={pagination.previousPage}
+              pageSizeOptions={[12, 24, 48]}
+            />
+          )}
         </CardContent>
       </Card>
 
