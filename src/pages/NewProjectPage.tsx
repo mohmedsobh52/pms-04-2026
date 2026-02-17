@@ -12,11 +12,6 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
-import { ar, enUS } from "date-fns/locale";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -70,8 +65,8 @@ export default function NewProjectPage() {
     location: "",
     clientName: "",
     estimatedValue: "",
-    startDate: undefined as Date | undefined,
-    endDate: undefined as Date | undefined,
+    startDate: "",
+    endDate: "",
     status: "draft",
   });
 
@@ -81,7 +76,7 @@ export default function NewProjectPage() {
 
   // Calculate duration in days
   const durationDays = formData.startDate && formData.endDate 
-    ? Math.ceil((formData.endDate.getTime() - formData.startDate.getTime()) / (1000 * 60 * 60 * 24))
+    ? Math.ceil((new Date(formData.endDate).getTime() - new Date(formData.startDate).getTime()) / (1000 * 60 * 60 * 24))
     : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -131,8 +126,8 @@ export default function NewProjectPage() {
             client_name: formData.clientName,
             description: formData.description,
             estimated_value: formData.estimatedValue ? parseFloat(formData.estimatedValue) : null,
-            start_date: formData.startDate?.toISOString() || null,
-            end_date: formData.endDate?.toISOString() || null,
+            start_date: formData.startDate ? new Date(formData.startDate).toISOString() : null,
+            end_date: formData.endDate ? new Date(formData.endDate).toISOString() : null,
           },
           created_at: new Date().toISOString(),
         },
@@ -333,40 +328,19 @@ export default function NewProjectPage() {
                 </h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Start Date */}
+                   {/* Start Date */}
                   <div className="space-y-2">
                     <Label className="flex items-center gap-1 font-medium">
                       <CalendarIcon className="w-4 h-4 text-blue-500" />
                       {isArabic ? "تاريخ البدء" : "Start Date"}
                     </Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          type="button"
-                          className={cn(
-                            "w-full justify-start text-left font-normal h-11 relative z-[55] pointer-events-auto",
-                            !formData.startDate && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="me-2 h-4 w-4" />
-                          {formData.startDate ? (
-                            format(formData.startDate, "yyyy-MM-dd")
-                          ) : (
-                            <span className="text-muted-foreground">yyyy-mm-dd</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 z-[100] pointer-events-auto" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={formData.startDate}
-                          onSelect={(date) => handleInputChange("startDate", date)}
-                          initialFocus
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <Input
+                      type="date"
+                      className="h-11"
+                      value={formData.startDate}
+                      onChange={(e) => handleInputChange("startDate", e.target.value)}
+                      placeholder="yyyy-mm-dd"
+                    />
                   </div>
                   
                   {/* End Date */}
@@ -375,35 +349,14 @@ export default function NewProjectPage() {
                       <CalendarIcon className="w-4 h-4 text-red-500" />
                       {isArabic ? "تاريخ الانتهاء المتوقع" : "Expected End Date"}
                     </Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          type="button"
-                          className={cn(
-                            "w-full justify-start text-left font-normal h-11 relative z-[55] pointer-events-auto",
-                            !formData.endDate && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="me-2 h-4 w-4" />
-                          {formData.endDate ? (
-                            format(formData.endDate, "yyyy-MM-dd")
-                          ) : (
-                            <span className="text-muted-foreground">yyyy-mm-dd</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 z-[100] pointer-events-auto" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={formData.endDate}
-                          onSelect={(date) => handleInputChange("endDate", date)}
-                          disabled={(date) => formData.startDate ? date < formData.startDate : false}
-                          initialFocus
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <Input
+                      type="date"
+                      className="h-11"
+                      value={formData.endDate}
+                      onChange={(e) => handleInputChange("endDate", e.target.value)}
+                      min={formData.startDate || undefined}
+                      placeholder="yyyy-mm-dd"
+                    />
                   </div>
                 </div>
                 
