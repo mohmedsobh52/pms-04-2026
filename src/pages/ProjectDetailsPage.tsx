@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import OnboardingModal from "@/components/OnboardingModal";
+import { BOQUploadDialog } from "@/components/project-details/BOQUploadDialog";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Loader2, FolderOpen, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,8 +47,17 @@ export default function ProjectDetailsPage() {
   const { toast } = useToast();
 
   const isNewProject = (location.state as any)?.isNewProject === true;
+  const onboardingKey = `onboarded_${projectId}`;
+  const alreadyOnboarded = localStorage.getItem(onboardingKey) === "true";
+
   const [showBOQUploadBanner, setShowBOQUploadBanner] = useState(isNewProject);
-  const [showOnboarding, setShowOnboarding] = useState(isNewProject);
+  const [showOnboarding, setShowOnboarding] = useState(isNewProject && !alreadyOnboarded);
+  const [showBOQUploadDialog, setShowBOQUploadDialog] = useState(false);
+
+  const handleCloseOnboarding = () => {
+    localStorage.setItem(onboardingKey, "true");
+    setShowOnboarding(false);
+  };
   
   const [project, setProject] = useState<ProjectData | null>(null);
   const [items, setItems] = useState<ProjectItem[]>([]);
@@ -870,7 +880,7 @@ export default function ProjectDetailsPage() {
             <Button
               size="sm"
               className="shrink-0"
-              onClick={() => navigate("/", { state: { projectId, projectName: project?.name } })}
+              onClick={() => setShowBOQUploadDialog(true)}
             >
               {isArabic ? "ابدأ التحليل" : "Start Analysis"}
             </Button>
@@ -1175,15 +1185,42 @@ export default function ProjectDetailsPage() {
 
       <OnboardingModal
         open={showOnboarding}
-        onClose={() => setShowOnboarding(false)}
+        onClose={handleCloseOnboarding}
         projectId={projectId!}
         projectName={project?.name || ""}
         isArabic={isArabic}
+        completedSteps={[
+          items.length > 0,
+          items.some(i => (i.unit_price || 0) > 0),
+          items.length > 0 && items.some(i => (i.unit_price || 0) > 0),
+        ]}
         onStartAnalysis={() => {
-          setShowOnboarding(false);
-          navigate("/", { state: { projectId, projectName: project?.name } });
+          handleCloseOnboarding();
+          setShowBOQUploadDialog(true);
+        }}
+      />
+
+      <BOQUploadDialog
+        open={showBOQUploadDialog}
+        onClose={() => setShowBOQUploadDialog(false)}
+        projectId={projectId!}
+        isArabic={isArabic}
+        onSuccess={() => {
+          // Reload items after successful upload
+          if (projectId) {
+            supabase
+              .from("project_items")
+              .select("*")
+              .eq("project_id", projectId)
+              .order("sort_order", { ascending: true, nullsFirst: false })
+              .order("created_at", { ascending: true })
+              .then(({ data }) => {
+                if (data) setItems(data);
+              });
+          }
         }}
       />
     </div>
   );
 }
+
