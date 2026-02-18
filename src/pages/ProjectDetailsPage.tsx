@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import OnboardingModal from "@/components/OnboardingModal";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Loader2, FolderOpen, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ export default function ProjectDetailsPage() {
 
   const isNewProject = (location.state as any)?.isNewProject === true;
   const [showBOQUploadBanner, setShowBOQUploadBanner] = useState(isNewProject);
+  const [showOnboarding, setShowOnboarding] = useState(isNewProject);
   
   const [project, setProject] = useState<ProjectData | null>(null);
   const [items, setItems] = useState<ProjectItem[]>([]);
@@ -868,7 +870,7 @@ export default function ProjectDetailsPage() {
             <Button
               size="sm"
               className="shrink-0"
-              onClick={() => navigate("/analyze")}
+              onClick={() => navigate("/", { state: { projectId, projectName: project?.name } })}
             >
               {isArabic ? "ابدأ التحليل" : "Start Analysis"}
             </Button>
@@ -1170,6 +1172,18 @@ export default function ProjectDetailsPage() {
           }}
         />
       )}
+
+      <OnboardingModal
+        open={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        projectId={projectId!}
+        projectName={project?.name || ""}
+        isArabic={isArabic}
+        onStartAnalysis={() => {
+          setShowOnboarding(false);
+          navigate("/", { state: { projectId, projectName: project?.name } });
+        }}
+      />
     </div>
   );
 }
