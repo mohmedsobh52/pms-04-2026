@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import OnboardingModal from "@/components/OnboardingModal";
 import { BOQUploadDialog } from "@/components/project-details/BOQUploadDialog";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { Loader2, FolderOpen, Upload, X } from "lucide-react";
+import { Loader2, FolderOpen, Upload, X, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,7 @@ import {
   ProjectAttachment, 
   EditFormData 
 } from "@/components/project-details/types";
+import { AnalysisResults } from "@/components/AnalysisResults";
 
 export default function ProjectDetailsPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -224,6 +225,33 @@ export default function ProjectDetailsPage() {
     
     return { totalItems, pricedItems, confirmedItems, unpricedItems, pricingPercentage, totalValue };
   }, [items]);
+
+  // Transform project_items to AnalysisData format for AnalysisResults component
+  const projectAnalysisData = useMemo(() => {
+    if (!project || items.length === 0) return null;
+    const categories = [...new Set(items.map(i => i.category).filter(Boolean))] as string[];
+    return {
+      analysis_type: "boq",
+      file_name: (project as any).file_name || project.name,
+      items: items.map(item => ({
+        item_number: item.item_number || "",
+        description: item.description || "",
+        unit: item.unit || "",
+        quantity: item.quantity || 0,
+        unit_price: item.unit_price || null,
+        total_price: item.total_price || null,
+        category: item.category || "General",
+        is_section: item.is_section || false,
+        notes: (item as any).notes || "",
+      })),
+      summary: {
+        total_items: items.length,
+        total_value: pricingStats.totalValue,
+        categories,
+        currency: project.currency || "SAR",
+      },
+    };
+  }, [project, items, pricingStats]);
 
   // Chart data
   const pricingDistributionData = useMemo(() => [
@@ -895,12 +923,16 @@ export default function ProjectDetailsPage() {
         )}
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="tabs-navigation-safe">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="overview">
               {isArabic ? "نظرة عامة" : "Overview"}
             </TabsTrigger>
             <TabsTrigger value="boq">
               {isArabic ? "جدول الكميات" : "BOQ"}
+            </TabsTrigger>
+            <TabsTrigger value="analysis" className="flex items-center gap-1">
+              <Brain className="w-3.5 h-3.5" />
+              {isArabic ? "تحليل متقدم" : "Advanced Analysis"}
             </TabsTrigger>
             <TabsTrigger value="documents">
               {isArabic ? "المستندات" : "Documents"}
@@ -969,6 +1001,44 @@ export default function ProjectDetailsPage() {
               onDeleteZeroQuantityItems={handleDeleteZeroQuantityItems}
               formatCurrency={formatCurrency}
             />
+          </TabsContent>
+
+          <TabsContent value="analysis">
+            {projectAnalysisData ? (
+              <AnalysisResults
+                data={projectAnalysisData}
+                fileName={(project as any).file_name || project.name}
+                savedProjectId={projectId}
+                onApplyRate={async (itemNumber: string, newRate: number) => {
+                  const item = items.find(i => i.item_number === itemNumber);
+                  if (!item) return;
+                  await supabase
+                    .from("project_items")
+                    .update({ unit_price: newRate, total_price: (item.quantity || 0) * newRate })
+                    .eq("id", item.id);
+                  const { data: updatedItems } = await supabase
+                    .from("project_items")
+                    .select("*")
+                    .eq("project_id", projectId)
+                    .order("sort_order", { ascending: true, nullsFirst: false })
+                    .order("created_at", { ascending: true });
+                  if (updatedItems) setItems(updatedItems);
+                }}
+              />
+            ) : (
+              <div className="text-center py-16 text-muted-foreground">
+                <Brain className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                <p className="text-lg font-medium mb-2">
+                  {isArabic ? "لا توجد بنود للتحليل" : "No items to analyze"}
+                </p>
+                <p className="text-sm mb-6">
+                  {isArabic ? "ارفع ملف BOQ أولاً لعرض التحليل المتقدم" : "Upload a BOQ file first to view advanced analysis"}
+                </p>
+                <Button onClick={() => setShowBOQUploadDialog(true)}>
+                  {isArabic ? "رفع ملف BOQ" : "Upload BOQ"}
+                </Button>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="documents">
