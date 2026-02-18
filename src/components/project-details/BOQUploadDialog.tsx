@@ -20,9 +20,10 @@ import type { ExcelExtractionResult } from "@/lib/excel-utils";
 interface BOQUploadDialogProps {
   open: boolean;
   onClose: () => void;
-  projectId: string;
+  projectId?: string;
   isArabic: boolean;
   onSuccess: () => void;
+  onSuccessWithData?: (data: any) => void;
 }
 
 type UploadStatus = "idle" | "processing" | "success" | "error";
@@ -42,6 +43,7 @@ export function BOQUploadDialog({
   projectId,
   isArabic,
   onSuccess,
+  onSuccessWithData,
 }: BOQUploadDialogProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [status, setStatus] = useState<UploadStatus>("idle");
@@ -139,6 +141,25 @@ export function BOQUploadDialog({
         }
       }
 
+      if (!projectId) {
+        // لا يوجد مشروع — نمرر البيانات مباشرة للـ context
+        onSuccessWithData?.({ items, file_name: selectedFile.name });
+        setStatus("success");
+        setStatusMessage(
+          isArabic
+            ? `تم استخراج ${items.length} بند بنجاح!`
+            : `Successfully extracted ${items.length} items!`
+        );
+        toast({
+          title: isArabic ? "تم تحليل BOQ بنجاح" : "BOQ Analyzed Successfully",
+          description: isArabic
+            ? `تم استخراج ${items.length} بند من الملف`
+            : `Extracted ${items.length} items from the file`,
+        });
+        setTimeout(handleSuccess, 1500);
+        return;
+      }
+
       setStatusMessage(isArabic ? "جارٍ حفظ البنود..." : "Saving items...");
       await saveItemsToProject(items);
 
@@ -210,7 +231,7 @@ export function BOQUploadDialog({
 
           {status === "success" && (
             <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
-              <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+              <CheckCircle2 className="w-10 h-10 text-primary" />
               <p className="font-medium text-foreground">{statusMessage}</p>
             </div>
           )}
