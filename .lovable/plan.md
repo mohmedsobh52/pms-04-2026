@@ -1,66 +1,92 @@
 
-# نقل شاشة "Upload & Analyze New BOQ" لتظهر بعد إنشاء مشروع جديد
+# إضافة شاشة ترحيب (Onboarding) وإصلاح زر "ابدأ التحليل"
 
-## المشكلة الحالية
+## ما تم تنفيذه مسبقاً (يعمل بشكل صحيح)
+- البانر يظهر بعد إنشاء مشروع جديد عبر `location.state.isNewProject`
+- زر الإغلاق (X) يخفي البانر بشكل صحيح
 
-بطاقة "رفع وتحليل BOQ جديد" موجودة فقط في صفحة قائمة المشاريع (`/projects`). بعد إنشاء مشروع جديد، يتم التوجيه إلى صفحة تفاصيل المشروع مباشرةً دون أي دعوة لرفع ملف BOQ.
+## ما يحتاج تعديل أو إضافة
 
-## الحل المقترح
+### 1. إصلاح زر "ابدأ التحليل" في البانر
+**المشكلة:** الزر يوجه إلى `/analyze` الذي يعيد توجيه المستخدم إلى `/projects` بدلاً من صفحة التحليل الفعلية.
 
-### 1. تمرير حالة "مشروع جديد" عند الانتقال
+**الحل:**
+- الصفحة الرئيسية للتحليل هي `/` (Index.tsx) — لكن هذا غير مناسب للمستخدم
+- الحل الصحيح: التوجيه إلى `/projects/:projectId/boq` (تبويب BOQ في المشروع نفسه) مع تمرير state للتحليل، أو التوجيه إلى Index.tsx مع حمل projectId
+- الخيار الأبسط والأكثر منطقية: تغيير الوجهة من `/analyze` إلى مسار التحليل الفعلي `/?projectId=${projectId}` حتى يتم ربط النتائج بالمشروع
 
-في `NewProjectPage.tsx` بعد نجاح الإنشاء، بدلاً من:
+**التعديل في ProjectDetailsPage.tsx (السطر 871):**
 ```typescript
-navigate(`/projects/${data.id}`);
+// قبل:
+onClick={() => navigate("/analyze")}
+
+// بعد:
+onClick={() => navigate("/", { state: { projectId, projectName: project?.name } })}
 ```
 
-نغير إلى:
+### 2. إنشاء مكون OnboardingModal جديد
+
+مكون `src/components/OnboardingModal.tsx` — نافذة منبثقة (Dialog) تظهر فوراً بعد إنشاء مشروع جديد وتوضح خطوات العمل الثلاث:
+
+**الخطوات الثلاث:**
+```
+┌──────────────────────────────────────────────────────┐
+│  🎉 تم إنشاء مشروعك بنجاح!                         │
+│  إليك خطوات البدء:                                   │
+│                                                      │
+│  ① رفع BOQ                                          │
+│     ارفع ملف PDF أو Excel لاستخراج بنود الكميات      │
+│                                                      │
+│  ② التسعير                                          │
+│     سعّر البنود يدوياً أو باستخدام الذكاء الاصطناعي  │
+│                                                      │
+│  ③ التقارير                                         │
+│     احصل على تقارير شاملة وتحليلات متقدمة           │
+│                                                      │
+│  [ابدأ برفع BOQ الآن]    [استكشف المشروع]            │
+└──────────────────────────────────────────────────────┘
+```
+
+**خصائص المكون:**
+- يقبل props: `open`, `onClose`, `projectId`, `projectName`, `isArabic`
+- زر "ابدأ برفع BOQ الآن" يغلق النافذة ويوجه إلى التحليل مع projectId
+- زر "استكشف المشروع" يغلق النافذة فقط
+- يستخدم Dialog من Radix UI (المكتبة المتاحة مسبقاً)
+- يعرض مؤشر تقدم بصري للخطوات الثلاث
+
+### 3. تكامل OnboardingModal في ProjectDetailsPage
+
+في `ProjectDetailsPage.tsx`:
 ```typescript
-navigate(`/projects/${data.id}`, { state: { isNewProject: true } });
+const [showOnboarding, setShowOnboarding] = useState(isNewProject);
 ```
 
-### 2. إضافة بانر "رفع وتحليل BOQ" في ProjectDetailsPage
-
-في `ProjectDetailsPage.tsx`، نقرأ `location.state`:
+ثم إضافة المكون في JSX قبل نهاية `return`:
 ```typescript
-const location = useLocation();
-const isNewProject = location.state?.isNewProject === true;
-const [showBOQUploadBanner, setShowBOQUploadBanner] = useState(isNewProject);
+<OnboardingModal
+  open={showOnboarding}
+  onClose={() => setShowOnboarding(false)}
+  projectId={projectId!}
+  projectName={project?.name || ""}
+  isArabic={isArabic}
+  onStartAnalysis={() => {
+    setShowOnboarding(false);
+    navigate("/", { state: { projectId, projectName: project?.name } });
+  }}
+/>
 ```
 
-ثم نعرض بانر/بطاقة مشابهة لما في SavedProjectsPage أعلى تبويبات المشروع مباشرةً، وتحتوي على:
-- أيقونة وعنوان: "رفع وتحليل BOQ جديد"
-- زر "ابدأ التحليل" يوجه إلى `/analyze`
-- زر إغلاق (X) لإخفاء البانر
-- تختفي تلقائياً إذا كانت البيانات موجودة أو عند الإغلاق
+### ملاحظة: علاقة Onboarding والبانر
 
-### التدفق الكامل بعد التعديل
-
-```text
-إنشاء مشروع جديد
-      ↓
-صفحة تفاصيل المشروع
-      ↓
-[بانر أعلى الصفحة]
-┌─────────────────────────────────────────┐
-│  📤 رفع وتحليل BOQ جديد               │
-│  حلل ملفات PDF/Excel لاستخراج البنود   │
-│           [ابدأ التحليل]    [×]         │
-└─────────────────────────────────────────┘
-      ↓ (يختفي عند الإغلاق أو الانتقال)
-تبويبات المشروع: نظرة عامة | BOQ | المستندات | الإعدادات
-```
+- **Onboarding Modal**: يظهر أولاً عند دخول المشروع الجديد (مرة واحدة)
+- **البانر**: يبقى ظاهراً تذكيراً للمستخدم حتى يضغط X
+- الحالتان مستقلتان: إغلاق النافذة لا يخفي البانر والعكس صحيح
 
 ## التغييرات التقنية
 
 | الملف | التغيير |
 |-------|---------|
-| `src/pages/NewProjectPage.tsx` | إضافة `{ state: { isNewProject: true } }` عند navigate |
-| `src/pages/ProjectDetailsPage.tsx` | قراءة location.state + إضافة بانر شرطي + import useLocation |
+| `src/components/OnboardingModal.tsx` | ملف جديد — مكون شاشة الترحيب |
+| `src/pages/ProjectDetailsPage.tsx` | إضافة OnboardingModal + إصلاح وجهة زر "ابدأ التحليل" |
 
-## ملاحظات
-
-- البانر يظهر فقط عند أول زيارة للمشروع الجديد (مرة واحدة)
-- لا يظهر عند زيارة مشاريع قديمة
-- عند الضغط على "ابدأ التحليل" يتم التوجيه إلى `/analyze` (الصفحة الرئيسية للتحليل)
-- لا تغييرات على قاعدة البيانات
+لا تغييرات على قاعدة البيانات أو الـ Edge Functions.
