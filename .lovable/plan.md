@@ -1,107 +1,73 @@
 
-# إصلاح خطأ RLS عند رفع BOQ في المشاريع المحفوظة
+# إضافة تبويب "تحليل BOQ" في صفحة المشاريع
 
-## السبب الجذري
+## ما يريده المستخدم
 
-سياسة RLS لجدول `project_items` عند الإضافة (INSERT) تتحقق من:
-```sql
-EXISTS (
-  SELECT 1 FROM project_data
-  WHERE project_data.id = project_items.project_id
-    AND project_data.user_id = auth.uid()
-)
+إضافة شاشة **تحليل وتحميل ملفات BOQ** (الموضحة في الصورة) كتبويب جديد داخل صفحة `/projects`. هذه الشاشة هي مكون `BOQAnalyzerPanel` الكامل الذي يتضمن:
+- سحب وإفلات الملفات (PDF / Excel)
+- استخراج النص وتحليله
+- عرض النتائج كاملة (AnalysisResults)
+- حفظ المشروع
+
+## الوضع الحالي
+
+صفحة `/projects` (`SavedProjectsPage.tsx`) تحتوي حالياً على **3 تبويبات**:
+1. المشاريع (Projects)
+2. التقارير (Reports)
+3. المرفقات (Attachments)
+
+زر "ابدأ التحليل" الموجود في تبويب المشاريع يوجه المستخدم إلى `/analyze` وهو route يُعيد توجيه لـ `/projects` — لذلك الزر لا يفيد حالياً.
+
+## الحل
+
+### إضافة تبويب رابع "تحليل BOQ" في `SavedProjectsPage.tsx`
+
+**التغييرات:**
+
+1. **استيراد `BOQAnalyzerPanel`:**
+```typescript
+import { BOQAnalyzerPanel } from "@/components/BOQAnalyzerPanel";
 ```
 
-المشروع الحالي (`e520085c-3a89-43fe-9bca-0d4f73a4e181`) موجود في جدول `saved_projects` وليس في `project_data`. لذلك عند محاولة إدراج بنود في `project_items` بـ `project_id` يشير لمشروع من `saved_projects`، تفشل سياسة RLS لأنه لا يوجد سجل مطابق في `project_data`.
-
-## الحلول المتاحة
-
-**الحل المختار: إصلاح سياسة RLS لتشمل كلا الجدولين**
-
-تعديل سياسة INSERT لجدول `project_items` لتتحقق من كلا الجدولين (`project_data` و`saved_projects`):
-
-```sql
--- سياسة INSERT الجديدة
-CREATE POLICY "Users can create items for their projects"
-ON public.project_items FOR INSERT
-WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM project_data
-    WHERE project_data.id = project_items.project_id
-      AND project_data.user_id = auth.uid()
-  )
-  OR
-  EXISTS (
-    SELECT 1 FROM saved_projects
-    WHERE saved_projects.id = project_items.project_id
-      AND saved_projects.user_id = auth.uid()
-  )
-);
+2. **إضافة التبويب في `TabsList`** (من 3 إلى 4 تبويبات):
+```typescript
+<TabsTrigger value="analyze" className="gap-2 ...">
+  <Sparkles className="w-4 h-4" />
+  <span className="hidden sm:inline">{isArabic ? "تحليل BOQ" : "Analyze BOQ"}</span>
+</TabsTrigger>
 ```
 
-يجب تطبيق نفس المنطق على سياسات SELECT و UPDATE و DELETE أيضاً لضمان الاتساق الكامل.
-
-## التغييرات المطلوبة
-
-### Migration SQL — تحديث سياسات RLS لـ `project_items`
-
-```sql
--- حذف السياسات القديمة
-DROP POLICY IF EXISTS "Users can create items for their projects" ON public.project_items;
-DROP POLICY IF EXISTS "Users can view items of their projects" ON public.project_items;
-DROP POLICY IF EXISTS "Users can update items of their projects" ON public.project_items;
-DROP POLICY IF EXISTS "Users can delete items of their projects" ON public.project_items;
-
--- إنشاء سياسة مساعدة (دالة) للتحقق من ملكية المشروع في كلا الجدولين
-CREATE OR REPLACE FUNCTION public.user_owns_project(_project_id uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM project_data
-    WHERE id = _project_id AND user_id = auth.uid()
-  )
-  OR EXISTS (
-    SELECT 1 FROM saved_projects
-    WHERE id = _project_id AND user_id = auth.uid()
-  );
-$$;
-
--- إعادة إنشاء السياسات الأربع باستخدام الدالة
-CREATE POLICY "Users can create items for their projects"
-ON public.project_items FOR INSERT
-WITH CHECK (public.user_owns_project(project_id));
-
-CREATE POLICY "Users can view items of their projects"
-ON public.project_items FOR SELECT
-USING (public.user_owns_project(project_id));
-
-CREATE POLICY "Users can update items of their projects"
-ON public.project_items FOR UPDATE
-USING (public.user_owns_project(project_id));
-
-CREATE POLICY "Users can delete items of their projects"
-ON public.project_items FOR DELETE
-USING (public.user_owns_project(project_id));
+3. **إضافة TabsContent للتحليل:**
+```typescript
+<TabsContent value="analyze">
+  <BOQAnalyzerPanel
+    onProjectSaved={(projectId) => {
+      fetchProjects(); // إعادة تحميل المشاريع بعد الحفظ
+      setActiveTab("projects"); // الانتقال لتبويب المشاريع
+    }}
+    embedded={true}
+  />
+</TabsContent>
 ```
 
-### لماذا استخدام `SECURITY DEFINER Function`؟
+4. **تحديث زر "ابدأ التحليل"** في كارت رفع BOQ:
+```typescript
+// بدلاً من navigate("/analyze")
+onClick={() => setActiveTab("analyze")}
+```
 
-- تمنع تكرار نفس الـ subquery في 4 سياسات مختلفة
-- تمنع أي مشاكل recursive محتملة
-- تتبع أفضل الممارسات الموصى بها في Supabase
+5. **دعم URL للتبويب الجديد:** تحديث منطق URL parsing لدعم `?tab=analyze`.
 
-## لا تغييرات في الكود
+## ملخص التغييرات
 
-هذا الإصلاح يتم فقط على مستوى قاعدة البيانات (RLS policies). ملف `BOQUploadDialog.tsx` الكود فيه صحيح بعد الإصلاح السابق (حذف `user_id`).
+| الملف | التعديل |
+|-------|---------|
+| `src/pages/SavedProjectsPage.tsx` | استيراد `BOQAnalyzerPanel` + تبويب رابع + تحديث زر "ابدأ التحليل" |
 
-## الملفات المتأثرة
+لا تغييرات على قاعدة البيانات أو Edge Functions.
 
-| | النوع | الوصف |
-|---|---|---|
-| قاعدة البيانات | Migration | تحديث سياسات RLS + إضافة دالة `user_owns_project` |
+## سبب نجاح الحل
 
-لا تغييرات على أي ملفات TypeScript/React.
+- `BOQAnalyzerPanel` هو مكون مكتمل وجاهز، يعمل بشكل مستقل
+- الخاصية `embedded={true}` تُخفي الـ padding الخارجي غير الضروري
+- عند حفظ المشروع ينتقل تلقائياً لتبويب "المشاريع" مع إعادة تحديث القائمة
