@@ -37,9 +37,10 @@ function getFileIcon(file: File) {
 interface BOQAnalyzerPanelProps {
   onProjectSaved?: (projectId: string) => void;
   embedded?: boolean;
+  initialFile?: File;
 }
 
-export function BOQAnalyzerPanel({ onProjectSaved, embedded = false }: BOQAnalyzerPanelProps) {
+export function BOQAnalyzerPanel({ onProjectSaved, embedded = false, initialFile }: BOQAnalyzerPanelProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { language, isArabic, t } = useLanguage();
@@ -81,6 +82,13 @@ export function BOQAnalyzerPanel({ onProjectSaved, embedded = false }: BOQAnalyz
   // Workflow and error
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>(defaultWorkflowSteps);
   const [analysisError, setAnalysisError] = useState<AnalysisErrorInfo | null>(null);
+
+  // Auto-set file from drag-and-drop on parent
+  useEffect(() => {
+    if (initialFile) {
+      setSelectedFile(initialFile);
+    }
+  }, [initialFile]);
 
   const updateStepStatus = (stepId: string, status: StepStatus, progress?: number) => {
     setWorkflowSteps(prev =>

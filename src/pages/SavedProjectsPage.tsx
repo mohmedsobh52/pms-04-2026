@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
   FolderOpen, Trash2, Loader2, Calendar, FileText, Search,
   ArrowLeft, Eye, Edit, DollarSign, Package, Filter, X,
-  SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3, Paperclip, Sparkles
+  SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3, Paperclip, Sparkles, Upload
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,6 +83,10 @@ export default function SavedProjectsPage() {
   const [selectedProject, setSelectedProject] = useState<ProjectData | null>(null);
   const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
+  
+  // Drag-and-drop state
+  const [draggedFile, setDraggedFile] = useState<File | null>(null);
+  const [isGlobalDragOver, setIsGlobalDragOver] = useState(false);
   
   // Tab state - check URL for initial tab and mode
   const urlTab = searchParams.get("tab");
@@ -243,16 +247,36 @@ export default function SavedProjectsPage() {
     }
   };
 
-  const handleLoadProject = (project: ProjectData) => {
-    // Navigate to project details page
-    navigate(`/projects/${project.id}`);
-  };
+  // Global drag-and-drop handlers for the projects tab
+  const handleGlobalDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.items.length > 0) setIsGlobalDragOver(true);
+  }, []);
+
+  const handleGlobalDragLeave = useCallback((e: React.DragEvent) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsGlobalDragOver(false);
+    }
+  }, []);
+
+  const handleGlobalDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsGlobalDragOver(false);
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      const isValid = file.name.endsWith('.pdf') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+      if (isValid) {
+        setDraggedFile(file);
+        setActiveTab("analyze");
+      }
+    }
+  }, []);
 
   // Filter and sort projects
   const filteredProjects = useMemo(() => {
     let result = [...projects];
     
-    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(p => 
@@ -261,7 +285,6 @@ export default function SavedProjectsPage() {
       );
     }
     
-    // Sort
     result.sort((a, b) => {
       let aVal: any, bVal: any;
       switch (sortField) {
@@ -294,6 +317,11 @@ export default function SavedProjectsPage() {
     
     return result;
   }, [projects, searchQuery, sortField, sortDirection]);
+
+  const handleLoadProject = (project: ProjectData) => {
+    navigate(`/projects/${project.id}`);
+  };
+
 
   if (authLoading) {
     return (
@@ -406,7 +434,26 @@ export default function SavedProjectsPage() {
           </div>
           
           {/* Projects Tab */}
-          <TabsContent value="projects" className="space-y-6">
+          <TabsContent
+            value="projects"
+            className="space-y-6 relative"
+            onDragOver={handleGlobalDragOver}
+            onDragLeave={handleGlobalDragLeave}
+            onDrop={handleGlobalDrop}
+          >
+            {/* Drag Overlay */}
+            {isGlobalDragOver && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-xl backdrop-blur-sm pointer-events-none">
+                <div className="text-center">
+                  <Upload className="w-16 h-16 mx-auto mb-3 text-primary" />
+                  <p className="text-xl font-semibold text-primary">
+                    {isArabic ? "أفلت الملف لبدء التحليل" : "Drop file to start analysis"}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">PDF, Excel</p>
+                </div>
+              </div>
+            )}
+
             {/* Quick Upload & Analyze Section */}
             <div className="glass-card p-6 bg-gradient-to-br from-primary/5 to-accent/5 border-primary/10">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -513,10 +560,15 @@ export default function SavedProjectsPage() {
               }
             </p>
             {!searchQuery && (
-              <Button onClick={() => setActiveTab("analyze")} className="gap-2 btn-gradient">
-                <Sparkles className="w-4 h-4" />
-                {isArabic ? "تحليل ملف جديد" : "Analyze New File"}
-              </Button>
+              <>
+                <Button onClick={() => setActiveTab("analyze")} className="gap-2 btn-gradient">
+                  <Sparkles className="w-4 h-4" />
+                  {isArabic ? "تحليل ملف جديد" : "Analyze New File"}
+                </Button>
+                <p className="text-xs text-muted-foreground mt-3">
+                  {isArabic ? "أو اسحب وأفلت ملف PDF/Excel مباشرةً هنا" : "Or drag & drop a PDF/Excel file directly here"}
+                </p>
+              </>
             )}
           </div>
         ) : (
@@ -550,12 +602,12 @@ export default function SavedProjectsPage() {
                     </div>
                     <p className="font-semibold">{project.items_count || 0}</p>
                   </div>
-                  <div className="p-2 rounded-lg bg-green-500/5">
+                  <div className="p-2 rounded-lg bg-primary/5">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                       <DollarSign className="w-3 h-3" />
                       {isArabic ? "القيمة" : "Value"}
                     </div>
-                    <p className="font-semibold text-green-600">
+                    <p className="font-semibold text-primary">
                       {(project.total_value || 0).toLocaleString()} {project.currency || 'SAR'}
                     </p>
                   </div>
@@ -628,7 +680,10 @@ export default function SavedProjectsPage() {
           {/* Analyze BOQ Tab */}
           <TabsContent value="analyze">
             <BOQAnalyzerPanel
+              key={draggedFile?.name ?? "default"}
+              initialFile={draggedFile ?? undefined}
               onProjectSaved={(projectId) => {
+                setDraggedFile(null);
                 fetchProjects();
                 setActiveTab("projects");
               }}
