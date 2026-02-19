@@ -1364,14 +1364,14 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   };
 
   const tabs = [
-    { id: "items", label: "Items", icon: <Package className="w-4 h-4" /> },
-    { id: "wbs", label: "WBS", icon: <Layers className="w-4 h-4" /> },
-    { id: "costs", label: "Cost", icon: <DollarSign className="w-4 h-4" /> },
-    { id: "summary", label: "Brief", icon: <BarChart3 className="w-4 h-4" /> },
-    { id: "charts", label: "Charts", icon: <BarChart3 className="w-4 h-4" /> },
-    { id: "timeline", label: "Time Schedule", icon: <CalendarDays className="w-4 h-4" /> },
-    { id: "integration", label: "Schedule Integration", icon: <Link2 className="w-4 h-4" /> },
-  ] as const;
+    { id: "items",       label: "Items",                labelAr: "البنود",             icon: <Package className="w-4 h-4" /> },
+    { id: "wbs",         label: "WBS",                  labelAr: "هيكل العمل",         icon: <Layers className="w-4 h-4" /> },
+    { id: "costs",       label: "Cost",                 labelAr: "التكاليف",           icon: <DollarSign className="w-4 h-4" /> },
+    { id: "summary",     label: "Brief",                labelAr: "الملخص",             icon: <BarChart3 className="w-4 h-4" /> },
+    { id: "charts",      label: "Charts",               labelAr: "الرسوم البيانية",    icon: <TrendingUp className="w-4 h-4" /> },
+    { id: "timeline",    label: "Time Schedule",        labelAr: "الجدول الزمني",      icon: <CalendarDays className="w-4 h-4" /> },
+    { id: "integration", label: "Schedule Integration", labelAr: "تكامل الجدول",      icon: <Link2 className="w-4 h-4" /> },
+  ];
 
   return (
     <div className="glass-card overflow-hidden animate-slide-up">
@@ -1384,63 +1384,77 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
         />
       </div>
       
-      <div className="border-b border-border">
-        <div className="flex items-center justify-between p-4 flex-wrap gap-2">
-          <div className="flex items-center gap-4">
-            <div className="flex gap-2">
+      {/* ── Sidebar + Content layout ── */}
+      <div className="flex" style={{ minHeight: '600px' }}>
+
+        {/* ── Left Sidebar ── */}
+        <div className="w-52 shrink-0 border-r border-border bg-muted/20 flex flex-col" dir="ltr">
+          <div className="p-3 flex-1">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-3">
+              {isArabic ? "التحليل" : "Analysis"}
+            </p>
+            <nav className="space-y-1">
               {tabs.map(tab => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                    "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all",
+                    isArabic ? "flex-row-reverse text-right" : "text-left",
                     activeTab === tab.id
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                 >
                   {tab.icon}
-                  {tab.label}
+                  <span className="truncate">{isArabic ? tab.labelAr : tab.label}</span>
                 </button>
               ))}
-            </div>
-            {/* Last Saved Indicator */}
+            </nav>
+          </div>
+
+          {/* Bottom status indicators */}
+          <div className="p-3 border-t border-border space-y-2">
             {lastSavedAt && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded">
-                <Clock className="w-3 h-3" />
-                <span>{isArabic ? 'آخر حفظ:' : 'Auto-saved:'}</span>
-                <span className="font-medium">{lastSavedAt.toLocaleTimeString()}</span>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Clock className="w-3 h-3 shrink-0" />
+                <span className="truncate">{lastSavedAt.toLocaleTimeString()}</span>
               </div>
             )}
-            {/* Cloud Sync Indicator for Edited Prices */}
             {user && (
               <div className={cn(
-                "flex items-center gap-1.5 text-xs px-2 py-1 rounded",
-                isSavingPrices 
-                  ? "text-yellow-600 bg-yellow-50 dark:bg-yellow-950/30" 
-                  : editedCount > 0 
-                    ? "text-green-600 bg-green-50 dark:bg-green-950/30"
-                    : "text-muted-foreground bg-muted/50"
+                "flex items-center gap-1.5 text-xs",
+                isSavingPrices
+                  ? "text-yellow-600"
+                  : editedCount > 0
+                    ? "text-green-600"
+                    : "text-muted-foreground"
               )}>
-                <Cloud className={cn("w-3 h-3", isSavingPrices && "animate-pulse")} />
-                <span>
-                  {isSavingPrices 
-                    ? (isArabic ? 'جاري الحفظ...' : 'Syncing...') 
-                    : editedCount > 0 
-                      ? (isArabic ? `${editedCount} بند معدل (محفوظ)` : `${editedCount} edited (synced)`)
+                <Cloud className={cn("w-3 h-3 shrink-0", isSavingPrices && "animate-pulse")} />
+                <span className="truncate">
+                  {isSavingPrices
+                    ? (isArabic ? 'جاري الحفظ...' : 'Syncing...')
+                    : editedCount > 0
+                      ? (isArabic ? `${editedCount} بند (محفوظ)` : `${editedCount} synced`)
                       : (isArabic ? 'متزامن' : 'Synced')
                   }
                 </span>
               </div>
             )}
             {!user && editedCount > 0 && (
-              <div className="flex items-center gap-1.5 text-xs text-orange-600 bg-orange-50 dark:bg-orange-950/30 px-2 py-1 rounded">
-                <CloudOff className="w-3 h-3" />
-                <span>{isArabic ? 'سجل دخول لحفظ التعديلات' : 'Login to save edits'}</span>
+              <div className="flex items-center gap-1.5 text-xs text-orange-600">
+                <CloudOff className="w-3 h-3 shrink-0" />
+                <span className="truncate">{isArabic ? 'سجل دخول للحفظ' : 'Login to save'}</span>
               </div>
             )}
           </div>
-          <div className="flex gap-2 flex-wrap items-center">
+        </div>
+
+        {/* ── Main Content Area ── */}
+        <div className="flex-1 flex flex-col min-w-0">
+
+          {/* Top Toolbar — all action buttons moved here */}
+          <div className="border-b border-border p-3 flex gap-2 flex-wrap items-center bg-muted/10">
             {/* Primary Actions Group */}
             <SaveProjectButton
               items={data.items || []}
@@ -1530,7 +1544,6 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                         .filter(item => !deletedItemNumbers.has(item.item_number))
                         .map(item => {
                           const calcCosts = getItemCalculatedCosts(item.item_number);
-                          // Use AI Rate, or fallback to original unit_price, or 0
                           const aiRate = calcCosts.aiSuggestedRate || item.unit_price || 0;
                           return {
                             ...item,
@@ -1556,7 +1569,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Price Analysis Buttons - Independent for better responsiveness */}
+            {/* Price Analysis Buttons */}
             <div className="flex items-center gap-2 project-actions-section">
               <MarketRateSuggestions 
                 items={data.items || []} 
@@ -1724,10 +1737,9 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
               </div>
             )}
           </div>
-        </div>
-      </div>
 
-      <div className="p-4">
+          {/* Tab content wrapper */}
+          <div className="p-4 flex-1 min-w-0">
         {activeTab === "items" && (
           <div className="space-y-4">
             {/* Search and Filter Section */}
@@ -2592,6 +2604,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
             <RotateCcw className="w-5 h-5" />
           </Button>
         )}
+      </div>
+        </div>
       </div>
     </div>
   );
