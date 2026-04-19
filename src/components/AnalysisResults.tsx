@@ -1574,14 +1574,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
           {/* Pricing Progress Indicator */}
           {(() => {
             const allItems = data.items || [];
-            const total = allItems.length;
-            const priced = allItems.filter(it => {
-              const edited = editedPrices[it.item_number || ""];
-              const up = edited?.unit_price ?? it.unit_price ?? 0;
-              const tp = edited?.total_price ?? it.total_price ?? 0;
-              return (up && up > 0) || (tp && tp > 0);
-            }).length;
-            const pct = total > 0 ? Math.round((priced / total) * 100) : 0;
+            const { total, priced, pct, byCategory } = pricingStats;
             if (total === 0) return null;
             const jumpToNextUnpriced = () => {
               const next = allItems.find(it => {
@@ -1603,6 +1596,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                 }
               }, 150);
             };
+            const categoryEntries = Object.entries(byCategory).sort((a, b) => b[1].total - a[1].total);
             return (
               <div className="border-b border-border px-4 py-2.5 bg-background">
                 <div className="flex items-center justify-between mb-1.5 gap-2">
@@ -1626,7 +1620,38 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                     )}
                   </div>
                 </div>
-                <Progress value={pct} className="h-2" />
+                <HoverCard openDelay={150} closeDelay={100}>
+                  <HoverCardTrigger asChild>
+                    <div className="cursor-help">
+                      <Progress value={pct} className="h-2" />
+                    </div>
+                  </HoverCardTrigger>
+                  <HoverCardContent align="center" className="w-72 p-3" side="bottom">
+                    <p className="text-xs font-semibold mb-2 text-muted-foreground uppercase tracking-wider">
+                      {isArabic ? "التقدم حسب الفئة" : "Progress by Category"}
+                    </p>
+                    {categoryEntries.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">{isArabic ? "لا توجد بيانات" : "No data"}</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {categoryEntries.map(([cat, s]) => {
+                          const cPct = s.total > 0 ? Math.round((s.priced / s.total) * 100) : 0;
+                          return (
+                            <div key={cat} className="space-y-1">
+                              <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="font-medium truncate" title={cat}>{cat}</span>
+                                <span className="font-mono tabular-nums text-muted-foreground shrink-0">
+                                  {s.priced}/{s.total} ({cPct}%)
+                                </span>
+                              </div>
+                              <Progress value={cPct} className="h-1.5" />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </HoverCardContent>
+                </HoverCard>
               </div>
             );
           })()}
