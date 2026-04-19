@@ -160,6 +160,12 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   const { toast } = useToast();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"items" | "wbs" | "costs" | "summary" | "charts" | "timeline" | "integration">("items");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem("analysis_sidebar_collapsed") === "1"; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("analysis_sidebar_collapsed", sidebarCollapsed ? "1" : "0"); } catch {}
+  }, [sidebarCollapsed]);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(getSavedCompanyInfo());
   
