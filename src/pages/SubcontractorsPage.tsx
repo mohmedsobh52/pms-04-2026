@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLayout } from "@/components/PageLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { ColorLegend } from "@/components/ui/color-code";
 import { 
   Users, 
   LayoutDashboard, 
@@ -306,6 +307,8 @@ const SubcontractorsPage = () => {
             </div>
           );
         })()}
+
+        <ColorLegend type="category" isArabic={isArabic} />
 
         {/* Main Tabs - FIDIC removed */}
         <Tabs defaultValue="dashboard" className="space-y-4">
