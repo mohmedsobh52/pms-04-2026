@@ -1006,7 +1006,7 @@ export default function CostAnalysisPage() {
       </header>
 
       <main className="container mx-auto px-4 py-6">
-        <CostAnalysisLegend />
+        <ColorLegend type="category" isArabic={false} className="mb-4" />
         {/* Quick Stats Summary Bar */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <Card className="hover:shadow-md transition-shadow">
