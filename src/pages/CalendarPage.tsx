@@ -67,7 +67,9 @@ export default function CalendarPage() {
           if (d >= today) items.push({ type: 'milestone', title: m.milestone_name, date: d, daysLeft: Math.ceil((d.getTime() - today.getTime()) / 86400000) });
         }
       });
-      setUpcomingList(items.sort((a, b) => a.daysLeft - b.daysLeft).slice(0, 5));
+      const sorted = items.sort((a, b) => a.daysLeft - b.daysLeft);
+      setUpcomingList(sorted.slice(0, 5));
+      setAllUpcoming(sorted);
     })();
   }, [user]);
 
