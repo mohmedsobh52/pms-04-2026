@@ -199,6 +199,30 @@ const ContractsPage = () => {
           </Card>
         </div>
 
+        {/* Alert Banner for expiring/overdue */}
+        {(stats.expiringContracts > 0 || stats.overdueContracts > 0) && (
+          <Card className="bg-gradient-to-r from-amber-500/10 to-red-500/10 border-amber-500/30">
+            <CardContent className="p-3 flex items-center gap-3 flex-wrap">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+              <div className="flex-1 min-w-0 text-sm">
+                {stats.overdueContracts > 0 && (
+                  <span className="font-semibold text-red-600 me-3">
+                    {stats.overdueContracts} {isArabic ? "عقد متأخر" : "overdue contracts"}
+                  </span>
+                )}
+                {stats.expiringContracts > 0 && (
+                  <span className="font-semibold text-amber-700">
+                    {stats.expiringContracts} {isArabic ? "عقد ينتهي خلال 30 يوم" : "expiring within 30 days"}
+                  </span>
+                )}
+                <span className="text-muted-foreground ms-2">
+                  {isArabic ? "— راجع تبويب التنبيهات" : "— check the Alerts tab"}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Main Tabs */}
         <Tabs defaultValue="contracts" className="space-y-4">
           <TabsList className="flex flex-wrap h-auto gap-1 tabs-navigation-safe">
