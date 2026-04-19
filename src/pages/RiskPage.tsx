@@ -22,7 +22,7 @@ const RiskPage = () => {
     (async () => {
       const { data } = await supabase
         .from("risks")
-        .select("risk_score, status, category, review_date")
+        .select("id, title, description, risk_score, probability, impact, status, category, review_date")
         .eq("user_id", user.id);
       if (!data) return;
       const scores = data.map((r: any) => Number(r.risk_score) || 0);
