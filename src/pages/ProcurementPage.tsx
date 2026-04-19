@@ -5,7 +5,7 @@ import { PageLayout } from "@/components/PageLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";
-import { Building2, Package, FileText, Sparkles, Users, CheckCircle2, Star } from "lucide-react";
+import { Building2, Package, FileText, Sparkles, Users, CheckCircle2, Star, FileSignature, DollarSign, Send } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   ExternalPartners,
