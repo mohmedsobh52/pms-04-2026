@@ -31,6 +31,24 @@ const AttachmentsPage = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(
     projectIdFromUrl || undefined
   );
+  const [stats, setStats] = useState({ total: 0, sizeMB: 0, analyzed: 0, folders: 0 });
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const [att, fold] = await Promise.all([
+        supabase.from('project_attachments').select('file_size,is_analyzed').eq('user_id', user.id),
+        supabase.from('attachment_folders').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+      ]);
+      const totalBytes = (att.data || []).reduce((s: number, r: any) => s + (Number(r.file_size) || 0), 0);
+      setStats({
+        total: att.data?.length || 0,
+        sizeMB: Math.round(totalBytes / (1024 * 1024) * 10) / 10,
+        analyzed: (att.data || []).filter((r: any) => r.is_analyzed).length,
+        folders: fold.count || 0,
+      });
+    })();
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
