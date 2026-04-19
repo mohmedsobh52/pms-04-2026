@@ -1438,8 +1438,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
               variant="ghost"
               size="icon"
               className="h-7 w-7 ml-auto"
-              onClick={() => setSidebarCollapsed(v => !v)}
-              title={sidebarCollapsed ? (isArabic ? "توسيع" : "Expand") : (isArabic ? "طي" : "Collapse")}
+              onClick={() => { setUserToggledSidebar(true); setSidebarCollapsed(v => !v); }}
+              title={(sidebarCollapsed ? (isArabic ? "توسيع" : "Expand") : (isArabic ? "طي" : "Collapse")) + " (Ctrl+B)"}
             >
               {sidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
             </Button>
