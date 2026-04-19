@@ -89,6 +89,27 @@ const QuotationsPage = () => {
       color: "text-blue-600 dark:text-blue-400",
       bg: "bg-blue-500/10",
     },
+    {
+      icon: TrendingUp,
+      label: isArabic ? "متوسط قيمة العرض" : "Avg Quote Value",
+      value: `${stats.avgValue.toLocaleString()} ${stats.currency}`,
+      color: "text-cyan-600 dark:text-cyan-400",
+      bg: "bg-cyan-500/10",
+    },
+    {
+      icon: Award,
+      label: isArabic ? "أكثر مورد نشاطاً" : "Top Supplier",
+      value: stats.topSupplier,
+      color: "text-rose-600 dark:text-rose-400",
+      bg: "bg-rose-500/10",
+    },
+    {
+      icon: Calendar,
+      label: isArabic ? "أحدث عرض" : "Latest Quote",
+      value: stats.latestDate,
+      color: "text-indigo-600 dark:text-indigo-400",
+      bg: "bg-indigo-500/10",
+    },
   ];
 
   return (
