@@ -1466,12 +1466,13 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
             <TooltipProvider delayDuration={100}>
               <nav className="space-y-1">
                 {tabs.map(tab => {
+                  const showBadge = tab.id === "items" && unpricedTotal > 0;
                   const btn = (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id as typeof activeTab)}
                       className={cn(
-                        "w-full flex items-center rounded-lg text-sm font-medium transition-all",
+                        "w-full flex items-center rounded-lg text-sm font-medium transition-all relative",
                         sidebarCollapsed ? "justify-center px-2 py-2" : "gap-2.5 px-3 py-2",
                         !sidebarCollapsed && (isArabic ? "flex-row-reverse text-right" : "text-left"),
                         activeTab === tab.id
@@ -1480,7 +1481,17 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                       )}
                     >
                       {tab.icon}
-                      {!sidebarCollapsed && <span className="truncate">{isArabic ? tab.labelAr : tab.label}</span>}
+                      {!sidebarCollapsed && <span className="truncate flex-1">{isArabic ? tab.labelAr : tab.label}</span>}
+                      {showBadge && !sidebarCollapsed && (
+                        <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-[10px] font-bold">
+                          {unpricedTotal}
+                        </Badge>
+                      )}
+                      {showBadge && sidebarCollapsed && (
+                        <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center">
+                          {unpricedTotal > 99 ? "99+" : unpricedTotal}
+                        </span>
+                      )}
                     </button>
                   );
                   return sidebarCollapsed ? (
@@ -1488,6 +1499,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                       <TooltipTrigger asChild>{btn}</TooltipTrigger>
                       <TooltipContent side={isArabic ? "left" : "right"}>
                         {isArabic ? tab.labelAr : tab.label}
+                        {showBadge ? ` — ${unpricedTotal} ${isArabic ? "غير مسعّر" : "unpriced"}` : ""}
                       </TooltipContent>
                     </Tooltip>
                   ) : btn;
