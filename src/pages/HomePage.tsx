@@ -201,48 +201,60 @@ export default function HomePage() {
           <img src={alimtyazLogo} alt="Alimtyaz Logo" className="w-10 h-10 md:w-12 md:h-12 rounded-lg object-contain bg-white/10 p-1" />
         </div>
 
-        {/* Navigation Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 max-w-5xl w-full">
-          {sections.map((section, index) => {
-            const Icon = section.icon;
-            const count = section.countKey ? counts[section.countKey] : undefined;
-            return (
-              <Link
-                key={section.path}
-                to={section.path}
-                className={`group relative flex flex-col items-center justify-center gap-2 md:gap-3 p-4 md:p-6 rounded-xl
-                  bg-black/40 border border-white/15
-                  hover:border-white/30 hover:scale-[1.08]
-                  transition-transform transition-colors duration-200 transform-gpu will-change-transform
-                  cursor-pointer shadow-lg
-                  bg-gradient-to-br ${section.color}`}
-                style={{
-                  animation: 'card-enter 0.4s ease-out forwards',
-                  animationDelay: `${index * 50}ms`,
-                  opacity: 0,
-                }}
-              >
-                {/* Counter Badge */}
-                {count !== undefined && count > 0 && (
-                  <span className="absolute top-2 end-2 bg-white/20 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
-                    {count}
-                  </span>
-                )}
-
-                <div className={`w-10 h-10 md:w-14 md:h-14 rounded-xl bg-white/10 group-hover:bg-white/20 group-hover:ring-2 group-hover:ring-white/20 flex items-center justify-center transition-all duration-200 group-hover:-translate-y-1`}>
-                  <Icon className={`w-6 h-6 md:w-8 md:h-8 ${section.iconColor} drop-shadow`} />
-                </div>
-                <div className="text-center">
-                  <p className="text-white font-semibold text-xs md:text-sm">{section.nameAr}</p>
-                  <p className="text-white/75 text-[10px] md:text-xs mt-0.5">{section.nameEn}</p>
-                  <p className="text-white/50 text-[9px] md:text-[10px] mt-1 hidden sm:block">
-                    {isArabic ? section.descAr : section.descEn}
-                  </p>
-                </div>
-              </Link>
-            );
-          })}
+        {/* Grouped Navigation */}
+        <div className="max-w-5xl w-full space-y-6">
+          {groups.map((group, gIdx) => (
+            <div key={group.titleEn}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
+                <h2 className="text-amber-300/90 text-xs md:text-sm font-semibold tracking-wide uppercase">
+                  {isArabic ? group.titleAr : group.titleEn}
+                </h2>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+                {group.items.map((section, index) => {
+                  const Icon = section.icon;
+                  const count = section.countKey ? counts[section.countKey] : undefined;
+                  return (
+                    <Link
+                      key={section.path}
+                      to={section.path}
+                      className={`group relative flex flex-col items-center justify-center gap-2 md:gap-3 p-4 md:p-6 rounded-xl
+                        bg-black/40 border border-white/15
+                        hover:border-white/30 hover:scale-[1.08]
+                        transition-transform transition-colors duration-200 transform-gpu will-change-transform
+                        cursor-pointer shadow-lg
+                        bg-gradient-to-br ${section.color}`}
+                      style={{
+                        animation: 'card-enter 0.4s ease-out forwards',
+                        animationDelay: `${(gIdx * 100) + (index * 50)}ms`,
+                        opacity: 0,
+                      }}
+                    >
+                      {count !== undefined && count > 0 && (
+                        <span className="absolute top-2 end-2 bg-white/20 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                          {count}
+                        </span>
+                      )}
+                      <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl bg-white/10 group-hover:bg-white/20 group-hover:ring-2 group-hover:ring-white/20 flex items-center justify-center transition-all duration-200 group-hover:-translate-y-1">
+                        <Icon className={`w-6 h-6 md:w-8 md:h-8 ${section.iconColor} drop-shadow`} />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-white font-semibold text-xs md:text-sm">{section.nameAr}</p>
+                        <p className="text-white/75 text-[10px] md:text-xs mt-0.5">{section.nameEn}</p>
+                        <p className="text-white/50 text-[9px] md:text-[10px] mt-1 hidden sm:block">
+                          {isArabic ? section.descAr : section.descEn}
+                        </p>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
+
       </main>
 
       {/* Designer Footer */}
