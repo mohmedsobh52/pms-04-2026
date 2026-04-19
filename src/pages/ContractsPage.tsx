@@ -42,6 +42,9 @@ const ContractsPage = () => {
     totalContractValue: 0,
     expiringContracts: 0,
     overdueContracts: 0,
+    upcomingMilestones: 0,
+    duePayments: 0,
+    duePaymentsAmount: 0,
   });
 
   useEffect(() => {
@@ -52,24 +55,31 @@ const ContractsPage = () => {
 
   const fetchStats = async () => {
     try {
-      const { data: contracts } = await supabase
-        .from("contracts")
-        .select("id, status, contract_value, end_date")
-        .eq("user_id", user?.id);
+      const today = new Date();
+      const in30 = new Date(); in30.setDate(today.getDate() + 30);
+      const in30Str = in30.toISOString().split('T')[0];
+      const todayStr = today.toISOString().split('T')[0];
 
-      const contractList = contracts || [];
-      const now = new Date();
+      const [contractsRes, milestonesRes, paymentsRes] = await Promise.all([
+        supabase.from("contracts").select("id, status, contract_value, end_date").eq("user_id", user?.id),
+        supabase.from("contract_milestones").select("id").eq("user_id", user?.id).neq("status", "completed").gte("due_date", todayStr).lte("due_date", in30Str),
+        supabase.from("contract_payments").select("amount").eq("user_id", user?.id).eq("status", "pending").lte("due_date", in30Str),
+      ]);
+
+      const contractList = contractsRes.data || [];
 
       const expiringContracts = contractList.filter(c => {
         if (!c.end_date || c.status === 'completed' || c.status === 'terminated') return false;
-        const daysLeft = differenceInDays(new Date(c.end_date), now);
+        const daysLeft = differenceInDays(new Date(c.end_date), today);
         return daysLeft >= 0 && daysLeft <= 30;
       }).length;
 
       const overdueContracts = contractList.filter(c => {
         if (!c.end_date || c.status === 'completed' || c.status === 'terminated') return false;
-        return differenceInDays(new Date(c.end_date), now) < 0;
+        return differenceInDays(new Date(c.end_date), today) < 0;
       }).length;
+
+      const duePaymentsList = paymentsRes.data || [];
 
       setStats({
         totalContracts: contractList.length,
@@ -78,6 +88,9 @@ const ContractsPage = () => {
         totalContractValue: contractList.reduce((sum, c) => sum + (c.contract_value || 0), 0),
         expiringContracts,
         overdueContracts,
+        upcomingMilestones: milestonesRes.data?.length || 0,
+        duePayments: duePaymentsList.length,
+        duePaymentsAmount: duePaymentsList.reduce((s, p: any) => s + (Number(p.amount) || 0), 0),
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -221,6 +234,40 @@ const ContractsPage = () => {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Upcoming milestones & due payments (next 30 days) */}
+        {(stats.upcomingMilestones > 0 || stats.duePayments > 0) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-purple-500/20">
+                  <Target className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{stats.upcomingMilestones}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {isArabic ? "معالم قادمة (خلال 30 يوم)" : "Upcoming milestones (next 30 days)"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-emerald-500/20">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-emerald-500/20">
+                  <DollarSign className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">
+                    {stats.duePayments} <span className="text-sm font-normal text-muted-foreground">· {formatCurrency(stats.duePaymentsAmount)}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {isArabic ? "دفعات مستحقة (خلال 30 يوم)" : "Due payments (next 30 days)"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* Main Tabs */}
