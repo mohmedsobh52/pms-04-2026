@@ -205,7 +205,14 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
         setTimeout(() => { el.focus(); el.select(); }, 50);
         return;
       }
-      if (!e.ctrlKey && !e.metaKey && !e.altKey && !inField && /^[1-7]$/.test(e.key)) {
+      // Shift + ? → open keyboard shortcuts help
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.shiftKey && (e.key === "?" || e.key === "/")) {
+        if (inField) return;
+        e.preventDefault();
+        setShowShortcutsHelp(true);
+        return;
+      }
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && !inField && /^[1-7]$/.test(e.key)) {
         const idx = parseInt(e.key, 10) - 1;
         if (tabIds[idx]) {
           e.preventDefault();
@@ -654,6 +661,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   const [sortField, setSortField] = useState<string>("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [showFilters, setShowFilters] = useState(false);
+  const [unpricedOnly, setUnpricedOnly] = useState(false);
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
 
   const toggleCategory = (category: string) => {
     const newSet = new Set(expandedCategories);
@@ -685,7 +694,17 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     if (showOnlyZeroQty) {
       items = items.filter(item => !item.quantity || item.quantity === 0);
     }
-    
+
+    // Unpriced-only filter (respects edited prices)
+    if (unpricedOnly) {
+      items = items.filter(item => {
+        const edited = editedPrices[item.item_number || ""];
+        const up = edited?.unit_price ?? item.unit_price ?? 0;
+        const tp = edited?.total_price ?? item.total_price ?? 0;
+        return !((up && up > 0) || (tp && tp > 0));
+      });
+    }
+
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -749,7 +768,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     }
     
     return items;
-  }, [data.items, searchQuery, unitFilter, categoryFilter, costRangeFilter, sortField, sortDirection, deletedItemNumbers, showOnlyZeroQty]);
+  }, [data.items, searchQuery, unitFilter, categoryFilter, costRangeFilter, sortField, sortDirection, deletedItemNumbers, showOnlyZeroQty, unpricedOnly, editedPrices]);
 
   // Count zero quantity items
   const zeroQuantityItems = useMemo(() => {
@@ -874,9 +893,10 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     setCategoryFilter("all");
     setCostRangeFilter("all");
     setSortField("");
+    setUnpricedOnly(false);
   }, []);
 
-  const hasActiveFilters = searchQuery || unitFilter !== "all" || categoryFilter !== "all" || costRangeFilter !== "all";
+  const hasActiveFilters = searchQuery || unitFilter !== "all" || categoryFilter !== "all" || costRangeFilter !== "all" || unpricedOnly;
 
   const groupedItems = data.items?.reduce((acc, item) => {
     const category = item.category || "غير مصنف";
@@ -1984,6 +2004,23 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                   )}
                 </Button>
 
+                {/* Unpriced-only toggle */}
+                <Button
+                  variant={unpricedOnly ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setUnpricedOnly(v => !v)}
+                  className="gap-2"
+                  title={isArabic ? "عرض البنود غير المسعّرة فقط" : "Show only unpriced items"}
+                >
+                  <DollarSign className="w-4 h-4" />
+                  {isArabic ? "غير المسعّرة" : "Unpriced only"}
+                  {pricingStats.unpricedTotal > 0 && (
+                    <Badge variant={unpricedOnly ? "secondary" : "destructive"} className="ml-1">
+                      {pricingStats.unpricedTotal}
+                    </Badge>
+                  )}
+                </Button>
+
                 {/* Sort Controls */}
                 <div className="flex items-center gap-1">
                   <Select value={sortField} onValueChange={setSortField}>
@@ -2813,6 +2850,49 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
       </div>
         </div>
       </div>
+
+      {/* Keyboard shortcuts help dialog (Shift+?) */}
+      {showShortcutsHelp && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in"
+          onClick={() => setShowShortcutsHelp(false)}
+        >
+          <div
+            className="bg-card text-card-foreground border border-border rounded-lg shadow-2xl max-w-md w-[92%] p-6 animate-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">
+                {isArabic ? "اختصارات لوحة المفاتيح" : "Keyboard Shortcuts"}
+              </h3>
+              <button
+                onClick={() => setShowShortcutsHelp(false)}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <ul className="space-y-2 text-sm">
+              {[
+                { k: "Ctrl/⌘ + B", d: isArabic ? "طي/توسيع القائمة الجانبية" : "Toggle sidebar" },
+                { k: "Ctrl/⌘ + F", d: isArabic ? "التركيز على البحث" : "Focus search" },
+                { k: "1 – 7", d: isArabic ? "التنقل بين التبويبات" : "Switch tabs" },
+                { k: "Shift + ?", d: isArabic ? "عرض هذه القائمة" : "Show this dialog" },
+              ].map((s) => (
+                <li key={s.k} className="flex items-center justify-between gap-3 py-1.5 border-b border-border/50 last:border-0">
+                  <span className="text-muted-foreground">{s.d}</span>
+                  <kbd className="px-2 py-1 rounded bg-muted text-foreground text-xs font-mono border border-border">
+                    {s.k}
+                  </kbd>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

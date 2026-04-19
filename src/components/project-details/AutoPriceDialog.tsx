@@ -52,7 +52,7 @@ function AutoPriceDialogComponent({
   isArabic,
   currency,
 }: AutoPriceDialogProps) {
-  const [confidenceThreshold, setConfidenceThreshold] = useState([50]);
+  const [confidenceThreshold, setConfidenceThreshold] = useState([95]);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
 
@@ -60,25 +60,118 @@ function AutoPriceDialogComponent({
   const { laborRates } = useLaborRates();
   const { equipmentRates } = useEquipmentRates();
 
+  // ===== Text normalization (Arabic + English) =====
+  const normalizeText = (s: string): string => {
+    if (!s) return "";
+    return s
+      .toLowerCase()
+      // Remove Arabic diacritics (tashkeel)
+      .replace(/[\u064B-\u0652\u0670\u0640]/g, "")
+      // Unify alef forms
+      .replace(/[\u0622\u0623\u0625]/g, "\u0627")
+      // Unify yaa
+      .replace(/\u0649/g, "\u064A")
+      // Taa marbuta -> haa
+      .replace(/\u0629/g, "\u0647")
+      // Collapse whitespace
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  const tokenize = (s: string): string[] => {
+    return normalizeText(s)
+      .split(/[\s,،.\-_/\\()\[\]{}:;|]+/)
+      .filter(w => w.length >= 3);
+  };
+
+  const jaccardScore = (a: string, b: string): number => {
+    const A = new Set(tokenize(a));
+    const B = new Set(tokenize(b));
+    if (A.size === 0 || B.size === 0) return 0;
+    let inter = 0;
+    A.forEach(t => { if (B.has(t)) inter++; });
+    const union = A.size + B.size - inter;
+    return union > 0 ? Math.round((inter / union) * 100) : 0;
+  };
+
   // Get unpriced items
   const unpricedItems = useMemo(() => {
     return items.filter(item => !item.unit_price || item.unit_price === 0);
   }, [items]);
 
+  // Calculate confidence: combines exact substring, Jaccard, unit & category bonuses
+  function calculateConfidence(
+    itemDesc: string,
+    candidateName: string,
+    candidateNameAr?: string | null,
+    itemUnit?: string | null,
+    candidateUnit?: string | null,
+    itemCategory?: string | null,
+    candidateCategory?: string | null,
+  ): number {
+    const desc = normalizeText(itemDesc);
+    const name = normalizeText(candidateName);
+    const nameAr = normalizeText(candidateNameAr || "");
+
+    let score = 0;
+
+    // Strong exact-substring match (the candidate name is fully present)
+    if (name && (desc.includes(name) || name.includes(desc))) score += 80;
+    if (nameAr && (desc.includes(nameAr) || nameAr.includes(desc))) score += 80;
+
+    // Jaccard token overlap (0-100) weighted at 0.6
+    const j = Math.max(jaccardScore(itemDesc, candidateName), jaccardScore(itemDesc, candidateNameAr || ""));
+    score += Math.round(j * 0.6);
+
+    // Unit exact match bonus
+    if (itemUnit && candidateUnit && normalizeText(itemUnit) === normalizeText(candidateUnit)) {
+      score += 10;
+    }
+    // Category match bonus
+    if (itemCategory && candidateCategory && normalizeText(itemCategory) === normalizeText(candidateCategory)) {
+      score += 10;
+    }
+
+    return Math.min(score, 99);
+  }
+
+  function calculateTextSimilarity(
+    itemDesc: string,
+    candidateText: string,
+    itemUnit?: string | null,
+    candidateUnit?: string | null,
+  ): number {
+    let score = 0;
+    const desc = normalizeText(itemDesc);
+    const cand = normalizeText(candidateText);
+    if (cand && (desc.includes(cand) || cand.includes(desc))) score += 70;
+    score += Math.round(jaccardScore(itemDesc, candidateText) * 0.6);
+    if (itemUnit && candidateUnit && normalizeText(itemUnit) === normalizeText(candidateUnit)) score += 10;
+    return Math.min(score, 99);
+  }
+
   // Calculate pricing suggestions with confidence scores
   const pricingResults = useMemo((): PricingResult[] => {
     const results: PricingResult[] = [];
+    const minThreshold = confidenceThreshold[0];
 
     for (const item of unpricedItems) {
       const description = item.description || "";
-      const descLower = description.toLowerCase();
-      
+
       let bestMatch: { price: number; confidence: number; source: string; sourceName: string } | null = null;
 
       // 1. Check material_prices
       const materialMatch = findMatchingPrice(description, item.category || undefined);
       if (materialMatch) {
-        const confidence = calculateConfidence(description, materialMatch.name, materialMatch.name_ar);
+        const confidence = calculateConfidence(
+          description,
+          materialMatch.name,
+          materialMatch.name_ar,
+          item.unit,
+          materialMatch.unit,
+          item.category,
+          materialMatch.category,
+        );
         if (!bestMatch || confidence > bestMatch.confidence) {
           bestMatch = {
             price: materialMatch.unit_price,
@@ -91,9 +184,9 @@ function AutoPriceDialogComponent({
 
       // 2. Check labor_rates
       for (const labor of laborRates) {
-        const laborText = `${labor.name} ${labor.name_ar || ""} ${labor.category || ""}`.toLowerCase();
-        const confidence = calculateTextSimilarity(descLower, laborText);
-        if (confidence >= 30 && (!bestMatch || confidence > bestMatch.confidence)) {
+        const laborText = `${labor.name} ${labor.name_ar || ""} ${labor.category || ""}`;
+        const confidence = calculateTextSimilarity(description, laborText, item.unit, labor.unit);
+        if (confidence >= 50 && (!bestMatch || confidence > bestMatch.confidence)) {
           bestMatch = {
             price: labor.unit_rate,
             confidence,
@@ -105,9 +198,9 @@ function AutoPriceDialogComponent({
 
       // 3. Check equipment_rates
       for (const equipment of equipmentRates) {
-        const equipText = `${equipment.name} ${equipment.name_ar || ""} ${equipment.category || ""}`.toLowerCase();
-        const confidence = calculateTextSimilarity(descLower, equipText);
-        if (confidence >= 30 && (!bestMatch || confidence > bestMatch.confidence)) {
+        const equipText = `${equipment.name} ${equipment.name_ar || ""} ${equipment.category || ""}`;
+        const confidence = calculateTextSimilarity(description, equipText, item.unit, equipment.unit);
+        if (confidence >= 50 && (!bestMatch || confidence > bestMatch.confidence)) {
           bestMatch = {
             price: equipment.rental_rate,
             confidence,
@@ -117,7 +210,7 @@ function AutoPriceDialogComponent({
         }
       }
 
-      if (bestMatch && bestMatch.confidence >= confidenceThreshold[0]) {
+      if (bestMatch && bestMatch.confidence >= minThreshold) {
         results.push({
           itemId: item.id,
           itemNumber: item.item_number,
@@ -132,53 +225,6 @@ function AutoPriceDialogComponent({
 
     return results;
   }, [unpricedItems, materials, laborRates, equipmentRates, findMatchingPrice, confidenceThreshold]);
-
-  // Calculate confidence based on text similarity
-  function calculateConfidence(itemDesc: string, materialName: string, materialNameAr?: string | null): number {
-    const descLower = itemDesc.toLowerCase();
-    const nameLower = materialName.toLowerCase();
-    const nameArLower = (materialNameAr || "").toLowerCase();
-    
-    let score = 0;
-    
-    // Exact substring match
-    if (descLower.includes(nameLower) || nameLower.includes(descLower)) {
-      score += 60;
-    }
-    if (materialNameAr && (descLower.includes(nameArLower) || nameArLower.includes(descLower))) {
-      score += 60;
-    }
-    
-    // Word match
-    const descWords = descLower.split(/[\s,،.-]+/).filter(w => w.length > 2);
-    const nameWords = nameLower.split(/[\s,،.-]+/).filter(w => w.length > 2);
-    const nameArWords = nameArLower.split(/[\s,،.-]+/).filter(w => w.length > 2);
-    
-    for (const word of descWords) {
-      if (nameWords.some(nw => nw.includes(word) || word.includes(nw))) {
-        score += 15;
-      }
-      if (nameArWords.some(nw => nw.includes(word) || word.includes(nw))) {
-        score += 15;
-      }
-    }
-    
-    return Math.min(score, 95);
-  }
-
-  function calculateTextSimilarity(text1: string, text2: string): number {
-    const words1 = text1.split(/[\s,،.-]+/).filter(w => w.length > 2);
-    const words2 = text2.split(/[\s,،.-]+/).filter(w => w.length > 2);
-    
-    let matchCount = 0;
-    for (const word of words1) {
-      if (words2.some(w => w.includes(word) || word.includes(w))) {
-        matchCount++;
-      }
-    }
-    
-    return words1.length > 0 ? Math.round((matchCount / words1.length) * 100) : 0;
-  }
 
   const handleApply = async () => {
     if (pricingResults.length === 0) return;
@@ -247,21 +293,21 @@ function AutoPriceDialogComponent({
             <Slider
               value={confidenceThreshold}
               onValueChange={setConfidenceThreshold}
-              min={30}
-              max={90}
-              step={10}
+              min={80}
+              max={99}
+              step={1}
               className="w-full"
             />
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>30%</span>
-              <span>50%</span>
-              <span>70%</span>
+              <span>80%</span>
               <span>90%</span>
+              <span>95%</span>
+              <span>99%</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {isArabic 
-                ? "البنود ذات الثقة الأعلى من هذا الحد سيتم تسعيرها"
-                : "Items with confidence above this threshold will be priced"
+              {isArabic
+                ? "الافتراضي 95% — لا يتم اقتراح أي بند بثقة أقل لضمان دقة عالية"
+                : "Default 95% — only high-confidence matches are suggested"
               }
             </p>
           </div>
