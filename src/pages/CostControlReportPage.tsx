@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { PageLayout } from "@/components/PageLayout";
+import { ColorLegend } from "@/components/ui/color-code";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -919,6 +920,7 @@ export default function CostControlReportPage() {
 
   return (
     <PageLayout>
+      <ColorLegend type="status" isArabic={isArabic} className="mb-4" />
       <div className="flex gap-6 min-h-[calc(100vh-200px)]">
         {/* Left Sidebar */}
         <aside className="w-72 shrink-0 space-y-4">
