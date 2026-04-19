@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AttachmentsTab } from "@/components/projects/AttachmentsTab";
 import { ReportsTab } from "@/components/projects/ReportsTab";
 import { BOQAnalyzerPanel } from "@/components/BOQAnalyzerPanel";
+import { ColorLegend } from "@/components/ui/color-code";
 import {
   Select,
   SelectContent,
@@ -516,6 +517,9 @@ export default function SavedProjectsPage() {
                 </div>
               </div>
             </div>
+
+            {/* Color legend */}
+            <ColorLegend type="status" isArabic={isArabic} className="mb-3" />
 
             {/* Search and Filter Bar */}
             <div className="glass-card p-4">
