@@ -12,6 +12,7 @@ import {
   RequestOfferDialog,
   ProcurementContracts,
 } from "@/components/procurement";
+import { ColorLegend } from "@/components/ui/color-code";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { ExternalPartner } from "@/components/procurement/PartnerCard";
@@ -178,6 +179,8 @@ const ProcurementPage = () => {
             </div>
           );
         })()}
+
+        <ColorLegend type="status" isArabic={isArabic} />
 
         {/* Tabs */}
         <Tabs defaultValue="partners" className="space-y-4">

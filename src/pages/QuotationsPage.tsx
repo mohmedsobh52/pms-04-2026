@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLayout } from "@/components/PageLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Card, CardContent } from "@/components/ui/card";
+import { ColorLegend } from "@/components/ui/color-code";
 import { FileText, CheckCircle2, Clock, Users, DollarSign, TrendingUp, Award, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -206,6 +207,8 @@ const QuotationsPage = () => {
               </Card>
             </div>
           )}
+
+          <ColorLegend type="status" isArabic={isArabic} className="mb-2" />
 
           <Tabs defaultValue="upload" className="space-y-4">
             <TabsList className="tabs-navigation-safe">
