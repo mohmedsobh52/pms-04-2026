@@ -276,6 +276,37 @@ const ReportsPage = () => {
           totalBOQValue={stats.totalBOQValue}
         />
 
+        {/* Insights Bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+          <div className="rounded-lg border bg-gradient-to-br from-primary/10 to-primary/5 p-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">{isArabic ? "إجمالي قيمة العطاءات" : "Total Tender Value"}</p>
+              <p className="text-lg font-bold text-primary">
+                {stats.totalTenderValue.toLocaleString()} {isArabic ? "ريال" : "SAR"}
+              </p>
+            </div>
+            <BarChart3 className="w-8 h-8 text-primary/40" />
+          </div>
+          <div className="rounded-lg border bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">{isArabic ? "متوسط قيمة المشروع" : "Avg Project Value"}</p>
+              <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                {stats.totalProjects > 0 ? Math.round(stats.totalBOQValue / stats.totalProjects).toLocaleString() : 0} {isArabic ? "ريال" : "SAR"}
+              </p>
+            </div>
+            <FileText className="w-8 h-8 text-emerald-600/40" />
+          </div>
+          <div className="rounded-lg border bg-gradient-to-br from-amber-500/10 to-amber-500/5 p-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">{isArabic ? "نتائج الفلتر الحالي" : "Filtered Results"}</p>
+              <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
+                {filteredProjects.length} / {projects.length}
+              </p>
+            </div>
+            <Filter className="w-8 h-8 text-amber-600/40" />
+          </div>
+        </div>
+
         {/* Tabs */}
         <Tabs defaultValue="export" className="mt-6">
           <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1 tabs-navigation-safe">
