@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Calendar, ArrowLeft, Settings2, CalendarDays, FileSignature, Clock, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Calendar, ArrowLeft, Settings2, CalendarDays, FileSignature, Clock, AlertCircle, CheckCircle2, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { PMSLogo } from "@/components/PMSLogo";
@@ -10,8 +11,15 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import { RealtimeNotifications } from "@/components/RealtimeNotifications";
 import { UserMenu } from "@/components/UserMenu";
 import { ProjectCalendar } from "@/components/ProjectCalendar";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+
+interface UpcomingItem {
+  type: "project" | "contract" | "milestone";
+  title: string;
+  date: Date;
+  daysLeft: number;
+}
 
 export default function CalendarPage() {
   const { user } = useAuth();
