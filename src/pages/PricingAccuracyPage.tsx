@@ -101,6 +101,88 @@ const PricingAccuracyPage: React.FC = () => {
             </Card>
           ))}
         </div>
+
+        {/* Insights row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Activity className="h-4 w-4" />
+                {isArabic ? 'توزيع الثقة' : 'Confidence Distribution'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {confidenceDist.every((c) => c.count === 0) && (
+                <p className="text-sm text-muted-foreground">{isArabic ? 'لا توجد بيانات' : 'No data'}</p>
+              )}
+              {confidenceDist.map((c) => (
+                <div key={c.label} className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium">{c.label}</span>
+                    <span className="text-muted-foreground">{c.count} ({Math.round((c.count / totalConf) * 100)}%)</span>
+                  </div>
+                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                    <div className={`h-full ${c.color}`} style={{ width: `${(c.count / totalConf) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                {isArabic ? 'اتجاه الدقة (آخر 6 شهور)' : 'Accuracy Trend (6 mo)'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {accuracyTrend.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{isArabic ? 'لا توجد بيانات' : 'No data'}</p>
+              ) : (
+                <div className="flex items-end justify-between gap-2 h-32">
+                  {accuracyTrend.map((t) => (
+                    <div key={t.month} className="flex-1 flex flex-col items-center gap-1">
+                      <div className="text-xs font-bold">{t.avg}%</div>
+                      <div
+                        className="w-full bg-primary rounded-t transition-all"
+                        style={{ height: `${(t.avg / maxTrend) * 100}%`, minHeight: '4px' }}
+                      />
+                      <div className="text-[10px] text-muted-foreground">{t.month.slice(5)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                {isArabic ? 'أعلى الانحرافات' : 'Top Deviations'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {topDeviations.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{isArabic ? 'لا توجد بيانات' : 'No data'}</p>
+              ) : (
+                topDeviations.map((r: any) => (
+                  <div key={r.item_number + r.created_at} className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-muted/50">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm truncate font-medium">{r.item_description || r.item_number}</p>
+                      <p className="text-[10px] text-muted-foreground">#{r.item_number}</p>
+                    </div>
+                    <Badge variant={Math.abs(Number(r.deviation_percent)) > 20 ? 'destructive' : 'secondary'}>
+                      {Number(r.deviation_percent) > 0 ? '+' : ''}{Number(r.deviation_percent).toFixed(1)}%
+                    </Badge>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
         <PricingAccuracyTab isArabic={isArabic} />
       </div>
     </PageLayout>
