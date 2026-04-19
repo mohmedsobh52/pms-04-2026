@@ -203,6 +203,46 @@ const SubcontractorsPage = () => {
           </Card>
         </div>
 
+        {/* Progress + Payment Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="md:col-span-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Activity className="w-4 h-4 text-primary" />
+                {isArabic ? "متوسط تقدم المهام الجارية" : "Avg Progress (In Progress)"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-3xl font-bold text-primary">{stats.avgProgress}%</span>
+                <span className="text-xs text-muted-foreground">
+                  {stats.activeAssignments} {isArabic ? "مهمة نشطة" : "active tasks"}
+                </span>
+              </div>
+              <Progress value={stats.avgProgress} className="h-3" />
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-emerald-500/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-emerald-600" />
+                {isArabic ? "حالة المدفوعات" : "Payment Status"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5 text-emerald-600" />{isArabic ? "مدفوعة" : "Paid"}</span>
+                <span className="font-bold text-emerald-600">{stats.paidAssignments}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5 text-amber-600" />{isArabic ? "معلقة" : "Pending"}</span>
+                <span className="font-bold text-amber-600">{stats.pendingPayments}</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Main Tabs - FIDIC removed */}
         <Tabs defaultValue="dashboard" className="space-y-4">
           <TabsList className="grid grid-cols-3 w-full md:w-auto tabs-navigation-safe">
