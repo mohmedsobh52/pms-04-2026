@@ -54,6 +54,9 @@ const SubcontractorsPage = () => {
     activeAssignments: 0,
     completedAssignments: 0,
     totalContractValue: 0,
+    avgProgress: 0,
+    paidAssignments: 0,
+    pendingPayments: 0,
   });
 
   useEffect(() => {
@@ -79,12 +82,20 @@ const SubcontractorsPage = () => {
       setSubcontractors(subcontractorsList);
       setAssignments(assignmentsList);
 
+      const activeAssgns = assignmentsList.filter(a => a.status === "in_progress");
+      const avgProg = activeAssgns.length
+        ? Math.round(activeAssgns.reduce((s, a) => s + (a.progress_percentage || 0), 0) / activeAssgns.length)
+        : 0;
+
       setStats({
         totalSubcontractors: subcontractorsList.length,
         activeSubcontractors: subcontractorsList.filter(s => s.status === "active").length,
-        activeAssignments: assignmentsList.filter(a => a.status === "in_progress").length,
+        activeAssignments: activeAssgns.length,
         completedAssignments: assignmentsList.filter(a => a.status === "completed").length,
         totalContractValue: assignmentsList.reduce((sum, a) => sum + (a.contract_value || 0), 0),
+        avgProgress: avgProg,
+        paidAssignments: assignmentsList.filter(a => a.payment_status === "paid").length,
+        pendingPayments: assignmentsList.filter(a => a.payment_status === "pending").length,
       });
     } catch (error) {
       console.error("Error fetching data:", error);
