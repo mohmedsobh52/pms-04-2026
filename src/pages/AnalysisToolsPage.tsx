@@ -6,6 +6,7 @@ import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLayout } from "@/components/PageLayout";
+import { ColorLegend } from "@/components/ui/color-code";
 import { Database, DollarSign, FileStack, TrendingUp } from "lucide-react";
 
 const AnalysisToolsPage = () => {
@@ -34,6 +35,7 @@ const AnalysisToolsPage = () => {
 
   return (
     <PageLayout>
+      <ColorLegend type="category" isArabic={isArabic} className="mb-4" />
       <Tabs defaultValue="cost-analysis" className="space-y-4">
         <TabsList className="grid w-full grid-cols-4 tabs-navigation-safe">
           <TabsTrigger value="cost-analysis" className="flex items-center gap-2">

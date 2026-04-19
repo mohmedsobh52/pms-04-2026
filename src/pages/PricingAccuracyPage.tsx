@@ -6,6 +6,7 @@ import { PricingAccuracyTab } from '@/components/tender/PricingAccuracyTab';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { ColorLegend } from '@/components/ui/color-code';
 import { Target, CheckCircle2, TrendingUp, AlertTriangle, Database, Activity, BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -86,6 +87,7 @@ const PricingAccuracyPage: React.FC = () => {
     <PageLayout>
       <div className="container mx-auto px-4 py-6 space-y-6" dir={isArabic ? 'rtl' : 'ltr'}>
         <NavigationBar showBreadcrumbs />
+        <ColorLegend type="priority" isArabic={isArabic} />
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           {cards.map((c) => (
             <Card key={c.label} className="border-border/50">

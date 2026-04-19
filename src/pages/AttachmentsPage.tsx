@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { ColorLegend } from "@/components/ui/color-code";
 import { Paperclip, FolderOpen, Files, HardDrive, Sparkles, FolderTree, FileType2, Clock, FileText, Image as ImageIcon, FileSpreadsheet, FileArchive } from "lucide-react";
 import { format } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
@@ -118,6 +119,7 @@ const AttachmentsPage = () => {
   return (
     <PageLayout>
       <div className="container mx-auto px-4 py-8" dir={isArabic ? "rtl" : "ltr"}>
+        <ColorLegend type="category" isArabic={isArabic} className="mb-4" />
         <div className="mb-8">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
