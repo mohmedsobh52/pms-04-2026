@@ -13,8 +13,12 @@ import {
   Link2, 
   CheckCircle,
   TrendingUp,
-  DollarSign
+  DollarSign,
+  Activity,
+  Wallet,
+  AlertCircle
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
