@@ -161,11 +161,42 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"items" | "wbs" | "costs" | "summary" | "charts" | "timeline" | "integration">("items");
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
-    try { return localStorage.getItem("analysis_sidebar_collapsed") === "1"; } catch { return false; }
+    try {
+      const saved = localStorage.getItem("analysis_sidebar_collapsed");
+      if (saved === "1") return true;
+      if (saved === "0") return false;
+      return typeof window !== "undefined" && window.innerWidth < 768;
+    } catch { return false; }
+  });
+  const [userToggledSidebar, setUserToggledSidebar] = useState<boolean>(() => {
+    try { return localStorage.getItem("analysis_sidebar_collapsed") !== null; } catch { return false; }
   });
   useEffect(() => {
     try { localStorage.setItem("analysis_sidebar_collapsed", sidebarCollapsed ? "1" : "0"); } catch {}
   }, [sidebarCollapsed]);
+  // Auto-collapse on mobile (until user manually toggles)
+  useEffect(() => {
+    if (userToggledSidebar) return;
+    const onResize = () => setSidebarCollapsed(window.innerWidth < 768);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [userToggledSidebar]);
+  // Keyboard shortcut: Ctrl+B / Cmd+B
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+        const t = e.target as HTMLElement | null;
+        const tag = t?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || (t && t.isContentEditable)) return;
+        e.preventDefault();
+        setUserToggledSidebar(true);
+        setSidebarCollapsed(v => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(getSavedCompanyInfo());
   
@@ -1407,8 +1438,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
               variant="ghost"
               size="icon"
               className="h-7 w-7 ml-auto"
-              onClick={() => setSidebarCollapsed(v => !v)}
-              title={sidebarCollapsed ? (isArabic ? "توسيع" : "Expand") : (isArabic ? "طي" : "Collapse")}
+              onClick={() => { setUserToggledSidebar(true); setSidebarCollapsed(v => !v); }}
+              title={(sidebarCollapsed ? (isArabic ? "توسيع" : "Expand") : (isArabic ? "طي" : "Collapse")) + " (Ctrl+B)"}
             >
               {sidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
             </Button>
@@ -1499,15 +1530,48 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
             }).length;
             const pct = total > 0 ? Math.round((priced / total) * 100) : 0;
             if (total === 0) return null;
+            const jumpToNextUnpriced = () => {
+              const next = allItems.find(it => {
+                if (!it.item_number) return false;
+                const edited = editedPrices[it.item_number];
+                const up = edited?.unit_price ?? it.unit_price ?? 0;
+                const tp = edited?.total_price ?? it.total_price ?? 0;
+                return !(up > 0) && !(tp > 0);
+              });
+              if (!next?.item_number) return;
+              if (activeTab !== "items") setActiveTab("items");
+              setTimeout(() => {
+                const id = `boq-item-${next.item_number}`;
+                const el = document.getElementById(id);
+                if (el) {
+                  el.scrollIntoView({ behavior: "smooth", block: "center" });
+                  el.classList.add("ring-2", "ring-primary");
+                  setTimeout(() => el.classList.remove("ring-2", "ring-primary"), 2000);
+                }
+              }, 150);
+            };
             return (
               <div className="border-b border-border px-4 py-2.5 bg-background">
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center justify-between mb-1.5 gap-2">
                   <span className="text-xs font-medium text-muted-foreground">
                     {isArabic ? "تقدم التسعير" : "Pricing Progress"}
                   </span>
-                  <span className="text-xs font-mono font-semibold tabular-nums">
-                    {priced}/{total} {isArabic ? "بند مسعّر" : "items priced"} ({pct}%)
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-semibold tabular-nums">
+                      {priced}/{total} {isArabic ? "بند مسعّر" : "items priced"} ({pct}%)
+                    </span>
+                    {priced < total && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-xs"
+                        onClick={jumpToNextUnpriced}
+                        title={isArabic ? "انتقل للبند التالي غير المسعّر" : "Jump to next unpriced item"}
+                      >
+                        {isArabic ? "البند التالي" : "Next unpriced"} →
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <Progress value={pct} className="h-2" />
               </div>
@@ -2268,7 +2332,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                     
                     return (
                       <tr 
-                        key={idx} 
+                        key={idx}
+                        id={`boq-item-${item.item_number}`}
                         className={cn(
                           "hover:bg-primary/5 transition-colors",
                           idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
