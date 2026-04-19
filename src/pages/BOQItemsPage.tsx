@@ -175,8 +175,62 @@ const BOQItemsPage = () => {
     );
   }
 
+  // Calculate quick stats
+  const items = (analysisData as any)?.items || [];
+  const totalItems = items.length;
+  const totalValue = items.reduce((sum: number, item: any) => sum + (Number(item.total_price) || 0), 0);
+  const pricedItems = items.filter((item: any) => Number(item.unit_price) > 0).length;
+  const pricedPercent = totalItems > 0 ? Math.round((pricedItems / totalItems) * 100) : 0;
+  const currency = (analysisData as any)?.currency || (isArabic ? "ر.س" : "SAR");
+
   return (
     <PageLayout>
+      {/* Quick Stats Bar */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div className="rounded-xl border border-border bg-card p-3 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <FileSpreadsheet className="w-5 h-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">{isArabic ? "إجمالي البنود" : "Total Items"}</p>
+            <p className="text-lg font-bold leading-tight">{totalItems.toLocaleString()}</p>
+          </div>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-3 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+            <Clock className="w-5 h-5 text-emerald-500" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">{isArabic ? "بنود مسعّرة" : "Priced"}</p>
+            <p className="text-lg font-bold leading-tight">
+              {pricedItems} <span className="text-xs text-muted-foreground">({pricedPercent}%)</span>
+            </p>
+          </div>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-3 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+            <Upload className="w-5 h-5 text-amber-500" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted-foreground">{isArabic ? "إجمالي القيمة" : "Total Value"}</p>
+            <p className="text-lg font-bold leading-tight truncate">
+              {totalValue.toLocaleString()} <span className="text-xs">{currency}</span>
+            </p>
+          </div>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-3 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+            <FolderOpen className="w-5 h-5 text-purple-500" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted-foreground">{isArabic ? "الملف" : "File"}</p>
+            <p className="text-sm font-semibold leading-tight truncate" title={(analysisData as any)?.file_name}>
+              {(analysisData as any)?.file_name || (isArabic ? "غير محدد" : "Untitled")}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <AnalysisResults
         data={analysisData}
         wbsData={wbsData}
