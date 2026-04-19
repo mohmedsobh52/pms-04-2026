@@ -68,6 +68,23 @@ const RiskPage = () => {
       setStats({ total: data.length, high, mitigated, avgScore: avg, dueSoon });
       setByCategory(cats);
       setByStatus(stArr);
+
+      // Heatmap 5x5 (probability rows × impact cols, 1..5)
+      const hm = Array.from({ length: 5 }, () => Array(5).fill(0));
+      data.forEach((r: any) => {
+        const p = Math.min(5, Math.max(1, Math.round(Number(r.probability) || 0)));
+        const i = Math.min(5, Math.max(1, Math.round(Number(r.impact) || 0)));
+        if (p && i) hm[5 - p][i - 1] += 1;
+      });
+      setHeatmap(hm);
+
+      // Top risks
+      setTopRisks(
+        [...data]
+          .filter((r: any) => r.status !== "closed" && r.status !== "mitigated")
+          .sort((a: any, b: any) => (Number(b.risk_score) || 0) - (Number(a.risk_score) || 0))
+          .slice(0, 5)
+      );
     })();
   }, [user, isArabic]);
 
