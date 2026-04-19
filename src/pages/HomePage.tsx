@@ -23,6 +23,10 @@ import {
   Mail,
   BarChart3,
   Clock,
+  Ruler,
+  ListChecks,
+  Shield,
+  Settings,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
@@ -47,6 +51,8 @@ const groups: { titleAr: string; titleEn: string; items: Section[] }[] = [
       { nameAr: "المشاريع", nameEn: "Projects", descAr: "إدارة ومتابعة المشاريع", descEn: "Manage & track projects", path: "/projects", icon: FolderOpen, color: "from-blue-500/30 to-blue-700/20", iconColor: "text-blue-300", countKey: "saved_projects" },
       { nameAr: "جدول الكميات", nameEn: "BOQ Items", descAr: "بنود الأعمال والكميات", descEn: "Work items & quantities", path: "/items", icon: Layers, color: "from-emerald-500/30 to-emerald-700/20", iconColor: "text-emerald-300", countKey: "project_items" },
       { nameAr: "المستخلصات", nameEn: "Certificates", descAr: "الشهادات والمستخلصات", descEn: "Progress certificates", path: "/progress-certificates", icon: Award, color: "from-yellow-500/30 to-yellow-700/20", iconColor: "text-yellow-300", countKey: "progress_certificates" },
+      { nameAr: "تحليل المخططات", nameEn: "Drawing Analysis", descAr: "استخراج الكميات من المخططات", descEn: "Extract quantities from drawings", path: "/projects?tab=attachments&mode=extraction", icon: Ruler, color: "from-rose-500/30 to-rose-700/20", iconColor: "text-rose-300", countKey: null },
+      { nameAr: "خطة التنفيذ", nameEn: "Execution Plan", descAr: "تخطيط التنفيذ بالذكاء الاصطناعي", descEn: "AI-powered execution planning", path: "/p6-export", icon: ListChecks, color: "from-violet-500/30 to-violet-700/20", iconColor: "text-violet-300", countKey: null },
     ],
   },
   {
@@ -64,6 +70,13 @@ const groups: { titleAr: string; titleEn: string; items: Section[] }[] = [
       { nameAr: "المشتريات", nameEn: "Procurement", descAr: "طلبات الشراء والموردين", descEn: "Procurement & suppliers", path: "/procurement", icon: Package, color: "from-cyan-500/30 to-cyan-700/20", iconColor: "text-cyan-300", countKey: "external_partners" },
       { nameAr: "مقاولي الباطن", nameEn: "Subcontractors", descAr: "إدارة مقاولي الباطن", descEn: "Subcontractor management", path: "/subcontractors", icon: Users, color: "from-orange-500/30 to-orange-700/20", iconColor: "text-orange-300", countKey: "subcontractors" },
       { nameAr: "المخاطر", nameEn: "Risk", descAr: "تقييم وإدارة المخاطر", descEn: "Risk assessment", path: "/risk", icon: AlertTriangle, color: "from-red-500/30 to-red-700/20", iconColor: "text-red-300", countKey: "risks" },
+    ],
+  },
+  {
+    titleAr: "الإدارة", titleEn: "Administration",
+    items: [
+      { nameAr: "إدارة الصلاحيات", nameEn: "User Permissions", descAr: "إدارة المستخدمين والأدوار", descEn: "Manage users & roles", path: "/settings", icon: Shield, color: "from-slate-500/30 to-slate-700/20", iconColor: "text-slate-300", countKey: null },
+      { nameAr: "لوحة الإدارة", nameEn: "Admin Dashboard", descAr: "إحصائيات وإدارة النظام", descEn: "System stats & management", path: "/admin/versions", icon: Settings, color: "from-zinc-500/30 to-zinc-700/20", iconColor: "text-zinc-300", countKey: null },
     ],
   },
 ];
