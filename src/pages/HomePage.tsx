@@ -21,7 +21,11 @@ import {
   BookOpen,
   Phone,
   Mail,
+  BarChart3,
+  Clock,
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { ar, enUS } from "date-fns/locale";
 
 const sections = [
   { nameAr: "المشاريع", nameEn: "Projects", descAr: "إدارة ومتابعة المشاريع", descEn: "Manage & track projects", path: "/projects", icon: FolderOpen, color: "from-blue-500/30 to-blue-700/20", iconColor: "text-blue-300", countKey: "saved_projects" },
@@ -44,9 +48,16 @@ const tableKeys = [
   "external_partners", "subcontractors", "risks", "progress_certificates", "material_prices",
 ] as const;
 
+interface RecentItem {
+  id: string;
+  name: string;
+  updated_at: string;
+}
+
 export default function HomePage() {
   const { isArabic } = useLanguage();
   const [counts, setCounts] = useState<CountsMap>({});
+  const [recent, setRecent] = useState<RecentItem[]>([]);
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -62,8 +73,28 @@ export default function HomePage() {
       await Promise.all(promises);
       setCounts(results);
     };
+    const fetchRecent = async () => {
+      try {
+        const { data } = await supabase
+          .from("saved_projects")
+          .select("id,name,updated_at")
+          .order("updated_at", { ascending: false })
+          .limit(3);
+        setRecent((data as RecentItem[]) ?? []);
+      } catch {
+        setRecent([]);
+      }
+    };
     fetchCounts();
+    fetchRecent();
   }, []);
+
+  const heroStats = [
+    { label: isArabic ? "المشاريع" : "Projects", value: counts.saved_projects ?? 0, icon: FolderOpen, color: "text-blue-300", bg: "bg-blue-500/15" },
+    { label: isArabic ? "العقود" : "Contracts", value: counts.contracts ?? 0, icon: Briefcase, color: "text-emerald-300", bg: "bg-emerald-500/15" },
+    { label: isArabic ? "البنود" : "Items", value: counts.project_items ?? 0, icon: Layers, color: "text-purple-300", bg: "bg-purple-500/15" },
+    { label: isArabic ? "المواد" : "Materials", value: counts.material_prices ?? 0, icon: Package, color: "text-orange-300", bg: "bg-orange-500/15" },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col" dir={isArabic ? "rtl" : "ltr"}>
@@ -76,7 +107,59 @@ export default function HomePage() {
       <BackgroundImage />
       <UnifiedHeader />
 
-      <main className="flex-1 flex flex-col items-center justify-center px-3 md:px-4 py-6 md:py-8">
+      <main className="flex-1 flex flex-col items-center px-3 md:px-4 py-6 md:py-8">
+        {/* Hero Stats Pills */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 max-w-3xl w-full mb-4">
+          {heroStats.map((s) => {
+            const Icon = s.icon;
+            return (
+              <div key={s.label} className="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-sm">
+                <div className={`w-9 h-9 md:w-10 md:h-10 rounded-xl ${s.bg} flex items-center justify-center`}>
+                  <Icon className={`w-4 h-4 md:w-5 md:h-5 ${s.color}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-lg md:text-xl font-bold leading-none">{s.value}</p>
+                  <p className="text-white/60 text-[10px] md:text-xs mt-0.5 truncate">{s.label}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Recent Activity */}
+        {recent.length > 0 && (
+          <div className="max-w-3xl w-full mb-6 md:mb-8 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-sm p-3 md:p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Clock className="w-4 h-4 text-white/70" />
+              <h3 className="text-white text-sm font-semibold">
+                {isArabic ? "آخر النشاط" : "Recent Activity"}
+              </h3>
+            </div>
+            <div className="space-y-1.5">
+              {recent.map((r) => (
+                <Link
+                  key={r.id}
+                  to={`/projects/${r.id}`}
+                  className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors group"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
+                      <BarChart3 className="w-3.5 h-3.5 text-blue-300" />
+                    </div>
+                    <span className="text-white text-sm truncate">{r.name}</span>
+                  </div>
+                  <span className="text-white/50 text-xs shrink-0">
+                    {formatDistanceToNow(new Date(r.updated_at), {
+                      addSuffix: true,
+                      locale: isArabic ? ar : enUS,
+                    })}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Welcome Header */}
         <div className="flex items-center gap-3 mb-6 md:mb-8">
           <PMSLogo size="lg" />
