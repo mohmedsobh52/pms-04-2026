@@ -3,13 +3,18 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { PageLayout } from '@/components/PageLayout';
 import { NavigationBar } from '@/components/NavigationBar';
 import { PricingAccuracyTab } from '@/components/tender/PricingAccuracyTab';
-import { Card, CardContent } from '@/components/ui/card';
-import { Target, CheckCircle2, TrendingUp, AlertTriangle, Database } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Target, CheckCircle2, TrendingUp, AlertTriangle, Database, Activity, BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 const PricingAccuracyPage: React.FC = () => {
   const { isArabic } = useLanguage();
   const [stats, setStats] = useState({ total: 0, approved: 0, avgAccuracy: 0, avgDeviation: 0, highConfidence: 0 });
+  const [confidenceDist, setConfidenceDist] = useState<{ label: string; count: number; color: string }[]>([]);
+  const [topDeviations, setTopDeviations] = useState<any[]>([]);
+  const [accuracyTrend, setAccuracyTrend] = useState<{ month: string; avg: number }[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -17,7 +22,7 @@ const PricingAccuracyPage: React.FC = () => {
       if (!user) return;
       const { data } = await supabase
         .from('pricing_history')
-        .select('accuracy_score,deviation_percent,is_approved,confidence')
+        .select('accuracy_score,deviation_percent,is_approved,confidence,item_description,item_number,created_at,suggested_price,final_price')
         .eq('user_id', user.id);
       if (!data) return;
       const accs = data.map((r: any) => Number(r.accuracy_score)).filter((n) => !isNaN(n) && n > 0);
@@ -29,8 +34,45 @@ const PricingAccuracyPage: React.FC = () => {
         avgDeviation: devs.length ? Math.round((devs.reduce((a, b) => a + b, 0) / devs.length) * 10) / 10 : 0,
         highConfidence: data.filter((r: any) => r.confidence === 'high' || r.confidence === 'عالية').length,
       });
+
+      // Confidence distribution
+      const high = data.filter((r: any) => ['high', 'عالية'].includes(r.confidence)).length;
+      const med = data.filter((r: any) => ['medium', 'متوسطة'].includes(r.confidence)).length;
+      const low = data.filter((r: any) => ['low', 'منخفضة'].includes(r.confidence)).length;
+      setConfidenceDist([
+        { label: isArabic ? 'عالية' : 'High', count: high, color: 'bg-emerald-500' },
+        { label: isArabic ? 'متوسطة' : 'Medium', count: med, color: 'bg-amber-500' },
+        { label: isArabic ? 'منخفضة' : 'Low', count: low, color: 'bg-red-500' },
+      ]);
+
+      // Top deviations
+      setTopDeviations(
+        [...data]
+          .filter((r: any) => r.is_approved && r.deviation_percent != null)
+          .sort((a: any, b: any) => Math.abs(Number(b.deviation_percent)) - Math.abs(Number(a.deviation_percent)))
+          .slice(0, 5)
+      );
+
+      // Monthly accuracy trend
+      const monthMap = new Map<string, number[]>();
+      data.forEach((r: any) => {
+        if (!r.created_at || !r.accuracy_score) return;
+        const d = new Date(r.created_at);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const arr = monthMap.get(key) || [];
+        arr.push(Number(r.accuracy_score));
+        monthMap.set(key, arr);
+      });
+      const trend = Array.from(monthMap.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .slice(-6)
+        .map(([month, arr]) => ({ month, avg: Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) }));
+      setAccuracyTrend(trend);
     })();
-  }, []);
+  }, [isArabic]);
+
+  const totalConf = confidenceDist.reduce((s, c) => s + c.count, 0) || 1;
+  const maxTrend = Math.max(...accuracyTrend.map((t) => t.avg), 100);
 
   const cards = [
     { label: isArabic ? 'إجمالي السجلات' : 'Total Records', value: stats.total.toLocaleString(), icon: Database, color: 'text-primary', bg: 'bg-primary/10' },
