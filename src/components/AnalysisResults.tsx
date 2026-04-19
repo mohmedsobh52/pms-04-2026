@@ -2004,6 +2004,23 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                   )}
                 </Button>
 
+                {/* Unpriced-only toggle */}
+                <Button
+                  variant={unpricedOnly ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setUnpricedOnly(v => !v)}
+                  className="gap-2"
+                  title={isArabic ? "عرض البنود غير المسعّرة فقط" : "Show only unpriced items"}
+                >
+                  <DollarSign className="w-4 h-4" />
+                  {isArabic ? "غير المسعّرة" : "Unpriced only"}
+                  {pricingStats.unpricedTotal > 0 && (
+                    <Badge variant={unpricedOnly ? "secondary" : "destructive"} className="ml-1">
+                      {pricingStats.unpricedTotal}
+                    </Badge>
+                  )}
+                </Button>
+
                 {/* Sort Controls */}
                 <div className="flex items-center gap-1">
                   <Select value={sortField} onValueChange={setSortField}>
