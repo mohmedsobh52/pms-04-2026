@@ -342,7 +342,7 @@ const COLOR_MAP: Record<string, { bg: string; ring: string; text: string }> = {
 function StatCard({ icon: Icon, value, label, color, small }: any) {
   const c = COLOR_MAP[color] || COLOR_MAP.blue;
   return (
-    <Card className={`bg-gradient-to-br ${c.bg} ${c.ring} hover-scale transition-all duration-300 hover:shadow-md`}>
+    <Card className={`bg-gradient-to-br ${c.bg} ${c.ring} transition-all duration-300 hover:shadow-md hover:-translate-y-0.5`}>
       <CardContent className="p-4">
         <div className="flex items-center gap-3">
           <div className={`p-2 rounded-lg bg-background/40 backdrop-blur-sm`}>
