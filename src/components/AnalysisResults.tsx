@@ -2850,6 +2850,49 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
       </div>
         </div>
       </div>
+
+      {/* Keyboard shortcuts help dialog (Shift+?) */}
+      {showShortcutsHelp && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in"
+          onClick={() => setShowShortcutsHelp(false)}
+        >
+          <div
+            className="bg-card text-card-foreground border border-border rounded-lg shadow-2xl max-w-md w-[92%] p-6 animate-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">
+                {isArabic ? "اختصارات لوحة المفاتيح" : "Keyboard Shortcuts"}
+              </h3>
+              <button
+                onClick={() => setShowShortcutsHelp(false)}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <ul className="space-y-2 text-sm">
+              {[
+                { k: "Ctrl/⌘ + B", d: isArabic ? "طي/توسيع القائمة الجانبية" : "Toggle sidebar" },
+                { k: "Ctrl/⌘ + F", d: isArabic ? "التركيز على البحث" : "Focus search" },
+                { k: "1 – 7", d: isArabic ? "التنقل بين التبويبات" : "Switch tabs" },
+                { k: "Shift + ?", d: isArabic ? "عرض هذه القائمة" : "Show this dialog" },
+              ].map((s) => (
+                <li key={s.k} className="flex items-center justify-between gap-3 py-1.5 border-b border-border/50 last:border-0">
+                  <span className="text-muted-foreground">{s.d}</span>
+                  <kbd className="px-2 py-1 rounded bg-muted text-foreground text-xs font-mono border border-border">
+                    {s.k}
+                  </kbd>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
