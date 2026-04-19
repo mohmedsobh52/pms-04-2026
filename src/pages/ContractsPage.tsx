@@ -236,6 +236,40 @@ const ContractsPage = () => {
           </Card>
         )}
 
+        {/* Upcoming milestones & due payments (next 30 days) */}
+        {(stats.upcomingMilestones > 0 || stats.duePayments > 0) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-purple-500/20">
+                  <Target className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{stats.upcomingMilestones}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {isArabic ? "معالم قادمة (خلال 30 يوم)" : "Upcoming milestones (next 30 days)"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-emerald-500/20">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-emerald-500/20">
+                  <DollarSign className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">
+                    {stats.duePayments} <span className="text-sm font-normal text-muted-foreground">· {formatCurrency(stats.duePaymentsAmount)}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {isArabic ? "دفعات مستحقة (خلال 30 يوم)" : "Due payments (next 30 days)"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Main Tabs */}
         <Tabs defaultValue="contracts" className="space-y-4">
           <TabsList className="flex flex-wrap h-auto gap-1 tabs-navigation-safe">
