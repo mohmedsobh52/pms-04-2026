@@ -111,6 +111,8 @@ const MaterialPricesPage = () => {
           })}
         </div>
 
+        <ColorLegend type="category" isArabic={isArabic} />
+
         {/* Insights row */}
         {stats.total > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
