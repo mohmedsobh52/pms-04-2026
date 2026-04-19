@@ -183,6 +183,76 @@ export default function CalendarPage() {
           </Card>
         )}
 
+        {user && allUpcoming.length > 0 && (() => {
+          const months = Array.from({ length: 6 }, (_, i) => {
+            const d = new Date();
+            d.setDate(1);
+            d.setMonth(d.getMonth() + i);
+            return { key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString(isArabic ? 'ar-SA' : 'en-US', { month: 'short' }), count: 0 };
+          });
+          allUpcoming.forEach((it) => {
+            const k = `${it.date.getFullYear()}-${it.date.getMonth()}`;
+            const m = months.find((x) => x.key === k);
+            if (m) m.count++;
+          });
+          const maxCount = Math.max(1, ...months.map((m) => m.count));
+          const typeCounts = { project: 0, contract: 0, milestone: 0 };
+          allUpcoming.forEach((it) => { typeCounts[it.type]++; });
+          const total = allUpcoming.length;
+          return (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <CalendarDays className="w-4 h-4 text-primary" />
+                    {isArabic ? "نظرة على الأشهر القادمة (6 أشهر)" : "Upcoming Months Overview (6mo)"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-end justify-between gap-2 h-32">
+                    {months.map((m) => (
+                      <div key={m.key} className="flex-1 flex flex-col items-center gap-1">
+                        <div className="text-xs font-bold">{m.count}</div>
+                        <div className="w-full bg-primary rounded-t" style={{ height: `${(m.count / maxCount) * 100}%`, minHeight: '4px' }} />
+                        <div className="text-[10px] text-muted-foreground">{m.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Target className="w-4 h-4 text-primary" />
+                    {isArabic ? "توزيع حسب النوع" : "Distribution by Type"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {([
+                    { k: 'project', label: isArabic ? 'مشاريع' : 'Projects', color: 'bg-primary' },
+                    { k: 'contract', label: isArabic ? 'عقود' : 'Contracts', color: 'bg-blue-500' },
+                    { k: 'milestone', label: isArabic ? 'معالم' : 'Milestones', color: 'bg-purple-500' },
+                  ] as const).map((row) => {
+                    const c = typeCounts[row.k];
+                    const pct = total > 0 ? (c / total) * 100 : 0;
+                    return (
+                      <div key={row.k} className="space-y-1">
+                        <div className="flex justify-between text-sm">
+                          <span className="font-medium">{row.label}</span>
+                          <span className="text-muted-foreground">{c} ({Math.round(pct)}%)</span>
+                        </div>
+                        <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                          <div className={`h-full ${row.color}`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })()}
+
         {user ? (
           <ProjectCalendar />
         ) : (
