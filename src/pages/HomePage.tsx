@@ -72,6 +72,13 @@ const groups: { titleAr: string; titleEn: string; items: Section[] }[] = [
       { nameAr: "المخاطر", nameEn: "Risk", descAr: "تقييم وإدارة المخاطر", descEn: "Risk assessment", path: "/risk", icon: AlertTriangle, color: "from-red-500/30 to-red-700/20", iconColor: "text-red-300", countKey: "risks" },
     ],
   },
+  {
+    titleAr: "الإدارة", titleEn: "Administration",
+    items: [
+      { nameAr: "إدارة الصلاحيات", nameEn: "User Permissions", descAr: "إدارة المستخدمين والأدوار", descEn: "Manage users & roles", path: "/settings", icon: Shield, color: "from-slate-500/30 to-slate-700/20", iconColor: "text-slate-300", countKey: null },
+      { nameAr: "لوحة الإدارة", nameEn: "Admin Dashboard", descAr: "إحصائيات وإدارة النظام", descEn: "System stats & management", path: "/admin/versions", icon: Settings, color: "from-zinc-500/30 to-zinc-700/20", iconColor: "text-zinc-300", countKey: null },
+    ],
+  },
 ];
 
 type CountsMap = Record<string, number>;
