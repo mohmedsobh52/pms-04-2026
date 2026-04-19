@@ -1,47 +1,39 @@
 
 
 ## المطلوب
-تنفيذ كل الاقتراحات الخمسة على شاشة Advanced Analysis (`AnalysisResults.tsx`):
+تنفيذ الاقتراحات الثلاثة المتبقية:
 
-1. **Sidebar Toggle** — زر طيّ/توسيع للقائمة الجانبية
-2. **Pricing Progress Indicator** — شريط تقدّم لنسبة البنود المُسعّرة
-3. **Instant Search** — بحث فوري داخل قائمة البنود
-4. **Column Customization** — تثبيت/إخفاء الأعمدة في جدول البنود
-5. **Test Navigation** — التحقق من عمل التنقل بين التبويبات
+1. **طي تلقائي على الموبايل** — القائمة الجانبية تُطوى تلقائياً عند `window.innerWidth < 768`، وتنفتح على الشاشات الكبيرة، مع احترام تفضيل المستخدم اليدوي.
+2. **اختصار Ctrl+B** — يطوي/يوسّع القائمة الجانبية.
+3. **زر "انتقل للبند التالي غير المسعّر"** — بجانب شريط التقدم، ينقل ويُمرّر إلى أول بند سعره = 0.
 
-## التغييرات
+## التغييرات في `src/components/AnalysisResults.tsx`
 
-### 1. `src/components/AnalysisResults.tsx` — Sidebar Toggle + Progress
-- إضافة state `sidebarCollapsed` (افتراضي: false، يُحفظ في localStorage).
-- زر toggle (`PanelLeftClose` / `PanelLeftOpen`) أعلى القائمة الجانبية.
-- عند الطيّ: عرض القائمة `w-14` مع أيقونات فقط + tooltips، عند التوسيع: `w-52` كما هو.
-- **شريط التقدم**: حساب `pricedCount / totalCount` من `items` وعرض `<Progress />` أعلى المحتوى الرئيسي مع نص `"45/120 items priced (37%)"`.
+### A. الطي التلقائي على الموبايل
+- إضافة state `userToggledSidebar` (افتراضي: false). يصبح true عند ضغط المستخدم على الزر يدوياً.
+- `useEffect` يستمع لـ `window.resize`:
+  - إذا `userToggledSidebar === false`: ضبط `sidebarCollapsed = innerWidth < 768`.
+- عند الضغط اليدوي على زر الطي: `setUserToggledSidebar(true)` ثم toggle.
 
-### 2. `src/components/project-details/ProjectBOQTab.tsx` (أو المكوّن المستخدم داخل تبويب Items)
-بعد فحص أين يُعرض جدول البنود الفعلي:
-- **Instant Search**: حقل `<Input>` مع أيقونة `Search` فوق الجدول، يفلتر `items` حسب `item_number` / `description` / `category` (debounced 200ms).
-- **Column Customization**:
-  - state `visibleColumns` (افتراضي كل الأعمدة) محفوظ في localStorage.
-  - state `pinnedColumns` (افتراضي: `item_number`) محفوظ في localStorage.
-  - زر `<DropdownMenu>` بعنوان "Columns" يحتوي قائمة Checkbox لكل عمود (إظهار/إخفاء) + أيقونة Pin بجانب كل عمود.
-  - الأعمدة المثبّتة تُرسم بـ `position: sticky; left: 0` مع z-index و خلفية.
+### B. اختصار Ctrl+B / Cmd+B
+- `useEffect` يضيف `keydown` listener:
+  - `(e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b'` → `e.preventDefault()` + toggle + setUserToggledSidebar(true).
 
-سأفحص أولاً المكوّن الفعلي لجدول البنود لأحدد التعديل بدقة.
-
-### 3. ملفات جديدة محتملة
-- `src/hooks/useTablePreferences.tsx` — hook موحّد لإدارة `visibleColumns` + `pinnedColumns` + `sidebarCollapsed` في localStorage بمفتاح لكل مشروع.
+### C. زر "انتقل للبند التالي غير المسعّر"
+- داخل بلوك Pricing Progress Indicator، بعد عداد النص:
+  - عرض الزر فقط عندما `priced < total` (يوجد بنود غير مسعّرة).
+  - عند الضغط: 
+    1. التبديل إلى `activeTab === "items"` إن لم يكن نشطاً.
+    2. إيجاد أول بند بـ `unit_price === 0 && total_price === 0` (مع مراعاة `editedPrices`).
+    3. تمرير العنصر للعرض: `document.getElementById('boq-item-${itemNumber}')?.scrollIntoView({ behavior: 'smooth', block: 'center' })`.
+    4. إضافة class مؤقت `ring-2 ring-primary` للإبراز لمدة 2s.
+- إضافة `id={"boq-item-" + item.item_number}` على صف الجدول داخل تبويب Items (سأبحث عن صف `<tr>` المناسب وأُضيف الـ id).
 
 ## ملفات متأثرة
-
-| ملف | التغيير |
-|------|---------|
-| `src/components/AnalysisResults.tsx` | Sidebar collapse toggle + Progress indicator |
-| `src/components/project-details/ProjectBOQTab.tsx` (يُحدَّد بعد الفحص) | Search + Column Customization |
-| `src/hooks/useTablePreferences.tsx` | جديد — حفظ تفضيلات الجدول والقائمة |
+- `src/components/AnalysisResults.tsx` — جميع التعديلات أعلاه.
 
 ## ملاحظات
 - لا تغييرات على قاعدة البيانات.
-- كل التفضيلات تُحفظ في localStorage بمفتاح يتضمن `projectId` لعزل المشاريع.
-- دعم RTL/LTR للقائمة المطويّة والأعمدة المثبّتة.
-- بعد التنفيذ: اقتراح اختبار يدوي (Toggle → Search → Pin column → تنقل بين التبويبات).
+- لا تبعيات جديدة.
+- بعد التنفيذ: اقتراح اختبار (تغيير حجم النافذة، Ctrl+B، النقر على زر القفز).
 
