@@ -636,34 +636,37 @@ export default function HistoricalPricingPage() {
 
           <TabsContent value="files" className="space-y-4 mt-4">
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <p className="text-3xl font-bold text-primary">{files.length}</p>
-                  <p className="text-sm text-muted-foreground">ملف تاريخي</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <p className="text-3xl font-bold text-blue-600">{totalItems.toLocaleString()}</p>
-                  <p className="text-sm text-muted-foreground">بند إجمالي</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <p className="text-3xl font-bold text-green-600">{verifiedCount}</p>
-                  <p className="text-sm text-muted-foreground">ملف موثق</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <p className="text-3xl font-bold text-orange-600">
-                    {new Set(files.map(f => f.project_location).filter(Boolean)).size}
-                  </p>
-                  <p className="text-sm text-muted-foreground">موقع مختلف</p>
-                </CardContent>
-              </Card>
-            </div>
+            {(() => {
+              const totalValue = files.reduce((s, f) => s + (Number(f.total_value) || 0), 0);
+              const locationsCount = new Set(files.map((f) => f.project_location).filter(Boolean)).size;
+              const cards = [
+                { icon: Database, label: "ملف تاريخي", value: String(files.length), color: "text-primary", bg: "bg-primary/10" },
+                { icon: FileText, label: "بند إجمالي", value: totalItems.toLocaleString(), color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-500/10" },
+                { icon: CheckCircle, label: "ملف موثق", value: String(verifiedCount), color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10" },
+                { icon: MapPin, label: "موقع مختلف", value: String(locationsCount), color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10" },
+                { icon: BarChart3, label: "القيمة الإجمالية", value: `${totalValue.toLocaleString()} ريال`, color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-500/10" },
+              ];
+              return (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                  {cards.map((s, i) => {
+                    const Icon = s.icon;
+                    return (
+                      <Card key={i} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-3 flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-lg ${s.bg} flex items-center justify-center shrink-0`}>
+                            <Icon className={`w-5 h-5 ${s.color}`} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs text-muted-foreground truncate">{s.label}</p>
+                            <p className={`text-base font-bold ${s.color} truncate`}>{s.value}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
         {/* Filters */}
         <div className="flex flex-col md:flex-row gap-4">
