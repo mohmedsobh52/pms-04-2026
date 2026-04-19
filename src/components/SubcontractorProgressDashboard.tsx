@@ -14,24 +14,22 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
   Legend,
   AreaChart,
-  Area
+  Area,
 } from "recharts";
 import {
   Users,
   TrendingUp,
-  CheckCircle,
   Clock,
   DollarSign,
-  AlertTriangle,
   BarChart3,
   PieChart as PieChartIcon,
   Activity,
-  Wallet
+  Wallet,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/page-skeleton";
+import { ChartTooltip } from "@/components/charts/ChartTooltip";
 
 interface Subcontractor {
   id: string;
@@ -57,13 +55,14 @@ interface SubcontractorProgressDashboardProps {
   assignments: Assignment[];
 }
 
+// Semantic HSL palette consistent with the rest of the app
 const COLORS = [
-  'hsl(var(--primary))',
-  'hsl(142 76% 36%)',
-  'hsl(38 92% 50%)',
-  'hsl(0 84% 60%)',
-  'hsl(262 83% 58%)',
-  'hsl(199 89% 48%)'
+  "hsl(220 70% 50%)",
+  "hsl(142 71% 45%)",
+  "hsl(38 92% 50%)",
+  "hsl(0 84% 60%)",
+  "hsl(262 83% 58%)",
+  "hsl(199 89% 48%)",
 ];
 
 export function SubcontractorProgressDashboard({ 
@@ -176,11 +175,16 @@ export function SubcontractorProgressDashboard({
 
   if (subcontractors.length === 0) {
     return (
-      <Card className="p-8 text-center">
-        <BarChart3 className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-        <p className="text-muted-foreground">
-          {isArabic ? "لا توجد بيانات لعرضها. أضف مقاولين ومهام أولاً." : "No data to display. Add subcontractors and assignments first."}
-        </p>
+      <Card className="border-dashed">
+        <CardContent className="p-0">
+          <EmptyState
+            icon={BarChart3}
+            title={isArabic ? "لا توجد بيانات للعرض" : "No data to display"}
+            description={isArabic
+              ? "أضف مقاولين ومهام أولاً لعرض الرسوم والتحليلات"
+              : "Add subcontractors and assignments first to see charts and analytics"}
+          />
+        </CardContent>
       </Card>
     );
   }
@@ -271,22 +275,31 @@ export function SubcontractorProgressDashboard({
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={progressBySubcontractor} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis type="number" domain={[0, 100]} />
-                  <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12 }} />
-                  <Tooltip 
+                <BarChart data={progressBySubcontractor} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                  <defs>
+                    <linearGradient id="sub-prog-grad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="hsl(220 70% 50%)" stopOpacity={0.6} />
+                      <stop offset="100%" stopColor="hsl(199 89% 48%)" stopOpacity={1} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis type="number" domain={[0, 100]}
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <YAxis dataKey="name" type="category" width={100}
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <Tooltip
+                    cursor={{ fill: "hsl(var(--muted) / 0.3)" }}
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
                         return (
-                          <div className="bg-popover border rounded-lg shadow-lg p-3">
-                            <p className="font-medium">{data.fullName}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {isArabic ? 'الإنجاز:' : 'Progress:'} {data.progress}%
+                          <div className="rounded-lg border border-border/60 bg-card/95 backdrop-blur-md px-3 py-2 shadow-lg text-xs animate-fade-in">
+                            <p className="font-semibold text-foreground mb-1">{data.fullName}</p>
+                            <p className="text-muted-foreground">
+                              {isArabic ? 'الإنجاز:' : 'Progress:'} <span className="font-medium text-foreground">{data.progress}%</span>
                             </p>
-                            <p className="text-sm text-muted-foreground">
-                              {isArabic ? 'القيمة:' : 'Value:'} {data.value.toLocaleString()}
+                            <p className="text-muted-foreground">
+                              {isArabic ? 'القيمة:' : 'Value:'} <span className="font-medium text-foreground">{data.value.toLocaleString()}</span>
                             </p>
                           </div>
                         );
@@ -294,10 +307,12 @@ export function SubcontractorProgressDashboard({
                       return null;
                     }}
                   />
-                  <Bar 
-                    dataKey="progress" 
-                    fill="hsl(var(--primary))" 
-                    radius={[0, 4, 4, 0]}
+                  <Bar
+                    dataKey="progress"
+                    fill="url(#sub-prog-grad)"
+                    radius={[0, 6, 6, 0]}
+                    isAnimationActive
+                    animationDuration={900}
                     name={isArabic ? "نسبة الإنجاز" : "Progress %"}
                   />
                 </BarChart>
@@ -318,22 +333,35 @@ export function SubcontractorProgressDashboard({
             <div className="h-[300px] flex items-center">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
+                  <defs>
+                    {statusDistribution.map((entry, i) => (
+                      <radialGradient key={i} id={`status-gr-${i}`}>
+                        <stop offset="0%" stopColor={entry.color} stopOpacity={1} />
+                        <stop offset="100%" stopColor={entry.color} stopOpacity={0.7} />
+                      </radialGradient>
+                    ))}
+                  </defs>
                   <Pie
                     data={statusDistribution}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
                     outerRadius={100}
-                    paddingAngle={5}
+                    paddingAngle={3}
                     dataKey="value"
+                    stroke="hsl(var(--background))"
+                    strokeWidth={2}
                     label={({ name, value }) => `${name}: ${value}`}
+                    labelLine={false}
+                    isAnimationActive
+                    animationDuration={800}
                   >
-                    {statusDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    {statusDistribution.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={`url(#status-gr-${index})`} />
                     ))}
                   </Pie>
-                  <Tooltip />
-                  <Legend />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -354,26 +382,40 @@ export function SubcontractorProgressDashboard({
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={progressTrend}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                  <YAxis domain={[0, 100]} />
-                  <Tooltip />
-                  <Legend />
-                  <Area 
-                    type="monotone" 
-                    dataKey="planned" 
-                    stroke="hsl(var(--muted-foreground))" 
-                    fill="hsl(var(--muted))"
+                <AreaChart data={progressTrend} margin={{ left: 4, right: 16, top: 8, bottom: 4 }}>
+                  <defs>
+                    <linearGradient id="planned-grad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="actual-grad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(220 70% 50%)" stopOpacity={0.5} />
+                      <stop offset="100%" stopColor="hsl(220 70% 50%)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <YAxis domain={[0, 100]} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <Tooltip content={<ChartTooltip formatter={(v: number) => `${v}%`} />} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Area
+                    type="monotone"
+                    dataKey="planned"
+                    stroke="hsl(var(--muted-foreground))"
+                    fill="url(#planned-grad)"
                     strokeWidth={2}
+                    isAnimationActive
+                    animationDuration={900}
                     name={isArabic ? "المخطط" : "Planned"}
                   />
-                  <Area 
-                    type="monotone" 
-                    dataKey="actual" 
-                    stroke="hsl(var(--primary))" 
-                    fill="hsl(var(--primary)/0.3)"
-                    strokeWidth={2}
+                  <Area
+                    type="monotone"
+                    dataKey="actual"
+                    stroke="hsl(220 70% 50%)"
+                    fill="url(#actual-grad)"
+                    strokeWidth={2.5}
+                    isAnimationActive
+                    animationDuration={900}
                     name={isArabic ? "الفعلي" : "Actual"}
                   />
                 </AreaChart>
@@ -393,20 +435,26 @@ export function SubcontractorProgressDashboard({
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={valueBySpecialty}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis tickFormatter={(v) => v >= 1000 ? `${v/1000}K` : v} />
-                  <Tooltip 
-                    formatter={(value: number) => [value.toLocaleString(), isArabic ? 'القيمة' : 'Value']}
+                <BarChart data={valueBySpecialty} margin={{ left: 4, right: 16, top: 8, bottom: 8 }}>
+                  <defs>
+                    {valueBySpecialty.map((_, i) => (
+                      <linearGradient key={i} id={`spec-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={COLORS[i % COLORS.length]} stopOpacity={1} />
+                        <stop offset="100%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0.5} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <YAxis tickFormatter={(v) => v >= 1000 ? `${v/1000}K` : v}
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <Tooltip
+                    cursor={{ fill: "hsl(var(--muted) / 0.3)" }}
+                    content={<ChartTooltip formatter={(v: number) => v.toLocaleString()} />}
                   />
-                  <Bar 
-                    dataKey="value" 
-                    fill="hsl(var(--primary))" 
-                    radius={[4, 4, 0, 0]}
-                  >
+                  <Bar dataKey="value" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={900}>
                     {valueBySpecialty.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={`url(#spec-grad-${index})`} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -430,21 +478,33 @@ export function SubcontractorProgressDashboard({
             <div className="h-[200px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
+                  <defs>
+                    {paymentStatusData.map((entry, i) => (
+                      <radialGradient key={i} id={`pay-gr-${i}`}>
+                        <stop offset="0%" stopColor={entry.color} stopOpacity={1} />
+                        <stop offset="100%" stopColor={entry.color} stopOpacity={0.7} />
+                      </radialGradient>
+                    ))}
+                  </defs>
                   <Pie
                     data={paymentStatusData}
                     cx="50%"
                     cy="50%"
                     innerRadius={40}
                     outerRadius={70}
-                    paddingAngle={5}
+                    paddingAngle={3}
                     dataKey="value"
+                    stroke="hsl(var(--background))"
+                    strokeWidth={2}
+                    isAnimationActive
+                    animationDuration={800}
                   >
-                    {paymentStatusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    {paymentStatusData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={`url(#pay-gr-${index})`} />
                     ))}
                   </Pie>
-                  <Tooltip />
-                  <Legend />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
