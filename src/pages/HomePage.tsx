@@ -21,7 +21,11 @@ import {
   BookOpen,
   Phone,
   Mail,
+  BarChart3,
+  Clock,
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { ar, enUS } from "date-fns/locale";
 
 const sections = [
   { nameAr: "المشاريع", nameEn: "Projects", descAr: "إدارة ومتابعة المشاريع", descEn: "Manage & track projects", path: "/projects", icon: FolderOpen, color: "from-blue-500/30 to-blue-700/20", iconColor: "text-blue-300", countKey: "saved_projects" },
@@ -44,9 +48,16 @@ const tableKeys = [
   "external_partners", "subcontractors", "risks", "progress_certificates", "material_prices",
 ] as const;
 
+interface RecentItem {
+  id: string;
+  name: string;
+  updated_at: string;
+}
+
 export default function HomePage() {
   const { isArabic } = useLanguage();
   const [counts, setCounts] = useState<CountsMap>({});
+  const [recent, setRecent] = useState<RecentItem[]>([]);
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -62,8 +73,28 @@ export default function HomePage() {
       await Promise.all(promises);
       setCounts(results);
     };
+    const fetchRecent = async () => {
+      try {
+        const { data } = await supabase
+          .from("saved_projects")
+          .select("id,name,updated_at")
+          .order("updated_at", { ascending: false })
+          .limit(3);
+        setRecent((data as RecentItem[]) ?? []);
+      } catch {
+        setRecent([]);
+      }
+    };
     fetchCounts();
+    fetchRecent();
   }, []);
+
+  const heroStats = [
+    { label: isArabic ? "المشاريع" : "Projects", value: counts.saved_projects ?? 0, icon: FolderOpen, color: "text-blue-300", bg: "bg-blue-500/15" },
+    { label: isArabic ? "العقود" : "Contracts", value: counts.contracts ?? 0, icon: Briefcase, color: "text-emerald-300", bg: "bg-emerald-500/15" },
+    { label: isArabic ? "البنود" : "Items", value: counts.project_items ?? 0, icon: Layers, color: "text-purple-300", bg: "bg-purple-500/15" },
+    { label: isArabic ? "المواد" : "Materials", value: counts.material_prices ?? 0, icon: Package, color: "text-orange-300", bg: "bg-orange-500/15" },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col" dir={isArabic ? "rtl" : "ltr"}>
