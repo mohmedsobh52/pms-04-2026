@@ -333,22 +333,35 @@ export function SubcontractorProgressDashboard({
             <div className="h-[300px] flex items-center">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
+                  <defs>
+                    {statusDistribution.map((entry, i) => (
+                      <radialGradient key={i} id={`status-gr-${i}`}>
+                        <stop offset="0%" stopColor={entry.color} stopOpacity={1} />
+                        <stop offset="100%" stopColor={entry.color} stopOpacity={0.7} />
+                      </radialGradient>
+                    ))}
+                  </defs>
                   <Pie
                     data={statusDistribution}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
                     outerRadius={100}
-                    paddingAngle={5}
+                    paddingAngle={3}
                     dataKey="value"
+                    stroke="hsl(var(--background))"
+                    strokeWidth={2}
                     label={({ name, value }) => `${name}: ${value}`}
+                    labelLine={false}
+                    isAnimationActive
+                    animationDuration={800}
                   >
-                    {statusDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    {statusDistribution.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={`url(#status-gr-${index})`} />
                     ))}
                   </Pie>
-                  <Tooltip />
-                  <Legend />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -369,26 +382,40 @@ export function SubcontractorProgressDashboard({
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={progressTrend}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                  <YAxis domain={[0, 100]} />
-                  <Tooltip />
-                  <Legend />
-                  <Area 
-                    type="monotone" 
-                    dataKey="planned" 
-                    stroke="hsl(var(--muted-foreground))" 
-                    fill="hsl(var(--muted))"
+                <AreaChart data={progressTrend} margin={{ left: 4, right: 16, top: 8, bottom: 4 }}>
+                  <defs>
+                    <linearGradient id="planned-grad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="actual-grad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(220 70% 50%)" stopOpacity={0.5} />
+                      <stop offset="100%" stopColor="hsl(220 70% 50%)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <YAxis domain={[0, 100]} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <Tooltip content={<ChartTooltip formatter={(v: number) => `${v}%`} />} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Area
+                    type="monotone"
+                    dataKey="planned"
+                    stroke="hsl(var(--muted-foreground))"
+                    fill="url(#planned-grad)"
                     strokeWidth={2}
+                    isAnimationActive
+                    animationDuration={900}
                     name={isArabic ? "المخطط" : "Planned"}
                   />
-                  <Area 
-                    type="monotone" 
-                    dataKey="actual" 
-                    stroke="hsl(var(--primary))" 
-                    fill="hsl(var(--primary)/0.3)"
-                    strokeWidth={2}
+                  <Area
+                    type="monotone"
+                    dataKey="actual"
+                    stroke="hsl(220 70% 50%)"
+                    fill="url(#actual-grad)"
+                    strokeWidth={2.5}
+                    isAnimationActive
+                    animationDuration={900}
                     name={isArabic ? "الفعلي" : "Actual"}
                   />
                 </AreaChart>
