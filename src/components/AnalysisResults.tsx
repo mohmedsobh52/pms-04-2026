@@ -1396,29 +1396,55 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
       <div className="flex" style={{ minHeight: '600px' }}>
 
         {/* ── Left Sidebar ── */}
-        <div className="w-52 shrink-0 border-r border-border bg-muted/20 flex flex-col" dir="ltr">
-          <div className="p-3 flex-1">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-3">
-              {isArabic ? "التحليل" : "Analysis"}
-            </p>
-            <nav className="space-y-1">
-              {tabs.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                  className={cn(
-                    "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all",
-                    isArabic ? "flex-row-reverse text-right" : "text-left",
-                    activeTab === tab.id
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  {tab.icon}
-                  <span className="truncate">{isArabic ? tab.labelAr : tab.label}</span>
-                </button>
-              ))}
-            </nav>
+        <div className={cn("shrink-0 border-r border-border bg-muted/20 flex flex-col transition-all duration-200", sidebarCollapsed ? "w-14" : "w-52")} dir="ltr">
+          <div className="p-2 flex items-center justify-between border-b border-border/50">
+            {!sidebarCollapsed && (
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">
+                {isArabic ? "التحليل" : "Analysis"}
+              </p>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 ml-auto"
+              onClick={() => setSidebarCollapsed(v => !v)}
+              title={sidebarCollapsed ? (isArabic ? "توسيع" : "Expand") : (isArabic ? "طي" : "Collapse")}
+            >
+              {sidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+            </Button>
+          </div>
+          <div className="p-2 flex-1">
+            <TooltipProvider delayDuration={100}>
+              <nav className="space-y-1">
+                {tabs.map(tab => {
+                  const btn = (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                      className={cn(
+                        "w-full flex items-center rounded-lg text-sm font-medium transition-all",
+                        sidebarCollapsed ? "justify-center px-2 py-2" : "gap-2.5 px-3 py-2",
+                        !sidebarCollapsed && (isArabic ? "flex-row-reverse text-right" : "text-left"),
+                        activeTab === tab.id
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      {tab.icon}
+                      {!sidebarCollapsed && <span className="truncate">{isArabic ? tab.labelAr : tab.label}</span>}
+                    </button>
+                  );
+                  return sidebarCollapsed ? (
+                    <Tooltip key={tab.id}>
+                      <TooltipTrigger asChild>{btn}</TooltipTrigger>
+                      <TooltipContent side={isArabic ? "left" : "right"}>
+                        {isArabic ? tab.labelAr : tab.label}
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : btn;
+                })}
+              </nav>
+            </TooltipProvider>
           </div>
 
           {/* Bottom status indicators */}
