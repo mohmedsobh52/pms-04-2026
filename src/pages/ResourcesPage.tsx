@@ -602,7 +602,68 @@ const ResourcesPage = () => {
           </Card>
         </div>
 
-        {/* Main Content Tabs */}
+        {/* Cost Distribution + Avg Utilization */}
+        {resources.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-emerald-600" />
+                  {isArabic ? "توزيع التكلفة حسب النوع" : "Cost Distribution by Type"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {(() => {
+                  const total = stats.totalCost || 1;
+                  const segs = [
+                    { key: "labor", label: isArabic ? "عمالة" : "Labor", value: stats.laborCost, cls: "bg-blue-500", text: "text-blue-600 dark:text-blue-400" },
+                    { key: "equipment", label: isArabic ? "معدات" : "Equipment", value: stats.equipmentCost, cls: "bg-orange-500", text: "text-orange-600 dark:text-orange-400" },
+                    { key: "material", label: isArabic ? "مواد" : "Materials", value: stats.materialCost, cls: "bg-green-500", text: "text-green-600 dark:text-green-400" },
+                  ];
+                  return (
+                    <>
+                      <div className="flex h-3 rounded-full overflow-hidden border">
+                        {segs.map((s) => (
+                          <div key={s.key} className={s.cls} style={{ width: `${(s.value / total) * 100}%` }} title={`${s.label}: ${s.value.toLocaleString()}`} />
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        {segs.map((s) => (
+                          <div key={s.key} className="flex items-center gap-2">
+                            <span className={`w-3 h-3 rounded ${s.cls}`} />
+                            <div className="min-w-0">
+                              <div className="truncate">{s.label}</div>
+                              <div className={`font-semibold ${s.text}`}>{Math.round((s.value / total) * 100)}%</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-primary" />
+                  {isArabic ? "متوسط الاستخدام" : "Avg Utilization"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-baseline justify-between mb-2">
+                  <span className="text-3xl font-bold text-primary">{stats.avgUtilization}%</span>
+                  <span className="text-xs text-muted-foreground">
+                    {stats.linkedItems}/{stats.totalResources} {isArabic ? "مرتبط" : "linked"}
+                  </span>
+                </div>
+                <Progress value={stats.avgUtilization} className="h-3" />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="overview">{isArabic ? 'نظرة عامة' : 'Overview'}</TabsTrigger>
