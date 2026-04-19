@@ -21,6 +21,8 @@ import { RecentProjectsTab } from "@/components/reports/RecentProjectsTab";
 import { ProjectsComparisonExport } from "@/components/reports/ProjectsComparisonExport";
 import { AdvancedReportsTab } from "@/components/reports/AdvancedReportsTab";
 import { ReportsStatCards } from "@/components/reports/ReportsStatCards";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { 
   RefreshCw, 
   Filter, 
@@ -30,7 +32,9 @@ import {
   FileText, 
   Clock,
   Settings2,
-  Search
+  Search,
+  Layers,
+  Trophy
 } from "lucide-react";
 import { PROJECT_STATUSES } from "@/lib/project-constants";
 
@@ -185,6 +189,30 @@ const ReportsPage = () => {
     };
   }, [projects, tenderData]);
 
+  const typeBreakdown = useMemo(() => {
+    const counts: Record<string, number> = {};
+    projects.forEach((p) => {
+      const t = p.project_type || (isArabic ? "غير محدد" : "Uncategorized");
+      counts[t] = (counts[t] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+  }, [projects, isArabic]);
+
+  const topProjects = useMemo(() => {
+    return projects
+      .map((p) => {
+        const tender = tenderData.find((t) => t.project_id === p.id);
+        const value = tender?.contract_value || p.total_value || (p.analysis_data as any)?.summary?.total_value || 0;
+        return { id: p.id, name: p.name, value };
+      })
+      .filter((p) => p.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+  }, [projects, tenderData]);
+
   const tabs = [
     { 
       value: "export", 
@@ -307,7 +335,69 @@ const ReportsPage = () => {
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Type Breakdown + Top Projects */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Layers className="w-4 h-4 text-primary" />
+                {isArabic ? "توزيع المشاريع حسب النوع" : "Projects by Type"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {typeBreakdown.length === 0 && (
+                <p className="text-sm text-muted-foreground">{isArabic ? "لا توجد بيانات" : "No data"}</p>
+              )}
+              {typeBreakdown.map((t, i) => {
+                const max = Math.max(1, ...typeBreakdown.map((x) => x.count));
+                return (
+                  <div key={i} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="truncate">{t.name}</span>
+                      <span className="font-semibold">{t.count}</span>
+                    </div>
+                    <Progress value={(t.count / max) * 100} className="h-2" />
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-amber-500" />
+                {isArabic ? "أعلى 5 مشاريع قيمة" : "Top 5 Projects by Value"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {topProjects.length === 0 && (
+                <p className="text-sm text-muted-foreground">{isArabic ? "لا توجد بيانات" : "No data"}</p>
+              )}
+              {topProjects.map((p, i) => {
+                const max = topProjects[0]?.value || 1;
+                return (
+                  <div
+                    key={p.id}
+                    className="space-y-1 cursor-pointer hover:bg-accent/50 rounded p-1 transition-colors"
+                    onClick={() => navigate(`/projects/${p.id}`)}
+                  >
+                    <div className="flex items-center justify-between text-xs gap-2">
+                      <span className="truncate font-medium">
+                        {i + 1}. {p.name}
+                      </span>
+                      <span className="font-semibold whitespace-nowrap">
+                        {p.value.toLocaleString()} {isArabic ? "ريال" : "SAR"}
+                      </span>
+                    </div>
+                    <Progress value={(p.value / max) * 100} className="h-2" />
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </div>
+
         <Tabs defaultValue="export" className="mt-6">
           <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1 tabs-navigation-safe">
             {tabs.map((tab) => (
