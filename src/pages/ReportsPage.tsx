@@ -21,6 +21,8 @@ import { RecentProjectsTab } from "@/components/reports/RecentProjectsTab";
 import { ProjectsComparisonExport } from "@/components/reports/ProjectsComparisonExport";
 import { AdvancedReportsTab } from "@/components/reports/AdvancedReportsTab";
 import { ReportsStatCards } from "@/components/reports/ReportsStatCards";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { 
   RefreshCw, 
   Filter, 
@@ -30,7 +32,9 @@ import {
   FileText, 
   Clock,
   Settings2,
-  Search
+  Search,
+  Layers,
+  Trophy
 } from "lucide-react";
 import { PROJECT_STATUSES } from "@/lib/project-constants";
 
