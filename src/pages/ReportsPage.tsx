@@ -335,7 +335,69 @@ const ReportsPage = () => {
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Type Breakdown + Top Projects */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Layers className="w-4 h-4 text-primary" />
+                {isArabic ? "توزيع المشاريع حسب النوع" : "Projects by Type"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {typeBreakdown.length === 0 && (
+                <p className="text-sm text-muted-foreground">{isArabic ? "لا توجد بيانات" : "No data"}</p>
+              )}
+              {typeBreakdown.map((t, i) => {
+                const max = Math.max(1, ...typeBreakdown.map((x) => x.count));
+                return (
+                  <div key={i} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="truncate">{t.name}</span>
+                      <span className="font-semibold">{t.count}</span>
+                    </div>
+                    <Progress value={(t.count / max) * 100} className="h-2" />
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-amber-500" />
+                {isArabic ? "أعلى 5 مشاريع قيمة" : "Top 5 Projects by Value"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {topProjects.length === 0 && (
+                <p className="text-sm text-muted-foreground">{isArabic ? "لا توجد بيانات" : "No data"}</p>
+              )}
+              {topProjects.map((p, i) => {
+                const max = topProjects[0]?.value || 1;
+                return (
+                  <div
+                    key={p.id}
+                    className="space-y-1 cursor-pointer hover:bg-accent/50 rounded p-1 transition-colors"
+                    onClick={() => navigate(`/projects/${p.id}`)}
+                  >
+                    <div className="flex items-center justify-between text-xs gap-2">
+                      <span className="truncate font-medium">
+                        {i + 1}. {p.name}
+                      </span>
+                      <span className="font-semibold whitespace-nowrap">
+                        {p.value.toLocaleString()} {isArabic ? "ريال" : "SAR"}
+                      </span>
+                    </div>
+                    <Progress value={(p.value / max) * 100} className="h-2" />
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </div>
+
         <Tabs defaultValue="export" className="mt-6">
           <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1 tabs-navigation-safe">
             {tabs.map((tab) => (
