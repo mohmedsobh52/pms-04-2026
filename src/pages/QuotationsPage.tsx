@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLayout } from "@/components/PageLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Card, CardContent } from "@/components/ui/card";
-import { FileText, CheckCircle2, Clock, Users, DollarSign } from "lucide-react";
+import { FileText, CheckCircle2, Clock, Users, DollarSign, TrendingUp, Award, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const QuotationsPage = () => {
