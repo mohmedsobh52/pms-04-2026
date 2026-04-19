@@ -42,6 +42,9 @@ const ContractsPage = () => {
     totalContractValue: 0,
     expiringContracts: 0,
     overdueContracts: 0,
+    upcomingMilestones: 0,
+    duePayments: 0,
+    duePaymentsAmount: 0,
   });
 
   useEffect(() => {
@@ -52,24 +55,31 @@ const ContractsPage = () => {
 
   const fetchStats = async () => {
     try {
-      const { data: contracts } = await supabase
-        .from("contracts")
-        .select("id, status, contract_value, end_date")
-        .eq("user_id", user?.id);
+      const today = new Date();
+      const in30 = new Date(); in30.setDate(today.getDate() + 30);
+      const in30Str = in30.toISOString().split('T')[0];
+      const todayStr = today.toISOString().split('T')[0];
 
-      const contractList = contracts || [];
-      const now = new Date();
+      const [contractsRes, milestonesRes, paymentsRes] = await Promise.all([
+        supabase.from("contracts").select("id, status, contract_value, end_date").eq("user_id", user?.id),
+        supabase.from("contract_milestones").select("id").eq("user_id", user?.id).neq("status", "completed").gte("due_date", todayStr).lte("due_date", in30Str),
+        supabase.from("contract_payments").select("amount").eq("user_id", user?.id).eq("status", "pending").lte("due_date", in30Str),
+      ]);
+
+      const contractList = contractsRes.data || [];
 
       const expiringContracts = contractList.filter(c => {
         if (!c.end_date || c.status === 'completed' || c.status === 'terminated') return false;
-        const daysLeft = differenceInDays(new Date(c.end_date), now);
+        const daysLeft = differenceInDays(new Date(c.end_date), today);
         return daysLeft >= 0 && daysLeft <= 30;
       }).length;
 
       const overdueContracts = contractList.filter(c => {
         if (!c.end_date || c.status === 'completed' || c.status === 'terminated') return false;
-        return differenceInDays(new Date(c.end_date), now) < 0;
+        return differenceInDays(new Date(c.end_date), today) < 0;
       }).length;
+
+      const duePaymentsList = paymentsRes.data || [];
 
       setStats({
         totalContracts: contractList.length,
@@ -78,6 +88,9 @@ const ContractsPage = () => {
         totalContractValue: contractList.reduce((sum, c) => sum + (c.contract_value || 0), 0),
         expiringContracts,
         overdueContracts,
+        upcomingMilestones: milestonesRes.data?.length || 0,
+        duePayments: duePaymentsList.length,
+        duePaymentsAmount: duePaymentsList.reduce((s, p: any) => s + (Number(p.amount) || 0), 0),
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
