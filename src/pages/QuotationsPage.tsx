@@ -158,6 +158,55 @@ const QuotationsPage = () => {
             })}
           </div>
 
+          {(topSuppliers.length > 0 || statusBreakdown.length > 0) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+                    <Award className="w-4 h-4 text-amber-500" />
+                    {isArabic ? "أعلى 5 موردين (عدد العروض)" : "Top 5 Suppliers (by quotes)"}
+                  </h3>
+                  <div className="space-y-2">
+                    {topSuppliers.map((s) => (
+                      <div key={s.name} className="flex items-center justify-between p-2 rounded hover:bg-muted/50">
+                        <span className="text-sm truncate flex-1">{s.name}</span>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="text-muted-foreground">{s.value.toLocaleString()} {stats.currency}</span>
+                          <span className="font-bold">{s.count}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+                    <CheckCircle2 className="w-4 h-4 text-primary" />
+                    {isArabic ? "توزيع الحالات" : "Status Breakdown"}
+                  </h3>
+                  <div className="space-y-2">
+                    {statusBreakdown.map((s) => {
+                      const total = statusBreakdown.reduce((a, b) => a + b.count, 0) || 1;
+                      const pct = (s.count / total) * 100;
+                      return (
+                        <div key={s.key} className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span>{s.label}</span>
+                            <span className="font-semibold">{s.count} ({Math.round(pct)}%)</span>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full ${s.color}`} style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           <Tabs defaultValue="upload" className="space-y-4">
             <TabsList className="tabs-navigation-safe">
               <TabsTrigger value="upload">
