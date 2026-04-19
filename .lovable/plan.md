@@ -1,39 +1,54 @@
 
 
-## المطلوب
-تنفيذ الاقتراحات الثلاثة المتبقية:
+## الفحص والتحليل
 
-1. **طي تلقائي على الموبايل** — القائمة الجانبية تُطوى تلقائياً عند `window.innerWidth < 768`، وتنفتح على الشاشات الكبيرة، مع احترام تفضيل المستخدم اليدوي.
-2. **اختصار Ctrl+B** — يطوي/يوسّع القائمة الجانبية.
-3. **زر "انتقل للبند التالي غير المسعّر"** — بجانب شريط التقدم، ينقل ويُمرّر إلى أول بند سعره = 0.
+طلب المستخدم شامل ويتضمن: (1) فحص الأخطاء وإصلاحها، (2) رفع دقة التسعير التلقائي إلى ≥95%، (3) تطبيق كل الاقتراحات السابقة + المتبقية، (4) تحسينات أداء.
 
-## التغييرات في `src/components/AnalysisResults.tsx`
+## الأخطاء المكتشفة
 
-### A. الطي التلقائي على الموبايل
-- إضافة state `userToggledSidebar` (افتراضي: false). يصبح true عند ضغط المستخدم على الزر يدوياً.
-- `useEffect` يستمع لـ `window.resize`:
-  - إذا `userToggledSidebar === false`: ضبط `sidebarCollapsed = innerWidth < 768`.
-- عند الضغط اليدوي على زر الطي: `setUserToggledSidebar(true)` ثم toggle.
+من console logs و network logs:
 
-### B. اختصار Ctrl+B / Cmd+B
-- `useEffect` يضيف `keydown` listener:
-  - `(e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b'` → `e.preventDefault()` + toggle + setUserToggledSidebar(true).
+1. **`UpdateBanner.tsx`** يستدعي مشروع Supabase خاطئ (`brbgdvesterjvwduvsrf` و `krdgyvamkgqhvdeihayk`) → `Failed to fetch`. يجب أن يستخدم العميل من `@/integrations/supabase/client` فقط.
+2. **`ContractManagement.tsx`** يولّد warning: "Function components cannot be given refs" — مكوّن داخله يُمرّر له `ref` من Radix Dialog/Tabs دون `forwardRef`. سأفحص الملف لتحديد المكوّن وأغلّفه بـ `React.forwardRef`.
+3. **`AnalysisResults.tsx`** يحتاج مراجعة بعد التعديلات الأخيرة (lint/types).
 
-### C. زر "انتقل للبند التالي غير المسعّر"
-- داخل بلوك Pricing Progress Indicator، بعد عداد النص:
-  - عرض الزر فقط عندما `priced < total` (يوجد بنود غير مسعّرة).
-  - عند الضغط: 
-    1. التبديل إلى `activeTab === "items"` إن لم يكن نشطاً.
-    2. إيجاد أول بند بـ `unit_price === 0 && total_price === 0` (مع مراعاة `editedPrices`).
-    3. تمرير العنصر للعرض: `document.getElementById('boq-item-${itemNumber}')?.scrollIntoView({ behavior: 'smooth', block: 'center' })`.
-    4. إضافة class مؤقت `ring-2 ring-primary` للإبراز لمدة 2s.
-- إضافة `id={"boq-item-" + item.item_number}` على صف الجدول داخل تبويب Items (سأبحث عن صف `<tr>` المناسب وأُضيف الـ id).
+## التحسينات المطلوبة
 
-## ملفات متأثرة
-- `src/components/AnalysisResults.tsx` — جميع التعديلات أعلاه.
+### A. إصلاح الأخطاء
+- `src/components/UpdateBanner.tsx`: استبدال أي `createClient` خارجي بـ `import { supabase } from "@/integrations/supabase/client"`.
+- `src/components/ContractManagement.tsx`: تحديد المكوّن المُمرَّر داخل `<Dialog>`/`<Card>` وتغليفه بـ `forwardRef`.
+
+### B. رفع دقة التسعير ≥95% في `AutoPriceDialog.tsx`
+- تغيير `confidenceThreshold` الافتراضي من 50 → **95**، ونطاق Slider إلى `min=80, max=99, step=1`.
+- تحسين `calculateConfidence` و `calculateTextSimilarity`:
+  - تطبيع النص (إزالة تشكيل عربي، توحيد الحروف ا/أ/إ/آ، ي/ى، ة/ه).
+  - مطابقة دقيقة للوحدة (`unit`) كعامل ترجيح إضافي (+10).
+  - مطابقة الفئة (`category`) (+10).
+  - استخدام Jaccard similarity على الكلمات الفعّالة (≥3 أحرف).
+  - رفع وزن المطابقة الكاملة (+80 بدل 60).
+  - حد أعلى 99% (لا 95%).
+- إضافة فلترة صارمة: لا يتم اقتراح أي بند بثقة <95% افتراضياً.
+
+### C. تطبيق الاقتراحات المتبقية في `AnalysisResults.tsx`
+1. **فلتر "غير المسعّرة فقط"**: زر toggle بجانب البحث في تبويب Items.
+2. **لوحة اختصارات (?)**: نافذة `Dialog` تظهر عند `Shift+?` تعرض كل الاختصارات (Ctrl+B, Ctrl+F, 1-7, Shift+?).
+3. **شريط تقدم بارز للفئة الحالية**: مكوّن صغير أعلى محتوى التبويب الحالي عندما يكون tab=items ومحدد فلتر فئة.
+
+### D. تحسينات أداء عامة
+- `AnalysisResults.tsx`: تحويل `pricingStats` calculations الكبيرة لاستخدام `useMemo` بشكل صحيح (تأكد).
+- `AutoPriceDialog.tsx`: تقليل re-computation عند تغيير threshold (memo on inner matching فقط).
+- إضافة `React.memo` للمكوّنات الفرعية الثقيلة في AnalysisResults إن لزم.
+
+## الملفات المتأثرة
+
+| الملف | التغيير |
+|------|---------|
+| `src/components/UpdateBanner.tsx` | إصلاح Supabase client الخاطئ |
+| `src/components/ContractManagement.tsx` | إصلاح forwardRef warning |
+| `src/components/project-details/AutoPriceDialog.tsx` | رفع الثقة ≥95% + خوارزمية أدق |
+| `src/components/AnalysisResults.tsx` | فلتر unpriced، لوحة اختصارات، تحسين أداء |
 
 ## ملاحظات
-- لا تغييرات على قاعدة البيانات.
-- لا تبعيات جديدة.
-- بعد التنفيذ: اقتراح اختبار (تغيير حجم النافذة، Ctrl+B، النقر على زر القفز).
+- لا تغييرات DB.
+- بعد التنفيذ: اختبار يدوي شامل (تحديث banner، تبويب contracts بدون warnings، AutoPrice مع threshold 95، اختصار Shift+?).
 
