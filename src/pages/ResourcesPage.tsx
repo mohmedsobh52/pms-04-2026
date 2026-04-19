@@ -57,6 +57,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ColorLegend } from "@/components/ui/color-code";
 
 interface ResourceItem {
   id: string;
@@ -696,6 +697,8 @@ const ResourcesPage = () => {
             </Card>
           );
         })()}
+
+        <ColorLegend type="category" isArabic={isArabic} />
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
