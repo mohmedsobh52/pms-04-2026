@@ -23,6 +23,9 @@ const QuotationsPage = () => {
     currency: "SAR",
   });
 
+  const [topSuppliers, setTopSuppliers] = useState<Array<{ name: string; count: number; value: number }>>([]);
+  const [statusBreakdown, setStatusBreakdown] = useState<Array<{ key: string; label: string; count: number; color: string }>>([]);
+
   useEffect(() => {
     const loadStats = async () => {
       const { data } = await supabase
@@ -32,11 +35,18 @@ const QuotationsPage = () => {
       if (!data) return;
       const suppliers = new Set(data.map((q) => q.supplier_name).filter(Boolean));
       const totalValue = data.reduce((sum, q) => sum + (Number(q.total_amount) || 0), 0);
-      const counts: Record<string, number> = {};
+      const counts: Record<string, { count: number; value: number }> = {};
       data.forEach((q) => {
-        if (q.supplier_name) counts[q.supplier_name] = (counts[q.supplier_name] || 0) + 1;
+        if (q.supplier_name) {
+          if (!counts[q.supplier_name]) counts[q.supplier_name] = { count: 0, value: 0 };
+          counts[q.supplier_name].count++;
+          counts[q.supplier_name].value += Number(q.total_amount) || 0;
+        }
       });
-      const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+      const ranked = Object.entries(counts)
+        .map(([name, v]) => ({ name, count: v.count, value: v.value }))
+        .sort((a, b) => b.count - a.count);
+      const top = ranked[0];
       const latest = data[0]?.quotation_date || data[0]?.created_at;
       setStats({
         total: data.length,
@@ -45,10 +55,22 @@ const QuotationsPage = () => {
         suppliers: suppliers.size,
         totalValue,
         avgValue: data.length ? Math.round(totalValue / data.length) : 0,
-        topSupplier: top ? top[0] : "—",
+        topSupplier: top ? top.name : "—",
         latestDate: latest ? new Date(latest).toLocaleDateString(isArabic ? "ar-SA" : "en-US") : "—",
         currency: data[0]?.currency || "SAR",
       });
+      setTopSuppliers(ranked.slice(0, 5));
+      const sCounts: Record<string, number> = {};
+      data.forEach((q) => { const s = q.status || "pending"; sCounts[s] = (sCounts[s] || 0) + 1; });
+      const sMeta: Record<string, { label: string; color: string }> = {
+        approved: { label: isArabic ? "معتمدة" : "Approved", color: "bg-emerald-500" },
+        pending: { label: isArabic ? "قيد المراجعة" : "Pending", color: "bg-amber-500" },
+        rejected: { label: isArabic ? "مرفوضة" : "Rejected", color: "bg-red-500" },
+        draft: { label: isArabic ? "مسودة" : "Draft", color: "bg-muted-foreground" },
+      };
+      setStatusBreakdown(Object.entries(sCounts).map(([k, count]) => ({
+        key: k, label: sMeta[k]?.label || k, count, color: sMeta[k]?.color || "bg-primary",
+      })));
     };
     loadStats();
   }, [isArabic]);
@@ -135,6 +157,55 @@ const QuotationsPage = () => {
               );
             })}
           </div>
+
+          {(topSuppliers.length > 0 || statusBreakdown.length > 0) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+                    <Award className="w-4 h-4 text-amber-500" />
+                    {isArabic ? "أعلى 5 موردين (عدد العروض)" : "Top 5 Suppliers (by quotes)"}
+                  </h3>
+                  <div className="space-y-2">
+                    {topSuppliers.map((s) => (
+                      <div key={s.name} className="flex items-center justify-between p-2 rounded hover:bg-muted/50">
+                        <span className="text-sm truncate flex-1">{s.name}</span>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="text-muted-foreground">{s.value.toLocaleString()} {stats.currency}</span>
+                          <span className="font-bold">{s.count}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+                    <CheckCircle2 className="w-4 h-4 text-primary" />
+                    {isArabic ? "توزيع الحالات" : "Status Breakdown"}
+                  </h3>
+                  <div className="space-y-2">
+                    {statusBreakdown.map((s) => {
+                      const total = statusBreakdown.reduce((a, b) => a + b.count, 0) || 1;
+                      const pct = (s.count / total) * 100;
+                      return (
+                        <div key={s.key} className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span>{s.label}</span>
+                            <span className="font-semibold">{s.count} ({Math.round(pct)}%)</span>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full ${s.color}`} style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           <Tabs defaultValue="upload" className="space-y-4">
             <TabsList className="tabs-navigation-safe">

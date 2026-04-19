@@ -117,6 +117,68 @@ const ProcurementPage = () => {
           );
         })()}
 
+        {/* Insights */}
+        {partners.length > 0 && (() => {
+          const top = [...partners]
+            .filter((p: any) => Number(p.rating) > 0)
+            .sort((a: any, b: any) => (Number(b.rating) || 0) - (Number(a.rating) || 0))
+            .slice(0, 5);
+          const typeMap = new Map<string, number>();
+          partners.forEach((p: any) => {
+            const t = p.partner_type || (isArabic ? "غير محدد" : "Other");
+            typeMap.set(t, (typeMap.get(t) || 0) + 1);
+          });
+          const types = Array.from(typeMap.entries()).sort((a, b) => b[1] - a[1]);
+          const maxT = types[0]?.[1] || 1;
+          return (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+                    <Star className="w-4 h-4 text-amber-500" />
+                    {isArabic ? "أعلى الشركاء تقييماً" : "Top Rated Partners"}
+                  </h3>
+                  {top.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">{isArabic ? "لا توجد تقييمات" : "No ratings"}</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {top.map((p: any) => (
+                        <div key={p.id} className="flex items-center justify-between p-2 rounded hover:bg-muted/50">
+                          <span className="text-sm truncate">{p.name}</span>
+                          <span className="flex items-center gap-1 text-xs font-bold text-amber-600">
+                            <Star className="w-3 h-3 fill-current" />{Number(p.rating).toFixed(1)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+                    <Building2 className="w-4 h-4 text-primary" />
+                    {isArabic ? "توزيع حسب النوع" : "Distribution by Type"}
+                  </h3>
+                  <div className="space-y-2">
+                    {types.slice(0, 6).map(([name, count]) => (
+                      <div key={name} className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="truncate">{name}</span>
+                          <span className="font-semibold">{count}</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-primary" style={{ width: `${(count / maxT) * 100}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })()}
+
         {/* Tabs */}
         <Tabs defaultValue="partners" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
