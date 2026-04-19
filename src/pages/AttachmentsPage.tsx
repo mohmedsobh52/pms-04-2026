@@ -14,7 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Paperclip, FolderOpen, Files, HardDrive, Sparkles, FolderTree } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Paperclip, FolderOpen, Files, HardDrive, Sparkles, FolderTree, FileType2, Clock, FileText, Image as ImageIcon, FileSpreadsheet, FileArchive } from "lucide-react";
+import { format } from "date-fns";
+import { ar, enUS } from "date-fns/locale";
 
 interface Project {
   id: string;
