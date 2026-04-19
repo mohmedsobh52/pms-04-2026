@@ -761,7 +761,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     }
     
     return items;
-  }, [data.items, searchQuery, unitFilter, categoryFilter, costRangeFilter, sortField, sortDirection, deletedItemNumbers, showOnlyZeroQty]);
+  }, [data.items, searchQuery, unitFilter, categoryFilter, costRangeFilter, sortField, sortDirection, deletedItemNumbers, showOnlyZeroQty, unpricedOnly, editedPrices]);
 
   // Count zero quantity items
   const zeroQuantityItems = useMemo(() => {
@@ -886,9 +886,10 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     setCategoryFilter("all");
     setCostRangeFilter("all");
     setSortField("");
+    setUnpricedOnly(false);
   }, []);
 
-  const hasActiveFilters = searchQuery || unitFilter !== "all" || categoryFilter !== "all" || costRangeFilter !== "all";
+  const hasActiveFilters = searchQuery || unitFilter !== "all" || categoryFilter !== "all" || costRangeFilter !== "all" || unpricedOnly;
 
   const groupedItems = data.items?.reduce((acc, item) => {
     const category = item.category || "غير مصنف";
