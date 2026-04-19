@@ -2332,7 +2332,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                     
                     return (
                       <tr 
-                        key={idx} 
+                        key={idx}
+                        id={`boq-item-${item.item_number}`}
                         className={cn(
                           "hover:bg-primary/5 transition-colors",
                           idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
