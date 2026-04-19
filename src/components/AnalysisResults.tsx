@@ -1430,6 +1430,29 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     { id: "integration", label: "Schedule Integration", labelAr: "تكامل الجدول",      icon: <Link2 className="w-4 h-4" /> },
   ];
 
+  // Pricing progress + per-category breakdown (used by progress bar and unpriced badge)
+  const pricingStats = useMemo(() => {
+    const allItems = data.items || [];
+    const isPriced = (it: BOQItem) => {
+      const edited = editedPrices[it.item_number || ""];
+      const up = edited?.unit_price ?? it.unit_price ?? 0;
+      const tp = edited?.total_price ?? it.total_price ?? 0;
+      return (up && up > 0) || (tp && tp > 0);
+    };
+    const total = allItems.length;
+    const priced = allItems.filter(isPriced).length;
+    const pct = total > 0 ? Math.round((priced / total) * 100) : 0;
+    const byCategory: Record<string, { total: number; priced: number }> = {};
+    for (const it of allItems) {
+      const cat = (it.category || (isArabic ? "غير مصنّف" : "Uncategorized")).trim() || (isArabic ? "غير مصنّف" : "Uncategorized");
+      if (!byCategory[cat]) byCategory[cat] = { total: 0, priced: 0 };
+      byCategory[cat].total += 1;
+      if (isPriced(it)) byCategory[cat].priced += 1;
+    }
+    return { total, priced, pct, unpricedTotal: total - priced, byCategory };
+  }, [data.items, editedPrices, isArabic]);
+  const unpricedTotal = pricingStats.unpricedTotal;
+
   return (
     <div className="glass-card overflow-hidden animate-slide-up">
       {/* Project Name and KPI Dashboard at the top */}
