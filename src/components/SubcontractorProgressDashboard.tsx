@@ -275,22 +275,31 @@ export function SubcontractorProgressDashboard({
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={progressBySubcontractor} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis type="number" domain={[0, 100]} />
-                  <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12 }} />
-                  <Tooltip 
+                <BarChart data={progressBySubcontractor} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                  <defs>
+                    <linearGradient id="sub-prog-grad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="hsl(220 70% 50%)" stopOpacity={0.6} />
+                      <stop offset="100%" stopColor="hsl(199 89% 48%)" stopOpacity={1} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis type="number" domain={[0, 100]}
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <YAxis dataKey="name" type="category" width={100}
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <Tooltip
+                    cursor={{ fill: "hsl(var(--muted) / 0.3)" }}
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
                         return (
-                          <div className="bg-popover border rounded-lg shadow-lg p-3">
-                            <p className="font-medium">{data.fullName}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {isArabic ? 'الإنجاز:' : 'Progress:'} {data.progress}%
+                          <div className="rounded-lg border border-border/60 bg-card/95 backdrop-blur-md px-3 py-2 shadow-lg text-xs animate-fade-in">
+                            <p className="font-semibold text-foreground mb-1">{data.fullName}</p>
+                            <p className="text-muted-foreground">
+                              {isArabic ? 'الإنجاز:' : 'Progress:'} <span className="font-medium text-foreground">{data.progress}%</span>
                             </p>
-                            <p className="text-sm text-muted-foreground">
-                              {isArabic ? 'القيمة:' : 'Value:'} {data.value.toLocaleString()}
+                            <p className="text-muted-foreground">
+                              {isArabic ? 'القيمة:' : 'Value:'} <span className="font-medium text-foreground">{data.value.toLocaleString()}</span>
                             </p>
                           </div>
                         );
@@ -298,10 +307,12 @@ export function SubcontractorProgressDashboard({
                       return null;
                     }}
                   />
-                  <Bar 
-                    dataKey="progress" 
-                    fill="hsl(var(--primary))" 
-                    radius={[0, 4, 4, 0]}
+                  <Bar
+                    dataKey="progress"
+                    fill="url(#sub-prog-grad)"
+                    radius={[0, 6, 6, 0]}
+                    isAnimationActive
+                    animationDuration={900}
                     name={isArabic ? "نسبة الإنجاز" : "Progress %"}
                   />
                 </BarChart>
