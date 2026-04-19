@@ -182,16 +182,34 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, [userToggledSidebar]);
-  // Keyboard shortcut: Ctrl+B / Cmd+B
+  // Keyboard shortcuts: Ctrl/Cmd+B (sidebar), Ctrl/Cmd+F (search), 1-7 (tabs)
   useEffect(() => {
+    const tabIds = ["items", "wbs", "costs", "summary", "charts", "timeline", "integration"] as const;
     const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      const inField = tag === "INPUT" || tag === "TEXTAREA" || (t && t.isContentEditable);
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
-        const t = e.target as HTMLElement | null;
-        const tag = t?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || (t && t.isContentEditable)) return;
+        if (inField) return;
         e.preventDefault();
         setUserToggledSidebar(true);
         setSidebarCollapsed(v => !v);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        const el = document.getElementById("analysis-search-input") as HTMLInputElement | null;
+        if (!el) return;
+        e.preventDefault();
+        setActiveTab("items");
+        setTimeout(() => { el.focus(); el.select(); }, 50);
+        return;
+      }
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && !inField && /^[1-7]$/.test(e.key)) {
+        const idx = parseInt(e.key, 10) - 1;
+        if (tabIds[idx]) {
+          e.preventDefault();
+          setActiveTab(tabIds[idx]);
+        }
       }
     };
     window.addEventListener("keydown", onKey);
