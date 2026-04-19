@@ -21,10 +21,22 @@ const ProcurementPage = () => {
   const { isArabic } = useLanguage();
   const { user } = useAuth();
   const [partners, setPartners] = useState<ExternalPartner[]>([]);
+  const [extra, setExtra] = useState({ contracts: 0, contractsValue: 0, offers: 0 });
 
   useEffect(() => {
     if (user) {
       fetchPartners();
+      (async () => {
+        const [pc, off] = await Promise.all([
+          supabase.from('partner_contracts').select('contract_value').eq('user_id', user.id),
+          supabase.from('offer_requests').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+        ]);
+        setExtra({
+          contracts: pc.data?.length || 0,
+          contractsValue: (pc.data || []).reduce((s: number, r: any) => s + (Number(r.contract_value) || 0), 0),
+          offers: off.count || 0,
+        });
+      })();
     }
   }, [user]);
 
