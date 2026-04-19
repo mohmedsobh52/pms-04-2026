@@ -664,6 +664,39 @@ const ResourcesPage = () => {
           </div>
         )}
 
+        {/* Top 5 Resources by Cost */}
+        {resources.length > 0 && (() => {
+          const top = [...resources].sort((a, b) => b.totalCost - a.totalCost).slice(0, 5);
+          const maxCost = top[0]?.totalCost || 1;
+          return (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-amber-600" />
+                  {isArabic ? "أعلى 5 موارد تكلفة" : "Top 5 Resources by Cost"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {top.map((r) => (
+                  <div key={r.id}>
+                    <div className="flex items-center justify-between text-sm mb-1 gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {getTypeIcon(r.type)}
+                        <span className="font-medium truncate">{r.name}</span>
+                        <span className="text-xs text-muted-foreground shrink-0">· {r.category}</span>
+                      </div>
+                      <span className="font-bold text-amber-600 shrink-0">{r.totalCost.toLocaleString()}</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-amber-500 transition-all" style={{ width: `${(r.totalCost / maxCost) * 100}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          );
+        })()}
+
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="overview">{isArabic ? 'نظرة عامة' : 'Overview'}</TabsTrigger>
