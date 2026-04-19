@@ -137,6 +137,79 @@ const LibraryPage = () => {
           })}
         </div>
         
+        {/* Insights row: Recent additions + Top categories */}
+        {(recent.length > 0 || topCategories.length > 0) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  {isArabic ? "أحدث الإضافات" : "Recent Additions"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {recent.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    {isArabic ? "لا توجد إضافات بعد" : "No additions yet"}
+                  </p>
+                ) : (
+                  recent.map((it) => {
+                    const meta = typeMeta[it.type];
+                    const Icon = meta.icon;
+                    return (
+                      <div key={`${it.type}-${it.id}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                        <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                          <Icon className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{it.name}</p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Clock className="w-3 h-3" />
+                            {format(new Date(it.created_at), "d MMM", { locale: isArabic ? ar : enUS })}
+                            {it.unit && <span>· {it.unit}</span>}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <Badge variant="outline" className={meta.cls}>{meta.label}</Badge>
+                          <p className="text-sm font-bold mt-1">{it.price.toLocaleString()}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <PieChart className="w-4 h-4 text-primary" />
+                  {isArabic ? "أعلى فئات المواد" : "Top Material Categories"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {topCategories.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    {isArabic ? "لا توجد بيانات فئات" : "No category data"}
+                  </p>
+                ) : (
+                  topCategories.map((c) => (
+                    <div key={c.name}>
+                      <div className="flex items-center justify-between text-sm mb-1">
+                        <span className="font-medium truncate">{c.name}</span>
+                        <span className="text-muted-foreground">{c.count}</span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-primary transition-all" style={{ width: `${(c.count / maxCat) * 100}%` }} />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         <LibraryDatabase />
       </div>
     </PageLayout>
