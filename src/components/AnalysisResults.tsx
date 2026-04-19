@@ -1530,15 +1530,48 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
             }).length;
             const pct = total > 0 ? Math.round((priced / total) * 100) : 0;
             if (total === 0) return null;
+            const jumpToNextUnpriced = () => {
+              const next = allItems.find(it => {
+                if (!it.item_number) return false;
+                const edited = editedPrices[it.item_number];
+                const up = edited?.unit_price ?? it.unit_price ?? 0;
+                const tp = edited?.total_price ?? it.total_price ?? 0;
+                return !(up > 0) && !(tp > 0);
+              });
+              if (!next?.item_number) return;
+              if (activeTab !== "items") setActiveTab("items");
+              setTimeout(() => {
+                const id = `boq-item-${next.item_number}`;
+                const el = document.getElementById(id);
+                if (el) {
+                  el.scrollIntoView({ behavior: "smooth", block: "center" });
+                  el.classList.add("ring-2", "ring-primary");
+                  setTimeout(() => el.classList.remove("ring-2", "ring-primary"), 2000);
+                }
+              }, 150);
+            };
             return (
               <div className="border-b border-border px-4 py-2.5 bg-background">
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center justify-between mb-1.5 gap-2">
                   <span className="text-xs font-medium text-muted-foreground">
                     {isArabic ? "تقدم التسعير" : "Pricing Progress"}
                   </span>
-                  <span className="text-xs font-mono font-semibold tabular-nums">
-                    {priced}/{total} {isArabic ? "بند مسعّر" : "items priced"} ({pct}%)
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-semibold tabular-nums">
+                      {priced}/{total} {isArabic ? "بند مسعّر" : "items priced"} ({pct}%)
+                    </span>
+                    {priced < total && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-xs"
+                        onClick={jumpToNextUnpriced}
+                        title={isArabic ? "انتقل للبند التالي غير المسعّر" : "Jump to next unpriced item"}
+                      >
+                        {isArabic ? "البند التالي" : "Next unpriced"} →
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <Progress value={pct} className="h-2" />
               </div>
