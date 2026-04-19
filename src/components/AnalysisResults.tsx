@@ -1,5 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud, ArrowUp, ArrowDown, XCircle, TrendingUp, Sparkles, Brain } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud, ArrowUp, ArrowDown, XCircle, TrendingUp, Sparkles, Brain, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DualHorizontalScrollBar } from "./DualHorizontalScrollBar";
 import { TableControls, BOQ_TABLE_COLUMNS } from "./TableControls";
 import {
@@ -158,6 +160,12 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   const { toast } = useToast();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"items" | "wbs" | "costs" | "summary" | "charts" | "timeline" | "integration">("items");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem("analysis_sidebar_collapsed") === "1"; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("analysis_sidebar_collapsed", sidebarCollapsed ? "1" : "0"); } catch {}
+  }, [sidebarCollapsed]);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(getSavedCompanyInfo());
   
@@ -1388,29 +1396,55 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
       <div className="flex" style={{ minHeight: '600px' }}>
 
         {/* ── Left Sidebar ── */}
-        <div className="w-52 shrink-0 border-r border-border bg-muted/20 flex flex-col" dir="ltr">
-          <div className="p-3 flex-1">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-3">
-              {isArabic ? "التحليل" : "Analysis"}
-            </p>
-            <nav className="space-y-1">
-              {tabs.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                  className={cn(
-                    "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all",
-                    isArabic ? "flex-row-reverse text-right" : "text-left",
-                    activeTab === tab.id
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  {tab.icon}
-                  <span className="truncate">{isArabic ? tab.labelAr : tab.label}</span>
-                </button>
-              ))}
-            </nav>
+        <div className={cn("shrink-0 border-r border-border bg-muted/20 flex flex-col transition-all duration-200", sidebarCollapsed ? "w-14" : "w-52")} dir="ltr">
+          <div className="p-2 flex items-center justify-between border-b border-border/50">
+            {!sidebarCollapsed && (
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">
+                {isArabic ? "التحليل" : "Analysis"}
+              </p>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 ml-auto"
+              onClick={() => setSidebarCollapsed(v => !v)}
+              title={sidebarCollapsed ? (isArabic ? "توسيع" : "Expand") : (isArabic ? "طي" : "Collapse")}
+            >
+              {sidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+            </Button>
+          </div>
+          <div className="p-2 flex-1">
+            <TooltipProvider delayDuration={100}>
+              <nav className="space-y-1">
+                {tabs.map(tab => {
+                  const btn = (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                      className={cn(
+                        "w-full flex items-center rounded-lg text-sm font-medium transition-all",
+                        sidebarCollapsed ? "justify-center px-2 py-2" : "gap-2.5 px-3 py-2",
+                        !sidebarCollapsed && (isArabic ? "flex-row-reverse text-right" : "text-left"),
+                        activeTab === tab.id
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      {tab.icon}
+                      {!sidebarCollapsed && <span className="truncate">{isArabic ? tab.labelAr : tab.label}</span>}
+                    </button>
+                  );
+                  return sidebarCollapsed ? (
+                    <Tooltip key={tab.id}>
+                      <TooltipTrigger asChild>{btn}</TooltipTrigger>
+                      <TooltipContent side={isArabic ? "left" : "right"}>
+                        {isArabic ? tab.labelAr : tab.label}
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : btn;
+                })}
+              </nav>
+            </TooltipProvider>
           </div>
 
           {/* Bottom status indicators */}
@@ -1452,6 +1486,33 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
 
         {/* ── Main Content Area ── */}
         <div className="flex-1 flex flex-col min-w-0">
+
+          {/* Pricing Progress Indicator */}
+          {(() => {
+            const allItems = data.items || [];
+            const total = allItems.length;
+            const priced = allItems.filter(it => {
+              const edited = editedPrices[it.item_number || ""];
+              const up = edited?.unit_price ?? it.unit_price ?? 0;
+              const tp = edited?.total_price ?? it.total_price ?? 0;
+              return (up && up > 0) || (tp && tp > 0);
+            }).length;
+            const pct = total > 0 ? Math.round((priced / total) * 100) : 0;
+            if (total === 0) return null;
+            return (
+              <div className="border-b border-border px-4 py-2.5 bg-background">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {isArabic ? "تقدم التسعير" : "Pricing Progress"}
+                  </span>
+                  <span className="text-xs font-mono font-semibold tabular-nums">
+                    {priced}/{total} {isArabic ? "بند مسعّر" : "items priced"} ({pct}%)
+                  </span>
+                </div>
+                <Progress value={pct} className="h-2" />
+              </div>
+            );
+          })()}
 
           {/* Top Toolbar — all action buttons moved here */}
           <div className="border-b border-border p-3 flex gap-2 flex-wrap items-center bg-muted/10">
