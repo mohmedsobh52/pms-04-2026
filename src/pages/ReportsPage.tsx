@@ -189,6 +189,30 @@ const ReportsPage = () => {
     };
   }, [projects, tenderData]);
 
+  const typeBreakdown = useMemo(() => {
+    const counts: Record<string, number> = {};
+    projects.forEach((p) => {
+      const t = p.project_type || (isArabic ? "غير محدد" : "Uncategorized");
+      counts[t] = (counts[t] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+  }, [projects, isArabic]);
+
+  const topProjects = useMemo(() => {
+    return projects
+      .map((p) => {
+        const tender = tenderData.find((t) => t.project_id === p.id);
+        const value = tender?.contract_value || p.total_value || (p.analysis_data as any)?.summary?.total_value || 0;
+        return { id: p.id, name: p.name, value };
+      })
+      .filter((p) => p.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+  }, [projects, tenderData]);
+
   const tabs = [
     { 
       value: "export", 
