@@ -5,7 +5,7 @@ import { PageLayout } from "@/components/PageLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";
-import { Building2, Package, FileText, Sparkles, Users, CheckCircle2, Star } from "lucide-react";
+import { Building2, Package, FileText, Sparkles, Users, CheckCircle2, Star, FileSignature, DollarSign, Send } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   ExternalPartners,
@@ -21,10 +21,22 @@ const ProcurementPage = () => {
   const { isArabic } = useLanguage();
   const { user } = useAuth();
   const [partners, setPartners] = useState<ExternalPartner[]>([]);
+  const [extra, setExtra] = useState({ contracts: 0, contractsValue: 0, offers: 0 });
 
   useEffect(() => {
     if (user) {
       fetchPartners();
+      (async () => {
+        const [pc, off] = await Promise.all([
+          supabase.from('partner_contracts').select('contract_value').eq('user_id', user.id),
+          supabase.from('offer_requests').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+        ]);
+        setExtra({
+          contracts: pc.data?.length || 0,
+          contractsValue: (pc.data || []).reduce((s: number, r: any) => s + (Number(r.contract_value) || 0), 0),
+          offers: off.count || 0,
+        });
+      })();
     }
   }, [user]);
 
@@ -79,9 +91,12 @@ const ProcurementPage = () => {
             { icon: CheckCircle2, label: isArabic ? "شركاء نشطون" : "Active Partners", value: String(activePartners), color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10" },
             { icon: Star, label: isArabic ? "متوسط التقييم" : "Avg Rating", value: avgRating, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10" },
             { icon: Package, label: isArabic ? "بنود المشتريات" : "Procurement Items", value: String(itemsCount), color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-500/10" },
+            { icon: FileSignature, label: isArabic ? "عقود الشركاء" : "Partner Contracts", value: String(extra.contracts), color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-500/10" },
+            { icon: DollarSign, label: isArabic ? "قيمة العقود" : "Contracts Value", value: extra.contractsValue >= 1000 ? `${Math.round(extra.contractsValue / 1000)}K` : String(extra.contractsValue), color: "text-cyan-600 dark:text-cyan-400", bg: "bg-cyan-500/10" },
+            { icon: Send, label: isArabic ? "طلبات العروض" : "Offer Requests", value: String(extra.offers), color: "text-rose-600 dark:text-rose-400", bg: "bg-rose-500/10" },
           ];
           return (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
               {cards.map((s, i) => {
                 const Icon = s.icon;
                 return (
