@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Paperclip, FolderOpen } from "lucide-react";
+import { Paperclip, FolderOpen, Files, HardDrive, Sparkles, FolderTree } from "lucide-react";
 
 interface Project {
   id: string;
@@ -31,6 +31,24 @@ const AttachmentsPage = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(
     projectIdFromUrl || undefined
   );
+  const [stats, setStats] = useState({ total: 0, sizeMB: 0, analyzed: 0, folders: 0 });
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const [att, fold] = await Promise.all([
+        supabase.from('project_attachments').select('file_size,is_analyzed').eq('user_id', user.id),
+        supabase.from('attachment_folders').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+      ]);
+      const totalBytes = (att.data || []).reduce((s: number, r: any) => s + (Number(r.file_size) || 0), 0);
+      setStats({
+        total: att.data?.length || 0,
+        sizeMB: Math.round(totalBytes / (1024 * 1024) * 10) / 10,
+        analyzed: (att.data || []).filter((r: any) => r.is_analyzed).length,
+        folders: fold.count || 0,
+      });
+    })();
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -119,6 +137,28 @@ const AttachmentsPage = () => {
               </Select>
             </div>
           </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          {[
+            { label: isArabic ? 'إجمالي الملفات' : 'Total Files', value: stats.total.toLocaleString(), icon: Files, color: 'text-primary', bg: 'bg-primary/10' },
+            { label: isArabic ? 'الحجم الإجمالي' : 'Total Size', value: `${stats.sizeMB} MB`, icon: HardDrive, color: 'text-blue-600', bg: 'bg-blue-500/10' },
+            { label: isArabic ? 'مُحلَّلة' : 'Analyzed', value: stats.analyzed.toLocaleString(), icon: Sparkles, color: 'text-emerald-600', bg: 'bg-emerald-500/10' },
+            { label: isArabic ? 'المجلدات' : 'Folders', value: stats.folders.toLocaleString(), icon: FolderTree, color: 'text-amber-600', bg: 'bg-amber-500/10' },
+          ].map((c) => (
+            <Card key={c.label} className="border-border/50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${c.bg}`}>
+                  <c.icon className={`w-5 h-5 ${c.color}`} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs text-muted-foreground truncate">{c.label}</div>
+                  <div className={`text-lg font-bold ${c.color}`}>{c.value}</div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
         <Card className="border-0 shadow-lg">
