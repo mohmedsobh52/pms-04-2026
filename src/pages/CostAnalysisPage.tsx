@@ -46,6 +46,8 @@ import { XLSX } from '@/lib/exceljs-utils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ColorLegend } from "@/components/ui/color-code";
+import { useLanguage } from "@/hooks/useLanguage";
 
 interface CostItem {
   id: string;
@@ -1004,6 +1006,7 @@ export default function CostAnalysisPage() {
       </header>
 
       <main className="container mx-auto px-4 py-6">
+        <ColorLegend type="category" isArabic={false} className="mb-4" />
         {/* Quick Stats Summary Bar */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <Card className="hover:shadow-md transition-shadow">

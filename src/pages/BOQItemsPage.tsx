@@ -4,6 +4,7 @@ import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { PageLayout } from "@/components/PageLayout";
+import { ColorLegend } from "@/components/ui/color-code";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Upload, FolderOpen, FileSpreadsheet, Clock, ChevronRight } from "lucide-react";
@@ -185,6 +186,7 @@ const BOQItemsPage = () => {
 
   return (
     <PageLayout>
+      <ColorLegend type="category" isArabic={isArabic} className="mb-4" />
       {/* Quick Stats Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <div className="rounded-xl border border-border bg-card p-3 flex items-center gap-3">

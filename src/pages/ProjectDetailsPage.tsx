@@ -38,6 +38,7 @@ import {
   EditFormData 
 } from "@/components/project-details/types";
 import { AnalysisResults } from "@/components/AnalysisResults";
+import { ColorLegend } from "@/components/ui/color-code";
 
 export default function ProjectDetailsPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -889,6 +890,7 @@ export default function ProjectDetailsPage() {
       />
 
       <main className="container mx-auto px-4 py-6">
+        <ColorLegend type="status" isArabic={isArabic} className="mb-4" />
         {/* BOQ Upload Banner - shown only after new project creation */}
         {showBOQUploadBanner && (
           <div className="mb-6 relative flex items-center gap-4 p-4 rounded-xl border border-primary/30 bg-primary/5 shadow-sm">
