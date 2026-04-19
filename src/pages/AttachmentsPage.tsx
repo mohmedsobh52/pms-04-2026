@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Paperclip, FolderOpen } from "lucide-react";
+import { Paperclip, FolderOpen, Files, HardDrive, Sparkles, FolderTree } from "lucide-react";
 
 interface Project {
   id: string;
