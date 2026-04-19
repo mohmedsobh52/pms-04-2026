@@ -190,6 +190,96 @@ const AttachmentsPage = () => {
           ))}
         </div>
 
+        {/* Insights row */}
+        {stats.total > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileType2 className="w-4 h-4 text-primary" />
+                  {isArabic ? "أنواع الملفات" : "File Types"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {typeBreakdown.map((t) => {
+                  const Icon = t.icon;
+                  const pct = Math.round((t.count / stats.total) * 100);
+                  return (
+                    <div key={t.type} className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${t.cls}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between text-sm">
+                          <span className="font-medium">{t.type}</span>
+                          <span className="text-muted-foreground">{t.count} · {pct}%</span>
+                        </div>
+                        <Progress value={pct} className="h-1.5 mt-1" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-emerald-600" />
+                  {isArabic ? "معدّل التحليل" : "Analysis Rate"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="text-center py-2">
+                  <div className="text-4xl font-bold text-emerald-600">
+                    {stats.total > 0 ? Math.round((stats.analyzed / stats.total) * 100) : 0}%
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {stats.analyzed} / {stats.total} {isArabic ? "ملف" : "files"}
+                  </p>
+                </div>
+                <Progress value={stats.total > 0 ? (stats.analyzed / stats.total) * 100 : 0} className="h-2" />
+                {stats.total - stats.analyzed > 0 && (
+                  <p className="text-xs text-amber-600 text-center">
+                    {stats.total - stats.analyzed} {isArabic ? "ملف بانتظار التحليل" : "files awaiting analysis"}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-primary" />
+                  {isArabic ? "أحدث الملفات" : "Recent Files"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {recentFiles.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    {isArabic ? "لا توجد ملفات" : "No files"}
+                  </p>
+                ) : (
+                  recentFiles.map((f) => (
+                    <div key={f.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 transition-colors">
+                      <Files className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{f.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(f.created_at), "d MMM", { locale: isArabic ? ar : enUS })}
+                          {" · "}
+                          {(f.size / 1024).toFixed(0)} KB
+                        </p>
+                      </div>
+                      {f.is_analyzed && <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         <Card className="border-0 shadow-lg">
           <CardHeader className="border-b bg-muted/30">
             <CardTitle className="flex items-center gap-2">
