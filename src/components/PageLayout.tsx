@@ -6,7 +6,6 @@ import { PageTransition } from "./PageTransition";
 import { PageTipsBox } from "./PageTipsBox";
 import BackgroundImage from "./BackgroundImage";
 import { ErrorBoundary } from "./ErrorBoundary";
-import { ErrorBoundary } from "./ErrorBoundary";
 
 interface PageLayoutProps {
   children: ReactNode;
