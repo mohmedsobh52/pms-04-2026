@@ -25,8 +25,6 @@ export default function CalendarPage() {
   const { user } = useAuth();
   const { isArabic } = useLanguage();
   const [stats, setStats] = useState({ projects: 0, contracts: 0, upcoming: 0, overdue: 0, completed: 0 });
-
-  const [stats, setStats] = useState({ projects: 0, contracts: 0, upcoming: 0, overdue: 0, completed: 0 });
   const [upcomingList, setUpcomingList] = useState<UpcomingItem[]>([]);
 
   useEffect(() => {
