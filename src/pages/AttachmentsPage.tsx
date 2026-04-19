@@ -139,6 +139,31 @@ const AttachmentsPage = () => {
           </div>
         </div>
 
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          {[
+            { label: isArabic ? 'إجمالي الملفات' : 'Total Files', value: stats.total.toLocaleString(), icon: Files, color: 'text-primary', bg: 'bg-primary/10' },
+            { label: isArabic ? 'الحجم الإجمالي' : 'Total Size', value: `${stats.sizeMB} MB`, icon: HardDrive, color: 'text-blue-600', bg: 'bg-blue-500/10' },
+            { label: isArabic ? 'مُحلَّلة' : 'Analyzed', value: stats.analyzed.toLocaleString(), icon: Sparkles, color: 'text-emerald-600', bg: 'bg-emerald-500/10' },
+            { label: isArabic ? 'المجلدات' : 'Folders', value: stats.folders.toLocaleString(), icon: FolderTree, color: 'text-amber-600', bg: 'bg-amber-500/10' },
+          ].map((c) => (
+            <Card key={c.label} className="border-border/50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${c.bg}`}>
+                  <c.icon className={`w-5 h-5 ${c.color}`} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs text-muted-foreground truncate">{c.label}</div>
+                  <div className={`text-lg font-bold ${c.color}`}>{c.value}</div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
         <Card className="border-0 shadow-lg">
           <CardHeader className="border-b bg-muted/30">
             <CardTitle className="flex items-center gap-2">
