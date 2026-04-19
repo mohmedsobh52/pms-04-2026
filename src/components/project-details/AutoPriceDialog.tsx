@@ -293,21 +293,21 @@ function AutoPriceDialogComponent({
             <Slider
               value={confidenceThreshold}
               onValueChange={setConfidenceThreshold}
-              min={30}
-              max={90}
-              step={10}
+              min={80}
+              max={99}
+              step={1}
               className="w-full"
             />
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>30%</span>
-              <span>50%</span>
-              <span>70%</span>
+              <span>80%</span>
               <span>90%</span>
+              <span>95%</span>
+              <span>99%</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {isArabic 
-                ? "البنود ذات الثقة الأعلى من هذا الحد سيتم تسعيرها"
-                : "Items with confidence above this threshold will be priced"
+              {isArabic
+                ? "الافتراضي 95% — لا يتم اقتراح أي بند بثقة أقل لضمان دقة عالية"
+                : "Default 95% — only high-confidence matches are suggested"
               }
             </p>
           </div>
