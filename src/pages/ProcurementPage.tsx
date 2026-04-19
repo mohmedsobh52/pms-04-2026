@@ -67,6 +67,41 @@ const ProcurementPage = () => {
           </RequestOfferDialog>
         </div>
 
+        {/* Quick Stats */}
+        {(() => {
+          const totalPartners = partners.length;
+          const activePartners = partners.filter((p: any) => (p.status || "active") === "active").length;
+          const ratings = partners.map((p: any) => Number(p.rating) || 0).filter((r) => r > 0);
+          const avgRating = ratings.length ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : "—";
+          const itemsCount = analysisData?.items?.length || 0;
+          const cards = [
+            { icon: Users, label: isArabic ? "إجمالي الشركاء" : "Total Partners", value: String(totalPartners), color: "text-primary", bg: "bg-primary/10" },
+            { icon: CheckCircle2, label: isArabic ? "شركاء نشطون" : "Active Partners", value: String(activePartners), color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10" },
+            { icon: Star, label: isArabic ? "متوسط التقييم" : "Avg Rating", value: avgRating, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10" },
+            { icon: Package, label: isArabic ? "بنود المشتريات" : "Procurement Items", value: String(itemsCount), color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-500/10" },
+          ];
+          return (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {cards.map((s, i) => {
+                const Icon = s.icon;
+                return (
+                  <Card key={i} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-3 flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-lg ${s.bg} flex items-center justify-center shrink-0`}>
+                        <Icon className={`w-5 h-5 ${s.color}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground truncate">{s.label}</p>
+                        <p className={`text-base font-bold ${s.color} truncate`}>{s.value}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          );
+        })()}
+
         {/* Tabs */}
         <Tabs defaultValue="partners" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
