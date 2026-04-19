@@ -51,6 +51,8 @@ const groups: { titleAr: string; titleEn: string; items: Section[] }[] = [
       { nameAr: "المشاريع", nameEn: "Projects", descAr: "إدارة ومتابعة المشاريع", descEn: "Manage & track projects", path: "/projects", icon: FolderOpen, color: "from-blue-500/30 to-blue-700/20", iconColor: "text-blue-300", countKey: "saved_projects" },
       { nameAr: "جدول الكميات", nameEn: "BOQ Items", descAr: "بنود الأعمال والكميات", descEn: "Work items & quantities", path: "/items", icon: Layers, color: "from-emerald-500/30 to-emerald-700/20", iconColor: "text-emerald-300", countKey: "project_items" },
       { nameAr: "المستخلصات", nameEn: "Certificates", descAr: "الشهادات والمستخلصات", descEn: "Progress certificates", path: "/progress-certificates", icon: Award, color: "from-yellow-500/30 to-yellow-700/20", iconColor: "text-yellow-300", countKey: "progress_certificates" },
+      { nameAr: "تحليل المخططات", nameEn: "Drawing Analysis", descAr: "استخراج الكميات من المخططات", descEn: "Extract quantities from drawings", path: "/projects?tab=attachments&mode=extraction", icon: Ruler, color: "from-rose-500/30 to-rose-700/20", iconColor: "text-rose-300", countKey: null },
+      { nameAr: "خطة التنفيذ", nameEn: "Execution Plan", descAr: "تخطيط التنفيذ بالذكاء الاصطناعي", descEn: "AI-powered execution planning", path: "/p6-export", icon: ListChecks, color: "from-violet-500/30 to-violet-700/20", iconColor: "text-violet-300", countKey: null },
     ],
   },
   {
