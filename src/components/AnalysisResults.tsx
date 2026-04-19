@@ -205,7 +205,14 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
         setTimeout(() => { el.focus(); el.select(); }, 50);
         return;
       }
-      if (!e.ctrlKey && !e.metaKey && !e.altKey && !inField && /^[1-7]$/.test(e.key)) {
+      // Shift + ? → open keyboard shortcuts help
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.shiftKey && (e.key === "?" || e.key === "/")) {
+        if (inField) return;
+        e.preventDefault();
+        setShowShortcutsHelp(true);
+        return;
+      }
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && !inField && /^[1-7]$/.test(e.key)) {
         const idx = parseInt(e.key, 10) - 1;
         if (tabIds[idx]) {
           e.preventDefault();
