@@ -91,9 +91,12 @@ const ProcurementPage = () => {
             { icon: CheckCircle2, label: isArabic ? "شركاء نشطون" : "Active Partners", value: String(activePartners), color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10" },
             { icon: Star, label: isArabic ? "متوسط التقييم" : "Avg Rating", value: avgRating, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10" },
             { icon: Package, label: isArabic ? "بنود المشتريات" : "Procurement Items", value: String(itemsCount), color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-500/10" },
+            { icon: FileSignature, label: isArabic ? "عقود الشركاء" : "Partner Contracts", value: String(extra.contracts), color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-500/10" },
+            { icon: DollarSign, label: isArabic ? "قيمة العقود" : "Contracts Value", value: extra.contractsValue >= 1000 ? `${Math.round(extra.contractsValue / 1000)}K` : String(extra.contractsValue), color: "text-cyan-600 dark:text-cyan-400", bg: "bg-cyan-500/10" },
+            { icon: Send, label: isArabic ? "طلبات العروض" : "Offer Requests", value: String(extra.offers), color: "text-rose-600 dark:text-rose-400", bg: "bg-rose-500/10" },
           ];
           return (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
               {cards.map((s, i) => {
                 const Icon = s.icon;
                 return (
