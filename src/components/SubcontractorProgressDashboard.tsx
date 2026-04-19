@@ -478,21 +478,33 @@ export function SubcontractorProgressDashboard({
             <div className="h-[200px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
+                  <defs>
+                    {paymentStatusData.map((entry, i) => (
+                      <radialGradient key={i} id={`pay-gr-${i}`}>
+                        <stop offset="0%" stopColor={entry.color} stopOpacity={1} />
+                        <stop offset="100%" stopColor={entry.color} stopOpacity={0.7} />
+                      </radialGradient>
+                    ))}
+                  </defs>
                   <Pie
                     data={paymentStatusData}
                     cx="50%"
                     cy="50%"
                     innerRadius={40}
                     outerRadius={70}
-                    paddingAngle={5}
+                    paddingAngle={3}
                     dataKey="value"
+                    stroke="hsl(var(--background))"
+                    strokeWidth={2}
+                    isAnimationActive
+                    animationDuration={800}
                   >
-                    {paymentStatusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    {paymentStatusData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={`url(#pay-gr-${index})`} />
                     ))}
                   </Pie>
-                  <Tooltip />
-                  <Legend />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
