@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { Calendar, ArrowLeft, Settings2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Calendar, ArrowLeft, Settings2, CalendarDays, FileSignature, Clock, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -10,10 +11,41 @@ import { RealtimeNotifications } from "@/components/RealtimeNotifications";
 import { UserMenu } from "@/components/UserMenu";
 import { ProjectCalendar } from "@/components/ProjectCalendar";
 import { Card, CardContent } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function CalendarPage() {
   const { user } = useAuth();
   const { isArabic } = useLanguage();
+  const [stats, setStats] = useState({ projects: 0, contracts: 0, upcoming: 0, overdue: 0, completed: 0 });
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const today = new Date();
+      const in30 = new Date(); in30.setDate(today.getDate() + 30);
+      const [proj, contr] = await Promise.all([
+        supabase.from('saved_projects').select('end_date,status').eq('user_id', user.id),
+        supabase.from('contracts').select('end_date,status').eq('user_id', user.id),
+      ]);
+      const all = [...(proj.data || []), ...(contr.data || [])];
+      const dates = all.filter((r: any) => r.end_date).map((r: any) => ({ d: new Date(r.end_date), s: r.status }));
+      setStats({
+        projects: proj.data?.length || 0,
+        contracts: contr.data?.length || 0,
+        upcoming: dates.filter((x) => x.d >= today && x.d <= in30).length,
+        overdue: dates.filter((x) => x.d < today && x.s !== 'completed' && x.s !== 'مكتمل').length,
+        completed: all.filter((r: any) => r.status === 'completed' || r.status === 'مكتمل').length,
+      });
+    })();
+  }, [user]);
+
+  const cards = [
+    { label: isArabic ? 'المشاريع' : 'Projects', value: stats.projects, icon: CalendarDays, color: 'text-primary', bg: 'bg-primary/10' },
+    { label: isArabic ? 'العقود' : 'Contracts', value: stats.contracts, icon: FileSignature, color: 'text-blue-600', bg: 'bg-blue-500/10' },
+    { label: isArabic ? 'قادمة (30 يوم)' : 'Upcoming (30d)', value: stats.upcoming, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-500/10' },
+    { label: isArabic ? 'متأخرة' : 'Overdue', value: stats.overdue, icon: AlertCircle, color: 'text-red-600', bg: 'bg-red-500/10' },
+    { label: isArabic ? 'مكتملة' : 'Completed', value: stats.completed, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-500/10' },
+  ];
 
   return (
     <div className="min-h-screen bg-background" dir={isArabic ? 'rtl' : 'ltr'}>
@@ -59,7 +91,24 @@ export default function CalendarPage() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 space-y-6">
+        {user && (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {cards.map((c) => (
+              <Card key={c.label} className="border-border/50">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${c.bg}`}>
+                    <c.icon className={`w-5 h-5 ${c.color}`} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs text-muted-foreground truncate">{c.label}</div>
+                    <div className={`text-lg font-bold ${c.color}`}>{c.value.toLocaleString()}</div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
         {user ? (
           <ProjectCalendar />
         ) : (
