@@ -13,6 +13,7 @@ import { PartnerContracts } from "@/components/procurement/PartnerContracts";
 import { PartnerPerformance } from "@/components/procurement/PartnerPerformance";
 import { PartnerReviews } from "@/components/procurement/PartnerReviews";
 import { ExternalPartner } from "@/components/procurement/PartnerCard";
+import { ColorLegend } from "@/components/ui/color-code";
 
 interface SavedProject {
   id: string;
@@ -118,6 +119,7 @@ const PartnerDetailsPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-6 max-w-7xl">
+        <ColorLegend type="status" isArabic={isArabic} className="mb-4" />
         {/* Header */}
         <div className="flex items-center gap-4 mb-6 navigation-bar-safe relative">
           <Button

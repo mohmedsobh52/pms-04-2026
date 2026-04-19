@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Layers, TrendingUp, FolderTree, ListChecks } from "lucide-react";
+import { ColorLegend } from "@/components/ui/color-code";
 import { supabase } from "@/integrations/supabase/client";
 
 interface TplRow {
@@ -57,6 +58,7 @@ const TemplatesPage = () => {
 
   return (
     <PageLayout>
+      <ColorLegend type="category" isArabic={isArabic} className="mb-4" />
       {/* Insights */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card>
