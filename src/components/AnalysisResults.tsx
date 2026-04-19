@@ -654,6 +654,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   const [sortField, setSortField] = useState<string>("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [showFilters, setShowFilters] = useState(false);
+  const [unpricedOnly, setUnpricedOnly] = useState(false);
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
 
   const toggleCategory = (category: string) => {
     const newSet = new Set(expandedCategories);
