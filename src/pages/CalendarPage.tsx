@@ -12,6 +12,7 @@ import { RealtimeNotifications } from "@/components/RealtimeNotifications";
 import { UserMenu } from "@/components/UserMenu";
 import { ProjectCalendar } from "@/components/ProjectCalendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ColorLegend } from "@/components/ui/color-code";
 import { supabase } from "@/integrations/supabase/client";
 
 interface UpcomingItem {
@@ -252,6 +253,8 @@ export default function CalendarPage() {
             </div>
           );
         })()}
+
+        <ColorLegend type="status" isArabic={isArabic} />
 
         {user ? (
           <ProjectCalendar />
