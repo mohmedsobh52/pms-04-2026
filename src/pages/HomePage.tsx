@@ -27,18 +27,45 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 
-const sections = [
-  { nameAr: "المشاريع", nameEn: "Projects", descAr: "إدارة ومتابعة المشاريع", descEn: "Manage & track projects", path: "/projects", icon: FolderOpen, color: "from-blue-500/30 to-blue-700/20", iconColor: "text-blue-300", countKey: "saved_projects" },
-  { nameAr: "جدول الكميات", nameEn: "BOQ Items", descAr: "بنود الأعمال والكميات", descEn: "Work items & quantities", path: "/items", icon: Layers, color: "from-emerald-500/30 to-emerald-700/20", iconColor: "text-emerald-300", countKey: "project_items" },
-  { nameAr: "التسعير والتحليل", nameEn: "Cost Analysis", descAr: "تحليل التكاليف والأسعار", descEn: "Cost & price analysis", path: "/cost-analysis", icon: DollarSign, color: "from-amber-500/30 to-amber-700/20", iconColor: "text-amber-300", countKey: "cost_analysis" },
-  { nameAr: "العقود", nameEn: "Contracts", descAr: "إدارة العقود والضمانات", descEn: "Contracts & warranties", path: "/contracts", icon: Briefcase, color: "from-purple-500/30 to-purple-700/20", iconColor: "text-purple-300", countKey: "contracts" },
-  { nameAr: "عروض الاسعار", nameEn: "Quotations", descAr: "مقارنة ورفع العروض", descEn: "Upload & compare quotes", path: "/quotations", icon: FileSearch, color: "from-pink-500/30 to-pink-700/20", iconColor: "text-pink-300", countKey: null },
-  { nameAr: "المشتريات", nameEn: "Procurement", descAr: "طلبات الشراء والموردين", descEn: "Procurement & suppliers", path: "/procurement", icon: Package, color: "from-cyan-500/30 to-cyan-700/20", iconColor: "text-cyan-300", countKey: "external_partners" },
-  { nameAr: "مقاولي الباطن", nameEn: "Subcontractors", descAr: "إدارة مقاولي الباطن", descEn: "Subcontractor management", path: "/subcontractors", icon: Users, color: "from-orange-500/30 to-orange-700/20", iconColor: "text-orange-300", countKey: "subcontractors" },
-  { nameAr: "المخاطر", nameEn: "Risk", descAr: "تقييم وإدارة المخاطر", descEn: "Risk assessment", path: "/risk", icon: AlertTriangle, color: "from-red-500/30 to-red-700/20", iconColor: "text-red-300", countKey: "risks" },
-  { nameAr: "التقارير", nameEn: "Reports", descAr: "التقارير والتحليلات", descEn: "Reports & analytics", path: "/projects?tab=reports", icon: FileText, color: "from-indigo-500/30 to-indigo-700/20", iconColor: "text-indigo-300", countKey: null },
-  { nameAr: "المستخلصات", nameEn: "Certificates", descAr: "الشهادات والمستخلصات", descEn: "Progress certificates", path: "/progress-certificates", icon: Award, color: "from-yellow-500/30 to-yellow-700/20", iconColor: "text-yellow-300", countKey: "progress_certificates" },
-  { nameAr: "المكتبة", nameEn: "Library", descAr: "مكتبة الأسعار والمواد", descEn: "Price & material library", path: "/library", icon: BookOpen, color: "from-teal-500/30 to-teal-700/20", iconColor: "text-teal-300", countKey: "material_prices" },
+type Section = {
+  nameAr: string; nameEn: string; descAr: string; descEn: string;
+  path: string; icon: typeof FolderOpen; color: string; iconColor: string;
+  countKey: string | null;
+};
+
+const groups: { titleAr: string; titleEn: string; items: Section[] }[] = [
+  {
+    titleAr: "نظرة عامة", titleEn: "Overview",
+    items: [
+      { nameAr: "لوحة المعلومات", nameEn: "Dashboard", descAr: "نظرة عامة على الأداء", descEn: "Performance overview", path: "/dashboard", icon: BarChart3, color: "from-sky-500/30 to-sky-700/20", iconColor: "text-sky-300", countKey: null },
+      { nameAr: "التقارير", nameEn: "Reports", descAr: "التقارير والتحليلات", descEn: "Reports & analytics", path: "/projects?tab=reports", icon: FileText, color: "from-indigo-500/30 to-indigo-700/20", iconColor: "text-indigo-300", countKey: null },
+    ],
+  },
+  {
+    titleAr: "إدارة المشاريع", titleEn: "Project Management",
+    items: [
+      { nameAr: "المشاريع", nameEn: "Projects", descAr: "إدارة ومتابعة المشاريع", descEn: "Manage & track projects", path: "/projects", icon: FolderOpen, color: "from-blue-500/30 to-blue-700/20", iconColor: "text-blue-300", countKey: "saved_projects" },
+      { nameAr: "جدول الكميات", nameEn: "BOQ Items", descAr: "بنود الأعمال والكميات", descEn: "Work items & quantities", path: "/items", icon: Layers, color: "from-emerald-500/30 to-emerald-700/20", iconColor: "text-emerald-300", countKey: "project_items" },
+      { nameAr: "المستخلصات", nameEn: "Certificates", descAr: "الشهادات والمستخلصات", descEn: "Progress certificates", path: "/progress-certificates", icon: Award, color: "from-yellow-500/30 to-yellow-700/20", iconColor: "text-yellow-300", countKey: "progress_certificates" },
+    ],
+  },
+  {
+    titleAr: "التكاليف والتسعير", titleEn: "Costs & Pricing",
+    items: [
+      { nameAr: "التسعير والتحليل", nameEn: "Cost Analysis", descAr: "تحليل التكاليف والأسعار", descEn: "Cost & price analysis", path: "/cost-analysis", icon: DollarSign, color: "from-amber-500/30 to-amber-700/20", iconColor: "text-amber-300", countKey: "cost_analysis" },
+      { nameAr: "عروض الاسعار", nameEn: "Quotations", descAr: "مقارنة ورفع العروض", descEn: "Upload & compare quotes", path: "/quotations", icon: FileSearch, color: "from-pink-500/30 to-pink-700/20", iconColor: "text-pink-300", countKey: null },
+      { nameAr: "المكتبة", nameEn: "Library", descAr: "مكتبة الأسعار والمواد", descEn: "Price & material library", path: "/library", icon: BookOpen, color: "from-teal-500/30 to-teal-700/20", iconColor: "text-teal-300", countKey: "material_prices" },
+    ],
+  },
+  {
+    titleAr: "العمليات والموارد", titleEn: "Operations & Resources",
+    items: [
+      { nameAr: "العقود", nameEn: "Contracts", descAr: "إدارة العقود والضمانات", descEn: "Contracts & warranties", path: "/contracts", icon: Briefcase, color: "from-purple-500/30 to-purple-700/20", iconColor: "text-purple-300", countKey: "contracts" },
+      { nameAr: "المشتريات", nameEn: "Procurement", descAr: "طلبات الشراء والموردين", descEn: "Procurement & suppliers", path: "/procurement", icon: Package, color: "from-cyan-500/30 to-cyan-700/20", iconColor: "text-cyan-300", countKey: "external_partners" },
+      { nameAr: "مقاولي الباطن", nameEn: "Subcontractors", descAr: "إدارة مقاولي الباطن", descEn: "Subcontractor management", path: "/subcontractors", icon: Users, color: "from-orange-500/30 to-orange-700/20", iconColor: "text-orange-300", countKey: "subcontractors" },
+      { nameAr: "المخاطر", nameEn: "Risk", descAr: "تقييم وإدارة المخاطر", descEn: "Risk assessment", path: "/risk", icon: AlertTriangle, color: "from-red-500/30 to-red-700/20", iconColor: "text-red-300", countKey: "risks" },
+    ],
+  },
 ];
 
 type CountsMap = Record<string, number>;
@@ -174,48 +201,60 @@ export default function HomePage() {
           <img src={alimtyazLogo} alt="Alimtyaz Logo" className="w-10 h-10 md:w-12 md:h-12 rounded-lg object-contain bg-white/10 p-1" />
         </div>
 
-        {/* Navigation Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 max-w-5xl w-full">
-          {sections.map((section, index) => {
-            const Icon = section.icon;
-            const count = section.countKey ? counts[section.countKey] : undefined;
-            return (
-              <Link
-                key={section.path}
-                to={section.path}
-                className={`group relative flex flex-col items-center justify-center gap-2 md:gap-3 p-4 md:p-6 rounded-xl
-                  bg-black/40 border border-white/15
-                  hover:border-white/30 hover:scale-[1.08]
-                  transition-transform transition-colors duration-200 transform-gpu will-change-transform
-                  cursor-pointer shadow-lg
-                  bg-gradient-to-br ${section.color}`}
-                style={{
-                  animation: 'card-enter 0.4s ease-out forwards',
-                  animationDelay: `${index * 50}ms`,
-                  opacity: 0,
-                }}
-              >
-                {/* Counter Badge */}
-                {count !== undefined && count > 0 && (
-                  <span className="absolute top-2 end-2 bg-white/20 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
-                    {count}
-                  </span>
-                )}
-
-                <div className={`w-10 h-10 md:w-14 md:h-14 rounded-xl bg-white/10 group-hover:bg-white/20 group-hover:ring-2 group-hover:ring-white/20 flex items-center justify-center transition-all duration-200 group-hover:-translate-y-1`}>
-                  <Icon className={`w-6 h-6 md:w-8 md:h-8 ${section.iconColor} drop-shadow`} />
-                </div>
-                <div className="text-center">
-                  <p className="text-white font-semibold text-xs md:text-sm">{section.nameAr}</p>
-                  <p className="text-white/75 text-[10px] md:text-xs mt-0.5">{section.nameEn}</p>
-                  <p className="text-white/50 text-[9px] md:text-[10px] mt-1 hidden sm:block">
-                    {isArabic ? section.descAr : section.descEn}
-                  </p>
-                </div>
-              </Link>
-            );
-          })}
+        {/* Grouped Navigation */}
+        <div className="max-w-5xl w-full space-y-6">
+          {groups.map((group, gIdx) => (
+            <div key={group.titleEn}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
+                <h2 className="text-amber-300/90 text-xs md:text-sm font-semibold tracking-wide uppercase">
+                  {isArabic ? group.titleAr : group.titleEn}
+                </h2>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+                {group.items.map((section, index) => {
+                  const Icon = section.icon;
+                  const count = section.countKey ? counts[section.countKey] : undefined;
+                  return (
+                    <Link
+                      key={section.path}
+                      to={section.path}
+                      className={`group relative flex flex-col items-center justify-center gap-2 md:gap-3 p-4 md:p-6 rounded-xl
+                        bg-black/40 border border-white/15
+                        hover:border-white/30 hover:scale-[1.08]
+                        transition-transform transition-colors duration-200 transform-gpu will-change-transform
+                        cursor-pointer shadow-lg
+                        bg-gradient-to-br ${section.color}`}
+                      style={{
+                        animation: 'card-enter 0.4s ease-out forwards',
+                        animationDelay: `${(gIdx * 100) + (index * 50)}ms`,
+                        opacity: 0,
+                      }}
+                    >
+                      {count !== undefined && count > 0 && (
+                        <span className="absolute top-2 end-2 bg-white/20 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                          {count}
+                        </span>
+                      )}
+                      <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl bg-white/10 group-hover:bg-white/20 group-hover:ring-2 group-hover:ring-white/20 flex items-center justify-center transition-all duration-200 group-hover:-translate-y-1">
+                        <Icon className={`w-6 h-6 md:w-8 md:h-8 ${section.iconColor} drop-shadow`} />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-white font-semibold text-xs md:text-sm">{section.nameAr}</p>
+                        <p className="text-white/75 text-[10px] md:text-xs mt-0.5">{section.nameEn}</p>
+                        <p className="text-white/50 text-[9px] md:text-[10px] mt-1 hidden sm:block">
+                          {isArabic ? section.descAr : section.descEn}
+                        </p>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
+
       </main>
 
       {/* Designer Footer */}
