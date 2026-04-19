@@ -668,6 +668,113 @@ export default function HistoricalPricingPage() {
               );
             })()}
 
+            {/* Insights row */}
+            {files.length > 0 && (() => {
+              const locMap = new Map<string, number>();
+              files.forEach((f) => {
+                const k = f.project_location || (isArabic ? "غير محدد" : "Unspecified");
+                locMap.set(k, (locMap.get(k) || 0) + 1);
+              });
+              const topLocs = Array.from(locMap.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+              const maxLoc = Math.max(1, ...topLocs.map((l) => l[1]));
+
+              const yearMap = new Map<string, { count: number; value: number }>();
+              files.forEach((f) => {
+                const y = f.project_date ? new Date(f.project_date).getFullYear().toString() : (isArabic ? "بدون تاريخ" : "Undated");
+                const cur = yearMap.get(y) || { count: 0, value: 0 };
+                cur.count += 1;
+                cur.value += Number(f.total_value) || 0;
+                yearMap.set(y, cur);
+              });
+              const years = Array.from(yearMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+              const maxYearVal = Math.max(1, ...years.map((y) => y[1].value));
+
+              const topProjects = [...files]
+                .filter((f) => Number(f.total_value) > 0)
+                .sort((a, b) => Number(b.total_value) - Number(a.total_value))
+                .slice(0, 5);
+
+              return (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-primary" />
+                        {isArabic ? "توزيع جغرافي" : "Location Distribution"}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {topLocs.map(([name, count]) => {
+                        const label = LOCATIONS.find((l) => l.value === name)?.label || name;
+                        return (
+                          <div key={name}>
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="font-medium truncate">{label}</span>
+                              <span className="text-muted-foreground">{count}</span>
+                            </div>
+                            <div className="h-2 bg-muted rounded-full overflow-hidden">
+                              <div className="h-full bg-primary transition-all" style={{ width: `${(count / maxLoc) * 100}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-blue-600" />
+                        {isArabic ? "القيمة عبر السنوات" : "Value Over Years"}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {years.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          {isArabic ? "لا توجد بيانات" : "No data"}
+                        </p>
+                      ) : (
+                        <div className="flex items-end justify-between gap-2 h-32">
+                          {years.map(([y, v]) => (
+                            <div key={y} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                              <div className="w-full bg-blue-500 rounded-t transition-all" style={{ height: `${(v.value / maxYearVal) * 100}%`, minHeight: "4px" }} />
+                              <span className="text-[10px] text-muted-foreground truncate w-full text-center">{y}</span>
+                              <span className="text-[10px] font-bold">{v.count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4 text-emerald-600" />
+                        {isArabic ? "أعلى المشاريع قيمةً" : "Top Projects by Value"}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {topProjects.map((p, idx) => (
+                        <div key={p.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 transition-colors">
+                          <div className="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-600 text-xs font-bold flex items-center justify-center shrink-0">
+                            {idx + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{p.project_name}</p>
+                            <p className="text-xs text-muted-foreground">{p.items_count} {isArabic ? "بند" : "items"}</p>
+                          </div>
+                          <div className="text-sm font-bold text-emerald-600 shrink-0">
+                            {Number(p.total_value).toLocaleString()}
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })()}
+
         {/* Filters */}
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
