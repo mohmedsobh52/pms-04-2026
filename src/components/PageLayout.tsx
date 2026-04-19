@@ -16,9 +16,16 @@ export function PageLayout({ children, showBackground = false, className = "" }:
   const { isArabic } = useLanguage();
 
   return (
-    <div className="min-h-screen flex flex-col" dir={isArabic ? "rtl" : "ltr"}>
+    <div
+      className="min-h-screen flex flex-col bg-background relative"
+      dir={isArabic ? "rtl" : "ltr"}
+      style={{
+        backgroundImage:
+          "radial-gradient(1200px 600px at 0% 0%, hsl(var(--primary) / 0.08), transparent 60%), radial-gradient(900px 500px at 100% 0%, hsl(var(--accent) / 0.08), transparent 60%)",
+      }}
+    >
       {showBackground && <BackgroundImage />}
-      
+
       <UnifiedHeader />
       
       <main className={`flex-1 container mx-auto px-4 py-6 md:py-8 ${className}`}>
