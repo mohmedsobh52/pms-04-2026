@@ -175,11 +175,16 @@ export function SubcontractorProgressDashboard({
 
   if (subcontractors.length === 0) {
     return (
-      <Card className="p-8 text-center">
-        <BarChart3 className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-        <p className="text-muted-foreground">
-          {isArabic ? "لا توجد بيانات لعرضها. أضف مقاولين ومهام أولاً." : "No data to display. Add subcontractors and assignments first."}
-        </p>
+      <Card className="border-dashed">
+        <CardContent className="p-0">
+          <EmptyState
+            icon={BarChart3}
+            title={isArabic ? "لا توجد بيانات للعرض" : "No data to display"}
+            description={isArabic
+              ? "أضف مقاولين ومهام أولاً لعرض الرسوم والتحليلات"
+              : "Add subcontractors and assignments first to see charts and analytics"}
+          />
+        </CardContent>
       </Card>
     );
   }
