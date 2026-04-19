@@ -243,6 +243,70 @@ const SubcontractorsPage = () => {
           </Card>
         </div>
 
+        {/* Specialty + Top by value */}
+        {(subcontractors.length > 0 || assignments.length > 0) && (() => {
+          const specMap = new Map<string, number>();
+          subcontractors.forEach((s) => {
+            const sp = s.specialty || (isArabic ? "غير محدد" : "Other");
+            specMap.set(sp, (specMap.get(sp) || 0) + 1);
+          });
+          const specs = Array.from(specMap.entries()).sort((a, b) => b[1] - a[1]).slice(0, 6);
+          const maxSpec = specs[0]?.[1] || 1;
+
+          const valueBySub = new Map<string, number>();
+          assignments.forEach((a) => {
+            valueBySub.set(a.subcontractor_id, (valueBySub.get(a.subcontractor_id) || 0) + (Number(a.contract_value) || 0));
+          });
+          const topByValue = Array.from(valueBySub.entries())
+            .map(([id, v]) => ({ id, name: subcontractors.find((s) => s.id === id)?.name || "—", value: v }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 5);
+
+          return (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Users className="w-4 h-4 text-primary" />
+                    {isArabic ? "توزيع التخصصات" : "Specialty Distribution"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {specs.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">{isArabic ? "لا توجد بيانات" : "No data"}</p>
+                  ) : specs.map(([name, count]) => (
+                    <div key={name} className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="truncate">{name}</span>
+                        <span className="font-semibold">{count}</span>
+                      </div>
+                      <Progress value={(count / maxSpec) * 100} className="h-2" />
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-cyan-600" />
+                    {isArabic ? "أعلى 5 مقاولين (قيمة العقود)" : "Top 5 by Contract Value"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {topByValue.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">{isArabic ? "لا توجد بيانات" : "No data"}</p>
+                  ) : topByValue.map((t) => (
+                    <div key={t.id} className="flex items-center justify-between p-2 rounded hover:bg-muted/50">
+                      <span className="text-sm truncate flex-1">{t.name}</span>
+                      <span className="text-xs font-bold text-cyan-600">{formatCurrency(t.value)}</span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })()}
+
         {/* Main Tabs - FIDIC removed */}
         <Tabs defaultValue="dashboard" className="space-y-4">
           <TabsList className="grid grid-cols-3 w-full md:w-auto tabs-navigation-safe">
