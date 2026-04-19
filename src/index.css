@@ -78,6 +78,26 @@
     --qa-orange: 25 95% 53%;
     --qa-teal: 173 80% 40%;
     --qa-green: 142 71% 45%;
+
+    /* Unified Status Colors */
+    --status-active: 142 71% 45%;
+    --status-pending: 38 92% 50%;
+    --status-completed: 220 70% 40%;
+    --status-overdue: 0 84% 60%;
+    --status-draft: 215 16% 55%;
+    --status-cancelled: 0 0% 60%;
+
+    /* Priority Colors */
+    --priority-high: 0 84% 60%;
+    --priority-medium: 38 92% 50%;
+    --priority-low: 142 71% 45%;
+
+    /* Category (Resource) Colors */
+    --cat-material: 142 71% 45%;
+    --cat-labor: 220 70% 50%;
+    --cat-equipment: 25 95% 53%;
+    --cat-subcontractor: 280 70% 55%;
+    --cat-other: 215 16% 55%;
     --qa-purple: 262 83% 58%;
     --qa-amber: 38 92% 50%;
     --qa-indigo: 239 84% 67%;

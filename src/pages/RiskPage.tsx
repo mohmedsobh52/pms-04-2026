@@ -3,6 +3,7 @@ import { RiskManagement } from "@/components/RiskManagement";
 import { PageLayout } from "@/components/PageLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShieldAlert, AlertTriangle, ShieldCheck, Activity, Clock, Layers } from "lucide-react";
+import { ColorLegend } from "@/components/ui/color-code";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -244,6 +245,7 @@ const RiskPage = () => {
           </Card>
         </div>
 
+        <ColorLegend type="priority" isArabic={isArabic} />
         <RiskManagement />
       </div>
     </PageLayout>

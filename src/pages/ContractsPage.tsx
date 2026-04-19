@@ -11,6 +11,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLayout } from "@/components/PageLayout";
 import { Card, CardContent } from "@/components/ui/card";
+import { ColorLegend } from "@/components/ui/color-code";
 import { 
   FileText, 
   Bell, 
@@ -269,6 +270,8 @@ const ContractsPage = () => {
             </Card>
           </div>
         )}
+
+        <ColorLegend type="status" isArabic={isArabic} />
 
         {/* Main Tabs */}
         <Tabs defaultValue="contracts" className="space-y-4">
