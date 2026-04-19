@@ -687,7 +687,17 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     if (showOnlyZeroQty) {
       items = items.filter(item => !item.quantity || item.quantity === 0);
     }
-    
+
+    // Unpriced-only filter (respects edited prices)
+    if (unpricedOnly) {
+      items = items.filter(item => {
+        const edited = editedPrices[item.item_number || ""];
+        const up = edited?.unit_price ?? item.unit_price ?? 0;
+        const tp = edited?.total_price ?? item.total_price ?? 0;
+        return !((up && up > 0) || (tp && tp > 0));
+      });
+    }
+
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
