@@ -140,6 +140,46 @@ export default function CalendarPage() {
             ))}
           </div>
         )}
+
+        {user && upcomingList.length > 0 && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-600" />
+                {isArabic ? "أقرب 5 مواعيد قادمة" : "Next 5 Upcoming Deadlines"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {upcomingList.map((it, i) => {
+                const typeMeta: Record<string, { label: string; cls: string; icon: any }> = {
+                  project: { label: isArabic ? "مشروع" : "Project", cls: "bg-primary/10 text-primary", icon: CalendarDays },
+                  contract: { label: isArabic ? "عقد" : "Contract", cls: "bg-blue-500/10 text-blue-600 dark:text-blue-400", icon: FileSignature },
+                  milestone: { label: isArabic ? "معلم" : "Milestone", cls: "bg-purple-500/10 text-purple-600 dark:text-purple-400", icon: Target },
+                };
+                const meta = typeMeta[it.type];
+                const Icon = meta.icon;
+                const urgent = it.daysLeft <= 7;
+                return (
+                  <div key={i} className="flex items-center gap-3 p-2 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                    <div className={`p-2 rounded-md ${meta.cls}`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{it.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {it.date.toLocaleDateString(isArabic ? "ar-SA" : "en-US")} · <Badge variant="outline" className="text-[10px] py-0 px-1 ms-1">{meta.label}</Badge>
+                      </p>
+                    </div>
+                    <Badge className={urgent ? "bg-red-500 text-white" : "bg-amber-500/20 text-amber-700 dark:text-amber-300"}>
+                      {it.daysLeft} {isArabic ? "يوم" : "d"}
+                    </Badge>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
+
         {user ? (
           <ProjectCalendar />
         ) : (
