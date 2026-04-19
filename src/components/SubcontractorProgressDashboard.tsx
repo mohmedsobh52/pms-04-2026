@@ -14,24 +14,22 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
   Legend,
   AreaChart,
-  Area
+  Area,
 } from "recharts";
 import {
   Users,
   TrendingUp,
-  CheckCircle,
   Clock,
   DollarSign,
-  AlertTriangle,
   BarChart3,
   PieChart as PieChartIcon,
   Activity,
-  Wallet
+  Wallet,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/page-skeleton";
+import { ChartTooltip } from "@/components/charts/ChartTooltip";
 
 interface Subcontractor {
   id: string;
@@ -57,13 +55,14 @@ interface SubcontractorProgressDashboardProps {
   assignments: Assignment[];
 }
 
+// Semantic HSL palette consistent with the rest of the app
 const COLORS = [
-  'hsl(var(--primary))',
-  'hsl(142 76% 36%)',
-  'hsl(38 92% 50%)',
-  'hsl(0 84% 60%)',
-  'hsl(262 83% 58%)',
-  'hsl(199 89% 48%)'
+  "hsl(220 70% 50%)",
+  "hsl(142 71% 45%)",
+  "hsl(38 92% 50%)",
+  "hsl(0 84% 60%)",
+  "hsl(262 83% 58%)",
+  "hsl(199 89% 48%)",
 ];
 
 export function SubcontractorProgressDashboard({ 
