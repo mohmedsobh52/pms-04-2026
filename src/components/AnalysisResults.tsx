@@ -1487,6 +1487,33 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
         {/* ── Main Content Area ── */}
         <div className="flex-1 flex flex-col min-w-0">
 
+          {/* Pricing Progress Indicator */}
+          {(() => {
+            const allItems = data.items || [];
+            const total = allItems.length;
+            const priced = allItems.filter(it => {
+              const edited = editedPrices[it.item_number || ""];
+              const up = edited?.unit_price ?? it.unit_price ?? 0;
+              const tp = edited?.total_price ?? it.total_price ?? 0;
+              return (up && up > 0) || (tp && tp > 0);
+            }).length;
+            const pct = total > 0 ? Math.round((priced / total) * 100) : 0;
+            if (total === 0) return null;
+            return (
+              <div className="border-b border-border px-4 py-2.5 bg-background">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {isArabic ? "تقدم التسعير" : "Pricing Progress"}
+                  </span>
+                  <span className="text-xs font-mono font-semibold tabular-nums">
+                    {priced}/{total} {isArabic ? "بند مسعّر" : "items priced"} ({pct}%)
+                  </span>
+                </div>
+                <Progress value={pct} className="h-2" />
+              </div>
+            );
+          })()}
+
           {/* Top Toolbar — all action buttons moved here */}
           <div className="border-b border-border p-3 flex gap-2 flex-wrap items-center bg-muted/10">
             {/* Primary Actions Group */}
