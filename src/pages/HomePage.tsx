@@ -23,6 +23,10 @@ import {
   Mail,
   BarChart3,
   Clock,
+  Ruler,
+  ListChecks,
+  Shield,
+  Settings,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
