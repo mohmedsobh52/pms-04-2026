@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
 import { DataCharts } from "./DataCharts";
 import { ProjectTimeline } from "./ProjectTimeline";
@@ -182,16 +183,34 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, [userToggledSidebar]);
-  // Keyboard shortcut: Ctrl+B / Cmd+B
+  // Keyboard shortcuts: Ctrl/Cmd+B (sidebar), Ctrl/Cmd+F (search), 1-7 (tabs)
   useEffect(() => {
+    const tabIds = ["items", "wbs", "costs", "summary", "charts", "timeline", "integration"] as const;
     const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      const inField = tag === "INPUT" || tag === "TEXTAREA" || (t && t.isContentEditable);
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
-        const t = e.target as HTMLElement | null;
-        const tag = t?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || (t && t.isContentEditable)) return;
+        if (inField) return;
         e.preventDefault();
         setUserToggledSidebar(true);
         setSidebarCollapsed(v => !v);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        const el = document.getElementById("analysis-search-input") as HTMLInputElement | null;
+        if (!el) return;
+        e.preventDefault();
+        setActiveTab("items");
+        setTimeout(() => { el.focus(); el.select(); }, 50);
+        return;
+      }
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && !inField && /^[1-7]$/.test(e.key)) {
+        const idx = parseInt(e.key, 10) - 1;
+        if (tabIds[idx]) {
+          e.preventDefault();
+          setActiveTab(tabIds[idx]);
+        }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -1412,6 +1431,29 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     { id: "integration", label: "Schedule Integration", labelAr: "تكامل الجدول",      icon: <Link2 className="w-4 h-4" /> },
   ];
 
+  // Pricing progress + per-category breakdown (used by progress bar and unpriced badge)
+  const pricingStats = useMemo(() => {
+    const allItems = data.items || [];
+    const isPriced = (it: BOQItem) => {
+      const edited = editedPrices[it.item_number || ""];
+      const up = edited?.unit_price ?? it.unit_price ?? 0;
+      const tp = edited?.total_price ?? it.total_price ?? 0;
+      return (up && up > 0) || (tp && tp > 0);
+    };
+    const total = allItems.length;
+    const priced = allItems.filter(isPriced).length;
+    const pct = total > 0 ? Math.round((priced / total) * 100) : 0;
+    const byCategory: Record<string, { total: number; priced: number }> = {};
+    for (const it of allItems) {
+      const cat = (it.category || (isArabic ? "غير مصنّف" : "Uncategorized")).trim() || (isArabic ? "غير مصنّف" : "Uncategorized");
+      if (!byCategory[cat]) byCategory[cat] = { total: 0, priced: 0 };
+      byCategory[cat].total += 1;
+      if (isPriced(it)) byCategory[cat].priced += 1;
+    }
+    return { total, priced, pct, unpricedTotal: total - priced, byCategory };
+  }, [data.items, editedPrices, isArabic]);
+  const unpricedTotal = pricingStats.unpricedTotal;
+
   return (
     <div className="glass-card overflow-hidden animate-slide-up">
       {/* Project Name and KPI Dashboard at the top */}
@@ -1448,12 +1490,13 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
             <TooltipProvider delayDuration={100}>
               <nav className="space-y-1">
                 {tabs.map(tab => {
+                  const showBadge = tab.id === "items" && unpricedTotal > 0;
                   const btn = (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id as typeof activeTab)}
                       className={cn(
-                        "w-full flex items-center rounded-lg text-sm font-medium transition-all",
+                        "w-full flex items-center rounded-lg text-sm font-medium transition-all relative",
                         sidebarCollapsed ? "justify-center px-2 py-2" : "gap-2.5 px-3 py-2",
                         !sidebarCollapsed && (isArabic ? "flex-row-reverse text-right" : "text-left"),
                         activeTab === tab.id
@@ -1462,7 +1505,17 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                       )}
                     >
                       {tab.icon}
-                      {!sidebarCollapsed && <span className="truncate">{isArabic ? tab.labelAr : tab.label}</span>}
+                      {!sidebarCollapsed && <span className="truncate flex-1">{isArabic ? tab.labelAr : tab.label}</span>}
+                      {showBadge && !sidebarCollapsed && (
+                        <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-[10px] font-bold">
+                          {unpricedTotal}
+                        </Badge>
+                      )}
+                      {showBadge && sidebarCollapsed && (
+                        <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center">
+                          {unpricedTotal > 99 ? "99+" : unpricedTotal}
+                        </span>
+                      )}
                     </button>
                   );
                   return sidebarCollapsed ? (
@@ -1470,6 +1523,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                       <TooltipTrigger asChild>{btn}</TooltipTrigger>
                       <TooltipContent side={isArabic ? "left" : "right"}>
                         {isArabic ? tab.labelAr : tab.label}
+                        {showBadge ? ` — ${unpricedTotal} ${isArabic ? "غير مسعّر" : "unpriced"}` : ""}
                       </TooltipContent>
                     </Tooltip>
                   ) : btn;
@@ -1521,14 +1575,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
           {/* Pricing Progress Indicator */}
           {(() => {
             const allItems = data.items || [];
-            const total = allItems.length;
-            const priced = allItems.filter(it => {
-              const edited = editedPrices[it.item_number || ""];
-              const up = edited?.unit_price ?? it.unit_price ?? 0;
-              const tp = edited?.total_price ?? it.total_price ?? 0;
-              return (up && up > 0) || (tp && tp > 0);
-            }).length;
-            const pct = total > 0 ? Math.round((priced / total) * 100) : 0;
+            const { total, priced, pct, byCategory } = pricingStats;
             if (total === 0) return null;
             const jumpToNextUnpriced = () => {
               const next = allItems.find(it => {
@@ -1550,6 +1597,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                 }
               }, 150);
             };
+            const categoryEntries = Object.entries(byCategory).sort((a, b) => b[1].total - a[1].total);
             return (
               <div className="border-b border-border px-4 py-2.5 bg-background">
                 <div className="flex items-center justify-between mb-1.5 gap-2">
@@ -1573,7 +1621,38 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                     )}
                   </div>
                 </div>
-                <Progress value={pct} className="h-2" />
+                <HoverCard openDelay={150} closeDelay={100}>
+                  <HoverCardTrigger asChild>
+                    <div className="cursor-help">
+                      <Progress value={pct} className="h-2" />
+                    </div>
+                  </HoverCardTrigger>
+                  <HoverCardContent align="center" className="w-72 p-3" side="bottom">
+                    <p className="text-xs font-semibold mb-2 text-muted-foreground uppercase tracking-wider">
+                      {isArabic ? "التقدم حسب الفئة" : "Progress by Category"}
+                    </p>
+                    {categoryEntries.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">{isArabic ? "لا توجد بيانات" : "No data"}</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {categoryEntries.map(([cat, s]) => {
+                          const cPct = s.total > 0 ? Math.round((s.priced / s.total) * 100) : 0;
+                          return (
+                            <div key={cat} className="space-y-1">
+                              <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="font-medium truncate" title={cat}>{cat}</span>
+                                <span className="font-mono tabular-nums text-muted-foreground shrink-0">
+                                  {s.priced}/{s.total} ({cPct}%)
+                                </span>
+                              </div>
+                              <Progress value={cPct} className="h-1.5" />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </HoverCardContent>
+                </HoverCard>
               </div>
             );
           })()}
@@ -1874,8 +1953,9 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
+                    id="analysis-search-input"
                     type="text"
-                    placeholder={isArabic ? "بحث بالرقم أو الوصف..." : "Search by code or description..."}
+                    placeholder={isArabic ? "بحث بالرقم أو الوصف... (Ctrl+F)" : "Search by code or description... (Ctrl+F)"}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10 pr-10"
