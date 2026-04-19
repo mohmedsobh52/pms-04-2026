@@ -435,20 +435,26 @@ export function SubcontractorProgressDashboard({
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={valueBySpecialty}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis tickFormatter={(v) => v >= 1000 ? `${v/1000}K` : v} />
-                  <Tooltip 
-                    formatter={(value: number) => [value.toLocaleString(), isArabic ? 'القيمة' : 'Value']}
+                <BarChart data={valueBySpecialty} margin={{ left: 4, right: 16, top: 8, bottom: 8 }}>
+                  <defs>
+                    {valueBySpecialty.map((_, i) => (
+                      <linearGradient key={i} id={`spec-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={COLORS[i % COLORS.length]} stopOpacity={1} />
+                        <stop offset="100%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0.5} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <YAxis tickFormatter={(v) => v >= 1000 ? `${v/1000}K` : v}
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <Tooltip
+                    cursor={{ fill: "hsl(var(--muted) / 0.3)" }}
+                    content={<ChartTooltip formatter={(v: number) => v.toLocaleString()} />}
                   />
-                  <Bar 
-                    dataKey="value" 
-                    fill="hsl(var(--primary))" 
-                    radius={[4, 4, 0, 0]}
-                  >
+                  <Bar dataKey="value" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={900}>
                     {valueBySpecialty.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={`url(#spec-grad-${index})`} />
                     ))}
                   </Bar>
                 </BarChart>
