@@ -14,6 +14,8 @@ const RiskPage = () => {
   const [stats, setStats] = useState({ total: 0, high: 0, mitigated: 0, avgScore: 0, dueSoon: 0 });
   const [byCategory, setByCategory] = useState<Array<{ name: string; count: number }>>([]);
   const [byStatus, setByStatus] = useState<Array<{ name: string; count: number; color: string }>>([]);
+  const [heatmap, setHeatmap] = useState<number[][]>(() => Array.from({length:5},()=>Array(5).fill(0)));
+  const [topRisks, setTopRisks] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) return;
