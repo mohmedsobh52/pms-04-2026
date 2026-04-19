@@ -23,6 +23,7 @@ import { AdvancedReportsTab } from "@/components/reports/AdvancedReportsTab";
 import { ReportsStatCards } from "@/components/reports/ReportsStatCards";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { ColorLegend } from "@/components/ui/color-code";
 import { 
   RefreshCw, 
   Filter, 
@@ -303,6 +304,10 @@ const ReportsPage = () => {
           pendingProjects={stats.pendingProjects}
           totalBOQValue={stats.totalBOQValue}
         />
+
+        <div className="mt-4">
+          <ColorLegend type="status" isArabic={isArabic} />
+        </div>
 
         {/* Insights Bar */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
