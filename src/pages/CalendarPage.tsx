@@ -26,14 +26,18 @@ export default function CalendarPage() {
   const { isArabic } = useLanguage();
   const [stats, setStats] = useState({ projects: 0, contracts: 0, upcoming: 0, overdue: 0, completed: 0 });
 
+  const [stats, setStats] = useState({ projects: 0, contracts: 0, upcoming: 0, overdue: 0, completed: 0 });
+  const [upcomingList, setUpcomingList] = useState<UpcomingItem[]>([]);
+
   useEffect(() => {
     if (!user) return;
     (async () => {
       const today = new Date();
       const in30 = new Date(); in30.setDate(today.getDate() + 30);
-      const [proj, contr] = await Promise.all([
-        supabase.from('saved_projects').select('end_date,status').eq('user_id', user.id),
-        supabase.from('contracts').select('end_date,status').eq('user_id', user.id),
+      const [proj, contr, miles] = await Promise.all([
+        supabase.from('saved_projects').select('id,name,end_date,status').eq('user_id', user.id),
+        supabase.from('contracts').select('id,contract_title,end_date,status').eq('user_id', user.id),
+        supabase.from('contract_milestones').select('id,milestone_name,due_date,status').eq('user_id', user.id).neq('status', 'completed'),
       ]);
       const all = [...(proj.data || []), ...(contr.data || [])];
       const dates = all.filter((r: any) => r.end_date).map((r: any) => ({ d: new Date(r.end_date), s: r.status }));
@@ -44,6 +48,27 @@ export default function CalendarPage() {
         overdue: dates.filter((x) => x.d < today && x.s !== 'completed' && x.s !== 'مكتمل').length,
         completed: all.filter((r: any) => r.status === 'completed' || r.status === 'مكتمل').length,
       });
+
+      const items: UpcomingItem[] = [];
+      (proj.data || []).forEach((p: any) => {
+        if (p.end_date && p.status !== 'completed') {
+          const d = new Date(p.end_date);
+          if (d >= today) items.push({ type: 'project', title: p.name, date: d, daysLeft: Math.ceil((d.getTime() - today.getTime()) / 86400000) });
+        }
+      });
+      (contr.data || []).forEach((c: any) => {
+        if (c.end_date && c.status !== 'completed') {
+          const d = new Date(c.end_date);
+          if (d >= today) items.push({ type: 'contract', title: c.contract_title, date: d, daysLeft: Math.ceil((d.getTime() - today.getTime()) / 86400000) });
+        }
+      });
+      (miles.data || []).forEach((m: any) => {
+        if (m.due_date) {
+          const d = new Date(m.due_date);
+          if (d >= today) items.push({ type: 'milestone', title: m.milestone_name, date: d, daysLeft: Math.ceil((d.getTime() - today.getTime()) / 86400000) });
+        }
+      });
+      setUpcomingList(items.sort((a, b) => a.daysLeft - b.daysLeft).slice(0, 5));
     })();
   }, [user]);
 
