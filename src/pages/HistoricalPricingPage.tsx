@@ -25,6 +25,7 @@ import { HistoricalPricingStats } from "@/components/HistoricalPricingStats";
 import { HistoricalPricingPDFReport } from "@/components/HistoricalPricingPDFReport";
 import { ImportFromSavedProjects } from "@/components/ImportFromSavedProjects";
 import { HistoricalItemsTable } from "@/components/HistoricalItemsTable";
+import { ColorLegend } from "@/components/ui/color-code";
 import { normalizeHistoricalItems, NormalizedHistoricalItem } from "@/lib/historical-data-utils";
 interface HistoricalFile {
   id: string;
@@ -410,6 +411,7 @@ export default function HistoricalPricingPage() {
   return (
     <PageLayout>
       <div className="container mx-auto p-4 md:p-6 space-y-6" dir={isArabic ? "rtl" : "ltr"}>
+        <ColorLegend type="category" isArabic={isArabic} />
         {/* Header */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">

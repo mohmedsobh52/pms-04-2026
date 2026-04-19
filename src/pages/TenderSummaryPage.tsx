@@ -11,6 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ColorLegend } from "@/components/ui/color-code";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -648,6 +649,7 @@ export default function TenderSummaryPage() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
+        <ColorLegend type="category" isArabic={isArabic} className="mb-4" />
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full justify-start overflow-x-auto flex-nowrap mb-6 bg-muted/50 tabs-navigation-safe">
             {tabs.map((tab) => {
