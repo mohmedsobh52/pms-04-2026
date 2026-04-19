@@ -19,6 +19,7 @@ import {
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { addPDFLetterheadHeader, addPDFLetterheadFooterWithQR } from "@/lib/letterhead-utils";
+import { ColorLegend } from "@/components/ui/color-code";
 
 interface Certificate {
   id: string;
@@ -219,6 +220,8 @@ const ProgressCertificatesPage = () => {
             {isArabic ? "مستخلص جديد" : "New Certificate"}
           </Link>
         </div>
+
+        <ColorLegend type="status" isArabic={isArabic} />
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

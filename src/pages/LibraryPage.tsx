@@ -7,6 +7,7 @@ import { Home, Library, Package, HardHat, Truck, DollarSign, Sparkles, PieChart,
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ColorLegend } from "@/components/ui/color-code";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
@@ -136,7 +137,9 @@ const LibraryPage = () => {
             );
           })}
         </div>
-        
+
+        <ColorLegend type="category" isArabic={isArabic} />
+
         {/* Insights row: Recent additions + Top categories */}
         {(recent.length > 0 || topCategories.length > 0) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

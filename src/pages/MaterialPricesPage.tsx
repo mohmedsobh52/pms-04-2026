@@ -5,6 +5,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { ColorLegend } from "@/components/ui/color-code";
 import { Package, ShieldCheck, Layers, DollarSign, Building2, AlertTriangle, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -109,6 +110,8 @@ const MaterialPricesPage = () => {
             );
           })}
         </div>
+
+        <ColorLegend type="category" isArabic={isArabic} />
 
         {/* Insights row */}
         {stats.total > 0 && (
