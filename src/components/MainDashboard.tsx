@@ -764,6 +764,34 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
         </div>
       </div>
 
+      {/* Quick Actions Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        {[
+          { ar: "المشاريع", en: "Projects", path: "/projects", icon: FolderOpen, color: "from-blue-500/20 to-blue-700/10", iconColor: "text-blue-500" },
+          { ar: "البنود", en: "BOQ Items", path: "/items", icon: FileText, color: "from-emerald-500/20 to-emerald-700/10", iconColor: "text-emerald-500" },
+          { ar: "العقود", en: "Contracts", path: "/contracts", icon: FileSignature, color: "from-purple-500/20 to-purple-700/10", iconColor: "text-purple-500" },
+          { ar: "التسعير", en: "Pricing", path: "/cost-analysis", icon: DollarSign, color: "from-amber-500/20 to-amber-700/10", iconColor: "text-amber-500" },
+          { ar: "العروض", en: "Quotations", path: "/quotations", icon: Receipt, color: "from-pink-500/20 to-pink-700/10", iconColor: "text-pink-500" },
+          { ar: "التقارير", en: "Reports", path: "/projects?tab=reports", icon: BarChart3, color: "from-indigo-500/20 to-indigo-700/10", iconColor: "text-indigo-500" },
+        ].map((q) => {
+          const Icon = q.icon;
+          return (
+            <button
+              key={q.path}
+              onClick={() => navigate(q.path)}
+              className={`group flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-border bg-gradient-to-br ${q.color} hover:scale-[1.05] hover:border-primary/50 transition-all duration-200 cursor-pointer`}
+            >
+              <div className="w-10 h-10 rounded-lg bg-background/60 flex items-center justify-center group-hover:bg-background transition-colors">
+                <Icon className={`w-5 h-5 ${q.iconColor}`} />
+              </div>
+              <div className="text-center">
+                <p className="text-xs font-semibold text-foreground">{isArabic ? q.ar : q.en}</p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Budget Alert Banner */}
       {(checkBudgetAlert().isOverBudget || checkBudgetAlert().isNearThreshold) && (
         <Card className={`${checkBudgetAlert().isOverBudget ? 'bg-destructive/10 border-destructive' : 'bg-amber-500/10 border-amber-500'}`}>
