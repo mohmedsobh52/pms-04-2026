@@ -161,11 +161,42 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"items" | "wbs" | "costs" | "summary" | "charts" | "timeline" | "integration">("items");
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
-    try { return localStorage.getItem("analysis_sidebar_collapsed") === "1"; } catch { return false; }
+    try {
+      const saved = localStorage.getItem("analysis_sidebar_collapsed");
+      if (saved === "1") return true;
+      if (saved === "0") return false;
+      return typeof window !== "undefined" && window.innerWidth < 768;
+    } catch { return false; }
+  });
+  const [userToggledSidebar, setUserToggledSidebar] = useState<boolean>(() => {
+    try { return localStorage.getItem("analysis_sidebar_collapsed") !== null; } catch { return false; }
   });
   useEffect(() => {
     try { localStorage.setItem("analysis_sidebar_collapsed", sidebarCollapsed ? "1" : "0"); } catch {}
   }, [sidebarCollapsed]);
+  // Auto-collapse on mobile (until user manually toggles)
+  useEffect(() => {
+    if (userToggledSidebar) return;
+    const onResize = () => setSidebarCollapsed(window.innerWidth < 768);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [userToggledSidebar]);
+  // Keyboard shortcut: Ctrl+B / Cmd+B
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+        const t = e.target as HTMLElement | null;
+        const tag = t?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || (t && t.isContentEditable)) return;
+        e.preventDefault();
+        setUserToggledSidebar(true);
+        setSidebarCollapsed(v => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(getSavedCompanyInfo());
   
