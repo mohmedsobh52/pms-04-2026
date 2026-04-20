@@ -57,7 +57,17 @@ const PricingAccuracyPage = lazy(() => import("./pages/PricingAccuracyPage"));
 const PartnerDetailsPage = lazy(() => import("./pages/PartnerDetailsPage"));
 const ProgressCertificatesPage = lazy(() => import("./pages/ProgressCertificatesPage"));
 const NewCertificatePage = lazy(() => import("./pages/NewCertificatePage"));
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes - data stays fresh
+      gcTime: 10 * 60 * 1000, // 10 minutes - cache retention
+      refetchOnWindowFocus: false, // Don't refetch on tab focus
+      refetchOnReconnect: 'always',
+      retry: 1, // Only retry once on failure
+    },
+  },
+});
 
 // Page loading component
 const PageLoader = () => (
