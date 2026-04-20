@@ -103,6 +103,8 @@ export const PartnerDetailsDialog = ({
                 <img
                   src={partner.logo_url}
                   alt={partner.name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-14 h-14 rounded-xl object-cover"
                 />
               ) : (

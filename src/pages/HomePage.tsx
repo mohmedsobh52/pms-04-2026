@@ -305,6 +305,8 @@ export default function HomePage() {
               <img
                 src={developerPhoto}
                 alt="Dr.Eng. Mohamed Sobh"
+                loading="lazy"
+                decoding="async"
                 className="w-12 h-12 rounded-full ring-2 ring-primary/30 object-cover"
               />
               <div>
@@ -327,7 +329,7 @@ export default function HomePage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <img src={alimtyazLogo} alt="AL IMTYAZ" className="w-10 h-10 rounded-lg object-contain bg-muted p-1" />
+              <img src={alimtyazLogo} alt="AL IMTYAZ" loading="lazy" decoding="async" className="w-10 h-10 rounded-lg object-contain bg-muted p-1" />
               <span className="text-muted-foreground text-xs">AL IMTYAZ ALWATANIYA CONT.</span>
             </div>
           </div>

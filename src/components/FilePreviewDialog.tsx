@@ -196,6 +196,8 @@ export function FilePreviewDialog({ isOpen, onClose, file, onAnalyze }: FilePrev
           <img
             src={previewUrl}
             alt={file?.file_name}
+            loading="lazy"
+            decoding="async"
             className="max-w-full max-h-full object-contain transition-transform"
             style={{
               transform: `scale(${zoom / 100}) rotate(${rotation}deg)`
