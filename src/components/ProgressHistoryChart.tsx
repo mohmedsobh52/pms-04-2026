@@ -172,6 +172,7 @@ export function ProgressHistoryChart({ projectId }: ProgressHistoryChartProps) {
               />
             </LineChart>
           </ResponsiveContainer>
+          </LazyChart>
         </div>
 
         {/* Summary Stats */}
