@@ -196,6 +196,7 @@ const ResourcesPage = () => {
         .from('timeline_estimates')
         .select('*')
         .eq('user_id', user.id)
+        .limit(500)
         .order('custom_start_day', { ascending: true });
 
       if (error) throw error;
