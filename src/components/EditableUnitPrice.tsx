@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, memo } from "react";
 import { Check, X, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ interface EditableUnitPriceProps {
   disabled?: boolean;
 }
 
-export function EditableUnitPrice({ value, onSave, className, disabled }: EditableUnitPriceProps) {
+function EditableUnitPriceComponent({ value, onSave, className, disabled }: EditableUnitPriceProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value.toString());
   const inputRef = useRef<HTMLInputElement>(null);
@@ -90,3 +90,7 @@ export function EditableUnitPrice({ value, onSave, className, disabled }: Editab
     </div>
   );
 }
+
+export const EditableUnitPrice = memo(EditableUnitPriceComponent, (prev, next) =>
+  prev.value === next.value && prev.disabled === next.disabled && prev.className === next.className
+);
