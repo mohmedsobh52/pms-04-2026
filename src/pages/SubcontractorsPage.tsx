@@ -1,5 +1,4 @@
-import { SubcontractorManagement } from "@/components/SubcontractorManagement";
-import { SubcontractorBOQLink } from "@/components/SubcontractorBOQLink";
+import { lazy, Suspense } from "react";
 import { SubcontractorProgressDashboard } from "@/components/SubcontractorProgressDashboard";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -8,6 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLayout } from "@/components/PageLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ColorLegend } from "@/components/ui/color-code";
+
+const SubcontractorManagement = lazy(() =>
+  import("@/components/SubcontractorManagement").then((m) => ({ default: m.SubcontractorManagement }))
+);
+const SubcontractorBOQLink = lazy(() =>
+  import("@/components/SubcontractorBOQLink").then((m) => ({ default: m.SubcontractorBOQLink }))
+);
 import { 
   Users, 
   LayoutDashboard, 
@@ -21,6 +27,7 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Subcontractor {
@@ -49,6 +56,10 @@ const SubcontractorsPage = () => {
   
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window === "undefined") return "dashboard";
+    return localStorage.getItem("subcontractors:active-tab") || "dashboard";
+  });
   const [stats, setStats] = useState({
     totalSubcontractors: 0,
     activeSubcontractors: 0,
@@ -61,6 +72,10 @@ const SubcontractorsPage = () => {
   });
 
   useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("subcontractors:active-tab", activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
     if (user) {
       fetchData();
     }
@@ -69,8 +84,17 @@ const SubcontractorsPage = () => {
   const fetchData = async () => {
     try {
       const [subcontractorsRes, assignmentsRes] = await Promise.all([
-        supabase.from("subcontractors").select("id, name, specialty, status").eq("user_id", user?.id),
-        supabase.from("subcontractor_assignments").select("id, subcontractor_id, scope_of_work, contract_value, start_date, end_date, progress_percentage, status, payment_status"),
+        supabase
+          .from("subcontractors")
+          .select("id, name, specialty, status")
+          .eq("user_id", user?.id)
+          .order("created_at", { ascending: false })
+          .limit(500),
+        supabase
+          .from("subcontractor_assignments")
+          .select("id, subcontractor_id, scope_of_work, contract_value, start_date, end_date, progress_percentage, status, payment_status")
+          .order("created_at", { ascending: false })
+          .limit(500),
       ]);
 
       const subcontractorsList = (subcontractorsRes.data || []) as Subcontractor[];
@@ -311,7 +335,7 @@ const SubcontractorsPage = () => {
         <ColorLegend type="category" isArabic={isArabic} />
 
         {/* Main Tabs - FIDIC removed */}
-        <Tabs defaultValue="dashboard" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="grid grid-cols-3 w-full md:w-auto tabs-navigation-safe">
             <TabsTrigger value="dashboard" className="gap-2">
               <LayoutDashboard className="w-4 h-4" />
@@ -328,14 +352,16 @@ const SubcontractorsPage = () => {
           </TabsList>
 
           <TabsContent value="dashboard" className="mt-4">
-            <SubcontractorProgressDashboard 
+            <SubcontractorProgressDashboard
               subcontractors={subcontractors}
               assignments={assignments}
             />
           </TabsContent>
 
           <TabsContent value="management" className="mt-4">
-            <SubcontractorManagement />
+            <Suspense fallback={<div className="flex items-center justify-center py-16 text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin me-2" />Loading…</div>}>
+              <SubcontractorManagement />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="boq-link" className="mt-4">
@@ -352,10 +378,12 @@ const SubcontractorsPage = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <SubcontractorBOQLink 
-                  boqItems={analysisData?.items || []} 
-                  projectId={undefined}
-                />
+                <Suspense fallback={<div className="flex items-center justify-center py-16 text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin me-2" />Loading…</div>}>
+                  <SubcontractorBOQLink
+                    boqItems={analysisData?.items || []}
+                    projectId={undefined}
+                  />
+                </Suspense>
               </CardContent>
             </Card>
           </TabsContent>
