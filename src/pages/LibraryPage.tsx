@@ -1,7 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { PageLayout } from "@/components/PageLayout";
-import { LibraryDatabase } from "@/components/LibraryDatabase";
+import { Loader2 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
+
+const LibraryDatabase = lazy(() =>
+  import("@/components/LibraryDatabase").then((m) => ({ default: m.LibraryDatabase }))
+);
+
+const LibraryFallback = () => (
+  <div className="flex items-center justify-center py-12">
+    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+  </div>
+);
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Home, Library, Package, HardHat, Truck, DollarSign, Sparkles, PieChart, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
