@@ -97,7 +97,8 @@ export default function HistoricalPricingPage() {
       const { data, error } = await supabase
         .from("historical_pricing_files")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(500);
 
       if (error) throw error;
       
