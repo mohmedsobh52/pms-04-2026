@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { lazy, Suspense, useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,13 +14,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ExportTab } from "@/components/reports/ExportTab";
-import { PriceAnalysisTab } from "@/components/reports/PriceAnalysisTab";
-import { ProjectSummaryTab } from "@/components/reports/ProjectSummaryTab";
-import { RecentProjectsTab } from "@/components/reports/RecentProjectsTab";
-import { ProjectsComparisonExport } from "@/components/reports/ProjectsComparisonExport";
-import { AdvancedReportsTab } from "@/components/reports/AdvancedReportsTab";
 import { ReportsStatCards } from "@/components/reports/ReportsStatCards";
+import { Loader2 } from "lucide-react";
+
+// Lazy-load heavy report tabs to keep first paint fast
+const ExportTab = lazy(() => import("@/components/reports/ExportTab").then((m) => ({ default: m.ExportTab })));
+const PriceAnalysisTab = lazy(() => import("@/components/reports/PriceAnalysisTab").then((m) => ({ default: m.PriceAnalysisTab })));
+const ProjectSummaryTab = lazy(() => import("@/components/reports/ProjectSummaryTab").then((m) => ({ default: m.ProjectSummaryTab })));
+const RecentProjectsTab = lazy(() => import("@/components/reports/RecentProjectsTab").then((m) => ({ default: m.RecentProjectsTab })));
+const ProjectsComparisonExport = lazy(() => import("@/components/reports/ProjectsComparisonExport").then((m) => ({ default: m.ProjectsComparisonExport })));
+const AdvancedReportsTab = lazy(() => import("@/components/reports/AdvancedReportsTab").then((m) => ({ default: m.AdvancedReportsTab })));
+
+const TabFallback = () => (
+  <div className="flex items-center justify-center py-16 text-muted-foreground">
+    <Loader2 className="w-6 h-6 animate-spin me-2" />
+    <span>Loading…</span>
+  </div>
+);
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ColorLegend } from "@/components/ui/color-code";
@@ -70,27 +81,39 @@ const ReportsPage = () => {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window === "undefined") return "export";
+    return localStorage.getItem("reports:active-tab") || "export";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("reports:active-tab", activeTab);
+  }, [activeTab]);
 
   const fetchProjects = async () => {
     if (!user) return;
     
     setLoading(true);
     
-    // Fetch saved_projects and project_data in parallel
+    // Fetch saved_projects and project_data in parallel (limited to avoid huge payloads)
     const [savedProjectsRes, projectDataRes, tenderPricingRes] = await Promise.all([
       supabase
         .from("saved_projects")
         .select("*")
         .eq("user_id", user.id)
-        .order("updated_at", { ascending: false }),
+        .order("updated_at", { ascending: false })
+        .limit(500),
       supabase
         .from("project_data")
         .select("*")
-        .eq("user_id", user.id),
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(500),
       supabase
         .from("tender_pricing")
         .select("project_id, contract_value, total_direct_costs, total_indirect_costs, profit_margin")
         .eq("user_id", user.id)
+        .limit(500)
     ]);
 
     const savedProjects = savedProjectsRes.data || [];
