@@ -1,14 +1,21 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { QuotationUpload } from "@/components/QuotationUpload";
-import { QuotationComparison } from "@/components/QuotationComparison";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLayout } from "@/components/PageLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Card, CardContent } from "@/components/ui/card";
 import { ColorLegend } from "@/components/ui/color-code";
-import { FileText, CheckCircle2, Clock, Users, DollarSign, TrendingUp, Award, Calendar } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FileText, CheckCircle2, Clock, Users, DollarSign, TrendingUp, Award, Calendar, Download, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+const QuotationComparison = lazy(() =>
+  import("@/components/QuotationComparison").then((m) => ({ default: m.QuotationComparison }))
+);
+
+const TAB_KEY = "quotations:active-tab";
 
 const QuotationsPage = () => {
   const { isArabic } = useLanguage();
@@ -26,13 +33,23 @@ const QuotationsPage = () => {
 
   const [topSuppliers, setTopSuppliers] = useState<Array<{ name: string; count: number; value: number }>>([]);
   const [statusBreakdown, setStatusBreakdown] = useState<Array<{ key: string; label: string; count: number; color: string }>>([]);
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window === "undefined") return "upload";
+    return localStorage.getItem(TAB_KEY) || "upload";
+  });
+  const [isExporting, setIsExporting] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem(TAB_KEY, activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     const loadStats = async () => {
       const { data } = await supabase
         .from("price_quotations")
         .select("status, supplier_name, total_amount, currency, quotation_date, created_at")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(1000);
       if (!data) return;
       const suppliers = new Set(data.map((q) => q.supplier_name).filter(Boolean));
       const totalValue = data.reduce((sum, q) => sum + (Number(q.total_amount) || 0), 0);
