@@ -335,7 +335,7 @@ const SubcontractorsPage = () => {
         <ColorLegend type="category" isArabic={isArabic} />
 
         {/* Main Tabs - FIDIC removed */}
-        <Tabs defaultValue="dashboard" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="grid grid-cols-3 w-full md:w-auto tabs-navigation-safe">
             <TabsTrigger value="dashboard" className="gap-2">
               <LayoutDashboard className="w-4 h-4" />
@@ -352,14 +352,16 @@ const SubcontractorsPage = () => {
           </TabsList>
 
           <TabsContent value="dashboard" className="mt-4">
-            <SubcontractorProgressDashboard 
+            <SubcontractorProgressDashboard
               subcontractors={subcontractors}
               assignments={assignments}
             />
           </TabsContent>
 
           <TabsContent value="management" className="mt-4">
-            <SubcontractorManagement />
+            <Suspense fallback={<div className="flex items-center justify-center py-16 text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin me-2" />Loading…</div>}>
+              <SubcontractorManagement />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="boq-link" className="mt-4">
