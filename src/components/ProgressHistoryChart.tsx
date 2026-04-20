@@ -16,6 +16,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { useProgressHistory } from "@/hooks/useProgressHistory";
 import { format } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
+import { LazyChart } from "@/components/charts/LazyChart";
 
 interface ProgressHistoryChartProps {
   projectId?: string;
@@ -92,6 +93,7 @@ export function ProgressHistoryChart({ projectId }: ProgressHistoryChartProps) {
 
       <CardContent className="p-4">
         <div className="h-80">
+          <LazyChart minHeight={320}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={chartData}
@@ -170,6 +172,7 @@ export function ProgressHistoryChart({ projectId }: ProgressHistoryChartProps) {
               />
             </LineChart>
           </ResponsiveContainer>
+          </LazyChart>
         </div>
 
         {/* Summary Stats */}
