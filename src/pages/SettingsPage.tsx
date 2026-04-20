@@ -63,6 +63,10 @@ const SettingsPage = () => {
             <NotificationSettings />
           </TabsContent>
 
+          <TabsContent value="migration" className="mt-6">
+            <DataMigrationPanel />
+          </TabsContent>
+
           <TabsContent value="about" className="mt-6">
             <div className="max-w-xl">
               <h3 className="text-lg font-semibold mb-4">
