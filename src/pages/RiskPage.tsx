@@ -251,7 +251,9 @@ const RiskPage = () => {
         </div>
 
         <ColorLegend type="priority" isArabic={isArabic} />
-        <RiskManagement />
+        <Suspense fallback={<div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
+          <RiskManagement />
+        </Suspense>
       </div>
     </PageLayout>
   );
