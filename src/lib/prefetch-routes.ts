@@ -16,6 +16,7 @@ const routeLoaders: Record<string, RouteLoader> = {
   "/contracts": () => import("@/pages/ContractsPage"),
   "/quotations": () => import("@/pages/QuotationsPage"),
   "/settings": () => import("@/pages/SettingsPage"),
+  "/project-details": () => import("@/pages/ProjectDetailsPage"),
 };
 
 const prefetched = new Set<string>();

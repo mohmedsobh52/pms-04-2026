@@ -44,6 +44,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { prefetchRoute } from "@/lib/prefetch-routes";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 
 interface ProjectData {
   id: string;
