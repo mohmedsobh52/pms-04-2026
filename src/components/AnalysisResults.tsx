@@ -2440,7 +2440,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredItems.map((item, idx) => {
+                  {pagedItems.map((item, idx) => {
                     // Ensure item_number exists
                     if (!item.item_number) {
                       console.error(`⚠️ Item at index ${idx} missing item_number:`, item);
