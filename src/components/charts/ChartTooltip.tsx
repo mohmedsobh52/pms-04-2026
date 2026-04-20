@@ -1,11 +1,11 @@
-import * as React from "react";
+import type { ReactNode } from "react";
 
 interface ChartTooltipProps {
   active?: boolean;
   payload?: any[];
   label?: string | number;
-  formatter?: (value: any, name?: string) => React.ReactNode;
-  labelFormatter?: (label: any) => React.ReactNode;
+  formatter?: (value: any, name?: string) => ReactNode;
+  labelFormatter?: (label: any) => ReactNode;
 }
 
 /**
