@@ -1,21 +1,34 @@
-import { useEffect, useState } from "react";
-import { ProcurementResourcesSchedule } from "@/components/ProcurementResourcesSchedule";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { PageLayout } from "@/components/PageLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";
-import { Building2, Package, FileText, Sparkles, Users, CheckCircle2, Star, FileSignature, DollarSign, Send } from "lucide-react";
+import { Building2, Package, FileText, Sparkles, Users, CheckCircle2, Star, FileSignature, DollarSign, Send, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  ExternalPartners,
-  RequestOfferDialog,
-  ProcurementContracts,
-} from "@/components/procurement";
+import { RequestOfferDialog } from "@/components/procurement";
 import { ColorLegend } from "@/components/ui/color-code";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { ExternalPartner } from "@/components/procurement/PartnerCard";
+
+const ExternalPartners = lazy(() =>
+  import("@/components/procurement").then((m) => ({ default: m.ExternalPartners }))
+);
+const ProcurementContracts = lazy(() =>
+  import("@/components/procurement").then((m) => ({ default: m.ProcurementContracts }))
+);
+const ProcurementResourcesSchedule = lazy(() =>
+  import("@/components/ProcurementResourcesSchedule").then((m) => ({ default: m.ProcurementResourcesSchedule }))
+);
+
+const TabFallback = () => (
+  <div className="flex items-center justify-center py-12">
+    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+  </div>
+);
+
+const TAB_KEY = "procurement:active-tab";
 
 const ProcurementPage = () => {
   const { analysisData } = useAnalysisData();
@@ -23,35 +36,36 @@ const ProcurementPage = () => {
   const { user } = useAuth();
   const [partners, setPartners] = useState<ExternalPartner[]>([]);
   const [extra, setExtra] = useState({ contracts: 0, contractsValue: 0, offers: 0 });
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window === "undefined") return "partners";
+    return localStorage.getItem(TAB_KEY) || "partners";
+  });
 
   useEffect(() => {
-    if (user) {
-      fetchPartners();
-      (async () => {
-        const [pc, off] = await Promise.all([
-          supabase.from('partner_contracts').select('contract_value').eq('user_id', user.id),
-          supabase.from('offer_requests').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-        ]);
-        setExtra({
-          contracts: pc.data?.length || 0,
-          contractsValue: (pc.data || []).reduce((s: number, r: any) => s + (Number(r.contract_value) || 0), 0),
-          offers: off.count || 0,
-        });
-      })();
-    }
-  }, [user]);
+    if (typeof window !== "undefined") localStorage.setItem(TAB_KEY, activeTab);
+  }, [activeTab]);
 
-  const fetchPartners = async () => {
-    try {
-      const { data } = await supabase
-        .from("external_partners")
-        .select("*")
-        .eq("user_id", user?.id) as { data: ExternalPartner[] | null };
-      setPartners(data || []);
-    } catch (error) {
-      console.error("Error fetching partners:", error);
-    }
-  };
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const [partnersRes, pc, off] = await Promise.all([
+        supabase
+          .from("external_partners")
+          .select("*")
+          .eq("user_id", user.id)
+          .limit(500)
+          .order("created_at", { ascending: false }),
+        supabase.from("partner_contracts").select("contract_value").eq("user_id", user.id).limit(500),
+        supabase.from("offer_requests").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+      ]);
+      setPartners((partnersRes.data as ExternalPartner[]) || []);
+      setExtra({
+        contracts: pc.data?.length || 0,
+        contractsValue: (pc.data || []).reduce((s: number, r: any) => s + (Number(r.contract_value) || 0), 0),
+        offers: off.count || 0,
+      });
+    })();
+  }, [user]);
 
   return (
     <PageLayout>
@@ -183,7 +197,7 @@ const ProcurementPage = () => {
         <ColorLegend type="status" isArabic={isArabic} />
 
         {/* Tabs */}
-        <Tabs defaultValue="partners" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
             <TabsTrigger value="partners" className="gap-2">
               <Building2 className="w-4 h-4" />
@@ -206,22 +220,27 @@ const ProcurementPage = () => {
           </TabsList>
 
           <TabsContent value="partners">
-            <ExternalPartners />
+            <Suspense fallback={<TabFallback />}>
+              <ExternalPartners />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="procurement">
-            <ProcurementResourcesSchedule
-              items={analysisData?.items || []}
-              currency={analysisData?.summary?.currency || "SAR"}
-            />
+            <Suspense fallback={<TabFallback />}>
+              <ProcurementResourcesSchedule
+                items={analysisData?.items || []}
+                currency={analysisData?.summary?.currency || "SAR"}
+              />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="contracts">
-            <ProcurementContracts />
+            <Suspense fallback={<TabFallback />}>
+              <ProcurementContracts />
+            </Suspense>
           </TabsContent>
         </Tabs>
       </div>
-
     </PageLayout>
   );
 };
