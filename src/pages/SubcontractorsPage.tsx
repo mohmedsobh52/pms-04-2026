@@ -378,10 +378,12 @@ const SubcontractorsPage = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <SubcontractorBOQLink 
-                  boqItems={analysisData?.items || []} 
-                  projectId={undefined}
-                />
+                <Suspense fallback={<div className="flex items-center justify-center py-16 text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin me-2" />Loading…</div>}>
+                  <SubcontractorBOQLink
+                    boqItems={analysisData?.items || []}
+                    projectId={undefined}
+                  />
+                </Suspense>
               </CardContent>
             </Card>
           </TabsContent>
