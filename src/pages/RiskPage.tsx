@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
-import { RiskManagement } from "@/components/RiskManagement";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
+const RiskManagement = lazy(() =>
+  import("@/components/RiskManagement").then((m) => ({ default: m.RiskManagement }))
+);
 import { PageLayout } from "@/components/PageLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShieldAlert, AlertTriangle, ShieldCheck, Activity, Clock, Layers } from "lucide-react";
@@ -24,7 +27,9 @@ const RiskPage = () => {
       const { data } = await supabase
         .from("risks")
         .select("id, title, description, risk_score, probability, impact, status, category, review_date")
-        .eq("user_id", user.id);
+        .eq("user_id", user.id)
+        .limit(500)
+        .order("created_at", { ascending: false });
       if (!data) return;
       const scores = data.map((r: any) => Number(r.risk_score) || 0);
       const high = data.filter((r: any) => (Number(r.risk_score) || 0) >= 15).length;
@@ -246,7 +251,9 @@ const RiskPage = () => {
         </div>
 
         <ColorLegend type="priority" isArabic={isArabic} />
-        <RiskManagement />
+        <Suspense fallback={<div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
+          <RiskManagement />
+        </Suspense>
       </div>
     </PageLayout>
   );
