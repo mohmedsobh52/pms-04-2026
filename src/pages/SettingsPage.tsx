@@ -3,10 +3,11 @@ import { AIModelSelector } from "@/components/AIModelSelector";
 import { AnalysisStatusDashboard } from "@/components/AnalysisStatusDashboard";
 import { CompanySettingsPanel } from "@/components/CompanySettingsPanel";
 import { DeveloperInfo } from "@/components/DeveloperInfo";
+import { DataMigrationPanel } from "@/components/DataMigrationPanel";
 import { useLanguage } from "@/hooks/useLanguage";
 import { PageLayout } from "@/components/PageLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, Bell, Activity, Building2, Info } from "lucide-react";
+import { Brain, Bell, Activity, Building2, Info, Database } from "lucide-react";
 
 const SettingsPage = () => {
   const { isArabic } = useLanguage();
@@ -19,7 +20,7 @@ const SettingsPage = () => {
         </h2>
         
         <Tabs defaultValue="company" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 tabs-navigation-safe">
+          <TabsList className="grid w-full grid-cols-6 tabs-navigation-safe">
             <TabsTrigger value="company" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               <span className="hidden sm:inline">{isArabic ? "الشركة" : "Company"}</span>
@@ -35,6 +36,10 @@ const SettingsPage = () => {
             <TabsTrigger value="notifications" className="flex items-center gap-2">
               <Bell className="h-4 w-4" />
               <span className="hidden sm:inline">{isArabic ? "الإشعارات" : "Notifications"}</span>
+            </TabsTrigger>
+            <TabsTrigger value="migration" className="flex items-center gap-2">
+              <Database className="h-4 w-4" />
+              <span className="hidden sm:inline">{isArabic ? "نقل البيانات" : "Migration"}</span>
             </TabsTrigger>
             <TabsTrigger value="about" className="flex items-center gap-2">
               <Info className="h-4 w-4" />
@@ -56,6 +61,10 @@ const SettingsPage = () => {
           
           <TabsContent value="notifications" className="mt-6">
             <NotificationSettings />
+          </TabsContent>
+
+          <TabsContent value="migration" className="mt-6">
+            <DataMigrationPanel />
           </TabsContent>
 
           <TabsContent value="about" className="mt-6">
