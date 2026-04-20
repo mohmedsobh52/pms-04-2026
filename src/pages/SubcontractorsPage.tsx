@@ -56,6 +56,10 @@ const SubcontractorsPage = () => {
   
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window === "undefined") return "dashboard";
+    return localStorage.getItem("subcontractors:active-tab") || "dashboard";
+  });
   const [stats, setStats] = useState({
     totalSubcontractors: 0,
     activeSubcontractors: 0,
@@ -68,6 +72,10 @@ const SubcontractorsPage = () => {
   });
 
   useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("subcontractors:active-tab", activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
     if (user) {
       fetchData();
     }
@@ -76,8 +84,18 @@ const SubcontractorsPage = () => {
   const fetchData = async () => {
     try {
       const [subcontractorsRes, assignmentsRes] = await Promise.all([
-        supabase.from("subcontractors").select("id, name, specialty, status").eq("user_id", user?.id),
-        supabase.from("subcontractor_assignments").select("id, subcontractor_id, scope_of_work, contract_value, start_date, end_date, progress_percentage, status, payment_status"),
+        supabase
+          .from("subcontractors")
+          .select("id, name, specialty, status")
+          .eq("user_id", user?.id)
+          .order("created_at", { ascending: false })
+          .limit(500),
+        supabase
+          .from("subcontractor_assignments")
+          .select("id, subcontractor_id, scope_of_work, contract_value, start_date, end_date, progress_percentage, status, payment_status")
+          .eq("user_id", user?.id)
+          .order("created_at", { ascending: false })
+          .limit(500),
       ]);
 
       const subcontractorsList = (subcontractorsRes.data || []) as Subcontractor[];
