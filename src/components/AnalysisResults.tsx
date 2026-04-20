@@ -655,6 +655,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 250);
   const [unitFilter, setUnitFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [costRangeFilter, setCostRangeFilter] = useState<string>("all");
