@@ -723,6 +723,27 @@ export default function SavedProjectsPage() {
               </div>
             ))}
           </div>
+          {filteredProjects.length > pageSize && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={Math.ceil(filteredProjects.length / pageSize)}
+              totalItems={filteredProjects.length}
+              pageSize={pageSize}
+              from={(currentPage - 1) * pageSize}
+              to={currentPage * pageSize - 1}
+              hasNext={currentPage < Math.ceil(filteredProjects.length / pageSize)}
+              hasPrevious={currentPage > 1}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+              onNextPage={() => setCurrentPage((p) => p + 1)}
+              onPreviousPage={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              pageSizeOptions={[12, 24, 48, 96]}
+            />
+          )}
+          </>
         )}
           </TabsContent>
 
