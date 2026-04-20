@@ -17,7 +17,15 @@ interface TenderChartsProps {
   directCosts?: number;
 }
 
-const COLORS = ["#22c55e", "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
+const COLORS = [
+  "hsl(142 71% 45%)",
+  "hsl(217 91% 60%)",
+  "hsl(160 84% 39%)",
+  "hsl(38 92% 50%)",
+  "hsl(0 84% 60%)",
+  "hsl(262 83% 58%)",
+  "hsl(189 94% 43%)",
+];
 
 export function TenderCharts({ isArabic, totals, directCosts = 0 }: TenderChartsProps) {
   // Build pie data with direct costs first if available
