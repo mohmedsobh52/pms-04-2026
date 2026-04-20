@@ -145,15 +145,17 @@ export function TenderCharts({ isArabic, totals, directCosts = 0 }: TenderCharts
 
   if (grandTotal === 0) {
     return (
-      <Card>
-        <CardContent className="py-12">
-          <div className="text-center text-muted-foreground">
-            <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>{isArabic ? "لا توجد بيانات لعرضها" : "No data to display"}</p>
-            <p className="text-sm mt-2">
-              {isArabic ? "أضف بيانات في التبويبات الأخرى لعرض الرسوم البيانية" : "Add data in other tabs to display charts"}
-            </p>
-          </div>
+      <Card className="border-dashed">
+        <CardContent className="py-6">
+          <EmptyState
+            icon={BarChart3}
+            title={isArabic ? "لا توجد بيانات لعرضها" : "No data to display"}
+            description={
+              isArabic
+                ? "أضف بيانات في التبويبات الأخرى لعرض الرسوم البيانية"
+                : "Add data in other tabs to display charts"
+            }
+          />
         </CardContent>
       </Card>
     );
