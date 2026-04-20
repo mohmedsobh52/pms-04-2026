@@ -773,6 +773,19 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     return items;
   }, [data.items, searchQuery, unitFilter, categoryFilter, costRangeFilter, sortField, sortDirection, deletedItemNumbers, showOnlyZeroQty, unpricedOnly, editedPrices]);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, unitFilter, categoryFilter, costRangeFilter, unpricedOnly, showOnlyZeroQty, pageSize]);
+
+  // Paginated slice (perf optimization for large BOQs)
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const pagedItems = useMemo(
+    () => filteredItems.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredItems, safePage, pageSize]
+  );
+
   // Count zero quantity items
   const zeroQuantityItems = useMemo(() => {
     return (data.items || []).filter(item => 
