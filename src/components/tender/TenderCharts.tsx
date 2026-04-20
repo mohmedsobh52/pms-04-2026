@@ -189,7 +189,7 @@ export function TenderCharts({ isArabic, totals, directCosts = 0 }: TenderCharts
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<ChartTooltip formatter={tooltipFormatter} />} cursor={{ fill: "hsl(var(--muted) / 0.3)" }} />
                 <Legend 
                   layout="horizontal" 
                   verticalAlign="bottom" 
@@ -229,7 +229,7 @@ export function TenderCharts({ isArabic, totals, directCosts = 0 }: TenderCharts
                   width={80}
                   tick={{ fontSize: 12 }}
                 />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<ChartTooltip formatter={tooltipFormatter} />} cursor={{ fill: "hsl(var(--muted) / 0.3)" }} />
                 <Bar 
                   dataKey="value" 
                   radius={[0, 4, 4, 0]}
