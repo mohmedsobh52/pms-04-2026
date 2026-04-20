@@ -16,6 +16,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { useProgressHistory } from "@/hooks/useProgressHistory";
 import { format } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
+import { LazyChart } from "@/components/charts/LazyChart";
 
 interface ProgressHistoryChartProps {
   projectId?: string;
