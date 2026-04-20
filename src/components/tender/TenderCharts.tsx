@@ -119,19 +119,8 @@ export function TenderCharts({ isArabic, totals, directCosts = 0 }: TenderCharts
     return value.toFixed(0);
   };
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-popover border rounded-lg shadow-lg p-3">
-          <p className="font-medium">{payload[0].name || payload[0].payload?.name}</p>
-          <p className="text-primary font-bold">
-            SAR {new Intl.NumberFormat("en-US").format(payload[0].value)}
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
+  const tooltipFormatter = (value: any) =>
+    `SAR ${new Intl.NumberFormat("en-US").format(value)}`;
 
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
     if (percent < 0.05) return null;
