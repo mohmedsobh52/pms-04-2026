@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
-import { RiskManagement } from "@/components/RiskManagement";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
+const RiskManagement = lazy(() =>
+  import("@/components/RiskManagement").then((m) => ({ default: m.RiskManagement }))
+);
 import { PageLayout } from "@/components/PageLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShieldAlert, AlertTriangle, ShieldCheck, Activity, Clock, Layers } from "lucide-react";
