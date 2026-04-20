@@ -33,9 +33,9 @@ const LibraryPage = () => {
     if (!user) return;
     (async () => {
       const [m, l, e] = await Promise.all([
-        supabase.from("material_prices").select("id,name,unit_price,unit,category,created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
-        supabase.from("labor_rates").select("id,name,unit_rate,unit,created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
-        supabase.from("equipment_rates").select("id,name,rental_rate,unit,created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("material_prices").select("id,name,unit_price,unit,category,created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(500),
+        supabase.from("labor_rates").select("id,name,unit_rate,unit,created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(500),
+        supabase.from("equipment_rates").select("id,name,rental_rate,unit,created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(500),
       ]);
       const mats = (m.data as any[]) || [];
       const labs = (l.data as any[]) || [];
