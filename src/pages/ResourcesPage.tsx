@@ -102,7 +102,14 @@ const ResourcesPage = () => {
   const { user } = useAuth();
   const { analysisData } = useAnalysisData();
   
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window === "undefined") return "overview";
+    return localStorage.getItem("resources:active-tab") || "overview";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("resources:active-tab", activeTab);
+  }, [activeTab]);
   const [resources, setResources] = useState<ResourceItem[]>([]);
   const [timelineTasks, setTimelineTasks] = useState<TimelineTask[]>([]);
   const [isLoading, setIsLoading] = useState(false);
