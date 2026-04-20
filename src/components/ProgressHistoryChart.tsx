@@ -93,6 +93,7 @@ export function ProgressHistoryChart({ projectId }: ProgressHistoryChartProps) {
 
       <CardContent className="p-4">
         <div className="h-80">
+          <LazyChart minHeight={320}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={chartData}
