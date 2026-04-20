@@ -663,6 +663,9 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   const [showFilters, setShowFilters] = useState(false);
   const [unpricedOnly, setUnpricedOnly] = useState(false);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  // Pagination for large BOQ tables (perf)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   const toggleCategory = (category: string) => {
     const newSet = new Set(expandedCategories);
@@ -769,6 +772,19 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     
     return items;
   }, [data.items, searchQuery, unitFilter, categoryFilter, costRangeFilter, sortField, sortDirection, deletedItemNumbers, showOnlyZeroQty, unpricedOnly, editedPrices]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, unitFilter, categoryFilter, costRangeFilter, unpricedOnly, showOnlyZeroQty, pageSize]);
+
+  // Paginated slice (perf optimization for large BOQs)
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const pagedItems = useMemo(
+    () => filteredItems.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredItems, safePage, pageSize]
+  );
 
   // Count zero quantity items
   const zeroQuantityItems = useMemo(() => {
@@ -2424,7 +2440,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredItems.map((item, idx) => {
+                  {pagedItems.map((item, idx) => {
                     // Ensure item_number exists
                     if (!item.item_number) {
                       console.error(`⚠️ Item at index ${idx} missing item_number:`, item);
@@ -2611,6 +2627,50 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                 </tfoot>
               </table>
             </div>
+
+            {/* Pagination controls — performance for large BOQs */}
+            {filteredItems.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 mt-3 px-2 py-2 rounded-lg border border-border bg-muted/30">
+                <div className="text-xs text-muted-foreground">
+                  {isArabic
+                    ? `عرض ${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, filteredItems.length)} من ${filteredItems.length}`
+                    : `Showing ${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, filteredItems.length)} of ${filteredItems.length}`}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                    <SelectTrigger className="h-8 w-[90px] text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[25, 50, 100, 200, 500].map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n} / {isArabic ? "صفحة" : "page"}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={safePage <= 1}
+                  >
+                    {isArabic ? "السابق" : "Prev"}
+                  </Button>
+                  <span className="text-xs font-medium px-2">
+                    {safePage} / {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={safePage >= totalPages}
+                  >
+                    {isArabic ? "التالي" : "Next"}
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Category Summary */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
