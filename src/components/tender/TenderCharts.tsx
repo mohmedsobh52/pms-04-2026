@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { PieChart as PieChartIcon, BarChart3 } from "lucide-react";
+import { ChartTooltip } from "@/components/charts/ChartTooltip";
+import { EmptyState } from "@/components/ui/page-skeleton";
 
 interface TenderChartsProps {
   isArabic: boolean;
@@ -15,7 +17,15 @@ interface TenderChartsProps {
   directCosts?: number;
 }
 
-const COLORS = ["#22c55e", "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
+const COLORS = [
+  "hsl(142 71% 45%)",
+  "hsl(217 91% 60%)",
+  "hsl(160 84% 39%)",
+  "hsl(38 92% 50%)",
+  "hsl(0 84% 60%)",
+  "hsl(262 83% 58%)",
+  "hsl(189 94% 43%)",
+];
 
 export function TenderCharts({ isArabic, totals, directCosts = 0 }: TenderChartsProps) {
   // Build pie data with direct costs first if available
@@ -109,19 +119,8 @@ export function TenderCharts({ isArabic, totals, directCosts = 0 }: TenderCharts
     return value.toFixed(0);
   };
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-popover border rounded-lg shadow-lg p-3">
-          <p className="font-medium">{payload[0].name || payload[0].payload?.name}</p>
-          <p className="text-primary font-bold">
-            SAR {new Intl.NumberFormat("en-US").format(payload[0].value)}
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
+  const tooltipFormatter = (value: any) =>
+    `SAR ${new Intl.NumberFormat("en-US").format(value)}`;
 
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
     if (percent < 0.05) return null;
@@ -146,22 +145,24 @@ export function TenderCharts({ isArabic, totals, directCosts = 0 }: TenderCharts
 
   if (grandTotal === 0) {
     return (
-      <Card>
-        <CardContent className="py-12">
-          <div className="text-center text-muted-foreground">
-            <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>{isArabic ? "لا توجد بيانات لعرضها" : "No data to display"}</p>
-            <p className="text-sm mt-2">
-              {isArabic ? "أضف بيانات في التبويبات الأخرى لعرض الرسوم البيانية" : "Add data in other tabs to display charts"}
-            </p>
-          </div>
+      <Card className="border-dashed">
+        <CardContent className="py-6">
+          <EmptyState
+            icon={BarChart3}
+            title={isArabic ? "لا توجد بيانات لعرضها" : "No data to display"}
+            description={
+              isArabic
+                ? "أضف بيانات في التبويبات الأخرى لعرض الرسوم البيانية"
+                : "Add data in other tabs to display charts"
+            }
+          />
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-in">
       {/* Pie Chart - Cost Distribution */}
       <Card>
         <CardHeader>
@@ -188,7 +189,7 @@ export function TenderCharts({ isArabic, totals, directCosts = 0 }: TenderCharts
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<ChartTooltip formatter={tooltipFormatter} />} cursor={{ fill: "hsl(var(--muted) / 0.3)" }} />
                 <Legend 
                   layout="horizontal" 
                   verticalAlign="bottom" 
@@ -228,7 +229,7 @@ export function TenderCharts({ isArabic, totals, directCosts = 0 }: TenderCharts
                   width={80}
                   tick={{ fontSize: 12 }}
                 />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<ChartTooltip formatter={tooltipFormatter} />} cursor={{ fill: "hsl(var(--muted) / 0.3)" }} />
                 <Bar 
                   dataKey="value" 
                   radius={[0, 4, 4, 0]}
