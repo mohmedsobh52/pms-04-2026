@@ -124,9 +124,9 @@ export function SubcontractorManagement() {
     try {
       const [subRes, assignRes, projRes, contractRes] = await Promise.all([
         supabase.from("subcontractors").select("*").order("created_at", { ascending: false }),
-        supabase.from("subcontractor_assignments").select("*").order("created_at", { ascending: false }),
-        supabase.from("project_data").select("id, name").order("created_at", { ascending: false }),
-        supabase.from("contracts").select("id, contract_number, contract_title, contractor_name, contract_value, status").order("created_at", { ascending: false })
+        supabase.from("subcontractor_assignments").select("*").order("created_at", { ascending: false }).limit(500),
+        supabase.from("project_data").select("id, name").order("created_at", { ascending: false }).limit(500),
+        supabase.from("contracts").select("id, contract_number, contract_title, contractor_name, contract_value, status").order("created_at", { ascending: false }).limit(500)
       ]);
 
       if (subRes.data) setSubcontractors(subRes.data);
