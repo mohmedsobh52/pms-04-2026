@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Database, Upload, FileSpreadsheet, FileText, Trash2, Eye, Calendar, MapPin, CheckCircle, XCircle, Plus, Search, Filter, ArrowLeft, BarChart3, Loader2, Download, FileImage } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,7 +97,8 @@ export default function HistoricalPricingPage() {
       const { data, error } = await supabase
         .from("historical_pricing_files")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(500);
 
       if (error) throw error;
       
