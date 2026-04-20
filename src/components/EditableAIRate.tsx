@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, memo } from "react";
 import { Check, X, Pencil, Sparkles, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ interface EditableAIRateProps {
   isApplied?: boolean;
 }
 
-export function EditableAIRate({ itemNumber, currentRate, onSave, isLoading, isApplied }: EditableAIRateProps) {
+function EditableAIRateComponent({ itemNumber, currentRate, onSave, isLoading, isApplied }: EditableAIRateProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(currentRate?.toString() || "");
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -145,3 +145,10 @@ export function EditableAIRate({ itemNumber, currentRate, onSave, isLoading, isA
     </div>
   );
 }
+
+export const EditableAIRate = memo(EditableAIRateComponent, (prev, next) =>
+  prev.itemNumber === next.itemNumber &&
+  prev.currentRate === next.currentRate &&
+  prev.isLoading === next.isLoading &&
+  prev.isApplied === next.isApplied
+);
