@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, memo } from "react";
 import { Check, X, Pencil, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +40,7 @@ interface EditableUnitProps {
   disabled?: boolean;
 }
 
-export function EditableUnit({ value, onSave, className, disabled }: EditableUnitProps) {
+function EditableUnitComponent({ value, onSave, className, disabled }: EditableUnitProps) {
   const { isArabic } = useLanguage();
   const [isCustomInput, setIsCustomInput] = useState(false);
   const [customValue, setCustomValue] = useState("");
@@ -162,3 +162,7 @@ export function EditableUnit({ value, onSave, className, disabled }: EditableUni
     </div>
   );
 }
+
+export const EditableUnit = memo(EditableUnitComponent, (prev, next) =>
+  prev.value === next.value && prev.disabled === next.disabled && prev.className === next.className
+);
