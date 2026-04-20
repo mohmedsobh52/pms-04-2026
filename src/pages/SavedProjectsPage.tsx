@@ -44,6 +44,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { prefetchRoute } from "@/lib/prefetch-routes";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 
 interface ProjectData {
   id: string;
@@ -84,6 +86,8 @@ export default function SavedProjectsPage() {
   const [selectedProject, setSelectedProject] = useState<ProjectData | null>(null);
   const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
   
   // Drag-and-drop state
   const [draggedFile, setDraggedFile] = useState<File | null>(null);
@@ -612,10 +616,15 @@ export default function SavedProjectsPage() {
             )}
           </div>
         ) : (
+          <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredProjects.map((project) => (
+            {filteredProjects
+              .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+              .map((project) => (
               <div
                 key={project.id}
+                onMouseEnter={() => prefetchRoute("/project-details")}
+                onFocus={() => prefetchRoute("/project-details")}
                 className="glass-card p-5 hover:border-primary/30 transition-all duration-200 group"
               >
                 {/* Header */}
@@ -714,6 +723,27 @@ export default function SavedProjectsPage() {
               </div>
             ))}
           </div>
+          {filteredProjects.length > pageSize && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={Math.ceil(filteredProjects.length / pageSize)}
+              totalItems={filteredProjects.length}
+              pageSize={pageSize}
+              from={(currentPage - 1) * pageSize}
+              to={currentPage * pageSize - 1}
+              hasNext={currentPage < Math.ceil(filteredProjects.length / pageSize)}
+              hasPrevious={currentPage > 1}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+              onNextPage={() => setCurrentPage((p) => p + 1)}
+              onPreviousPage={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              pageSizeOptions={[12, 24, 48, 96]}
+            />
+          )}
+          </>
         )}
           </TabsContent>
 
