@@ -93,7 +93,6 @@ const SubcontractorsPage = () => {
         supabase
           .from("subcontractor_assignments")
           .select("id, subcontractor_id, scope_of_work, contract_value, start_date, end_date, progress_percentage, status, payment_status")
-          .eq("user_id", user?.id)
           .order("created_at", { ascending: false })
           .limit(500),
       ]);
