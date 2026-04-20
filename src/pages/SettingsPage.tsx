@@ -3,10 +3,11 @@ import { AIModelSelector } from "@/components/AIModelSelector";
 import { AnalysisStatusDashboard } from "@/components/AnalysisStatusDashboard";
 import { CompanySettingsPanel } from "@/components/CompanySettingsPanel";
 import { DeveloperInfo } from "@/components/DeveloperInfo";
+import { DataMigrationPanel } from "@/components/DataMigrationPanel";
 import { useLanguage } from "@/hooks/useLanguage";
 import { PageLayout } from "@/components/PageLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, Bell, Activity, Building2, Info } from "lucide-react";
+import { Brain, Bell, Activity, Building2, Info, Database } from "lucide-react";
 
 const SettingsPage = () => {
   const { isArabic } = useLanguage();
