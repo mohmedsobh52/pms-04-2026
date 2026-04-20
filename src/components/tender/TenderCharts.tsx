@@ -162,7 +162,7 @@ export function TenderCharts({ isArabic, totals, directCosts = 0 }: TenderCharts
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-in">
       {/* Pie Chart - Cost Distribution */}
       <Card>
         <CardHeader>
