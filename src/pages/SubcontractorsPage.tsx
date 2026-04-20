@@ -1,5 +1,4 @@
-import { SubcontractorManagement } from "@/components/SubcontractorManagement";
-import { SubcontractorBOQLink } from "@/components/SubcontractorBOQLink";
+import { lazy, Suspense } from "react";
 import { SubcontractorProgressDashboard } from "@/components/SubcontractorProgressDashboard";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -8,6 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLayout } from "@/components/PageLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ColorLegend } from "@/components/ui/color-code";
+
+const SubcontractorManagement = lazy(() =>
+  import("@/components/SubcontractorManagement").then((m) => ({ default: m.SubcontractorManagement }))
+);
+const SubcontractorBOQLink = lazy(() =>
+  import("@/components/SubcontractorBOQLink").then((m) => ({ default: m.SubcontractorBOQLink }))
+);
 import { 
   Users, 
   LayoutDashboard, 
@@ -20,7 +26,8 @@ import {
   AlertCircle
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Loader2 as _ } from "react";
+import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Subcontractor {
