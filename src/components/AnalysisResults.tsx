@@ -663,6 +663,9 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   const [showFilters, setShowFilters] = useState(false);
   const [unpricedOnly, setUnpricedOnly] = useState(false);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  // Pagination for large BOQ tables (perf)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   const toggleCategory = (category: string) => {
     const newSet = new Set(expandedCategories);
