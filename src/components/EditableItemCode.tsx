@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { Check, X, Edit2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ interface EditableItemCodeProps {
   onSave: (itemNumber: string, code: string) => void;
 }
 
-export function EditableItemCode({ itemNumber, code, onSave }: EditableItemCodeProps) {
+function EditableItemCodeComponent({ itemNumber, code, onSave }: EditableItemCodeProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(code);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -100,3 +100,7 @@ export function EditableItemCode({ itemNumber, code, onSave }: EditableItemCodeP
     </div>
   );
 }
+
+export const EditableItemCode = memo(EditableItemCodeComponent, (prev, next) =>
+  prev.itemNumber === next.itemNumber && prev.code === next.code
+);
