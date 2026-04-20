@@ -27,6 +27,7 @@ import { EnhancedKPIDashboard } from "./EnhancedKPIDashboard";
 import { MarketRateSuggestions } from "./MarketRateSuggestions";
 import { EnhancedPricingAnalysis } from "./EnhancedPricingAnalysis";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useDebounce } from "@/hooks/useDebounce";
 import { PDFCustomization, getSavedCompanyInfo, CompanyInfo } from "./PDFCustomization";
 import { ItemCostEditor } from "./ItemCostEditor";
 import { BulkApplyCostsDialog } from "./BulkApplyCostsDialog";
