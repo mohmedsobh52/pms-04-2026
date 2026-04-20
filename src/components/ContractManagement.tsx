@@ -100,6 +100,7 @@ interface Contract {
 
 interface ContractManagementProps {
   projectId?: string;
+  initialSearch?: string;
 }
 
 const WIZARD_STEPS = [
@@ -110,7 +111,7 @@ const WIZARD_STEPS = [
   { id: 5, labelEn: "Scope & Notes", labelAr: "النطاق والملاحظات", icon: FileCheck },
 ];
 
-export function ContractManagement({ projectId }: ContractManagementProps) {
+export function ContractManagement({ projectId, initialSearch }: ContractManagementProps) {
   const { isArabic } = useLanguage();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -122,9 +123,14 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
   const [viewingContract, setViewingContract] = useState<Contract | null>(null);
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
-  
+
   // Search and Filter states
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(initialSearch || "");
+
+  // Sync external search updates
+  useEffect(() => {
+    if (initialSearch !== undefined) setSearchTerm(initialSearch);
+  }, [initialSearch]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   
