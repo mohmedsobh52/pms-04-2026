@@ -426,11 +426,11 @@ const ReportsPage = () => {
           </Card>
         </div>
 
-        <Tabs defaultValue="export" className="mt-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
           <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1 tabs-navigation-safe">
             {tabs.map((tab) => (
-              <TabsTrigger 
-                key={tab.value} 
+              <TabsTrigger
+                key={tab.value}
                 value={tab.value}
                 className="flex items-center gap-1.5 text-xs sm:text-sm px-2 sm:px-3"
               >
@@ -444,30 +444,42 @@ const ReportsPage = () => {
           </TabsList>
 
           <TabsContent value="export" className="mt-4">
-            <ExportTab projects={filteredProjects} isLoading={loading} />
+            <Suspense fallback={<TabFallback />}>
+              <ExportTab projects={filteredProjects} isLoading={loading} />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="price-analysis" className="mt-4">
-            <PriceAnalysisTab projects={filteredProjects} />
+            <Suspense fallback={<TabFallback />}>
+              <PriceAnalysisTab projects={filteredProjects} />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="comparison" className="mt-4">
-            <ProjectsComparisonExport projects={filteredProjects} />
+            <Suspense fallback={<TabFallback />}>
+              <ProjectsComparisonExport projects={filteredProjects} />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="summary" className="mt-4">
-            <ProjectSummaryTab projects={filteredProjects} tenderData={tenderData} />
+            <Suspense fallback={<TabFallback />}>
+              <ProjectSummaryTab projects={filteredProjects} tenderData={tenderData} />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="recent" className="mt-4">
-            <RecentProjectsTab 
-              projects={filteredProjects} 
-              onDeleteProject={handleDeleteProject}
-            />
+            <Suspense fallback={<TabFallback />}>
+              <RecentProjectsTab
+                projects={filteredProjects}
+                onDeleteProject={handleDeleteProject}
+              />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="advanced" className="mt-4">
-            <AdvancedReportsTab projects={filteredProjects} />
+            <Suspense fallback={<TabFallback />}>
+              <AdvancedReportsTab projects={filteredProjects} />
+            </Suspense>
           </TabsContent>
         </Tabs>
       </div>
