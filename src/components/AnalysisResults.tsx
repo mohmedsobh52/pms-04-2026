@@ -27,6 +27,7 @@ import { EnhancedKPIDashboard } from "./EnhancedKPIDashboard";
 import { MarketRateSuggestions } from "./MarketRateSuggestions";
 import { EnhancedPricingAnalysis } from "./EnhancedPricingAnalysis";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useDebounce } from "@/hooks/useDebounce";
 import { PDFCustomization, getSavedCompanyInfo, CompanyInfo } from "./PDFCustomization";
 import { ItemCostEditor } from "./ItemCostEditor";
 import { BulkApplyCostsDialog } from "./BulkApplyCostsDialog";
@@ -655,6 +656,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 250);
   const [unitFilter, setUnitFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [costRangeFilter, setCostRangeFilter] = useState<string>("all");
@@ -708,9 +710,9 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
       });
     }
 
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
+    // Search filter (debounced)
+    if (debouncedSearchQuery) {
+      const query = debouncedSearchQuery.toLowerCase();
       items = items.filter(item => 
         item.item_number?.toLowerCase().includes(query) ||
         item.description?.toLowerCase().includes(query) ||
@@ -771,12 +773,12 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     }
     
     return items;
-  }, [data.items, searchQuery, unitFilter, categoryFilter, costRangeFilter, sortField, sortDirection, deletedItemNumbers, showOnlyZeroQty, unpricedOnly, editedPrices]);
+  }, [data.items, debouncedSearchQuery, unitFilter, categoryFilter, costRangeFilter, sortField, sortDirection, deletedItemNumbers, showOnlyZeroQty, unpricedOnly, editedPrices]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, unitFilter, categoryFilter, costRangeFilter, unpricedOnly, showOnlyZeroQty, pageSize]);
+  }, [debouncedSearchQuery, unitFilter, categoryFilter, costRangeFilter, unpricedOnly, showOnlyZeroQty, pageSize]);
 
   // Paginated slice (perf optimization for large BOQs)
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
