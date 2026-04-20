@@ -94,6 +94,8 @@ export const PartnerCard = ({ partner, onEdit }: PartnerCardProps) => {
               <img
                 src={partner.logo_url}
                 alt={partner.name}
+                loading="lazy"
+                decoding="async"
                 className="w-10 h-10 rounded-lg object-cover"
               />
             ) : (
