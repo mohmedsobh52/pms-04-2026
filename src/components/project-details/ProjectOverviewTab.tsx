@@ -5,6 +5,7 @@ import {
   CategoryDistributionChart,
   TopItemsChart,
 } from "@/components/charts/ChartJsCharts";
+import { LazyChart } from "@/components/charts/LazyChart";
 import { PricingAccuracyDashboard } from "@/components/PricingAccuracyDashboard";
 import { ProjectData, PricingStats } from "./types";
 
@@ -42,7 +43,9 @@ export function ProjectOverviewTab({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <PricingDistributionChart data={pricingDistributionData} isArabic={isArabic} />
+            <LazyChart minHeight={240}>
+              <PricingDistributionChart data={pricingDistributionData} isArabic={isArabic} />
+            </LazyChart>
           </CardContent>
         </Card>
         
@@ -53,10 +56,12 @@ export function ProjectOverviewTab({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <CategoryDistributionChart 
-              data={categoryDistribution} 
-              isArabic={isArabic}
-            />
+            <LazyChart minHeight={240}>
+              <CategoryDistributionChart 
+                data={categoryDistribution} 
+                isArabic={isArabic}
+              />
+            </LazyChart>
           </CardContent>
         </Card>
         
@@ -67,7 +72,9 @@ export function ProjectOverviewTab({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <TopItemsChart data={topValueItems} isArabic={isArabic} formatCurrency={formatCurrency} />
+            <LazyChart minHeight={240}>
+              <TopItemsChart data={topValueItems} isArabic={isArabic} formatCurrency={formatCurrency} />
+            </LazyChart>
           </CardContent>
         </Card>
       </div>
