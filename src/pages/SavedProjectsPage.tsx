@@ -86,6 +86,8 @@ export default function SavedProjectsPage() {
   const [selectedProject, setSelectedProject] = useState<ProjectData | null>(null);
   const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
   
   // Drag-and-drop state
   const [draggedFile, setDraggedFile] = useState<File | null>(null);
@@ -614,10 +616,15 @@ export default function SavedProjectsPage() {
             )}
           </div>
         ) : (
+          <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredProjects.map((project) => (
+            {filteredProjects
+              .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+              .map((project) => (
               <div
                 key={project.id}
+                onMouseEnter={() => prefetchRoute("/project-details")}
+                onFocus={() => prefetchRoute("/project-details")}
                 className="glass-card p-5 hover:border-primary/30 transition-all duration-200 group"
               >
                 {/* Header */}
