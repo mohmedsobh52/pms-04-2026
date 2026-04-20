@@ -102,7 +102,14 @@ const ResourcesPage = () => {
   const { user } = useAuth();
   const { analysisData } = useAnalysisData();
   
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window === "undefined") return "overview";
+    return localStorage.getItem("resources:active-tab") || "overview";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("resources:active-tab", activeTab);
+  }, [activeTab]);
   const [resources, setResources] = useState<ResourceItem[]>([]);
   const [timelineTasks, setTimelineTasks] = useState<TimelineTask[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -151,6 +158,7 @@ const ResourcesPage = () => {
         .from('resource_items')
         .select('*')
         .eq('user_id', user.id)
+        .limit(500)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -188,6 +196,7 @@ const ResourcesPage = () => {
         .from('timeline_estimates')
         .select('*')
         .eq('user_id', user.id)
+        .limit(500)
         .order('custom_start_day', { ascending: true });
 
       if (error) throw error;
