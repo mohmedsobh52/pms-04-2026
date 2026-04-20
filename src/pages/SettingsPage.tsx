@@ -20,7 +20,7 @@ const SettingsPage = () => {
         </h2>
         
         <Tabs defaultValue="company" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 tabs-navigation-safe">
+          <TabsList className="grid w-full grid-cols-6 tabs-navigation-safe">
             <TabsTrigger value="company" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               <span className="hidden sm:inline">{isArabic ? "الشركة" : "Company"}</span>
@@ -36,6 +36,10 @@ const SettingsPage = () => {
             <TabsTrigger value="notifications" className="flex items-center gap-2">
               <Bell className="h-4 w-4" />
               <span className="hidden sm:inline">{isArabic ? "الإشعارات" : "Notifications"}</span>
+            </TabsTrigger>
+            <TabsTrigger value="migration" className="flex items-center gap-2">
+              <Database className="h-4 w-4" />
+              <span className="hidden sm:inline">{isArabic ? "نقل البيانات" : "Migration"}</span>
             </TabsTrigger>
             <TabsTrigger value="about" className="flex items-center gap-2">
               <Info className="h-4 w-4" />
