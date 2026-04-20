@@ -1,14 +1,21 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { QuotationUpload } from "@/components/QuotationUpload";
-import { QuotationComparison } from "@/components/QuotationComparison";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLayout } from "@/components/PageLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Card, CardContent } from "@/components/ui/card";
 import { ColorLegend } from "@/components/ui/color-code";
-import { FileText, CheckCircle2, Clock, Users, DollarSign, TrendingUp, Award, Calendar } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FileText, CheckCircle2, Clock, Users, DollarSign, TrendingUp, Award, Calendar, Download, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+const QuotationComparison = lazy(() =>
+  import("@/components/QuotationComparison").then((m) => ({ default: m.QuotationComparison }))
+);
+
+const TAB_KEY = "quotations:active-tab";
 
 const QuotationsPage = () => {
   const { isArabic } = useLanguage();
@@ -26,13 +33,23 @@ const QuotationsPage = () => {
 
   const [topSuppliers, setTopSuppliers] = useState<Array<{ name: string; count: number; value: number }>>([]);
   const [statusBreakdown, setStatusBreakdown] = useState<Array<{ key: string; label: string; count: number; color: string }>>([]);
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window === "undefined") return "upload";
+    return localStorage.getItem(TAB_KEY) || "upload";
+  });
+  const [isExporting, setIsExporting] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem(TAB_KEY, activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     const loadStats = async () => {
       const { data } = await supabase
         .from("price_quotations")
         .select("status, supplier_name, total_amount, currency, quotation_date, created_at")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(1000);
       if (!data) return;
       const suppliers = new Set(data.map((q) => q.supplier_name).filter(Boolean));
       const totalValue = data.reduce((sum, q) => sum + (Number(q.total_amount) || 0), 0);
@@ -208,9 +225,67 @@ const QuotationsPage = () => {
             </div>
           )}
 
-          <ColorLegend type="status" isArabic={isArabic} className="mb-2" />
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <ColorLegend type="status" isArabic={isArabic} className="mb-0" />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                setIsExporting(true);
+                try {
+                  const { data, error } = await supabase
+                    .from("price_quotations")
+                    .select("name, supplier_name, total_amount, currency, status, quotation_date, created_at")
+                    .order("created_at", { ascending: false })
+                    .limit(2000);
+                  if (error) throw error;
+                  if (!data || data.length === 0) {
+                    toast.info(isArabic ? "لا توجد عروض للتصدير" : "No quotations to export");
+                    return;
+                  }
+                  const headers = [
+                    isArabic ? "الاسم" : "Name",
+                    isArabic ? "المورد" : "Supplier",
+                    isArabic ? "القيمة" : "Amount",
+                    isArabic ? "العملة" : "Currency",
+                    isArabic ? "الحالة" : "Status",
+                    isArabic ? "تاريخ العرض" : "Quote Date",
+                  ];
+                  const esc = (v: any) => {
+                    const s = v == null ? "" : String(v);
+                    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+                  };
+                  const rows = data.map((q) =>
+                    [q.name, q.supplier_name, q.total_amount, q.currency, q.status, q.quotation_date]
+                      .map(esc)
+                      .join(",")
+                  );
+                  const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+                  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `quotations-${new Date().toISOString().split("T")[0]}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                  toast.success(isArabic ? "تم تصدير العروض" : "Quotations exported");
+                } catch (e) {
+                  console.error(e);
+                  toast.error(isArabic ? "فشل التصدير" : "Export failed");
+                } finally {
+                  setIsExporting(false);
+                }
+              }}
+              disabled={isExporting || stats.total === 0}
+            >
+              {isExporting ? <Loader2 className="w-4 h-4 me-2 animate-spin" /> : <Download className="w-4 h-4 me-2" />}
+              {isArabic ? "تصدير CSV" : "Export CSV"}
+            </Button>
+          </div>
 
-          <Tabs defaultValue="upload" className="space-y-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList className="tabs-navigation-safe">
               <TabsTrigger value="upload">
                 {isArabic ? "رفع عروض الأسعار" : "Upload Quotations"}
@@ -223,7 +298,9 @@ const QuotationsPage = () => {
               <QuotationUpload />
             </TabsContent>
             <TabsContent value="compare">
-              <QuotationComparison />
+              <Suspense fallback={<div className="flex items-center justify-center py-16 text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin me-2" />Loading…</div>}>
+                <QuotationComparison />
+              </Suspense>
             </TabsContent>
           </Tabs>
         </div>
