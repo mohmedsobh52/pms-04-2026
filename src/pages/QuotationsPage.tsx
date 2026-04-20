@@ -225,9 +225,67 @@ const QuotationsPage = () => {
             </div>
           )}
 
-          <ColorLegend type="status" isArabic={isArabic} className="mb-2" />
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <ColorLegend type="status" isArabic={isArabic} className="mb-0" />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                setIsExporting(true);
+                try {
+                  const { data, error } = await supabase
+                    .from("price_quotations")
+                    .select("name, supplier_name, total_amount, currency, status, quotation_date, created_at")
+                    .order("created_at", { ascending: false })
+                    .limit(2000);
+                  if (error) throw error;
+                  if (!data || data.length === 0) {
+                    toast.info(isArabic ? "لا توجد عروض للتصدير" : "No quotations to export");
+                    return;
+                  }
+                  const headers = [
+                    isArabic ? "الاسم" : "Name",
+                    isArabic ? "المورد" : "Supplier",
+                    isArabic ? "القيمة" : "Amount",
+                    isArabic ? "العملة" : "Currency",
+                    isArabic ? "الحالة" : "Status",
+                    isArabic ? "تاريخ العرض" : "Quote Date",
+                  ];
+                  const esc = (v: any) => {
+                    const s = v == null ? "" : String(v);
+                    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+                  };
+                  const rows = data.map((q) =>
+                    [q.name, q.supplier_name, q.total_amount, q.currency, q.status, q.quotation_date]
+                      .map(esc)
+                      .join(",")
+                  );
+                  const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+                  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `quotations-${new Date().toISOString().split("T")[0]}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                  toast.success(isArabic ? "تم تصدير العروض" : "Quotations exported");
+                } catch (e) {
+                  console.error(e);
+                  toast.error(isArabic ? "فشل التصدير" : "Export failed");
+                } finally {
+                  setIsExporting(false);
+                }
+              }}
+              disabled={isExporting || stats.total === 0}
+            >
+              {isExporting ? <Loader2 className="w-4 h-4 me-2 animate-spin" /> : <Download className="w-4 h-4 me-2" />}
+              {isArabic ? "تصدير CSV" : "Export CSV"}
+            </Button>
+          </div>
 
-          <Tabs defaultValue="upload" className="space-y-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList className="tabs-navigation-safe">
               <TabsTrigger value="upload">
                 {isArabic ? "رفع عروض الأسعار" : "Upload Quotations"}
@@ -240,7 +298,9 @@ const QuotationsPage = () => {
               <QuotationUpload />
             </TabsContent>
             <TabsContent value="compare">
-              <QuotationComparison />
+              <Suspense fallback={<div className="flex items-center justify-center py-16 text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin me-2" />Loading…</div>}>
+                <QuotationComparison />
+              </Suspense>
             </TabsContent>
           </Tabs>
         </div>
