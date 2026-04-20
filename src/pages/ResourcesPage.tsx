@@ -158,6 +158,7 @@ const ResourcesPage = () => {
         .from('resource_items')
         .select('*')
         .eq('user_id', user.id)
+        .limit(500)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
