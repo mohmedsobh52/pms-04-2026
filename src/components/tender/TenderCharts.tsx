@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { PieChart as PieChartIcon, BarChart3 } from "lucide-react";
+import { ChartTooltip } from "@/components/charts/ChartTooltip";
+import { EmptyState } from "@/components/ui/page-skeleton";
 
 interface TenderChartsProps {
   isArabic: boolean;
