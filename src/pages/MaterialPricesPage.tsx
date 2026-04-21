@@ -1,6 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
+import { Loader2 } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
-import { MaterialPriceDatabase } from "@/components/MaterialPriceDatabase";
+const MaterialPriceDatabase = lazy(() =>
+  import("@/components/MaterialPriceDatabase").then((m) => ({ default: m.MaterialPriceDatabase }))
+);
 import { useLanguage } from "@/hooks/useLanguage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +29,9 @@ const MaterialPricesPage = () => {
       const { data } = await supabase
         .from("material_prices")
         .select("unit_price, category, is_verified, supplier_name, valid_until")
-        .eq("user_id", user.id);
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1000);
       if (!data) return;
       const prices = data.map((r: any) => Number(r.unit_price) || 0).filter((p) => p > 0);
       const cats = new Set(data.map((r: any) => r.category).filter(Boolean));
@@ -189,7 +194,9 @@ const MaterialPricesPage = () => {
           </div>
         )}
 
-        <MaterialPriceDatabase />
+        <Suspense fallback={<div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
+          <MaterialPriceDatabase />
+        </Suspense>
       </div>
     </PageLayout>
   );
