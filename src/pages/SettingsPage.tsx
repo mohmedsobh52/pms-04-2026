@@ -1,13 +1,36 @@
-import { NotificationSettings } from "@/components/NotificationSettings";
-import { AIModelSelector } from "@/components/AIModelSelector";
-import { AnalysisStatusDashboard } from "@/components/AnalysisStatusDashboard";
-import { CompanySettingsPanel } from "@/components/CompanySettingsPanel";
-import { DeveloperInfo } from "@/components/DeveloperInfo";
-import { DataMigrationPanel } from "@/components/DataMigrationPanel";
+import { lazy, Suspense } from "react";
+import { Loader2 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { PageLayout } from "@/components/PageLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Brain, Bell, Activity, Building2, Info, Database } from "lucide-react";
+
+// Lazy-load heavy settings panels to keep first paint fast
+const CompanySettingsPanel = lazy(() =>
+  import("@/components/CompanySettingsPanel").then((m) => ({ default: m.CompanySettingsPanel }))
+);
+const AIModelSelector = lazy(() =>
+  import("@/components/AIModelSelector").then((m) => ({ default: m.AIModelSelector }))
+);
+const AnalysisStatusDashboard = lazy(() =>
+  import("@/components/AnalysisStatusDashboard").then((m) => ({ default: m.AnalysisStatusDashboard }))
+);
+const NotificationSettings = lazy(() =>
+  import("@/components/NotificationSettings").then((m) => ({ default: m.NotificationSettings }))
+);
+const DataMigrationPanel = lazy(() =>
+  import("@/components/DataMigrationPanel").then((m) => ({ default: m.DataMigrationPanel }))
+);
+const DeveloperInfo = lazy(() =>
+  import("@/components/DeveloperInfo").then((m) => ({ default: m.DeveloperInfo }))
+);
+
+const TabFallback = () => (
+  <div className="flex items-center justify-center py-16 text-muted-foreground">
+    <Loader2 className="w-6 h-6 animate-spin me-2" />
+    <span>Loading…</span>
+  </div>
+);
 
 const SettingsPage = () => {
   const { isArabic } = useLanguage();
@@ -48,23 +71,33 @@ const SettingsPage = () => {
           </TabsList>
           
           <TabsContent value="company" className="mt-6">
-            <CompanySettingsPanel />
+            <Suspense fallback={<TabFallback />}>
+              <CompanySettingsPanel />
+            </Suspense>
           </TabsContent>
           
           <TabsContent value="ai" className="mt-6">
-            <AIModelSelector />
+            <Suspense fallback={<TabFallback />}>
+              <AIModelSelector />
+            </Suspense>
           </TabsContent>
           
           <TabsContent value="tracking" className="mt-6">
-            <AnalysisStatusDashboard />
+            <Suspense fallback={<TabFallback />}>
+              <AnalysisStatusDashboard />
+            </Suspense>
           </TabsContent>
           
           <TabsContent value="notifications" className="mt-6">
-            <NotificationSettings />
+            <Suspense fallback={<TabFallback />}>
+              <NotificationSettings />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="migration" className="mt-6">
-            <DataMigrationPanel />
+            <Suspense fallback={<TabFallback />}>
+              <DataMigrationPanel />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="about" className="mt-6">
@@ -72,7 +105,9 @@ const SettingsPage = () => {
               <h3 className="text-lg font-semibold mb-4">
                 {isArabic ? "مصمم ومطور البرنامج" : "Program Designer & Developer"}
               </h3>
-              <DeveloperInfo />
+              <Suspense fallback={<TabFallback />}>
+                <DeveloperInfo />
+              </Suspense>
             </div>
           </TabsContent>
         </Tabs>

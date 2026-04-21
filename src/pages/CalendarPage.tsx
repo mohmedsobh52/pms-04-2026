@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { Calendar, ArrowLeft, Settings2, CalendarDays, FileSignature, Clock, AlertCircle, CheckCircle2, Target } from "lucide-react";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { Calendar, ArrowLeft, Settings2, CalendarDays, FileSignature, Clock, AlertCircle, CheckCircle2, Target, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,7 +10,18 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { RealtimeNotifications } from "@/components/RealtimeNotifications";
 import { UserMenu } from "@/components/UserMenu";
-import { ProjectCalendar } from "@/components/ProjectCalendar";
+
+// Lazy-load heavy calendar component to keep first paint fast
+const ProjectCalendar = lazy(() =>
+  import("@/components/ProjectCalendar").then((m) => ({ default: m.ProjectCalendar }))
+);
+
+const CalendarFallback = () => (
+  <div className="flex items-center justify-center py-16 text-muted-foreground">
+    <Loader2 className="w-6 h-6 animate-spin me-2" />
+    <span>Loading…</span>
+  </div>
+);
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ColorLegend } from "@/components/ui/color-code";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,9 +46,9 @@ export default function CalendarPage() {
       const today = new Date();
       const in30 = new Date(); in30.setDate(today.getDate() + 30);
       const [proj, contr, miles] = await Promise.all([
-        supabase.from('saved_projects').select('id,name,end_date,status').eq('user_id', user.id),
-        supabase.from('contracts').select('id,contract_title,end_date,status').eq('user_id', user.id),
-        supabase.from('contract_milestones').select('id,milestone_name,due_date,status').eq('user_id', user.id).neq('status', 'completed'),
+        supabase.from('saved_projects').select('id,name,end_date,status').eq('user_id', user.id).limit(500),
+        supabase.from('contracts').select('id,contract_title,end_date,status').eq('user_id', user.id).limit(500),
+        supabase.from('contract_milestones').select('id,milestone_name,due_date,status').eq('user_id', user.id).neq('status', 'completed').limit(500),
       ]);
       const all = [...(proj.data || []), ...(contr.data || [])];
       const dates = all.filter((r: any) => r.end_date).map((r: any) => ({ d: new Date(r.end_date), s: r.status }));
