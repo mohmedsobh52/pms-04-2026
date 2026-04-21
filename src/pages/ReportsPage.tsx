@@ -15,7 +15,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ReportsStatCards } from "@/components/reports/ReportsStatCards";
-import { Loader2 } from "lucide-react";
+import { Loader2, FileDown as FileDownIcon } from "lucide-react";
+import { ErrorState } from "@/components/ui/loading-states";
+import { exportReportsPDF } from "@/lib/reports-pdf-utils";
+import { toast } from "sonner";
 
 // Lazy-load heavy report tabs to keep first paint fast
 const ExportTab = lazy(() => import("@/components/reports/ExportTab").then((m) => ({ default: m.ExportTab })));
@@ -81,6 +84,10 @@ const ReportsPage = () => {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(() => {
     if (typeof window === "undefined") return "export";
     return localStorage.getItem("reports:active-tab") || "export";
@@ -92,65 +99,76 @@ const ReportsPage = () => {
 
   const fetchProjects = async () => {
     if (!user) return;
-    
+
     setLoading(true);
-    
-    // Fetch saved_projects and project_data in parallel (limited to avoid huge payloads)
-    const [savedProjectsRes, projectDataRes, tenderPricingRes] = await Promise.all([
-      supabase
-        .from("saved_projects")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("updated_at", { ascending: false })
-        .limit(500),
-      supabase
-        .from("project_data")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(500),
-      supabase
-        .from("tender_pricing")
-        .select("project_id, contract_value, total_direct_costs, total_indirect_costs, profit_margin")
-        .eq("user_id", user.id)
-        .limit(500)
-    ]);
+    setFetchError(null);
 
-    const savedProjects = savedProjectsRes.data || [];
-    const projectData = projectDataRes.data || [];
-    const tenderPricing = (tenderPricingRes.data || []) as TenderPricing[];
+    try {
+      // Fetch saved_projects and project_data in parallel (limited to avoid huge payloads)
+      const [savedProjectsRes, projectDataRes, tenderPricingRes] = await Promise.all([
+        supabase
+          .from("saved_projects")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("updated_at", { ascending: false })
+          .limit(500),
+        supabase
+          .from("project_data")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(500),
+        supabase
+          .from("tender_pricing")
+          .select("project_id, contract_value, total_direct_costs, total_indirect_costs, profit_margin")
+          .eq("user_id", user.id)
+          .limit(500)
+      ]);
 
-    // Merge project data - prioritize saved_projects but include project_data
-    const projectMap = new Map<string, Project>();
-    
-    // Add saved_projects first
-    savedProjects.forEach(p => {
-      const analysisData = p.analysis_data as any;
-      projectMap.set(p.id, {
-        ...p,
-        items_count: analysisData?.items?.length || 0,
-        total_value: analysisData?.summary?.total_value || 0,
-      });
-    });
+      if (savedProjectsRes.error) throw savedProjectsRes.error;
+      if (projectDataRes.error) throw projectDataRes.error;
 
-    // Add project_data if not already in map
-    projectData.forEach(p => {
-      if (!projectMap.has(p.id)) {
+      const savedProjects = savedProjectsRes.data || [];
+      const projectData = projectDataRes.data || [];
+      const tenderPricing = (tenderPricingRes.data || []) as TenderPricing[];
+
+      // Merge project data - prioritize saved_projects but include project_data
+      const projectMap = new Map<string, Project>();
+
+      // Add saved_projects first
+      savedProjects.forEach(p => {
+        const analysisData = p.analysis_data as any;
         projectMap.set(p.id, {
           ...p,
-          analysis_data: p.analysis_data || { items: [], summary: {} },
-          status: 'draft',
+          items_count: analysisData?.items?.length || 0,
+          total_value: analysisData?.summary?.total_value || 0,
         });
-      }
-    });
+      });
 
-    setProjects(Array.from(projectMap.values()));
-    setTenderData(tenderPricing);
-    setLoading(false);
+      // Add project_data if not already in map
+      projectData.forEach(p => {
+        if (!projectMap.has(p.id)) {
+          projectMap.set(p.id, {
+            ...p,
+            analysis_data: p.analysis_data || { items: [], summary: {} },
+            status: 'draft',
+          });
+        }
+      });
+
+      setProjects(Array.from(projectMap.values()));
+      setTenderData(tenderPricing);
+    } catch (err: any) {
+      console.error("Reports fetch error:", err);
+      setFetchError(err?.message || "Unknown error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const handleDeleteProject = async (projectId: string) => {
