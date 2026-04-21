@@ -125,18 +125,20 @@ export default function SavedProjectsPage() {
     
     setIsLoading(true);
     try {
-      // Fetch from both tables in parallel
+      // Fetch from both tables in parallel (limited)
       const [savedProjectsRes, projectDataRes] = await Promise.all([
         supabase
           .from("saved_projects")
           .select("*")
           .eq("user_id", user.id)
-          .order("updated_at", { ascending: false }),
+          .order("updated_at", { ascending: false })
+          .limit(500),
         supabase
           .from("project_data")
           .select("*")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
+          .limit(500)
       ]);
 
       const savedProjects = savedProjectsRes.data || [];
