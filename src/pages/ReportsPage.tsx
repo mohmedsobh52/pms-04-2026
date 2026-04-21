@@ -398,8 +398,13 @@ const ReportsPage = () => {
             <Button variant="outline" size="icon" onClick={fetchProjects} disabled={loading}>
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             </Button>
-          </div>
         </div>
+
+        {fetchError && (
+          <div className="mb-4">
+            <ErrorState isArabic={isArabic} message={fetchError} onRetry={fetchProjects} />
+          </div>
+        )}
 
         {/* Stats Cards */}
         <ReportsStatCards 
