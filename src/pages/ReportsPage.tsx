@@ -198,9 +198,50 @@ const ReportsPage = () => {
         p.file_name?.toLowerCase().includes(query)
       );
     }
-    
+
+    // Filter by date range (created_at)
+    if (dateFrom) {
+      const from = new Date(dateFrom).getTime();
+      result = result.filter(p => new Date(p.created_at).getTime() >= from);
+    }
+    if (dateTo) {
+      const to = new Date(dateTo).getTime() + 86400000; // include end day
+      result = result.filter(p => new Date(p.created_at).getTime() <= to);
+    }
+
     return result;
-  }, [projects, statusFilter, searchQuery]);
+  }, [projects, statusFilter, searchQuery, dateFrom, dateTo]);
+
+  const handleExportPDF = () => {
+    setIsExportingPDF(true);
+    try {
+      exportReportsPDF({
+        isArabic,
+        dateFrom: dateFrom ? new Date(dateFrom) : null,
+        dateTo: dateTo ? new Date(dateTo) : null,
+        stats,
+        projects: filteredProjects.map(p => ({
+          id: p.id,
+          name: p.name,
+          file_name: p.file_name,
+          status: p.status,
+          project_type: p.project_type,
+          created_at: p.created_at,
+          items_count: p.items_count,
+          total_value: p.total_value,
+          currency: p.currency,
+        })),
+        topProjects: topProjects.map(p => ({ name: p.name, value: p.value })),
+        typeBreakdown,
+      });
+      toast.success(isArabic ? "تم تصدير التقرير" : "Report exported");
+    } catch (e: any) {
+      toast.error(isArabic ? "فشل التصدير" : "Export failed");
+      console.error(e);
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
 
   // Calculate stats from all projects with tender data
   const stats = useMemo(() => {
