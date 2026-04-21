@@ -15,7 +15,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ReportsStatCards } from "@/components/reports/ReportsStatCards";
-import { Loader2 } from "lucide-react";
+import { Loader2, FileDown as FileDownIcon } from "lucide-react";
+import { ErrorState } from "@/components/ui/loading-states";
+import { exportReportsPDF } from "@/lib/reports-pdf-utils";
+import { toast } from "sonner";
 
 // Lazy-load heavy report tabs to keep first paint fast
 const ExportTab = lazy(() => import("@/components/reports/ExportTab").then((m) => ({ default: m.ExportTab })));
@@ -81,6 +84,10 @@ const ReportsPage = () => {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(() => {
     if (typeof window === "undefined") return "export";
     return localStorage.getItem("reports:active-tab") || "export";
@@ -92,65 +99,76 @@ const ReportsPage = () => {
 
   const fetchProjects = async () => {
     if (!user) return;
-    
+
     setLoading(true);
-    
-    // Fetch saved_projects and project_data in parallel (limited to avoid huge payloads)
-    const [savedProjectsRes, projectDataRes, tenderPricingRes] = await Promise.all([
-      supabase
-        .from("saved_projects")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("updated_at", { ascending: false })
-        .limit(500),
-      supabase
-        .from("project_data")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(500),
-      supabase
-        .from("tender_pricing")
-        .select("project_id, contract_value, total_direct_costs, total_indirect_costs, profit_margin")
-        .eq("user_id", user.id)
-        .limit(500)
-    ]);
+    setFetchError(null);
 
-    const savedProjects = savedProjectsRes.data || [];
-    const projectData = projectDataRes.data || [];
-    const tenderPricing = (tenderPricingRes.data || []) as TenderPricing[];
+    try {
+      // Fetch saved_projects and project_data in parallel (limited to avoid huge payloads)
+      const [savedProjectsRes, projectDataRes, tenderPricingRes] = await Promise.all([
+        supabase
+          .from("saved_projects")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("updated_at", { ascending: false })
+          .limit(500),
+        supabase
+          .from("project_data")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(500),
+        supabase
+          .from("tender_pricing")
+          .select("project_id, contract_value, total_direct_costs, total_indirect_costs, profit_margin")
+          .eq("user_id", user.id)
+          .limit(500)
+      ]);
 
-    // Merge project data - prioritize saved_projects but include project_data
-    const projectMap = new Map<string, Project>();
-    
-    // Add saved_projects first
-    savedProjects.forEach(p => {
-      const analysisData = p.analysis_data as any;
-      projectMap.set(p.id, {
-        ...p,
-        items_count: analysisData?.items?.length || 0,
-        total_value: analysisData?.summary?.total_value || 0,
-      });
-    });
+      if (savedProjectsRes.error) throw savedProjectsRes.error;
+      if (projectDataRes.error) throw projectDataRes.error;
 
-    // Add project_data if not already in map
-    projectData.forEach(p => {
-      if (!projectMap.has(p.id)) {
+      const savedProjects = savedProjectsRes.data || [];
+      const projectData = projectDataRes.data || [];
+      const tenderPricing = (tenderPricingRes.data || []) as TenderPricing[];
+
+      // Merge project data - prioritize saved_projects but include project_data
+      const projectMap = new Map<string, Project>();
+
+      // Add saved_projects first
+      savedProjects.forEach(p => {
+        const analysisData = p.analysis_data as any;
         projectMap.set(p.id, {
           ...p,
-          analysis_data: p.analysis_data || { items: [], summary: {} },
-          status: 'draft',
+          items_count: analysisData?.items?.length || 0,
+          total_value: analysisData?.summary?.total_value || 0,
         });
-      }
-    });
+      });
 
-    setProjects(Array.from(projectMap.values()));
-    setTenderData(tenderPricing);
-    setLoading(false);
+      // Add project_data if not already in map
+      projectData.forEach(p => {
+        if (!projectMap.has(p.id)) {
+          projectMap.set(p.id, {
+            ...p,
+            analysis_data: p.analysis_data || { items: [], summary: {} },
+            status: 'draft',
+          });
+        }
+      });
+
+      setProjects(Array.from(projectMap.values()));
+      setTenderData(tenderPricing);
+    } catch (err: any) {
+      console.error("Reports fetch error:", err);
+      setFetchError(err?.message || "Unknown error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const handleDeleteProject = async (projectId: string) => {
@@ -180,9 +198,50 @@ const ReportsPage = () => {
         p.file_name?.toLowerCase().includes(query)
       );
     }
-    
+
+    // Filter by date range (created_at)
+    if (dateFrom) {
+      const from = new Date(dateFrom).getTime();
+      result = result.filter(p => new Date(p.created_at).getTime() >= from);
+    }
+    if (dateTo) {
+      const to = new Date(dateTo).getTime() + 86400000; // include end day
+      result = result.filter(p => new Date(p.created_at).getTime() <= to);
+    }
+
     return result;
-  }, [projects, statusFilter, searchQuery]);
+  }, [projects, statusFilter, searchQuery, dateFrom, dateTo]);
+
+  const handleExportPDF = () => {
+    setIsExportingPDF(true);
+    try {
+      exportReportsPDF({
+        isArabic,
+        dateFrom: dateFrom ? new Date(dateFrom) : null,
+        dateTo: dateTo ? new Date(dateTo) : null,
+        stats,
+        projects: filteredProjects.map(p => ({
+          id: p.id,
+          name: p.name,
+          file_name: p.file_name,
+          status: p.status,
+          project_type: p.project_type,
+          created_at: p.created_at,
+          items_count: p.items_count,
+          total_value: p.total_value,
+          currency: p.currency,
+        })),
+        topProjects: topProjects.map(p => ({ name: p.name, value: p.value })),
+        typeBreakdown,
+      });
+      toast.success(isArabic ? "تم تصدير التقرير" : "Report exported");
+    } catch (e: any) {
+      toast.error(isArabic ? "فشل التصدير" : "Export failed");
+      console.error(e);
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
 
   // Calculate stats from all projects with tender data
   const stats = useMemo(() => {
@@ -286,6 +345,30 @@ const ReportsPage = () => {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-36"
+              title={isArabic ? "من تاريخ" : "From date"}
+            />
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-36"
+              title={isArabic ? "إلى تاريخ" : "To date"}
+            />
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleExportPDF}
+              disabled={isExportingPDF || filteredProjects.length === 0}
+              className="gap-2"
+            >
+              {isExportingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDownIcon className="h-4 w-4" />}
+              PDF
+            </Button>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -317,6 +400,12 @@ const ReportsPage = () => {
             </Button>
           </div>
         </div>
+
+        {fetchError && (
+          <div className="mb-4">
+            <ErrorState isArabic={isArabic} message={fetchError} onRetry={fetchProjects} />
+          </div>
+        )}
 
         {/* Stats Cards */}
         <ReportsStatCards 

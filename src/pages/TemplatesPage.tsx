@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Layers, TrendingUp, FolderTree, ListChecks } from "lucide-react";
 import { ColorLegend } from "@/components/ui/color-code";
 import { supabase } from "@/integrations/supabase/client";
+import { ErrorState, SuspenseFallback } from "@/components/ui/loading-states";
 
 interface TplRow {
   id: string;
@@ -26,13 +27,29 @@ const TemplatesPage = () => {
   const { toast } = useToast();
   const [rows, setRows] = useState<TplRow[]>([]);
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadTemplates = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error: err } = await supabase
         .from("boq_templates")
-        .select("id,name,category,usage_count,items,is_public");
-      if (data) setRows(data as TplRow[]);
-    })();
+        .select("id,name,category,usage_count,items,is_public")
+        .order("usage_count", { ascending: false })
+        .limit(500);
+      if (err) throw err;
+      setRows((data as TplRow[]) || []);
+    } catch (e: any) {
+      setError(e?.message || "Failed to load templates");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTemplates();
   }, []);
 
   const total = rows.length;
@@ -59,6 +76,16 @@ const TemplatesPage = () => {
   return (
     <PageLayout>
       <ColorLegend type="category" isArabic={isArabic} className="mb-4" />
+      {error && (
+        <div className="mb-4">
+          <ErrorState isArabic={isArabic} message={error} onRetry={loadTemplates} />
+        </div>
+      )}
+      {loading && !error && (
+        <div className="mb-4">
+          <SuspenseFallback label={isArabic ? "جاري تحميل القوالب..." : "Loading templates..."} />
+        </div>
+      )}
       {/* Insights */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card>
