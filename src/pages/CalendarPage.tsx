@@ -268,7 +268,9 @@ export default function CalendarPage() {
         <ColorLegend type="status" isArabic={isArabic} />
 
         {user ? (
-          <ProjectCalendar />
+          <Suspense fallback={<CalendarFallback />}>
+            <ProjectCalendar />
+          </Suspense>
         ) : (
           <Card className="max-w-md mx-auto border-dashed">
             <CardContent className="p-8 text-center space-y-4">
