@@ -58,6 +58,7 @@ const PricingAccuracyPage = lazy(() => import("./pages/PricingAccuracyPage"));
 const PartnerDetailsPage = lazy(() => import("./pages/PartnerDetailsPage"));
 const ProgressCertificatesPage = lazy(() => import("./pages/ProgressCertificatesPage"));
 const NewCertificatePage = lazy(() => import("./pages/NewCertificatePage"));
+const ResourcesDashboardPage = lazy(() => import("./pages/ResourcesDashboardPage"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -132,6 +133,7 @@ const App = () => (
                         <Route path="/compare-versions" element={<CompareVersionsPage />} />
                         <Route path="/historical-pricing" element={<HistoricalPricingPage />} />
                         <Route path="/resources" element={<ResourcesPage />} />
+                        <Route path="/resources-dashboard" element={<ResourcesDashboardPage />} />
                         <Route path="/material-prices" element={<MaterialPricesPage />} />
                         <Route path="/calendar" element={<CalendarPage />} />
                         <Route path="/fast-extraction" element={<Navigate to="/projects?tab=attachments&mode=extraction" replace />} />
