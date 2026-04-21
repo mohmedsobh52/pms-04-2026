@@ -345,6 +345,30 @@ const ReportsPage = () => {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-36"
+              title={isArabic ? "من تاريخ" : "From date"}
+            />
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-36"
+              title={isArabic ? "إلى تاريخ" : "To date"}
+            />
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleExportPDF}
+              disabled={isExportingPDF || filteredProjects.length === 0}
+              className="gap-2"
+            >
+              {isExportingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDownIcon className="h-4 w-4" />}
+              PDF
+            </Button>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
