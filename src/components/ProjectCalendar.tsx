@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -42,6 +43,8 @@ export function ProjectCalendar() {
   const [selectedEvents, setSelectedEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showEventDialog, setShowEventDialog] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const { user } = useAuth();
   const { isArabic } = useLanguage();
@@ -167,8 +170,16 @@ export function ProjectCalendar() {
     return eachDayOfInterval({ start, end });
   };
 
+  const filteredEvents = events.filter((e) => {
+    if (typeFilter !== "all" && e.type !== typeFilter) return false;
+    if (statusFilter !== "all" && (e.status || "") !== statusFilter) return false;
+    return true;
+  });
+
+  const availableStatuses = Array.from(new Set(events.map((e) => e.status).filter(Boolean))) as string[];
+
   const getEventsForDay = (day: Date) => {
-    return events.filter(event => isSameDay(event.date, day));
+    return filteredEvents.filter(event => isSameDay(event.date, day));
   };
 
   const handleDayClick = (day: Date) => {
@@ -224,8 +235,8 @@ export function ProjectCalendar() {
     ? ["أحد", "إثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت"]
     : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  // Upcoming events (next 7 days)
-  const upcomingEvents = events
+  // Upcoming events (next 7 days) — respect filters
+  const upcomingEvents = filteredEvents
     .filter(event => {
       const today = new Date();
       const nextWeek = addDays(today, 7);
@@ -264,6 +275,45 @@ export function ProjectCalendar() {
               </Button>
             </div>
           </CardHeader>
+          <div className="px-6 pb-3 flex flex-wrap items-center gap-2" dir={isArabic ? "rtl" : "ltr"}>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="h-8 w-[160px] text-xs">
+                <SelectValue placeholder={isArabic ? "النوع" : "Type"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{isArabic ? "كل الأنواع" : "All types"}</SelectItem>
+                <SelectItem value="project">{isArabic ? "مشاريع" : "Projects"}</SelectItem>
+                <SelectItem value="contract">{isArabic ? "عقود" : "Contracts"}</SelectItem>
+                <SelectItem value="risk">{isArabic ? "مخاطر" : "Risks"}</SelectItem>
+                <SelectItem value="procurement">{isArabic ? "مشتريات" : "Procurement"}</SelectItem>
+                <SelectItem value="deadline">{isArabic ? "مواعيد" : "Deadlines"}</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-8 w-[160px] text-xs">
+                <SelectValue placeholder={isArabic ? "الحالة" : "Status"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{isArabic ? "كل الحالات" : "All statuses"}</SelectItem>
+                {availableStatuses.map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {(typeFilter !== "all" || statusFilter !== "all") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => { setTypeFilter("all"); setStatusFilter("all"); }}
+              >
+                {isArabic ? "مسح الفلاتر" : "Clear filters"}
+              </Button>
+            )}
+            <span className="ms-auto text-xs text-muted-foreground">
+              {filteredEvents.length} / {events.length} {isArabic ? "حدث" : "events"}
+            </span>
+          </div>
           <CardContent>
             {/* Week days header */}
             <div className="grid grid-cols-7 gap-1 mb-2">

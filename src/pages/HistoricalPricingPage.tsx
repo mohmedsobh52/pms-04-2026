@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { Database, Upload, FileSpreadsheet, FileText, Trash2, Eye, Calendar, MapPin, CheckCircle, XCircle, Plus, Search, Filter, ArrowLeft, BarChart3, Loader2, Download, FileImage } from "lucide-react";
+import { SuspenseFallback } from "@/components/ui/loading-states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -807,10 +808,7 @@ export default function HistoricalPricingPage() {
 
         {/* Files List */}
         {isLoading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-            <p className="text-muted-foreground">جاري التحميل...</p>
-          </div>
+          <SuspenseFallback label="جاري التحميل..." />
         ) : filteredFiles.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">

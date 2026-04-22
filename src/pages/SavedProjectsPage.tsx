@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
-  FolderOpen, Trash2, Loader2, Calendar, FileText, Search,
+  FolderOpen, Trash2, Calendar, FileText, Search,
   ArrowLeft, Eye, Edit, DollarSign, Package, Filter, X,
   SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3, Paperclip, Sparkles, Upload
 } from "lucide-react";
+import { SuspenseFallback, ErrorState } from "@/components/ui/loading-states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +81,7 @@ export default function SavedProjectsPage() {
   
   const [projects, setProjects] = useState<ProjectData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<string>("created_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
@@ -124,6 +126,7 @@ export default function SavedProjectsPage() {
     if (!user) return;
     
     setIsLoading(true);
+    setFetchError(null);
     try {
       // Fetch from both tables in parallel (limited)
       const [savedProjectsRes, projectDataRes] = await Promise.all([
@@ -189,6 +192,7 @@ export default function SavedProjectsPage() {
       setProjects(allProjects);
     } catch (error: any) {
       console.error("Error fetching projects:", error);
+      setFetchError(error?.message || "Failed to load projects");
       toast({
         title: isArabic ? "خطأ في تحميل المشاريع" : "Error loading projects",
         description: error.message,
@@ -331,11 +335,7 @@ export default function SavedProjectsPage() {
 
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <SuspenseFallback fullPage label={isArabic ? "جاري التحميل..." : "Loading..."} />;
   }
 
   if (!user) {
@@ -589,10 +589,13 @@ export default function SavedProjectsPage() {
         </div>
 
         {/* Projects Grid */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        {fetchError && !isLoading && (
+          <div className="mb-4">
+            <ErrorState isArabic={isArabic} message={fetchError} onRetry={fetchProjects} />
           </div>
+        )}
+        {isLoading ? (
+          <SuspenseFallback label={isArabic ? "جاري تحميل المشاريع..." : "Loading projects..."} />
         ) : filteredProjects.length === 0 ? (
           <div className="glass-card p-12 text-center">
             <FolderOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
@@ -787,9 +790,7 @@ export default function SavedProjectsPage() {
           
           <div className="overflow-y-auto max-h-[60vh]">
             {isLoadingItems ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-              </div>
+              <SuspenseFallback size="sm" />
             ) : (
               <>
                 {/* Summary */}
