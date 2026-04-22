@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Calendar, ArrowLeft, Settings2, CalendarDays, FileSignature, Clock, AlertCircle, CheckCircle2, Target, Loader2 } from "lucide-react";
+import { Calendar, ArrowLeft, Settings2, CalendarDays, FileSignature, Clock, AlertCircle, CheckCircle2, Target } from "lucide-react";
+import { SuspenseFallback } from "@/components/ui/loading-states";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,12 +17,7 @@ const ProjectCalendar = lazy(() =>
   import("@/components/ProjectCalendar").then((m) => ({ default: m.ProjectCalendar }))
 );
 
-const CalendarFallback = () => (
-  <div className="flex items-center justify-center py-16 text-muted-foreground">
-    <Loader2 className="w-6 h-6 animate-spin me-2" />
-    <span>Loading…</span>
-  </div>
-);
+const CalendarFallback = () => <SuspenseFallback label="Loading…" />;
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ColorLegend } from "@/components/ui/color-code";
 import { supabase } from "@/integrations/supabase/client";
