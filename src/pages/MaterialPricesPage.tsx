@@ -74,7 +74,16 @@ const MaterialPricesPage = () => {
       });
       setExpiringCount(expSoon);
       setExpiredCount(exp);
-    })();
+    } catch (e: any) {
+      setStatsError(e?.message || "Failed to load");
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const cards = [
