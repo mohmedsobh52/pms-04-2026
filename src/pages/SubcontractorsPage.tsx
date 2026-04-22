@@ -27,8 +27,8 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { SuspenseFallback } from "@/components/ui/loading-states";
 
 interface Subcontractor {
   id: string;
@@ -359,7 +359,7 @@ const SubcontractorsPage = () => {
           </TabsContent>
 
           <TabsContent value="management" className="mt-4">
-            <Suspense fallback={<div className="flex items-center justify-center py-16 text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin me-2" />Loading…</div>}>
+            <Suspense fallback={<SuspenseFallback label={isArabic ? "جاري التحميل..." : "Loading..."} />}>
               <SubcontractorManagement />
             </Suspense>
           </TabsContent>
@@ -378,7 +378,7 @@ const SubcontractorsPage = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Suspense fallback={<div className="flex items-center justify-center py-16 text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin me-2" />Loading…</div>}>
+                <Suspense fallback={<SuspenseFallback label={isArabic ? "جاري التحميل..." : "Loading..."} />}>
                   <SubcontractorBOQLink
                     boqItems={analysisData?.items || []}
                     projectId={undefined}

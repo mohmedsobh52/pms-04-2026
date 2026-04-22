@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { FileText, CheckCircle2, Clock, Users, DollarSign, TrendingUp, Award, Calendar, Download, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { SuspenseFallback } from "@/components/ui/loading-states";
 
 const QuotationComparison = lazy(() =>
   import("@/components/QuotationComparison").then((m) => ({ default: m.QuotationComparison }))
@@ -298,7 +299,7 @@ const QuotationsPage = () => {
               <QuotationUpload />
             </TabsContent>
             <TabsContent value="compare">
-              <Suspense fallback={<div className="flex items-center justify-center py-16 text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin me-2" />Loading…</div>}>
+              <Suspense fallback={<SuspenseFallback label={isArabic ? "جاري التحميل..." : "Loading..."} />}>
                 <QuotationComparison />
               </Suspense>
             </TabsContent>
