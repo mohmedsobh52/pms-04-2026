@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { SuspenseFallback } from "@/components/ui/loading-states";
 
 interface AppVersion {
   id: string;
@@ -234,11 +235,7 @@ const AdminVersions = () => {
   };
 
   if (authLoading || loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <SuspenseFallback fullPage size="lg" />;
   }
 
   if (!isAdmin) {

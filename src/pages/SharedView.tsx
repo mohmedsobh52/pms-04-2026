@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Eye, Clock, AlertTriangle, ArrowLeft, Loader2 } from "lucide-react";
+import { Eye, Clock, AlertTriangle, ArrowLeft } from "lucide-react";
+import { SuspenseFallback } from "@/components/ui/loading-states";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AnalysisResults } from "@/components/AnalysisResults";
@@ -94,12 +95,7 @@ export default function SharedView() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground">Loading shared analysis...</p>
-        </div>
-      </div>
+      <SuspenseFallback fullPage label="Loading shared analysis..." size="lg" />
     );
   }
 

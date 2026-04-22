@@ -23,6 +23,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import DetailedPriceDialog from "@/components/pricing/DetailedPriceDialog";
 import EditItemDialog from "@/components/items/EditItemDialog";
 import { AutoPriceDialog } from "@/components/project-details/AutoPriceDialog";
+import { SuspenseFallback } from "@/components/ui/loading-states";
 import { QuickPriceDialog } from "@/components/project-details/QuickPriceDialog";
 
 // Import refactored components
@@ -838,11 +839,7 @@ export default function ProjectDetailsPage() {
 
   // Loading state
   if (authLoading || isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <SuspenseFallback fullPage size="lg" />;
   }
 
   // Auth check

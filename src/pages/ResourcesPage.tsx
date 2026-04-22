@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { SuspenseFallback } from "@/components/ui/loading-states";
 import {
   Table,
   TableBody,
@@ -759,9 +760,7 @@ const ResourcesPage = () => {
 
             {/* Resources Table */}
             {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
+              <SuspenseFallback size="lg" />
             ) : filteredResources.length === 0 ? (
               <Card className="p-8 text-center">
                 <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
