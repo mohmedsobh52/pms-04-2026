@@ -1,6 +1,6 @@
 import { useEffect, useState, lazy, Suspense } from "react";
-import { Loader2 } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
+import { SuspenseFallback, ErrorState } from "@/components/ui/loading-states";
 const MaterialPriceDatabase = lazy(() =>
   import("@/components/MaterialPriceDatabase").then((m) => ({ default: m.MaterialPriceDatabase }))
 );
@@ -22,17 +22,22 @@ const MaterialPricesPage = () => {
   const [topSuppliers, setTopSuppliers] = useState<SupplierAgg[]>([]);
   const [expiringCount, setExpiringCount] = useState(0);
   const [expiredCount, setExpiredCount] = useState(0);
+  const [statsError, setStatsError] = useState<string | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
-  useEffect(() => {
+  const loadStats = async () => {
     if (!user) return;
-    (async () => {
-      const { data } = await supabase
+    setStatsLoading(true);
+    setStatsError(null);
+    try {
+      const { data, error } = await supabase
         .from("material_prices")
         .select("unit_price, category, is_verified, supplier_name, valid_until")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
-        .limit(1000);
-      if (!data) return;
+        .limit(500);
+      if (error) throw error;
+      if (!data) { setStatsLoading(false); return; }
       const prices = data.map((r: any) => Number(r.unit_price) || 0).filter((p) => p > 0);
       const cats = new Set(data.map((r: any) => r.category).filter(Boolean));
       const verified = data.filter((r: any) => r.is_verified).length;
