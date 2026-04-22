@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Loader2 } from "lucide-react";
+import { SuspenseFallback } from "@/components/ui/loading-states";
 import { useLanguage } from "@/hooks/useLanguage";
 import { PageLayout } from "@/components/PageLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,12 +25,7 @@ const DeveloperInfo = lazy(() =>
   import("@/components/DeveloperInfo").then((m) => ({ default: m.DeveloperInfo }))
 );
 
-const TabFallback = () => (
-  <div className="flex items-center justify-center py-16 text-muted-foreground">
-    <Loader2 className="w-6 h-6 animate-spin me-2" />
-    <span>Loading…</span>
-  </div>
-);
+const TabFallback = () => <SuspenseFallback label="Loading…" />;
 
 const SettingsPage = () => {
   const { isArabic } = useLanguage();
