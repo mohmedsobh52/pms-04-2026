@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -42,6 +43,8 @@ export function ProjectCalendar() {
   const [selectedEvents, setSelectedEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showEventDialog, setShowEventDialog] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const { user } = useAuth();
   const { isArabic } = useLanguage();
@@ -167,8 +170,16 @@ export function ProjectCalendar() {
     return eachDayOfInterval({ start, end });
   };
 
+  const filteredEvents = events.filter((e) => {
+    if (typeFilter !== "all" && e.type !== typeFilter) return false;
+    if (statusFilter !== "all" && (e.status || "") !== statusFilter) return false;
+    return true;
+  });
+
+  const availableStatuses = Array.from(new Set(events.map((e) => e.status).filter(Boolean))) as string[];
+
   const getEventsForDay = (day: Date) => {
-    return events.filter(event => isSameDay(event.date, day));
+    return filteredEvents.filter(event => isSameDay(event.date, day));
   };
 
   const handleDayClick = (day: Date) => {
