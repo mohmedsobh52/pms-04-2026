@@ -8,6 +8,7 @@ import { Building2, Package, FileText, Sparkles, Users, CheckCircle2, Star, File
 import { Card, CardContent } from "@/components/ui/card";
 import { RequestOfferDialog } from "@/components/procurement";
 import { ColorLegend } from "@/components/ui/color-code";
+import { SuspenseFallback } from "@/components/ui/loading-states";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { ExternalPartner } from "@/components/procurement/PartnerCard";
@@ -22,11 +23,7 @@ const ProcurementResourcesSchedule = lazy(() =>
   import("@/components/ProcurementResourcesSchedule").then((m) => ({ default: m.ProcurementResourcesSchedule }))
 );
 
-const TabFallback = () => (
-  <div className="flex items-center justify-center py-12">
-    <Loader2 className="w-6 h-6 animate-spin text-primary" />
-  </div>
-);
+const TabFallback = () => <SuspenseFallback />;
 
 const TAB_KEY = "procurement:active-tab";
 
