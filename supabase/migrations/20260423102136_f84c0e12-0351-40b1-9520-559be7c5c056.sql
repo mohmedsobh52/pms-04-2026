@@ -1,0 +1,2 @@
+ALTER TABLE public.project_items DROP CONSTRAINT IF EXISTS project_items_project_id_fkey;
+ALTER TABLE public.project_items ADD CONSTRAINT project_items_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.saved_projects(id) ON DELETE CASCADE;
