@@ -71,6 +71,41 @@ export function BOQUploadDialog({
       if (!items || items.length === 0) {
         throw new Error(isArabic ? "لم يتم استخراج أي بنود" : "No items extracted");
       }
+      if (!projectId) {
+        throw new Error(isArabic ? "معرّف المشروع غير موجود" : "Project ID is missing");
+      }
+
+      // Verify auth and project ownership before insert (clearer errors than RLS)
+      const { data: authData, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !authData?.user) {
+        throw new Error(
+          isArabic
+            ? "انتهت الجلسة. يرجى تسجيل الدخول مرة أخرى."
+            : "Session expired. Please sign in again."
+        );
+      }
+
+      const { data: projectRow, error: projectErr } = await supabase
+        .from("saved_projects")
+        .select("id, user_id")
+        .eq("id", projectId)
+        .maybeSingle();
+
+      if (projectErr) throw projectErr;
+      if (!projectRow) {
+        throw new Error(
+          isArabic
+            ? "المشروع غير موجود أو ليس لديك صلاحية الوصول إليه"
+            : "Project not found or you don't have access to it"
+        );
+      }
+      if (projectRow.user_id !== authData.user.id) {
+        throw new Error(
+          isArabic
+            ? "ليس لديك صلاحية لإضافة بنود إلى هذا المشروع"
+            : "You don't have permission to add items to this project"
+        );
+      }
 
       const rows = items.map((item: any, idx: number) => ({
         project_id: projectId,
@@ -84,7 +119,17 @@ export function BOQUploadDialog({
       }));
 
       const { error } = await supabase.from("project_items").insert(rows);
-      if (error) throw error;
+      if (error) {
+        // Surface a friendlier message for RLS failures
+        if (error.message?.toLowerCase().includes("row-level security")) {
+          throw new Error(
+            isArabic
+              ? "تعذّر حفظ البنود بسبب صلاحيات الأمان. تأكد أنك مالك المشروع."
+              : "Could not save items due to security policy. Make sure you own this project."
+          );
+        }
+        throw error;
+      }
     },
     [projectId, isArabic]
   );
