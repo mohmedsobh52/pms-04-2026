@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { SuspenseFallback } from "@/components/ui/loading-states";
 const RiskManagement = lazy(() =>
   import("@/components/RiskManagement").then((m) => ({ default: m.RiskManagement }))
 );
@@ -251,7 +251,7 @@ const RiskPage = () => {
         </div>
 
         <ColorLegend type="priority" isArabic={isArabic} />
-        <Suspense fallback={<div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
+        <Suspense fallback={<SuspenseFallback label={isArabic ? "جاري التحميل..." : "Loading..."} />}>
           <RiskManagement />
         </Suspense>
       </div>
