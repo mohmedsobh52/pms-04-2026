@@ -536,6 +536,12 @@ const P6ExportPage = () => {
           currency={analysisData?.summary?.currency || "SAR"}
         />
       )}
+
+      <ProjectPlans
+        projectName={projects.find((p) => p.id === selectedProjectId)?.name}
+        itemsCount={items.length}
+        isArabic={isArabic}
+      />
     </PageLayout>
   );
 };
