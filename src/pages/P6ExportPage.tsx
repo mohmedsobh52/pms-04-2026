@@ -53,12 +53,12 @@ const P6ExportPage = () => {
 
         const { data, error } = await supabase
           .from("saved_projects")
-          .select("id, project_name")
+          .select("id, name")
           .eq("user_id", authData.user.id)
           .order("updated_at", { ascending: false });
 
         if (error) throw error;
-        setProjects((data || []).map((p) => ({ id: p.id, name: p.project_name })));
+        setProjects((data || []).map((p) => ({ id: p.id, name: p.name })));
       } catch (err) {
         console.error("Failed to load projects:", err);
       } finally {
