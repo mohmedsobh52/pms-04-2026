@@ -400,19 +400,21 @@ export default function SavedProjectsPage() {
             const days = (Date.now() - new Date(p.created_at).getTime()) / 86400000;
             return days <= 7;
           }).length;
+          const avgValue = totalProjects > 0 ? totalValue / totalProjects : 0;
           const currency = projects[0]?.currency || "SAR";
           const cards = [
             { icon: FolderOpen, label: isArabic ? "إجمالي المشاريع" : "Total Projects", value: String(totalProjects), color: "text-primary", bg: "bg-primary/10" },
             { icon: DollarSign, label: isArabic ? "القيمة الإجمالية" : "Total Value", value: `${totalValue.toLocaleString()} ${currency}`, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10" },
+            { icon: BarChart3, label: isArabic ? "متوسط القيمة" : "Avg. Value", value: `${Math.round(avgValue).toLocaleString()} ${currency}`, color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-500/10" },
             { icon: Package, label: isArabic ? "إجمالي البنود" : "Total Items", value: String(totalItems), color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-500/10" },
             { icon: Sparkles, label: isArabic ? "مشاريع حديثة (7 أيام)" : "Recent (7d)", value: String(recent), color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10" },
           ];
           return (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
               {cards.map((s, i) => {
                 const Icon = s.icon;
                 return (
-                  <div key={i} className="rounded-lg border bg-card hover:shadow-md transition-shadow p-3 flex items-center gap-3">
+                  <div key={i} className="rounded-lg border bg-card hover:shadow-md hover:border-primary/30 transition-all p-3 flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-lg ${s.bg} flex items-center justify-center shrink-0`}>
                       <Icon className={`w-5 h-5 ${s.color}`} />
                     </div>
