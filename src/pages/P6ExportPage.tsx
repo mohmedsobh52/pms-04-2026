@@ -29,6 +29,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { ProjectPlans } from "@/components/ProjectPlans";
 
 interface ProjectOption {
   id: string;
@@ -535,6 +536,12 @@ const P6ExportPage = () => {
           currency={analysisData?.summary?.currency || "SAR"}
         />
       )}
+
+      <ProjectPlans
+        projectName={projects.find((p) => p.id === selectedProjectId)?.name}
+        itemsCount={items.length}
+        isArabic={isArabic}
+      />
     </PageLayout>
   );
 };
