@@ -175,15 +175,21 @@ export default function TenderSummaryPage() {
 
   const loadData = async () => {
     try {
-      // Load project data
-      const { data: projectData, error: projectError } = await supabase
-        .from("project_data")
-        .select("*")
-        .eq("id", projectId)
-        .maybeSingle();
+      // Load project data — check both project_data and saved_projects
+      const [projectDataRes, savedProjectRes] = await Promise.all([
+        supabase.from("project_data").select("*").eq("id", projectId).maybeSingle(),
+        supabase.from("saved_projects").select("*").eq("id", projectId).maybeSingle(),
+      ]);
 
-      if (projectError) throw projectError;
-      
+      if (projectDataRes.error && projectDataRes.error.code !== "PGRST116") {
+        throw projectDataRes.error;
+      }
+      if (savedProjectRes.error && savedProjectRes.error.code !== "PGRST116") {
+        throw savedProjectRes.error;
+      }
+
+      const projectData = projectDataRes.data || savedProjectRes.data;
+
       if (!projectData) {
         toast({
           title: isArabic ? "خطأ" : "Error",
@@ -193,7 +199,7 @@ export default function TenderSummaryPage() {
         navigate("/projects");
         return;
       }
-      
+
       setProject(projectData);
 
       // Load pricing data
