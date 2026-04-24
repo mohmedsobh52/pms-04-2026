@@ -196,7 +196,7 @@ const P6ExportPage = () => {
             <Button
               onClick={handleAIGenerate}
               disabled={loadingItems || !hasItems}
-              className="gap-2 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white"
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {loadingItems ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -232,7 +232,7 @@ const P6ExportPage = () => {
             onClick={handleAIGenerate}
             disabled={!selectedProjectId || loadingItems}
             size="lg"
-            className="gap-2 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white"
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <Sparkles className="w-4 h-4" />
             {isArabic ? "إنشاء خطة تنفيذ" : "Create Execution Plan"}
