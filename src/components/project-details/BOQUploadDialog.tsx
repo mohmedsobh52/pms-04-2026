@@ -85,18 +85,18 @@ export function BOQUploadDialog({
         );
       }
 
-      const { data: projectRow, error: projectErr } = await supabase
-        .from("saved_projects")
-        .select("id, user_id")
-        .eq("id", projectId)
-        .maybeSingle();
+      // Check ownership in either saved_projects or project_data (RLS supports both)
+      const [savedRes, dataRes] = await Promise.all([
+        supabase.from("saved_projects").select("id, user_id").eq("id", projectId).maybeSingle(),
+        supabase.from("project_data").select("id, user_id").eq("id", projectId).maybeSingle(),
+      ]);
 
-      if (projectErr) throw projectErr;
+      const projectRow = savedRes.data || dataRes.data;
       if (!projectRow) {
         throw new Error(
           isArabic
-            ? "المشروع غير موجود أو ليس لديك صلاحية الوصول إليه"
-            : "Project not found or you don't have access to it"
+            ? "المشروع غير موجود أو ليس لديك صلاحية الوصول إليه. ربما تم حذفه."
+            : "Project not found or you don't have access to it. It may have been deleted."
         );
       }
       if (projectRow.user_id !== authData.user.id) {
