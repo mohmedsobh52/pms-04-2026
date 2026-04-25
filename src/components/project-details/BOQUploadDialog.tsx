@@ -67,6 +67,7 @@ export function BOQUploadDialog({
     setStatusMessage("");
     setErrorContext(null);
     lastItemsRef.current = null;
+    autoRetriedRef.current = false;
     onClose();
   };
 
@@ -76,6 +77,7 @@ export function BOQUploadDialog({
     setStatusMessage("");
     setErrorContext(null);
     lastItemsRef.current = null;
+    autoRetriedRef.current = false;
     onClose();
     onSuccess();
   };
