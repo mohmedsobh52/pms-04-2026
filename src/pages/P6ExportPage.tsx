@@ -442,8 +442,13 @@ const P6ExportPage = () => {
 
             <Button
               onClick={handleAIGenerate}
-              disabled={loadingItems || !hasItems || projectValid === false}
+              disabled={loadingItems || !hasItems || !canUploadOrGenerate}
               className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              title={
+                !canUploadOrGenerate && selectedProjectId
+                  ? (isArabic ? "يجب التحقق من المشروع أولاً" : "Project must be validated first")
+                  : undefined
+              }
             >
               {loadingItems ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
