@@ -8,7 +8,6 @@ import {
   ArrowUpDown,
   Settings2,
   FileDown,
-  AlertTriangle,
 } from "lucide-react";
 import { P6Export } from "@/components/P6Export";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
@@ -31,6 +30,12 @@ import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ProjectPlans } from "@/components/ProjectPlans";
+import { logRlsError } from "@/lib/rls-error-log";
+import {
+  ProjectStatusBadge,
+  ProjectStatusPanel,
+  type ProjectValidationStatus,
+} from "@/components/p6/ProjectStatusPanel";
 
 interface ProjectOption {
   id: string;
@@ -114,23 +119,29 @@ const P6ExportPage = () => {
   }, []);
 
   // التحقق من صلاحية المشروع وجلب بنوده
-  const [projectValid, setProjectValid] = useState<boolean | null>(null);
+  const [projectStatus, setProjectStatus] = useState<ProjectValidationStatus>("idle");
   const [projectValidationMessage, setProjectValidationMessage] = useState("");
+  const [projectErrorTable, setProjectErrorTable] = useState<string | null>(null);
+  const [projectErrorRef, setProjectErrorRef] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selectedProjectId) {
       setProjectItems([]);
-      setProjectValid(null);
+      setProjectStatus("idle");
       setProjectValidationMessage("");
+      setProjectErrorTable(null);
+      setProjectErrorRef(null);
       return;
     }
     const fetchAndValidate = async () => {
       setLoadingItems(true);
-      setProjectValid(null);
+      setProjectStatus("checking");
+      setProjectErrorTable(null);
+      setProjectErrorRef(null);
       try {
         const { data: authData } = await supabase.auth.getUser();
         if (!authData?.user) {
-          setProjectValid(false);
+          setProjectStatus("missing");
           setProjectValidationMessage(
             isArabic ? "انتهت الجلسة. يرجى تسجيل الدخول." : "Session expired. Please sign in."
           );
@@ -143,27 +154,45 @@ const P6ExportPage = () => {
           supabase.from("project_data").select("id, user_id").eq("id", selectedProjectId).maybeSingle(),
         ]);
         const row = savedRes.data || dataRes.data;
+        const sourceTable = savedRes.data ? "saved_projects" : dataRes.data ? "project_data" : "saved_projects";
+
         if (!row) {
-          setProjectValid(false);
-          setProjectValidationMessage(
-            isArabic
-              ? "المشروع غير موجود في قاعدة البيانات. أعد إنشاءه قبل المتابعة."
-              : "Project not found in database. Recreate it before proceeding."
-          );
+          const msg = isArabic
+            ? "المشروع غير موجود في قاعدة البيانات."
+            : "Project not found in database.";
+          const entry = logRlsError({
+            table: sourceTable,
+            message: msg,
+            userId: authData.user.id,
+            projectId: selectedProjectId,
+            context: { phase: "p6_validation", reason: "missing" },
+          });
+          setProjectStatus("missing");
+          setProjectValidationMessage(msg);
+          setProjectErrorTable(sourceTable);
+          setProjectErrorRef(entry.ref);
           setProjectItems([]);
           return;
         }
         if (row.user_id !== authData.user.id) {
-          setProjectValid(false);
-          setProjectValidationMessage(
-            isArabic
-              ? "لا تملك صلاحية الوصول إلى هذا المشروع."
-              : "You don't have access to this project."
-          );
+          const msg = isArabic
+            ? "لا تملك صلاحية الوصول إلى هذا المشروع."
+            : "You don't have access to this project.";
+          const entry = logRlsError({
+            table: sourceTable,
+            message: msg,
+            userId: authData.user.id,
+            projectId: selectedProjectId,
+            context: { phase: "p6_validation", reason: "forbidden" },
+          });
+          setProjectStatus("forbidden");
+          setProjectValidationMessage(msg);
+          setProjectErrorTable(sourceTable);
+          setProjectErrorRef(entry.ref);
           setProjectItems([]);
           return;
         }
-        setProjectValid(true);
+        setProjectStatus("ready");
         setProjectValidationMessage("");
 
         const { data, error } = await supabase
@@ -186,6 +215,9 @@ const P6ExportPage = () => {
     };
     fetchAndValidate();
   }, [selectedProjectId, isArabic, toast]);
+
+  const projectValid = projectStatus === "ready";
+  const canUploadOrGenerate = !!selectedProjectId && projectValid;
 
   // البنود الخام
   const rawItems = useMemo(() => {
@@ -267,10 +299,10 @@ const P6ExportPage = () => {
       });
       return;
     }
-    if (projectValid === false) {
+    if (!projectValid) {
       toast({
         title: isArabic ? "المشروع غير صالح" : "Invalid project",
-        description: projectValidationMessage,
+        description: projectValidationMessage || (isArabic ? "يجب التحقق من المشروع أولاً" : "Project must be validated first"),
         variant: "destructive",
       });
       return;
@@ -409,8 +441,13 @@ const P6ExportPage = () => {
 
             <Button
               onClick={handleAIGenerate}
-              disabled={loadingItems || !hasItems || projectValid === false}
+              disabled={loadingItems || !hasItems || !canUploadOrGenerate}
               className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              title={
+                !canUploadOrGenerate && selectedProjectId
+                  ? (isArabic ? "يجب التحقق من المشروع أولاً" : "Project must be validated first")
+                  : undefined
+              }
             >
               {loadingItems ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -459,20 +496,25 @@ const P6ExportPage = () => {
           </div>
         )}
 
-        {/* تنبيه صلاحية المشروع */}
-        {projectValid === false && !loadingItems && (
-          <div
-            className="mt-4 flex items-start gap-3 p-3 rounded-lg border border-destructive/30 bg-destructive/5"
-            dir={isArabic ? "rtl" : "ltr"}
-          >
-            <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-            <div className="flex-1 text-sm text-destructive">
-              <p className="font-medium">
-                {isArabic ? "تعذّر التحقق من المشروع" : "Project validation failed"}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">{projectValidationMessage}</p>
-            </div>
+        {/* حالة المشروع */}
+        {selectedProjectId && (
+          <div className="mt-3 flex items-center gap-2" dir={isArabic ? "rtl" : "ltr"}>
+            <span className="text-xs text-muted-foreground">
+              {isArabic ? "حالة مشروع BOQ:" : "BOQ project status:"}
+            </span>
+            <ProjectStatusBadge status={projectStatus} isArabic={isArabic} />
           </div>
+        )}
+
+        {/* لوحة سبب الفشل + خطوات الإصلاح */}
+        {!loadingItems && (
+          <ProjectStatusPanel
+            status={projectStatus}
+            message={projectValidationMessage}
+            table={projectErrorTable}
+            ref={projectErrorRef}
+            isArabic={isArabic}
+          />
         )}
       </div>
 
