@@ -120,23 +120,29 @@ const P6ExportPage = () => {
   }, []);
 
   // التحقق من صلاحية المشروع وجلب بنوده
-  const [projectValid, setProjectValid] = useState<boolean | null>(null);
+  const [projectStatus, setProjectStatus] = useState<ProjectValidationStatus>("idle");
   const [projectValidationMessage, setProjectValidationMessage] = useState("");
+  const [projectErrorTable, setProjectErrorTable] = useState<string | null>(null);
+  const [projectErrorRef, setProjectErrorRef] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selectedProjectId) {
       setProjectItems([]);
-      setProjectValid(null);
+      setProjectStatus("idle");
       setProjectValidationMessage("");
+      setProjectErrorTable(null);
+      setProjectErrorRef(null);
       return;
     }
     const fetchAndValidate = async () => {
       setLoadingItems(true);
-      setProjectValid(null);
+      setProjectStatus("checking");
+      setProjectErrorTable(null);
+      setProjectErrorRef(null);
       try {
         const { data: authData } = await supabase.auth.getUser();
         if (!authData?.user) {
-          setProjectValid(false);
+          setProjectStatus("missing");
           setProjectValidationMessage(
             isArabic ? "انتهت الجلسة. يرجى تسجيل الدخول." : "Session expired. Please sign in."
           );
@@ -149,27 +155,45 @@ const P6ExportPage = () => {
           supabase.from("project_data").select("id, user_id").eq("id", selectedProjectId).maybeSingle(),
         ]);
         const row = savedRes.data || dataRes.data;
+        const sourceTable = savedRes.data ? "saved_projects" : dataRes.data ? "project_data" : "saved_projects";
+
         if (!row) {
-          setProjectValid(false);
-          setProjectValidationMessage(
-            isArabic
-              ? "المشروع غير موجود في قاعدة البيانات. أعد إنشاءه قبل المتابعة."
-              : "Project not found in database. Recreate it before proceeding."
-          );
+          const msg = isArabic
+            ? "المشروع غير موجود في قاعدة البيانات."
+            : "Project not found in database.";
+          const entry = logRlsError({
+            table: sourceTable,
+            message: msg,
+            userId: authData.user.id,
+            projectId: selectedProjectId,
+            context: { phase: "p6_validation", reason: "missing" },
+          });
+          setProjectStatus("missing");
+          setProjectValidationMessage(msg);
+          setProjectErrorTable(sourceTable);
+          setProjectErrorRef(entry.ref);
           setProjectItems([]);
           return;
         }
         if (row.user_id !== authData.user.id) {
-          setProjectValid(false);
-          setProjectValidationMessage(
-            isArabic
-              ? "لا تملك صلاحية الوصول إلى هذا المشروع."
-              : "You don't have access to this project."
-          );
+          const msg = isArabic
+            ? "لا تملك صلاحية الوصول إلى هذا المشروع."
+            : "You don't have access to this project.";
+          const entry = logRlsError({
+            table: sourceTable,
+            message: msg,
+            userId: authData.user.id,
+            projectId: selectedProjectId,
+            context: { phase: "p6_validation", reason: "forbidden" },
+          });
+          setProjectStatus("forbidden");
+          setProjectValidationMessage(msg);
+          setProjectErrorTable(sourceTable);
+          setProjectErrorRef(entry.ref);
           setProjectItems([]);
           return;
         }
-        setProjectValid(true);
+        setProjectStatus("ready");
         setProjectValidationMessage("");
 
         const { data, error } = await supabase
@@ -192,6 +216,9 @@ const P6ExportPage = () => {
     };
     fetchAndValidate();
   }, [selectedProjectId, isArabic, toast]);
+
+  const projectValid = projectStatus === "ready";
+  const canUploadOrGenerate = !!selectedProjectId && projectValid;
 
   // البنود الخام
   const rawItems = useMemo(() => {
