@@ -53,8 +53,11 @@ export function BOQUploadDialog({
     table?: string;
     hint?: string;
     canRetry?: boolean;
+    ref?: string;
+    autoCreated?: boolean;
   } | null>(null);
   const lastItemsRef = useRef<any[] | null>(null);
+  const autoRetriedRef = useRef(false);
   const { toast } = useToast();
 
   const handleClose = () => {
