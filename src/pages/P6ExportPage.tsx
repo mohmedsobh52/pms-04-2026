@@ -112,15 +112,59 @@ const P6ExportPage = () => {
     fetchProjects();
   }, []);
 
-  // جلب بنود المشروع المختار
+  // التحقق من صلاحية المشروع وجلب بنوده
+  const [projectValid, setProjectValid] = useState<boolean | null>(null);
+  const [projectValidationMessage, setProjectValidationMessage] = useState("");
+
   useEffect(() => {
     if (!selectedProjectId) {
       setProjectItems([]);
+      setProjectValid(null);
+      setProjectValidationMessage("");
       return;
     }
-    const fetchItems = async () => {
+    const fetchAndValidate = async () => {
       setLoadingItems(true);
+      setProjectValid(null);
       try {
+        const { data: authData } = await supabase.auth.getUser();
+        if (!authData?.user) {
+          setProjectValid(false);
+          setProjectValidationMessage(
+            isArabic ? "انتهت الجلسة. يرجى تسجيل الدخول." : "Session expired. Please sign in."
+          );
+          return;
+        }
+
+        // تحقق من وجود المشروع وملكيته
+        const [savedRes, dataRes] = await Promise.all([
+          supabase.from("saved_projects").select("id, user_id").eq("id", selectedProjectId).maybeSingle(),
+          supabase.from("project_data").select("id, user_id").eq("id", selectedProjectId).maybeSingle(),
+        ]);
+        const row = savedRes.data || dataRes.data;
+        if (!row) {
+          setProjectValid(false);
+          setProjectValidationMessage(
+            isArabic
+              ? "المشروع غير موجود في قاعدة البيانات. أعد إنشاءه قبل المتابعة."
+              : "Project not found in database. Recreate it before proceeding."
+          );
+          setProjectItems([]);
+          return;
+        }
+        if (row.user_id !== authData.user.id) {
+          setProjectValid(false);
+          setProjectValidationMessage(
+            isArabic
+              ? "لا تملك صلاحية الوصول إلى هذا المشروع."
+              : "You don't have access to this project."
+          );
+          setProjectItems([]);
+          return;
+        }
+        setProjectValid(true);
+        setProjectValidationMessage("");
+
         const { data, error } = await supabase
           .from("project_items")
           .select("item_number, description, unit, quantity, unit_price, total_price, category")
@@ -139,7 +183,7 @@ const P6ExportPage = () => {
         setLoadingItems(false);
       }
     };
-    fetchItems();
+    fetchAndValidate();
   }, [selectedProjectId, isArabic, toast]);
 
   // البنود الخام
