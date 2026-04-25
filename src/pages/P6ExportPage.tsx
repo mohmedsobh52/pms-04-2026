@@ -497,20 +497,25 @@ const P6ExportPage = () => {
           </div>
         )}
 
-        {/* تنبيه صلاحية المشروع */}
-        {projectValid === false && !loadingItems && (
-          <div
-            className="mt-4 flex items-start gap-3 p-3 rounded-lg border border-destructive/30 bg-destructive/5"
-            dir={isArabic ? "rtl" : "ltr"}
-          >
-            <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-            <div className="flex-1 text-sm text-destructive">
-              <p className="font-medium">
-                {isArabic ? "تعذّر التحقق من المشروع" : "Project validation failed"}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">{projectValidationMessage}</p>
-            </div>
+        {/* حالة المشروع */}
+        {selectedProjectId && (
+          <div className="mt-3 flex items-center gap-2" dir={isArabic ? "rtl" : "ltr"}>
+            <span className="text-xs text-muted-foreground">
+              {isArabic ? "حالة مشروع BOQ:" : "BOQ project status:"}
+            </span>
+            <ProjectStatusBadge status={projectStatus} isArabic={isArabic} />
           </div>
+        )}
+
+        {/* لوحة سبب الفشل + خطوات الإصلاح */}
+        {!loadingItems && (
+          <ProjectStatusPanel
+            status={projectStatus}
+            message={projectValidationMessage}
+            table={projectErrorTable}
+            ref={projectErrorRef}
+            isArabic={isArabic}
+          />
         )}
       </div>
 
