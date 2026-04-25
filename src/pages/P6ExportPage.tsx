@@ -8,7 +8,6 @@ import {
   ArrowUpDown,
   Settings2,
   FileDown,
-  AlertTriangle,
 } from "lucide-react";
 import { P6Export } from "@/components/P6Export";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
