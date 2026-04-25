@@ -91,14 +91,31 @@ export function BOQUploadDialog({
         supabase.from("project_data").select("id, user_id").eq("id", projectId).maybeSingle(),
       ]);
 
-      const projectRow = savedRes.data || dataRes.data;
+      let projectRow = savedRes.data || dataRes.data;
+
+      // Auto-create the project in saved_projects if it only exists locally
       if (!projectRow) {
-        throw new Error(
-          isArabic
-            ? "المشروع غير موجود أو ليس لديك صلاحية الوصول إليه. ربما تم حذفه."
-            : "Project not found or you don't have access to it. It may have been deleted."
-        );
+        const { data: created, error: createErr } = await supabase
+          .from("saved_projects")
+          .insert({
+            id: projectId,
+            user_id: authData.user.id,
+            name: isArabic ? "مشروع بدون اسم" : "Untitled project",
+            analysis_data: {},
+          })
+          .select("id, user_id")
+          .maybeSingle();
+
+        if (createErr || !created) {
+          throw new Error(
+            isArabic
+              ? "تعذّر إنشاء سجل المشروع لحفظ البنود. حاول إنشاء المشروع مرة أخرى."
+              : "Could not create the project record to save items. Please try recreating the project."
+          );
+        }
+        projectRow = created;
       }
+
       if (projectRow.user_id !== authData.user.id) {
         throw new Error(
           isArabic
