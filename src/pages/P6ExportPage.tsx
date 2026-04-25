@@ -408,7 +408,7 @@ const P6ExportPage = () => {
 
             <Button
               onClick={handleAIGenerate}
-              disabled={loadingItems || !hasItems}
+              disabled={loadingItems || !hasItems || projectValid === false}
               className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {loadingItems ? (
