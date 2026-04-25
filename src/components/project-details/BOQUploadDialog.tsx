@@ -85,20 +85,37 @@ export function BOQUploadDialog({
         );
       }
 
-      const { data: projectRow, error: projectErr } = await supabase
-        .from("saved_projects")
-        .select("id, user_id")
-        .eq("id", projectId)
-        .maybeSingle();
+      // Check ownership in either saved_projects or project_data (RLS supports both)
+      const [savedRes, dataRes] = await Promise.all([
+        supabase.from("saved_projects").select("id, user_id").eq("id", projectId).maybeSingle(),
+        supabase.from("project_data").select("id, user_id").eq("id", projectId).maybeSingle(),
+      ]);
 
-      if (projectErr) throw projectErr;
+      let projectRow = savedRes.data || dataRes.data;
+
+      // Auto-create the project in saved_projects if it only exists locally
       if (!projectRow) {
-        throw new Error(
-          isArabic
-            ? "المشروع غير موجود أو ليس لديك صلاحية الوصول إليه"
-            : "Project not found or you don't have access to it"
-        );
+        const { data: created, error: createErr } = await supabase
+          .from("saved_projects")
+          .insert({
+            id: projectId,
+            user_id: authData.user.id,
+            name: isArabic ? "مشروع بدون اسم" : "Untitled project",
+            analysis_data: {},
+          })
+          .select("id, user_id")
+          .maybeSingle();
+
+        if (createErr || !created) {
+          throw new Error(
+            isArabic
+              ? "تعذّر إنشاء سجل المشروع لحفظ البنود. حاول إنشاء المشروع مرة أخرى."
+              : "Could not create the project record to save items. Please try recreating the project."
+          );
+        }
+        projectRow = created;
       }
+
       if (projectRow.user_id !== authData.user.id) {
         throw new Error(
           isArabic
