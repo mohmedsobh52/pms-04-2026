@@ -479,6 +479,16 @@ export function BOQUploadDialog({
                     {errorContext.hint}
                   </p>
                 )}
+                {errorContext?.ref && (
+                  <p className="text-[11px] text-muted-foreground pt-1 border-t border-destructive/20 mt-2">
+                    <span className="font-semibold">
+                      {isArabic ? "رقم مرجعي للدعم: " : "Support reference: "}
+                    </span>
+                    <code className="px-1.5 py-0.5 rounded bg-muted font-mono">
+                      {errorContext.ref}
+                    </code>
+                  </p>
+                )}
               </div>
             </div>
           )}
