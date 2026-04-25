@@ -457,6 +457,22 @@ const P6ExportPage = () => {
             <Progress value={progress} className="h-2" />
           </div>
         )}
+
+        {/* تنبيه صلاحية المشروع */}
+        {projectValid === false && !loadingItems && (
+          <div
+            className="mt-4 flex items-start gap-3 p-3 rounded-lg border border-destructive/30 bg-destructive/5"
+            dir={isArabic ? "rtl" : "ltr"}
+          >
+            <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+            <div className="flex-1 text-sm text-destructive">
+              <p className="font-medium">
+                {isArabic ? "تعذّر التحقق من المشروع" : "Project validation failed"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">{projectValidationMessage}</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* خيارات قبل التوليد + فلترة/فرز */}
