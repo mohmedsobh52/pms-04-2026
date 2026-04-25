@@ -211,6 +211,7 @@ export function BOQUploadDialog({
   const handleAnalyze = useCallback(async () => {
     if (!selectedFile) return;
     setStatus("processing");
+    setErrorContext(null);
 
     try {
       let items: any[] = [];
@@ -256,6 +257,8 @@ export function BOQUploadDialog({
         }
       }
 
+      lastItemsRef.current = items;
+
       if (!projectId) {
         // لا يوجد مشروع — نمرر البيانات مباشرة للـ context
         onSuccessWithData?.({ items, file_name: selectedFile.name });
@@ -299,6 +302,7 @@ export function BOQUploadDialog({
         err?.message ||
           (isArabic ? "حدث خطأ أثناء معالجة الملف" : "An error occurred while processing the file")
       );
+      setErrorContext(err?._ctx || null);
       toast({
         title: isArabic ? "خطأ في الرفع" : "Upload Error",
         description: err?.message || (isArabic ? "حاول مرة أخرى" : "Please try again"),
@@ -306,6 +310,41 @@ export function BOQUploadDialog({
       });
     }
   }, [selectedFile, projectId, isArabic, saveItemsToProject, toast]);
+
+  const handleRetrySave = useCallback(async () => {
+    const items = lastItemsRef.current;
+    if (!items || items.length === 0) {
+      // No cached items — re-run full analysis
+      handleAnalyze();
+      return;
+    }
+    setStatus("processing");
+    setStatusMessage(isArabic ? "إعادة محاولة الحفظ..." : "Retrying save...");
+    setErrorContext(null);
+    try {
+      await saveItemsToProject(items);
+      setStatus("success");
+      setStatusMessage(
+        isArabic
+          ? `تم حفظ ${items.length} بند بنجاح!`
+          : `Successfully saved ${items.length} items!`
+      );
+      toast({
+        title: isArabic ? "تم الحفظ" : "Saved",
+        description: isArabic ? "نجحت إعادة المحاولة" : "Retry succeeded",
+      });
+      setTimeout(handleSuccess, 1200);
+    } catch (err: any) {
+      setStatus("error");
+      setStatusMessage(err?.message || (isArabic ? "فشل الحفظ" : "Save failed"));
+      setErrorContext(err?._ctx || null);
+      toast({
+        title: isArabic ? "فشلت إعادة المحاولة" : "Retry failed",
+        description: err?.message,
+        variant: "destructive",
+      });
+    }
+  }, [saveItemsToProject, isArabic, toast, handleAnalyze]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
