@@ -79,20 +79,31 @@ export function BOQUploadDialog({
   const saveItemsToProject = useCallback(
     async (items: any[]) => {
       if (!items || items.length === 0) {
-        throw new Error(isArabic ? "لم يتم استخراج أي بنود" : "No items extracted");
+        const e: any = new Error(isArabic ? "لم يتم استخراج أي بنود" : "No items extracted");
+        e._ctx = { canRetry: false };
+        throw e;
       }
       if (!projectId) {
-        throw new Error(isArabic ? "معرّف المشروع غير موجود" : "Project ID is missing");
+        const e: any = new Error(isArabic ? "معرّف المشروع غير موجود" : "Project ID is missing");
+        e._ctx = {
+          canRetry: false,
+          hint: isArabic
+            ? "أنشئ المشروع من شاشة المشاريع أولاً ثم أعد رفع الملف."
+            : "Create the project from the Projects screen first, then re-upload the file.",
+        };
+        throw e;
       }
 
       // Verify auth and project ownership before insert (clearer errors than RLS)
       const { data: authData, error: authErr } = await supabase.auth.getUser();
       if (authErr || !authData?.user) {
-        throw new Error(
+        const e: any = new Error(
           isArabic
             ? "انتهت الجلسة. يرجى تسجيل الدخول مرة أخرى."
             : "Session expired. Please sign in again."
         );
+        e._ctx = { canRetry: false };
+        throw e;
       }
 
       // Check ownership in either saved_projects or project_data (RLS supports both)
@@ -102,6 +113,11 @@ export function BOQUploadDialog({
       ]);
 
       let projectRow = savedRes.data || dataRes.data;
+      let sourceTable: "saved_projects" | "project_data" = savedRes.data
+        ? "saved_projects"
+        : dataRes.data
+        ? "project_data"
+        : "saved_projects";
 
       // Auto-create the project in saved_projects if it only exists locally
       if (!projectRow) {
@@ -117,21 +133,42 @@ export function BOQUploadDialog({
           .maybeSingle();
 
         if (createErr || !created) {
-          throw new Error(
+          const e: any = new Error(
             isArabic
-              ? "تعذّر إنشاء سجل المشروع لحفظ البنود. حاول إنشاء المشروع مرة أخرى."
-              : "Could not create the project record to save items. Please try recreating the project."
+              ? `تعذّر إنشاء سجل المشروع في جدول "saved_projects". ${
+                  createErr?.message || ""
+                }`
+              : `Could not create the project record in "saved_projects". ${
+                  createErr?.message || ""
+                }`
           );
+          e._ctx = {
+            table: "saved_projects",
+            canRetry: true,
+            hint: isArabic
+              ? "خطوات الإصلاح: ١) تأكد من تسجيل الدخول. ٢) أنشئ المشروع من شاشة المشاريع. ٣) اضغط إعادة المحاولة."
+              : "Fix: 1) Confirm you are signed in. 2) Recreate the project from the Projects screen. 3) Click Retry.",
+          };
+          throw e;
         }
         projectRow = created;
+        sourceTable = "saved_projects";
       }
 
       if (projectRow.user_id !== authData.user.id) {
-        throw new Error(
+        const e: any = new Error(
           isArabic
-            ? "ليس لديك صلاحية لإضافة بنود إلى هذا المشروع"
-            : "You don't have permission to add items to this project"
+            ? `ليس لديك صلاحية لإضافة بنود إلى هذا المشروع (الجدول: ${sourceTable}).`
+            : `You don't have permission to add items to this project (table: ${sourceTable}).`
         );
+        e._ctx = {
+          table: sourceTable,
+          canRetry: false,
+          hint: isArabic
+            ? "هذا المشروع مملوك لمستخدم آخر. سجّل الدخول بالحساب المالك أو أنشئ مشروعاً جديداً."
+            : "This project belongs to another user. Sign in with the owning account or create a new project.",
+        };
+        throw e;
       }
 
       const rows = items.map((item: any, idx: number) => ({
@@ -147,15 +184,25 @@ export function BOQUploadDialog({
 
       const { error } = await supabase.from("project_items").insert(rows);
       if (error) {
-        // Surface a friendlier message for RLS failures
-        if (error.message?.toLowerCase().includes("row-level security")) {
-          throw new Error(
+        const isRls = error.message?.toLowerCase().includes("row-level security");
+        if (isRls) {
+          const e: any = new Error(
             isArabic
-              ? "تعذّر حفظ البنود بسبب صلاحيات الأمان. تأكد أنك مالك المشروع."
-              : "Could not save items due to security policy. Make sure you own this project."
+              ? `فشل حفظ البنود في جدول "project_items" بسبب سياسة الأمان (RLS). المشروع موجود في جدول "${sourceTable}".`
+              : `Saving items to "project_items" failed due to RLS. The project exists in "${sourceTable}".`
           );
+          e._ctx = {
+            table: "project_items",
+            canRetry: true,
+            hint: isArabic
+              ? `خطوات الإصلاح: ١) تأكد أن المشروع تم إنشاؤه بنفس حسابك في "${sourceTable}". ٢) سجّل الخروج والدخول مجدداً. ٣) اضغط إعادة المحاولة.`
+              : `Fix: 1) Ensure the project in "${sourceTable}" belongs to your account. 2) Sign out and back in. 3) Click Retry.`,
+          };
+          throw e;
         }
-        throw error;
+        const e: any = new Error(error.message);
+        e._ctx = { table: "project_items", canRetry: true };
+        throw e;
       }
     },
     [projectId, isArabic]
