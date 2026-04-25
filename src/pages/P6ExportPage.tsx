@@ -300,10 +300,10 @@ const P6ExportPage = () => {
       });
       return;
     }
-    if (projectValid === false) {
+    if (!projectValid) {
       toast({
         title: isArabic ? "المشروع غير صالح" : "Invalid project",
-        description: projectValidationMessage,
+        description: projectValidationMessage || (isArabic ? "يجب التحقق من المشروع أولاً" : "Project must be validated first"),
         variant: "destructive",
       });
       return;
