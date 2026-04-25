@@ -16,6 +16,7 @@ import { extractDataFromExcel, formatExcelDataForAnalysis } from "@/lib/excel-ut
 import { performLocalExcelAnalysis } from "@/lib/local-excel-analysis";
 import { performLocalTextAnalysis } from "@/lib/local-text-analysis";
 import type { ExcelExtractionResult } from "@/lib/excel-utils";
+import { logRlsError } from "@/lib/rls-error-log";
 
 interface BOQUploadDialogProps {
   open: boolean;
