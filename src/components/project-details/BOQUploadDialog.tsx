@@ -83,7 +83,7 @@ export function BOQUploadDialog({
   };
 
   const saveItemsToProject = useCallback(
-    async (items: any[]) => {
+    async (items: any[]): Promise<{ autoCreated: boolean; userId: string }> => {
       if (!items || items.length === 0) {
         const e: any = new Error(isArabic ? "لم يتم استخراج أي بنود" : "No items extracted");
         e._ctx = { canRetry: false };
@@ -111,6 +111,7 @@ export function BOQUploadDialog({
         e._ctx = { canRetry: false };
         throw e;
       }
+      const userId = authData.user.id;
 
       // Check ownership in either saved_projects or project_data (RLS supports both)
       const [savedRes, dataRes] = await Promise.all([
@@ -124,6 +125,7 @@ export function BOQUploadDialog({
         : dataRes.data
         ? "project_data"
         : "saved_projects";
+      let autoCreated = false;
 
       // Auto-create the project in saved_projects if it only exists locally
       if (!projectRow) {
@@ -131,7 +133,7 @@ export function BOQUploadDialog({
           .from("saved_projects")
           .insert({
             id: projectId,
-            user_id: authData.user.id,
+            user_id: userId,
             name: isArabic ? "مشروع بدون اسم" : "Untitled project",
             analysis_data: {},
           })
@@ -155,13 +157,16 @@ export function BOQUploadDialog({
               ? "خطوات الإصلاح: ١) تأكد من تسجيل الدخول. ٢) أنشئ المشروع من شاشة المشاريع. ٣) اضغط إعادة المحاولة."
               : "Fix: 1) Confirm you are signed in. 2) Recreate the project from the Projects screen. 3) Click Retry.",
           };
+          e._userId = userId;
+          e._projectId = projectId;
           throw e;
         }
         projectRow = created;
         sourceTable = "saved_projects";
+        autoCreated = true;
       }
 
-      if (projectRow.user_id !== authData.user.id) {
+      if (projectRow.user_id !== userId) {
         const e: any = new Error(
           isArabic
             ? `ليس لديك صلاحية لإضافة بنود إلى هذا المشروع (الجدول: ${sourceTable}).`
@@ -174,6 +179,8 @@ export function BOQUploadDialog({
             ? "هذا المشروع مملوك لمستخدم آخر. سجّل الدخول بالحساب المالك أو أنشئ مشروعاً جديداً."
             : "This project belongs to another user. Sign in with the owning account or create a new project.",
         };
+        e._userId = userId;
+        e._projectId = projectId;
         throw e;
       }
 
@@ -204,12 +211,18 @@ export function BOQUploadDialog({
               ? `خطوات الإصلاح: ١) تأكد أن المشروع تم إنشاؤه بنفس حسابك في "${sourceTable}". ٢) سجّل الخروج والدخول مجدداً. ٣) اضغط إعادة المحاولة.`
               : `Fix: 1) Ensure the project in "${sourceTable}" belongs to your account. 2) Sign out and back in. 3) Click Retry.`,
           };
+          e._userId = userId;
+          e._projectId = projectId;
           throw e;
         }
         const e: any = new Error(error.message);
         e._ctx = { table: "project_items", canRetry: true };
+        e._userId = userId;
+        e._projectId = projectId;
         throw e;
       }
+
+      return { autoCreated, userId };
     },
     [projectId, isArabic]
   );
