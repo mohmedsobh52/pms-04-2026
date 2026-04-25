@@ -31,6 +31,12 @@ import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ProjectPlans } from "@/components/ProjectPlans";
+import { logRlsError } from "@/lib/rls-error-log";
+import {
+  ProjectStatusBadge,
+  ProjectStatusPanel,
+  type ProjectValidationStatus,
+} from "@/components/p6/ProjectStatusPanel";
 
 interface ProjectOption {
   id: string;
