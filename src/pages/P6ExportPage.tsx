@@ -266,6 +266,14 @@ const P6ExportPage = () => {
       });
       return;
     }
+    if (projectValid === false) {
+      toast({
+        title: isArabic ? "المشروع غير صالح" : "Invalid project",
+        description: projectValidationMessage,
+        variant: "destructive",
+      });
+      return;
+    }
     if (!hasItems) {
       toast({
         title: isArabic ? "لا توجد بنود BOQ" : "No BOQ items",
