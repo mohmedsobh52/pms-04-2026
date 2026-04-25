@@ -393,19 +393,44 @@ export function BOQUploadDialog({
           {status === "error" && (
             <div className="flex items-start gap-3 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
               <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-              <p className="text-sm text-destructive">{statusMessage}</p>
+              <div className="flex-1 space-y-2">
+                <p className="text-sm text-destructive font-medium">{statusMessage}</p>
+                {errorContext?.table && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-semibold">
+                      {isArabic ? "الجدول المتأثر: " : "Affected table: "}
+                    </span>
+                    <code className="px-1 py-0.5 rounded bg-muted">{errorContext.table}</code>
+                  </p>
+                )}
+                {errorContext?.hint && (
+                  <p className="text-xs text-muted-foreground whitespace-pre-line">
+                    {errorContext.hint}
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
           {(status === "idle" || status === "error") && selectedFile && (
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <Button
-                className="flex-1"
+                className="flex-1 min-w-[160px]"
                 onClick={handleAnalyze}
                 disabled={!selectedFile}
               >
                 {isArabic ? "ابدأ التحليل والاستخراج" : "Start Analysis & Extraction"}
               </Button>
+              {status === "error" && errorContext?.canRetry && lastItemsRef.current && (
+                <Button
+                  variant="secondary"
+                  onClick={handleRetrySave}
+                  className="gap-2"
+                >
+                  <RotateCw className="w-4 h-4" />
+                  {isArabic ? "إعادة محاولة الحفظ" : "Retry Save"}
+                </Button>
+              )}
               <Button variant="outline" onClick={handleClose}>
                 {isArabic ? "إلغاء" : "Cancel"}
               </Button>
