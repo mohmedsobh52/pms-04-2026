@@ -8,6 +8,7 @@ import {
   ArrowUpDown,
   Settings2,
   FileDown,
+  AlertTriangle,
 } from "lucide-react";
 import { P6Export } from "@/components/P6Export";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
@@ -112,15 +113,59 @@ const P6ExportPage = () => {
     fetchProjects();
   }, []);
 
-  // جلب بنود المشروع المختار
+  // التحقق من صلاحية المشروع وجلب بنوده
+  const [projectValid, setProjectValid] = useState<boolean | null>(null);
+  const [projectValidationMessage, setProjectValidationMessage] = useState("");
+
   useEffect(() => {
     if (!selectedProjectId) {
       setProjectItems([]);
+      setProjectValid(null);
+      setProjectValidationMessage("");
       return;
     }
-    const fetchItems = async () => {
+    const fetchAndValidate = async () => {
       setLoadingItems(true);
+      setProjectValid(null);
       try {
+        const { data: authData } = await supabase.auth.getUser();
+        if (!authData?.user) {
+          setProjectValid(false);
+          setProjectValidationMessage(
+            isArabic ? "انتهت الجلسة. يرجى تسجيل الدخول." : "Session expired. Please sign in."
+          );
+          return;
+        }
+
+        // تحقق من وجود المشروع وملكيته
+        const [savedRes, dataRes] = await Promise.all([
+          supabase.from("saved_projects").select("id, user_id").eq("id", selectedProjectId).maybeSingle(),
+          supabase.from("project_data").select("id, user_id").eq("id", selectedProjectId).maybeSingle(),
+        ]);
+        const row = savedRes.data || dataRes.data;
+        if (!row) {
+          setProjectValid(false);
+          setProjectValidationMessage(
+            isArabic
+              ? "المشروع غير موجود في قاعدة البيانات. أعد إنشاءه قبل المتابعة."
+              : "Project not found in database. Recreate it before proceeding."
+          );
+          setProjectItems([]);
+          return;
+        }
+        if (row.user_id !== authData.user.id) {
+          setProjectValid(false);
+          setProjectValidationMessage(
+            isArabic
+              ? "لا تملك صلاحية الوصول إلى هذا المشروع."
+              : "You don't have access to this project."
+          );
+          setProjectItems([]);
+          return;
+        }
+        setProjectValid(true);
+        setProjectValidationMessage("");
+
         const { data, error } = await supabase
           .from("project_items")
           .select("item_number, description, unit, quantity, unit_price, total_price, category")
@@ -139,7 +184,7 @@ const P6ExportPage = () => {
         setLoadingItems(false);
       }
     };
-    fetchItems();
+    fetchAndValidate();
   }, [selectedProjectId, isArabic, toast]);
 
   // البنود الخام
@@ -218,6 +263,14 @@ const P6ExportPage = () => {
     if (!selectedProjectId) {
       toast({
         title: isArabic ? "اختر مشروعاً أولاً" : "Select a project first",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (projectValid === false) {
+      toast({
+        title: isArabic ? "المشروع غير صالح" : "Invalid project",
+        description: projectValidationMessage,
         variant: "destructive",
       });
       return;
@@ -356,7 +409,7 @@ const P6ExportPage = () => {
 
             <Button
               onClick={handleAIGenerate}
-              disabled={loadingItems || !hasItems}
+              disabled={loadingItems || !hasItems || projectValid === false}
               className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {loadingItems ? (
@@ -403,6 +456,22 @@ const P6ExportPage = () => {
               <span>{progress}%</span>
             </div>
             <Progress value={progress} className="h-2" />
+          </div>
+        )}
+
+        {/* تنبيه صلاحية المشروع */}
+        {projectValid === false && !loadingItems && (
+          <div
+            className="mt-4 flex items-start gap-3 p-3 rounded-lg border border-destructive/30 bg-destructive/5"
+            dir={isArabic ? "rtl" : "ltr"}
+          >
+            <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+            <div className="flex-1 text-sm text-destructive">
+              <p className="font-medium">
+                {isArabic ? "تعذّر التحقق من المشروع" : "Project validation failed"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">{projectValidationMessage}</p>
+            </div>
           </div>
         )}
       </div>
