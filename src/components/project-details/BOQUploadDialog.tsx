@@ -48,6 +48,12 @@ export function BOQUploadDialog({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [status, setStatus] = useState<UploadStatus>("idle");
   const [statusMessage, setStatusMessage] = useState("");
+  const [errorContext, setErrorContext] = useState<{
+    table?: string;
+    hint?: string;
+    canRetry?: boolean;
+  } | null>(null);
+  const lastItemsRef = useRef<any[] | null>(null);
   const { toast } = useToast();
 
   const handleClose = () => {
@@ -55,6 +61,8 @@ export function BOQUploadDialog({
     setSelectedFile(null);
     setStatus("idle");
     setStatusMessage("");
+    setErrorContext(null);
+    lastItemsRef.current = null;
     onClose();
   };
 
@@ -62,6 +70,8 @@ export function BOQUploadDialog({
     setSelectedFile(null);
     setStatus("idle");
     setStatusMessage("");
+    setErrorContext(null);
+    lastItemsRef.current = null;
     onClose();
     onSuccess();
   };
