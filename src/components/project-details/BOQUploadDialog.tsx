@@ -298,13 +298,38 @@ export function BOQUploadDialog({
       }
 
       setStatusMessage(isArabic ? "جارٍ حفظ البنود..." : "Saving items...");
-      await saveItemsToProject(items);
+      let saveResult: { autoCreated: boolean; userId: string } | null = null;
+      try {
+        saveResult = await saveItemsToProject(items);
+      } catch (firstErr: any) {
+        // Auto-retry once if the failure happened on project_items RLS
+        // immediately after we just auto-created the project record.
+        const ctx = firstErr?._ctx;
+        const eligibleAutoRetry =
+          !autoRetriedRef.current &&
+          ctx?.canRetry &&
+          ctx?.table === "project_items";
+        if (eligibleAutoRetry) {
+          autoRetriedRef.current = true;
+          setStatusMessage(
+            isArabic ? "إعادة محاولة تلقائية بعد إنشاء المشروع..." : "Auto-retrying after project creation..."
+          );
+          await new Promise((r) => setTimeout(r, 600));
+          saveResult = await saveItemsToProject(items);
+        } else {
+          throw firstErr;
+        }
+      }
 
       setStatus("success");
       setStatusMessage(
         isArabic
-          ? `تم استخراج وحفظ ${items.length} بند بنجاح!`
-          : `Successfully extracted and saved ${items.length} items!`
+          ? `تم استخراج وحفظ ${items.length} بند بنجاح!${
+              saveResult?.autoCreated ? (isArabic ? " (تم إنشاء سجل المشروع تلقائياً)" : " (project record auto-created)") : ""
+            }`
+          : `Successfully extracted and saved ${items.length} items!${
+              saveResult?.autoCreated ? " (project record auto-created)" : ""
+            }`
       );
 
       toast({
@@ -316,15 +341,30 @@ export function BOQUploadDialog({
 
       setTimeout(handleSuccess, 1500);
     } catch (err: any) {
+      const ctx = err?._ctx || {};
+      // Log RLS / save errors with reference number
+      let ref: string | undefined;
+      if (ctx?.table) {
+        const entry = logRlsError({
+          table: ctx.table,
+          message: err?.message || "Unknown error",
+          userId: err?._userId ?? null,
+          projectId: err?._projectId ?? projectId ?? null,
+          context: { phase: "upload", canRetry: !!ctx.canRetry },
+        });
+        ref = entry.ref;
+      }
       setStatus("error");
       setStatusMessage(
         err?.message ||
           (isArabic ? "حدث خطأ أثناء معالجة الملف" : "An error occurred while processing the file")
       );
-      setErrorContext(err?._ctx || null);
+      setErrorContext({ ...ctx, ref });
       toast({
         title: isArabic ? "خطأ في الرفع" : "Upload Error",
-        description: err?.message || (isArabic ? "حاول مرة أخرى" : "Please try again"),
+        description: ref
+          ? `${err?.message || ""} (Ref: ${ref})`
+          : err?.message || (isArabic ? "حاول مرة أخرى" : "Please try again"),
         variant: "destructive",
       });
     }
