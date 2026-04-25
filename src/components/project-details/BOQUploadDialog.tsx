@@ -394,16 +394,28 @@ export function BOQUploadDialog({
       });
       setTimeout(handleSuccess, 1200);
     } catch (err: any) {
+      const ctx = err?._ctx || {};
+      let ref: string | undefined;
+      if (ctx?.table) {
+        const entry = logRlsError({
+          table: ctx.table,
+          message: err?.message || "Unknown error",
+          userId: err?._userId ?? null,
+          projectId: err?._projectId ?? projectId ?? null,
+          context: { phase: "manual_retry", canRetry: !!ctx.canRetry },
+        });
+        ref = entry.ref;
+      }
       setStatus("error");
       setStatusMessage(err?.message || (isArabic ? "فشل الحفظ" : "Save failed"));
-      setErrorContext(err?._ctx || null);
+      setErrorContext({ ...ctx, ref });
       toast({
         title: isArabic ? "فشلت إعادة المحاولة" : "Retry failed",
-        description: err?.message,
+        description: ref ? `${err?.message || ""} (Ref: ${ref})` : err?.message,
         variant: "destructive",
       });
     }
-  }, [saveItemsToProject, isArabic, toast, handleAnalyze]);
+  }, [saveItemsToProject, isArabic, toast, handleAnalyze, projectId]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
