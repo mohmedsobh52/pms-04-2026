@@ -384,6 +384,12 @@ function GlobalSearchProviderInternal({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  // Runtime confirmation that the provider is wrapping the tree.
+  useEffect(() => {
+    pushBreadcrumb('provider-mounted');
+    return () => pushBreadcrumb('provider-unmounted');
+  }, []);
+
   // Fetch projects from database
   useEffect(() => {
     const fetchProjects = async () => {
