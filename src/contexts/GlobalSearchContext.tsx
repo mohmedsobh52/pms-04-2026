@@ -530,12 +530,20 @@ const noopGlobalSearch: GlobalSearchContextType = {
   navigateToItem: () => {},
 };
 
-// Custom hook to access the context
+// Custom hook to access the context. Never throws — returns a no-op fallback
+// so a missing provider degrades gracefully instead of blanking the app.
+let warnedOutsideProvider = false;
 export function useGlobalSearch() {
   const context = useContext(GlobalSearchContext);
   if (!context) {
-    if (typeof window !== 'undefined') {
-      console.warn('useGlobalSearch used outside GlobalSearchProvider — using no-op fallback.');
+    if (import.meta.env.DEV && !warnedOutsideProvider) {
+      warnedOutsideProvider = true;
+      const stackTail = new Error().stack?.split('\n').slice(2, 5).join(' | ');
+      console.warn(
+        '[useGlobalSearch] Called outside <GlobalSearchProvider>. Using no-op fallback.',
+        stackTail ? `\n  at: ${stackTail}` : ''
+      );
+      pushBreadcrumb('hook-fallback-used', stackTail);
     }
     return noopGlobalSearch;
   }
