@@ -166,10 +166,12 @@ serve(async (req) => {
       scope_of_work: { en: "Scope of Work", ar: "نطاق العمل" },
       notes: { en: "Additional Notes/Terms & Conditions", ar: "ملاحظات إضافية/الشروط والأحكام" }
     };
+    const langKey: "en" | "ar" = isArabic ? "ar" : "en";
+    const fieldLabel = fieldLabels[String(field)]?.[langKey] || String(field);
 
     const systemPrompt = `You are a construction contract specialist with expertise in FIDIC contracts, Saudi Arabian construction law, and international best practices.
 
-Generate professional ${fieldLabels[field]?.[language] || field} content for a construction contract.
+Generate professional ${fieldLabel} content for a construction contract.
 
 Contract Details:
 - Type: ${isArabic ? contractTypeInfo.ar : contractTypeInfo.en}
@@ -227,7 +229,7 @@ Generate the content directly without any introduction or explanation.`;
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Generate ${fieldLabels[field]?.[language] || field} for this ${isArabic ? contractTypeInfo.ar : contractTypeInfo.en} contract titled "${contract_title || 'Construction Contract'}".` }
+          { role: "user", content: `Generate ${fieldLabel} for this ${isArabic ? contractTypeInfo.ar : contractTypeInfo.en} contract titled "${contract_title || 'Construction Contract'}".` }
         ],
       }),
     });
