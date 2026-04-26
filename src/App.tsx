@@ -94,8 +94,12 @@ const App = () => (
               <BrowserRouter>
                 <GlobalSearchProvider>
                   <ScrollToTop />
-                  <GlobalSearch />
-                  <CommandPalette />
+                  <ErrorBoundary fallback={null}>
+                    <GlobalSearch />
+                  </ErrorBoundary>
+                  <ErrorBoundary fallback={null}>
+                    <CommandPalette />
+                  </ErrorBoundary>
                   <UpdateBanner />
                   <FloatingBackButton />
                   <ErrorBoundary>
