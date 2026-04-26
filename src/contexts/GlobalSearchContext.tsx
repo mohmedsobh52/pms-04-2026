@@ -478,11 +478,26 @@ export function GlobalSearchProvider({ children }: { children: ReactNode }) {
   return <GlobalSearchProviderInternal>{children}</GlobalSearchProviderInternal>;
 }
 
+// Safe fallback so consumers rendered outside the provider (e.g. during HMR
+// or transient remounts) don't crash the whole app with a blank screen.
+const noopGlobalSearch: GlobalSearchContextType = {
+  isOpen: false,
+  setIsOpen: () => {},
+  query: '',
+  setQuery: () => {},
+  results: { pages: [], projects: [], actions: [], settings: [] },
+  isLoading: false,
+  navigateToItem: () => {},
+};
+
 // Custom hook to access the context
 export function useGlobalSearch() {
   const context = useContext(GlobalSearchContext);
   if (!context) {
-    throw new Error('useGlobalSearch must be used within GlobalSearchProvider');
+    if (typeof window !== 'undefined') {
+      console.warn('useGlobalSearch used outside GlobalSearchProvider — using no-op fallback.');
+    }
+    return noopGlobalSearch;
   }
   return context;
 }
