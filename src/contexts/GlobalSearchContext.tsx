@@ -1,7 +1,41 @@
+/**
+ * GlobalSearchContext — SINGLE SOURCE OF TRUTH.
+ *
+ * Do NOT duplicate this context in another file or copy/paste the
+ * `createContext` call elsewhere. All consumers must import from
+ * `@/contexts/GlobalSearchContext` (or the `@/hooks/useGlobalSearch`
+ * re-export). Duplicate context instances cause silent provider
+ * mismatches that look like "used outside provider" bugs.
+ */
 import { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+
+// --- Breadcrumb logging (dev-only diagnostics) ---
+type Breadcrumb = { ts: number; event: string; detail?: string };
+const breadcrumbs: Breadcrumb[] = [];
+const MAX_BREADCRUMBS = 20;
+function pushBreadcrumb(event: string, detail?: string) {
+  breadcrumbs.push({ ts: Date.now(), event, detail });
+  if (breadcrumbs.length > MAX_BREADCRUMBS) breadcrumbs.shift();
+}
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  (window as unknown as { __getGlobalSearchBreadcrumbs?: () => Breadcrumb[] })
+    .__getGlobalSearchBreadcrumbs = () => [...breadcrumbs];
+}
+
+// --- Duplicate-instance detection ---
+type GlobalWithCounter = typeof globalThis & { __GLOBAL_SEARCH_CONTEXT_INSTANCES__?: number };
+const g = globalThis as GlobalWithCounter;
+g.__GLOBAL_SEARCH_CONTEXT_INSTANCES__ = (g.__GLOBAL_SEARCH_CONTEXT_INSTANCES__ || 0) + 1;
+if (g.__GLOBAL_SEARCH_CONTEXT_INSTANCES__ > 1 && import.meta.env.DEV) {
+  console.error(
+    `[GlobalSearchContext] Multiple context instances detected (${g.__GLOBAL_SEARCH_CONTEXT_INSTANCES__}). ` +
+    'Check for duplicate imports or inconsistent path casing.'
+  );
+  pushBreadcrumb('duplicate-context-detected', String(g.__GLOBAL_SEARCH_CONTEXT_INSTANCES__));
+}
 
 export type SearchItemType = 'page' | 'project' | 'action' | 'setting' | 'file';
 
@@ -350,6 +384,12 @@ function GlobalSearchProviderInternal({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  // Runtime confirmation that the provider is wrapping the tree.
+  useEffect(() => {
+    pushBreadcrumb('provider-mounted');
+    return () => pushBreadcrumb('provider-unmounted');
+  }, []);
+
   // Fetch projects from database
   useEffect(() => {
     const fetchProjects = async () => {
@@ -490,12 +530,20 @@ const noopGlobalSearch: GlobalSearchContextType = {
   navigateToItem: () => {},
 };
 
-// Custom hook to access the context
+// Custom hook to access the context. Never throws — returns a no-op fallback
+// so a missing provider degrades gracefully instead of blanking the app.
+let warnedOutsideProvider = false;
 export function useGlobalSearch() {
   const context = useContext(GlobalSearchContext);
   if (!context) {
-    if (typeof window !== 'undefined') {
-      console.warn('useGlobalSearch used outside GlobalSearchProvider — using no-op fallback.');
+    if (import.meta.env.DEV && !warnedOutsideProvider) {
+      warnedOutsideProvider = true;
+      const stackTail = new Error().stack?.split('\n').slice(2, 5).join(' | ');
+      console.warn(
+        '[useGlobalSearch] Called outside <GlobalSearchProvider>. Using no-op fallback.',
+        stackTail ? `\n  at: ${stackTail}` : ''
+      );
+      pushBreadcrumb('hook-fallback-used', stackTail);
     }
     return noopGlobalSearch;
   }
