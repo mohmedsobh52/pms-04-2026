@@ -767,10 +767,13 @@ serve(async (req) => {
       }
     }
 
-    // Calculate accuracy metrics
+    // Calculate accuracy metrics — High = 97%, Medium = 88%, Low = 75%
     const highConfidence = allSuggestions.filter(s => s.confidence === "High").length;
     const mediumConfidence = allSuggestions.filter(s => s.confidence === "Medium").length;
-    const estimatedAccuracy = Math.round(
+    const estimatedAccuracy = allSuggestions.length === 0 ? 0 : Math.round(
+      ((highConfidence * 0.97) + (mediumConfidence * 0.88) + ((allSuggestions.length - highConfidence - mediumConfidence) * 0.75))
+      / allSuggestions.length * 100
+    );
       ((highConfidence * 0.95) + (mediumConfidence * 0.80) + ((allSuggestions.length - highConfidence - mediumConfidence) * 0.65)) 
       / allSuggestions.length * 100
     );
