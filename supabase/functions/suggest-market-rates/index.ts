@@ -767,6 +767,35 @@ serve(async (req) => {
       }
     }
 
+    // ===== SECOND PASS: Boost weak items with stronger model (gpt-5) =====
+    const weakItems = allSuggestions
+      .filter(s => s.confidence !== "High")
+      .map(s => items.find(i => i.item_number === s.item_number))
+      .filter((x): x is BOQItem => !!x);
+
+    if (weakItems.length > 0 && weakItems.length <= 60 && model !== "openai/gpt-5") {
+      console.log(`Boosting ${weakItems.length} weak items with openai/gpt-5`);
+      try {
+        for (let i = 0; i < weakItems.length; i += BATCH_SIZE) {
+          const batch = weakItems.slice(i, i + BATCH_SIZE);
+          const boosted = await processBatch(batch, location, LOVABLE_API_KEY, "openai/gpt-5", libraryData);
+          const rank = (c: string) => c === "High" ? 3 : c === "Medium" ? 2 : 1;
+          for (const bs of boosted.suggestions) {
+            const idx = allSuggestions.findIndex(s => s.item_number === bs.item_number);
+            if (idx === -1) continue;
+            if (rank(bs.confidence) > rank(allSuggestions[idx].confidence)) {
+              allSuggestions[idx] = { ...bs, notes: `Boosted: ${bs.notes}` };
+            }
+          }
+          if (i + BATCH_SIZE < weakItems.length) {
+            await new Promise(r => setTimeout(r, 500));
+          }
+        }
+      } catch (boostErr) {
+        console.error("Boost pass failed (non-fatal):", boostErr);
+      }
+    }
+
     // Calculate accuracy metrics — High = 97%, Medium = 88%, Low = 75%
     const highConfidence = allSuggestions.filter(s => s.confidence === "High").length;
     const mediumConfidence = allSuggestions.filter(s => s.confidence === "Medium").length;
