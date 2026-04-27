@@ -453,7 +453,7 @@ async function processBatch(
   items: BOQItem[],
   location: string,
   apiKey: string,
-  model: string = "google/gemini-2.5-flash",
+  model: string = "google/gemini-2.5-pro",
   libraryData?: LibraryData
 ): Promise<{ suggestions: MarketRateSuggestion[]; aiCount: number; refCount: number; libCount: number }> {
   
@@ -720,7 +720,7 @@ serve(async (req) => {
     const { 
       items, 
       location = "Riyadh", 
-      model = "google/gemini-2.5-flash",
+      model = "google/gemini-2.5-pro",
       libraryData 
     }: { 
       items: BOQItem[]; 
