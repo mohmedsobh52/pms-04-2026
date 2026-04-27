@@ -541,8 +541,9 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
                     {suggestion.variance_percent > 0 ? "+" : ""}{suggestion.variance_percent?.toFixed(1)}%
                   </td>
                   <td className="p-3">
-                    <Badge className={getConfidenceBadge(suggestion.confidence)}>
+                    <Badge className={cn(getConfidenceBadge(suggestion.confidence), "gap-1")}>
                       {suggestion.confidence}
+                      <span className="opacity-80 text-[10px] font-mono">{getConfidencePercent(suggestion.confidence)}</span>
                     </Badge>
                   </td>
                   <td className="p-3">
