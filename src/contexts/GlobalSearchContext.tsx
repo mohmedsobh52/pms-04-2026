@@ -13,16 +13,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 // --- Breadcrumb logging (dev-only diagnostics) ---
-type Breadcrumb = { ts: number; event: string; detail?: string };
+export type Breadcrumb = { ts: number; event: string; detail?: string };
 const breadcrumbs: Breadcrumb[] = [];
-const MAX_BREADCRUMBS = 20;
-function pushBreadcrumb(event: string, detail?: string) {
+const MAX_BREADCRUMBS = 50;
+function pushBreadcrumb(event: string, detail?: string): void {
   breadcrumbs.push({ ts: Date.now(), event, detail });
   if (breadcrumbs.length > MAX_BREADCRUMBS) breadcrumbs.shift();
 }
+export function getGlobalSearchBreadcrumbs(): readonly Breadcrumb[] {
+  return [...breadcrumbs];
+}
 if (typeof window !== 'undefined' && import.meta.env.DEV) {
-  (window as unknown as { __getGlobalSearchBreadcrumbs?: () => Breadcrumb[] })
-    .__getGlobalSearchBreadcrumbs = () => [...breadcrumbs];
+  (window as unknown as { __getGlobalSearchBreadcrumbs?: () => readonly Breadcrumb[] })
+    .__getGlobalSearchBreadcrumbs = getGlobalSearchBreadcrumbs;
 }
 
 // --- Duplicate-instance detection ---
@@ -59,14 +62,14 @@ export interface SearchResults {
   settings: SearchItem[];
 }
 
-interface GlobalSearchContextType {
-  isOpen: boolean;
-  setIsOpen: (open: boolean) => void;
-  query: string;
-  setQuery: (query: string) => void;
-  results: SearchResults;
-  isLoading: boolean;
-  navigateToItem: (item: SearchItem) => void;
+export interface GlobalSearchContextType {
+  readonly isOpen: boolean;
+  readonly setIsOpen: (open: boolean) => void;
+  readonly query: string;
+  readonly setQuery: (query: string) => void;
+  readonly results: SearchResults;
+  readonly isLoading: boolean;
+  readonly navigateToItem: (item: SearchItem) => void;
 }
 
 const GlobalSearchContext = createContext<GlobalSearchContextType | null>(null);
