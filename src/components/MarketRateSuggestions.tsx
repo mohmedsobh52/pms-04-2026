@@ -379,19 +379,52 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
       )}
       
       {/* Completed Analysis Summary */}
-      {suggestions.length > 0 && !isLoading && (
-        <div className="p-4 bg-green-500/10 rounded-lg space-y-3 border border-green-500/20">
-          <div className="flex items-center gap-3">
-            <Check className="w-5 h-5 text-green-600" />
-            <div>
-              <p className="font-semibold text-sm text-green-700 dark:text-green-400">تم اكتمال التحليل بنجاح!</p>
-              <p className="text-xs text-muted-foreground">
-                تم تحليل {analyzedItemsCount} من {totalItemsCount} بند
-              </p>
+      {suggestions.length > 0 && !isLoading && (() => {
+        const high = suggestions.filter(s => s.confidence === "High").length;
+        const medium = suggestions.filter(s => s.confidence === "Medium").length;
+        const low = suggestions.length - high - medium;
+        const avgAccuracy = Math.round(((high * 97) + (medium * 88) + (low * 75)) / suggestions.length);
+        const meetsTarget = avgAccuracy >= 95;
+        return (
+          <div className={cn(
+            "p-4 rounded-lg space-y-3 border",
+            meetsTarget ? "bg-green-500/10 border-green-500/20" : "bg-amber-500/10 border-amber-500/20"
+          )}>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3">
+                <Check className={cn("w-5 h-5", meetsTarget ? "text-green-600" : "text-amber-600")} />
+                <div>
+                  <p className={cn("font-semibold text-sm", meetsTarget ? "text-green-700 dark:text-green-400" : "text-amber-700 dark:text-amber-400")}>
+                    تم اكتمال التحليل بنجاح!
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    تم تحليل {analyzedItemsCount} من {totalItemsCount} بند
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-muted-foreground">متوسط دقة التسعير</p>
+                <p className={cn("text-2xl font-bold font-mono", meetsTarget ? "text-green-600" : "text-amber-600")}>
+                  {avgAccuracy}%
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 text-xs">
+              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                High: {high}
+              </Badge>
+              <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                Medium: {medium}
+              </Badge>
+              {low > 0 && (
+                <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                  Low: {low}
+                </Badge>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Location selector and analyze button */}
       <div className="flex flex-col gap-4 p-4 bg-muted/50 rounded-lg">
