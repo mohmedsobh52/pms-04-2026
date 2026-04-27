@@ -774,9 +774,6 @@ serve(async (req) => {
       ((highConfidence * 0.97) + (mediumConfidence * 0.88) + ((allSuggestions.length - highConfidence - mediumConfidence) * 0.75))
       / allSuggestions.length * 100
     );
-      ((highConfidence * 0.95) + (mediumConfidence * 0.80) + ((allSuggestions.length - highConfidence - mediumConfidence) * 0.65)) 
-      / allSuggestions.length * 100
-    );
 
     // Save pricing history to database
     try {
