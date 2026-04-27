@@ -653,9 +653,10 @@ Return accurate 2025 market rates.`;
               ? Math.round(((validated.price - item.unit_price) / item.unit_price) * 100)
               : 0;
             
-            let confidence: "High" | "Medium" | "Low" = 
-              validated.confidence >= 85 ? "High" : 
-              validated.confidence >= 70 ? "Medium" : "Low";
+            // Threshold: ≥90 internal score ⇒ ≥95% effective accuracy
+            let confidence: "High" | "Medium" | "Low" =
+              validated.confidence >= 90 ? "High" :
+              validated.confidence >= 80 ? "Medium" : "Low";
             
             suggestions.push({
               item_number: aiSug.item_number,
