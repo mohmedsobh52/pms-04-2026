@@ -13,6 +13,7 @@ import { UpdateBanner } from "@/components/UpdateBanner";
 import BackgroundImage from "@/components/BackgroundImage";
 import { FloatingBackButton } from "@/components/FloatingBackButton";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { InlineErrorFallback } from "@/components/InlineErrorFallback";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { CommandPalette } from "@/components/CommandPalette";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -59,6 +60,7 @@ const PartnerDetailsPage = lazy(() => import("./pages/PartnerDetailsPage"));
 const ProgressCertificatesPage = lazy(() => import("./pages/ProgressCertificatesPage"));
 const NewCertificatePage = lazy(() => import("./pages/NewCertificatePage"));
 const ResourcesDashboardPage = lazy(() => import("./pages/ResourcesDashboardPage"));
+const DebugBreadcrumbsPage = lazy(() => import("./pages/DebugBreadcrumbsPage"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -94,10 +96,10 @@ const App = () => (
               <BrowserRouter>
                 <GlobalSearchProvider>
                   <ScrollToTop />
-                  <ErrorBoundary fallback={null}>
+                  <ErrorBoundary fallback={<InlineErrorFallback message="Search unavailable" />}>
                     <GlobalSearch />
                   </ErrorBoundary>
-                  <ErrorBoundary fallback={null}>
+                  <ErrorBoundary fallback={<InlineErrorFallback message="Command palette unavailable" />}>
                     <CommandPalette />
                   </ErrorBoundary>
                   <UpdateBanner />
@@ -146,6 +148,7 @@ const App = () => (
                         <Route path="/pricing-accuracy" element={<PricingAccuracyPage />} />
                         <Route path="/progress-certificates" element={<ProgressCertificatesPage />} />
                         <Route path="/progress-certificates/new" element={<NewCertificatePage />} />
+                        <Route path="/debug/breadcrumbs" element={<DebugBreadcrumbsPage />} />
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />
                       </Routes>
