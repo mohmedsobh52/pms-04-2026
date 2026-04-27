@@ -325,6 +325,12 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
     return colors[confidence as keyof typeof colors] || colors.Low;
   };
 
+  const getConfidencePercent = (confidence: string) => {
+    if (confidence === "High") return "≥95%";
+    if (confidence === "Medium") return "~88%";
+    return "~75%";
+  };
+
   const getVarianceColor = (variance: number) => {
     if (Math.abs(variance) > 20) return "text-destructive font-bold";
     if (Math.abs(variance) > 10) return "text-yellow-600 dark:text-yellow-400";
