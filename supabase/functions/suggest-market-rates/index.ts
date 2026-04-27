@@ -286,32 +286,32 @@ function findLibraryPrice(description: string, unit: string, libraryData?: Libra
     for (const mat of libraryData.materials) {
       const matText = normalizeText((mat.name || '') + ' ' + (mat.name_ar || ''));
       const score = fuzzyMatch(descNorm, matText);
-      
-      if (score >= 0.7 && mat.is_verified) {
-        return { price: mat.unit_price, confidence: 95, source: 'library_verified' };
+
+      if (score >= 0.75 && mat.is_verified) {
+        return { price: mat.unit_price, confidence: 99, source: 'library_verified' };
       }
       if (score >= 0.7) {
-        return { price: mat.unit_price, confidence: 88, source: 'library' };
+        return { price: mat.unit_price, confidence: 95, source: 'library' };
       }
     }
   }
-  
+
   // Check labor
   if (libraryData.labor) {
     for (const lab of libraryData.labor) {
       const labText = normalizeText((lab.name || '') + ' ' + (lab.name_ar || ''));
-      if (fuzzyMatch(descNorm, labText) >= 0.6) {
-        return { price: lab.unit_rate, confidence: 85, source: 'library_labor' };
+      if (fuzzyMatch(descNorm, labText) >= 0.65) {
+        return { price: lab.unit_rate, confidence: 95, source: 'library_labor' };
       }
     }
   }
-  
+
   // Check equipment
   if (libraryData.equipment) {
     for (const eq of libraryData.equipment) {
       const eqText = normalizeText((eq.name || '') + ' ' + (eq.name_ar || ''));
-      if (fuzzyMatch(descNorm, eqText) >= 0.6) {
-        return { price: eq.rental_rate, confidence: 85, source: 'library_equipment' };
+      if (fuzzyMatch(descNorm, eqText) >= 0.65) {
+        return { price: eq.rental_rate, confidence: 95, source: 'library_equipment' };
       }
     }
   }
