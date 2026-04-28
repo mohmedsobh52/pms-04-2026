@@ -116,7 +116,7 @@ export function BOQUploadDialog({
       // Check ownership in either saved_projects or project_data (RLS supports both)
       const [savedRes, dataRes] = await Promise.all([
         supabase.from("saved_projects").select("id, user_id").eq("id", projectId).maybeSingle(),
-        supabase.from("project_data").select("id, user_id").eq("id", projectId).maybeSingle(),
+        supabase.from("project_data").select("id, user_id, name, file_name, analysis_data, wbs_data").eq("id", projectId).maybeSingle(),
       ]);
 
       const savedProject = savedRes.data;
