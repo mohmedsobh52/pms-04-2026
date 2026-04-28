@@ -55,10 +55,57 @@ export function BOQUploadDialog({
     canRetry?: boolean;
     ref?: string;
     autoCreated?: boolean;
+    code?: string;
+    details?: string;
+    rawMessage?: string;
+  } | null>(null);
+  const [dryRunReport, setDryRunReport] = useState<{
+    extracted: number;
+    valid: number;
+    sanitized: number;
+    issues: { row: number; reason: string }[];
+    sample: any[];
   } | null>(null);
   const lastItemsRef = useRef<any[] | null>(null);
   const autoRetriedRef = useRef(false);
   const { toast } = useToast();
+
+  // Sanitize a numeric field: returns null for NaN/Infinity/invalid, finite number otherwise.
+  const cleanNumber = (v: any): number | null => {
+    if (v === null || v === undefined || v === "") return null;
+    const n = typeof v === "number" ? v : parseFloat(String(v).replace(/[, ]/g, ""));
+    if (!Number.isFinite(n)) return null;
+    return n;
+  };
+
+  // Sanitize the whole items array before insert. Returns sanitized rows + issues report.
+  const sanitizeItems = (items: any[]) => {
+    const issues: { row: number; reason: string }[] = [];
+    const sanitized = items.map((item: any, idx: number) => {
+      const qty = cleanNumber(item.quantity) ?? 0;
+      const up = cleanNumber(item.unit_price ?? item.rate);
+      const tp = cleanNumber(item.total_price ?? item.amount);
+      if (cleanNumber(item.unit_price ?? item.rate) === null && (item.unit_price ?? item.rate) !== undefined && (item.unit_price ?? item.rate) !== null && (item.unit_price ?? item.rate) !== "") {
+        issues.push({ row: idx + 1, reason: isArabic ? "سعر وحدة غير صالح (NaN)" : "Invalid unit_price (NaN)" });
+      }
+      if (cleanNumber(item.total_price ?? item.amount) === null && (item.total_price ?? item.amount) !== undefined && (item.total_price ?? item.amount) !== null && (item.total_price ?? item.amount) !== "") {
+        issues.push({ row: idx + 1, reason: isArabic ? "سعر إجمالي غير صالح (NaN)" : "Invalid total_price (NaN)" });
+      }
+      if (!item.description || String(item.description).trim() === "") {
+        issues.push({ row: idx + 1, reason: isArabic ? "وصف فارغ" : "Empty description" });
+      }
+      return {
+        item_number: String(item.item_number || item.number || idx + 1),
+        description: String(item.description || item.desc || "").trim(),
+        unit: String(item.unit || "").trim(),
+        quantity: qty,
+        unit_price: up,
+        total_price: tp,
+        sort_order: idx,
+      };
+    });
+    return { sanitized, issues };
+  };
 
   const handleClose = () => {
     if (status === "processing") return;
