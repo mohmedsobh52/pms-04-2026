@@ -658,6 +658,14 @@ export function BOQUploadDialog({
               <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
               <div className="flex-1 space-y-2">
                 <p className="text-sm text-destructive font-medium">{statusMessage}</p>
+                {errorContext?.code && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-semibold">
+                      {isArabic ? "رمز الخطأ: " : "Error code: "}
+                    </span>
+                    <code className="px-1 py-0.5 rounded bg-muted font-mono">{errorContext.code}</code>
+                  </p>
+                )}
                 {errorContext?.table && (
                   <p className="text-xs text-muted-foreground">
                     <span className="font-semibold">
@@ -670,6 +678,17 @@ export function BOQUploadDialog({
                   <p className="text-xs text-muted-foreground whitespace-pre-line">
                     {errorContext.hint}
                   </p>
+                )}
+                {errorContext?.details && (
+                  <details className="text-[11px] text-muted-foreground">
+                    <summary className="cursor-pointer">
+                      {isArabic ? "تفاصيل تقنية" : "Technical details"}
+                    </summary>
+                    <pre className="mt-1 p-2 rounded bg-muted overflow-x-auto whitespace-pre-wrap break-all">
+                      {errorContext.details}
+                      {errorContext.rawMessage ? `\n\n${errorContext.rawMessage}` : ""}
+                    </pre>
+                  </details>
                 )}
                 {errorContext?.ref && (
                   <p className="text-[11px] text-muted-foreground pt-1 border-t border-destructive/20 mt-2">
@@ -685,6 +704,49 @@ export function BOQUploadDialog({
             </div>
           )}
 
+          {dryRunReport && status !== "processing" && (
+            <div className="p-3 rounded-lg border border-primary/30 bg-primary/5 space-y-2">
+              <p className="text-sm font-semibold text-foreground">
+                {isArabic ? "نتيجة التشغيل التجريبي" : "Dry Run Result"}
+              </p>
+              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="p-2 rounded bg-background border">
+                  <p className="text-lg font-bold text-foreground">{dryRunReport.extracted}</p>
+                  <p className="text-muted-foreground">{isArabic ? "مستخرجة" : "Extracted"}</p>
+                </div>
+                <div className="p-2 rounded bg-background border">
+                  <p className="text-lg font-bold text-primary">{dryRunReport.valid}</p>
+                  <p className="text-muted-foreground">{isArabic ? "صالحة" : "Valid"}</p>
+                </div>
+                <div className="p-2 rounded bg-background border">
+                  <p className={`text-lg font-bold ${dryRunReport.issues.length ? "text-destructive" : "text-foreground"}`}>
+                    {dryRunReport.issues.length}
+                  </p>
+                  <p className="text-muted-foreground">{isArabic ? "ملاحظات" : "Issues"}</p>
+                </div>
+              </div>
+              {dryRunReport.issues.length > 0 && (
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-muted-foreground">
+                    {isArabic ? "عرض الملاحظات" : "Show issues"}
+                  </summary>
+                  <ul className="mt-1 max-h-32 overflow-y-auto space-y-0.5 pl-4 list-disc">
+                    {dryRunReport.issues.slice(0, 20).map((iss, i) => (
+                      <li key={i}>
+                        {isArabic ? `الصف ${iss.row}: ${iss.reason}` : `Row ${iss.row}: ${iss.reason}`}
+                      </li>
+                    ))}
+                    {dryRunReport.issues.length > 20 && (
+                      <li className="text-muted-foreground">
+                        {isArabic ? `... و ${dryRunReport.issues.length - 20} أخرى` : `... and ${dryRunReport.issues.length - 20} more`}
+                      </li>
+                    )}
+                  </ul>
+                </details>
+              )}
+            </div>
+          )}
+
           {(status === "idle" || status === "error") && selectedFile && (
             <div className="flex flex-wrap gap-3">
               <Button
@@ -693,6 +755,15 @@ export function BOQUploadDialog({
                 disabled={!selectedFile}
               >
                 {isArabic ? "ابدأ التحليل والاستخراج" : "Start Analysis & Extraction"}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleDryRun}
+                disabled={!selectedFile}
+                className="gap-2"
+                title={isArabic ? "استخراج البنود وعرضها قبل الحفظ" : "Extract items and preview before saving"}
+              >
+                {isArabic ? "تشغيل تجريبي" : "Dry Run"}
               </Button>
               {status === "error" && errorContext?.canRetry && lastItemsRef.current && (
                 <Button
