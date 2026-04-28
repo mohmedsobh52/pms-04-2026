@@ -55,10 +55,57 @@ export function BOQUploadDialog({
     canRetry?: boolean;
     ref?: string;
     autoCreated?: boolean;
+    code?: string;
+    details?: string;
+    rawMessage?: string;
+  } | null>(null);
+  const [dryRunReport, setDryRunReport] = useState<{
+    extracted: number;
+    valid: number;
+    sanitized: number;
+    issues: { row: number; reason: string }[];
+    sample: any[];
   } | null>(null);
   const lastItemsRef = useRef<any[] | null>(null);
   const autoRetriedRef = useRef(false);
   const { toast } = useToast();
+
+  // Sanitize a numeric field: returns null for NaN/Infinity/invalid, finite number otherwise.
+  const cleanNumber = (v: any): number | null => {
+    if (v === null || v === undefined || v === "") return null;
+    const n = typeof v === "number" ? v : parseFloat(String(v).replace(/[, ]/g, ""));
+    if (!Number.isFinite(n)) return null;
+    return n;
+  };
+
+  // Sanitize the whole items array before insert. Returns sanitized rows + issues report.
+  const sanitizeItems = (items: any[]) => {
+    const issues: { row: number; reason: string }[] = [];
+    const sanitized = items.map((item: any, idx: number) => {
+      const qty = cleanNumber(item.quantity) ?? 0;
+      const up = cleanNumber(item.unit_price ?? item.rate);
+      const tp = cleanNumber(item.total_price ?? item.amount);
+      if (cleanNumber(item.unit_price ?? item.rate) === null && (item.unit_price ?? item.rate) !== undefined && (item.unit_price ?? item.rate) !== null && (item.unit_price ?? item.rate) !== "") {
+        issues.push({ row: idx + 1, reason: isArabic ? "سعر وحدة غير صالح (NaN)" : "Invalid unit_price (NaN)" });
+      }
+      if (cleanNumber(item.total_price ?? item.amount) === null && (item.total_price ?? item.amount) !== undefined && (item.total_price ?? item.amount) !== null && (item.total_price ?? item.amount) !== "") {
+        issues.push({ row: idx + 1, reason: isArabic ? "سعر إجمالي غير صالح (NaN)" : "Invalid total_price (NaN)" });
+      }
+      if (!item.description || String(item.description).trim() === "") {
+        issues.push({ row: idx + 1, reason: isArabic ? "وصف فارغ" : "Empty description" });
+      }
+      return {
+        item_number: String(item.item_number || item.number || idx + 1),
+        description: String(item.description || item.desc || "").trim(),
+        unit: String(item.unit || "").trim(),
+        quantity: qty,
+        unit_price: up,
+        total_price: tp,
+        sort_order: idx,
+      };
+    });
+    return { sanitized, issues };
+  };
 
   const handleClose = () => {
     if (status === "processing") return;
@@ -66,6 +113,7 @@ export function BOQUploadDialog({
     setStatus("idle");
     setStatusMessage("");
     setErrorContext(null);
+    setDryRunReport(null);
     lastItemsRef.current = null;
     autoRetriedRef.current = false;
     onClose();
@@ -76,6 +124,7 @@ export function BOQUploadDialog({
     setStatus("idle");
     setStatusMessage("");
     setErrorContext(null);
+    setDryRunReport(null);
     lastItemsRef.current = null;
     autoRetriedRef.current = false;
     onClose();
@@ -207,39 +256,56 @@ export function BOQUploadDialog({
         throw e;
       }
 
-      const rows = items.map((item: any, idx: number) => ({
-        project_id: projectId,
-        item_number: item.item_number || item.number || String(idx + 1),
-        description: item.description || item.desc || "",
-        unit: item.unit || "",
-        quantity: parseFloat(item.quantity) || 0,
-        unit_price: parseFloat(item.unit_price || item.rate || 0) || null,
-        total_price: parseFloat(item.total_price || item.amount || 0) || null,
-        sort_order: idx,
-      }));
+      const { sanitized, issues } = sanitizeItems(items);
+      const rows = sanitized.map((r) => ({ ...r, project_id: projectId }));
+      console.log("[BOQUpload] Sanitized rows:", rows.length, "issues:", issues.length);
 
       const { error } = await supabase.from("project_items").insert(rows);
       if (error) {
-        const isRls = error.message?.toLowerCase().includes("row-level security");
+        const rawMsg = error.message || "";
+        const code = (error as any).code || "";
+        const details = (error as any).details || "";
+        const isRls = rawMsg.toLowerCase().includes("row-level security");
+        const isFk = code === "23503" || rawMsg.toLowerCase().includes("foreign key");
+        const isNumeric = code === "22P02" || rawMsg.toLowerCase().includes("invalid input syntax");
+
+        let title: string;
+        let hint: string;
         if (isRls) {
-          const e: any = new Error(
-            isArabic
-              ? `فشل حفظ البنود في جدول "project_items" بسبب سياسة الأمان (RLS). المشروع موجود في جدول "${sourceTable}".`
-              : `Saving items to "project_items" failed due to RLS. The project exists in "${sourceTable}".`
-          );
-          e._ctx = {
-            table: "project_items",
-            canRetry: true,
-            hint: isArabic
-              ? `خطوات الإصلاح: ١) تأكد أن المشروع تم إنشاؤه بنفس حسابك في "${sourceTable}". ٢) سجّل الخروج والدخول مجدداً. ٣) اضغط إعادة المحاولة.`
-              : `Fix: 1) Ensure the project in "${sourceTable}" belongs to your account. 2) Sign out and back in. 3) Click Retry.`,
-          };
-          e._userId = userId;
-          e._projectId = projectId;
-          throw e;
+          title = isArabic
+            ? `فشل حفظ البنود في "project_items" بسبب سياسة الأمان (RLS). المشروع في "${sourceTable}".`
+            : `Saving items to "project_items" failed due to RLS. Project is in "${sourceTable}".`;
+          hint = isArabic
+            ? `خطوات الإصلاح: ١) تأكد أن المشروع بحسابك في "${sourceTable}". ٢) سجّل الخروج والدخول. ٣) إعادة المحاولة.`
+            : `Fix: 1) Ensure project in "${sourceTable}" belongs to you. 2) Sign out/in. 3) Retry.`;
+        } else if (isFk) {
+          title = isArabic
+            ? `فشل حفظ البنود: مفتاح خارجي مفقود (409). المعرّف ${projectId} غير موجود في الجدول المرجعي.`
+            : `Save failed: foreign key violation (409). project_id ${projectId} is missing in the referenced table.`;
+          hint = isArabic
+            ? "الحل: تأكد أن المشروع موجود فعلاً، ثم اضغط إعادة المحاولة. إن استمرت المشكلة قد تحتاج لتعديل المعرّف أو إعادة إنشاء المشروع."
+            : "Fix: ensure the project exists, then retry. If it persists, edit the ID or recreate the project.";
+        } else if (isNumeric) {
+          title = isArabic
+            ? "فشل حفظ البنود: قيم رقمية غير صالحة (NaN/null). تم تنظيف الأرقام لكن قاعدة البيانات رفضت الإدخال."
+            : "Save failed: invalid numeric values (NaN/null). Numbers were sanitized but DB rejected the row.";
+          hint = isArabic
+            ? "جرّب 'تشغيل تجريبي' لمعاينة البنود ومعرفة الصفوف غير الصالحة قبل الحفظ."
+            : "Try 'Dry Run' to preview items and see invalid rows before saving.";
+        } else {
+          title = rawMsg;
+          hint = details || "";
         }
-        const e: any = new Error(error.message);
-        e._ctx = { table: "project_items", canRetry: true };
+
+        const e: any = new Error(title);
+        e._ctx = {
+          table: "project_items",
+          canRetry: true,
+          hint,
+          code,
+          details,
+          rawMessage: rawMsg,
+        };
         e._userId = userId;
         e._projectId = projectId;
         throw e;
@@ -250,19 +316,14 @@ export function BOQUploadDialog({
     [projectId, isArabic]
   );
 
-  const handleAnalyze = useCallback(async () => {
-    if (!selectedFile) return;
-    setStatus("processing");
-    setErrorContext(null);
-
-    try {
+  const extractItemsFromFile = useCallback(
+    async (file: File): Promise<any[]> => {
       let items: any[] = [];
-
-      if (isExcelFile(selectedFile)) {
+      if (isExcelFile(file)) {
         setStatusMessage(isArabic ? "جارٍ قراءة ملف Excel..." : "Reading Excel file...");
         let excelData;
         try {
-          excelData = await extractDataFromExcel(selectedFile);
+          excelData = await extractDataFromExcel(file);
         } catch (xlErr: any) {
           console.error("[BOQUpload] Excel extraction failed:", xlErr);
           const e: any = new Error(
@@ -273,17 +334,15 @@ export function BOQUploadDialog({
           e._ctx = { canRetry: false };
           throw e;
         }
-
-        const localResult = performLocalExcelAnalysis(excelData.items, selectedFile.name);
+        const localResult = performLocalExcelAnalysis(excelData.items, file.name);
         console.log("[BOQUpload] Excel local analysis items:", localResult.items.length, "raw:", excelData.items.length);
-
         if (localResult.items.length > 0) {
           items = localResult.items;
         } else {
           setStatusMessage(isArabic ? "جارٍ تحليل البيانات بالذكاء الاصطناعي..." : "Analyzing with AI...");
           const formatted = formatExcelDataForAnalysis(excelData);
           const { data, error } = await supabase.functions.invoke("analyze-boq", {
-            body: { boqText: formatted, fileName: selectedFile.name, projectId },
+            body: { boqText: formatted, fileName: file.name, projectId },
           });
           if (error) {
             console.error("[BOQUpload] analyze-boq error (excel):", error);
@@ -299,11 +358,11 @@ export function BOQUploadDialog({
         setStatusMessage(isArabic ? "جارٍ استخراج النص من PDF..." : "Extracting text from PDF...");
         let text = "";
         try {
-          text = await extractTextFromPDF(selectedFile);
+          text = await extractTextFromPDF(file);
         } catch (pdfErr) {
           console.warn("[BOQUpload] PDF text extraction failed, falling back to OCR:", pdfErr);
           try {
-            text = await extractWithOCROnly(selectedFile);
+            text = await extractWithOCROnly(file);
           } catch (ocrErr: any) {
             console.error("[BOQUpload] OCR also failed:", ocrErr);
             const e: any = new Error(
@@ -315,15 +374,13 @@ export function BOQUploadDialog({
             throw e;
           }
         }
-
         if (!text || text.trim().length < 50) {
           try {
-            text = await extractWithOCROnly(selectedFile);
+            text = await extractWithOCROnly(file);
           } catch (ocrErr) {
             console.error("[BOQUpload] OCR fallback failed:", ocrErr);
           }
         }
-
         if (!text || text.trim().length < 20) {
           const e: any = new Error(
             isArabic
@@ -333,16 +390,14 @@ export function BOQUploadDialog({
           e._ctx = { canRetry: false };
           throw e;
         }
-
-        const localResult = performLocalTextAnalysis(text, { fileName: selectedFile.name });
+        const localResult = performLocalTextAnalysis(text, { fileName: file.name });
         console.log("[BOQUpload] PDF local analysis items:", localResult.items.length, "text length:", text.length);
-
         if (localResult.items.length > 0) {
           items = localResult.items;
         } else {
           setStatusMessage(isArabic ? "جارٍ تحليل البيانات بالذكاء الاصطناعي..." : "Analyzing with AI...");
           const { data, error } = await supabase.functions.invoke("analyze-boq", {
-            body: { boqText: text, fileName: selectedFile.name, projectId },
+            body: { boqText: text, fileName: file.name, projectId },
           });
           if (error) {
             console.error("[BOQUpload] analyze-boq error (pdf):", error);
@@ -355,6 +410,51 @@ export function BOQUploadDialog({
           items = data?.items || [];
         }
       }
+      return items;
+    },
+    [isArabic, projectId]
+  );
+
+  const handleDryRun = useCallback(async () => {
+    if (!selectedFile) return;
+    setStatus("processing");
+    setErrorContext(null);
+    setDryRunReport(null);
+    try {
+      const items = await extractItemsFromFile(selectedFile);
+      const { sanitized, issues } = sanitizeItems(items);
+      lastItemsRef.current = items;
+      setDryRunReport({
+        extracted: items.length,
+        valid: sanitized.filter((r) => r.description && r.quantity > 0).length,
+        sanitized: sanitized.length,
+        issues,
+        sample: sanitized.slice(0, 5),
+      });
+      setStatus("idle");
+      setStatusMessage("");
+      toast({
+        title: isArabic ? "اكتمل التشغيل التجريبي" : "Dry run complete",
+        description: isArabic
+          ? `تم استخراج ${items.length} بند، ${issues.length} ملاحظة`
+          : `Extracted ${items.length} items, ${issues.length} issues`,
+      });
+    } catch (err: any) {
+      console.error("[BOQUpload] Dry run failed:", err);
+      setStatus("error");
+      setStatusMessage(err?.message || (isArabic ? "فشل التشغيل التجريبي" : "Dry run failed"));
+      setErrorContext({ ...(err?._ctx || {}), rawMessage: err?.message });
+    }
+  }, [selectedFile, extractItemsFromFile, isArabic, toast]);
+
+  const handleAnalyze = useCallback(async () => {
+    if (!selectedFile) return;
+    setStatus("processing");
+    setErrorContext(null);
+    setDryRunReport(null);
+
+    try {
+      const items: any[] = await extractItemsFromFile(selectedFile);
 
       console.log("[BOQUpload] Final extracted items count:", items.length);
 
@@ -460,7 +560,7 @@ export function BOQUploadDialog({
         variant: "destructive",
       });
     }
-  }, [selectedFile, projectId, isArabic, saveItemsToProject, toast]);
+  }, [selectedFile, projectId, isArabic, saveItemsToProject, toast, extractItemsFromFile, onSuccessWithData]);
 
   const handleRetrySave = useCallback(async () => {
     const items = lastItemsRef.current;
@@ -558,6 +658,14 @@ export function BOQUploadDialog({
               <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
               <div className="flex-1 space-y-2">
                 <p className="text-sm text-destructive font-medium">{statusMessage}</p>
+                {errorContext?.code && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-semibold">
+                      {isArabic ? "رمز الخطأ: " : "Error code: "}
+                    </span>
+                    <code className="px-1 py-0.5 rounded bg-muted font-mono">{errorContext.code}</code>
+                  </p>
+                )}
                 {errorContext?.table && (
                   <p className="text-xs text-muted-foreground">
                     <span className="font-semibold">
@@ -570,6 +678,17 @@ export function BOQUploadDialog({
                   <p className="text-xs text-muted-foreground whitespace-pre-line">
                     {errorContext.hint}
                   </p>
+                )}
+                {errorContext?.details && (
+                  <details className="text-[11px] text-muted-foreground">
+                    <summary className="cursor-pointer">
+                      {isArabic ? "تفاصيل تقنية" : "Technical details"}
+                    </summary>
+                    <pre className="mt-1 p-2 rounded bg-muted overflow-x-auto whitespace-pre-wrap break-all">
+                      {errorContext.details}
+                      {errorContext.rawMessage ? `\n\n${errorContext.rawMessage}` : ""}
+                    </pre>
+                  </details>
                 )}
                 {errorContext?.ref && (
                   <p className="text-[11px] text-muted-foreground pt-1 border-t border-destructive/20 mt-2">
@@ -585,6 +704,49 @@ export function BOQUploadDialog({
             </div>
           )}
 
+          {dryRunReport && status !== "processing" && (
+            <div className="p-3 rounded-lg border border-primary/30 bg-primary/5 space-y-2">
+              <p className="text-sm font-semibold text-foreground">
+                {isArabic ? "نتيجة التشغيل التجريبي" : "Dry Run Result"}
+              </p>
+              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="p-2 rounded bg-background border">
+                  <p className="text-lg font-bold text-foreground">{dryRunReport.extracted}</p>
+                  <p className="text-muted-foreground">{isArabic ? "مستخرجة" : "Extracted"}</p>
+                </div>
+                <div className="p-2 rounded bg-background border">
+                  <p className="text-lg font-bold text-primary">{dryRunReport.valid}</p>
+                  <p className="text-muted-foreground">{isArabic ? "صالحة" : "Valid"}</p>
+                </div>
+                <div className="p-2 rounded bg-background border">
+                  <p className={`text-lg font-bold ${dryRunReport.issues.length ? "text-destructive" : "text-foreground"}`}>
+                    {dryRunReport.issues.length}
+                  </p>
+                  <p className="text-muted-foreground">{isArabic ? "ملاحظات" : "Issues"}</p>
+                </div>
+              </div>
+              {dryRunReport.issues.length > 0 && (
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-muted-foreground">
+                    {isArabic ? "عرض الملاحظات" : "Show issues"}
+                  </summary>
+                  <ul className="mt-1 max-h-32 overflow-y-auto space-y-0.5 pl-4 list-disc">
+                    {dryRunReport.issues.slice(0, 20).map((iss, i) => (
+                      <li key={i}>
+                        {isArabic ? `الصف ${iss.row}: ${iss.reason}` : `Row ${iss.row}: ${iss.reason}`}
+                      </li>
+                    ))}
+                    {dryRunReport.issues.length > 20 && (
+                      <li className="text-muted-foreground">
+                        {isArabic ? `... و ${dryRunReport.issues.length - 20} أخرى` : `... and ${dryRunReport.issues.length - 20} more`}
+                      </li>
+                    )}
+                  </ul>
+                </details>
+              )}
+            </div>
+          )}
+
           {(status === "idle" || status === "error") && selectedFile && (
             <div className="flex flex-wrap gap-3">
               <Button
@@ -593,6 +755,15 @@ export function BOQUploadDialog({
                 disabled={!selectedFile}
               >
                 {isArabic ? "ابدأ التحليل والاستخراج" : "Start Analysis & Extraction"}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleDryRun}
+                disabled={!selectedFile}
+                className="gap-2"
+                title={isArabic ? "استخراج البنود وعرضها قبل الحفظ" : "Extract items and preview before saving"}
+              >
+                {isArabic ? "تشغيل تجريبي" : "Dry Run"}
               </Button>
               {status === "error" && errorContext?.canRetry && lastItemsRef.current && (
                 <Button
