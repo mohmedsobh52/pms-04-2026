@@ -116,26 +116,49 @@ export function BOQUploadDialog({
       // Check ownership in either saved_projects or project_data (RLS supports both)
       const [savedRes, dataRes] = await Promise.all([
         supabase.from("saved_projects").select("id, user_id").eq("id", projectId).maybeSingle(),
-        supabase.from("project_data").select("id, user_id").eq("id", projectId).maybeSingle(),
+        supabase.from("project_data").select("id, user_id, name, file_name, analysis_data, wbs_data").eq("id", projectId).maybeSingle(),
       ]);
 
-      let projectRow = savedRes.data || dataRes.data;
-      let sourceTable: "saved_projects" | "project_data" = savedRes.data
+      const savedProject = savedRes.data;
+      const projectDataRow = dataRes.data;
+      let projectRow = savedProject;
+      let sourceTable: "saved_projects" | "project_data" = savedProject
         ? "saved_projects"
-        : dataRes.data
+        : projectDataRow
         ? "project_data"
         : "saved_projects";
       let autoCreated = false;
 
-      // Auto-create the project in saved_projects if it only exists locally
+      if (projectDataRow && projectDataRow.user_id !== userId) {
+        const e: any = new Error(
+          isArabic
+            ? "ليس لديك صلاحية لإضافة بنود إلى هذا المشروع."
+            : "You don't have permission to add items to this project."
+        );
+        e._ctx = {
+          table: "project_data",
+          canRetry: false,
+          hint: isArabic
+            ? "هذا المشروع مملوك لمستخدم آخر. سجّل الدخول بالحساب المالك أو أنشئ مشروعاً جديداً."
+            : "This project belongs to another user. Sign in with the owning account or create a new project.",
+        };
+        e._userId = userId;
+        e._projectId = projectId;
+        throw e;
+      }
+
+      // project_items has a database foreign key to saved_projects, so mirror
+      // project_data-only projects into saved_projects before inserting items.
       if (!projectRow) {
         const { data: created, error: createErr } = await supabase
           .from("saved_projects")
           .insert({
             id: projectId,
             user_id: userId,
-            name: isArabic ? "مشروع بدون اسم" : "Untitled project",
-            analysis_data: {},
+            name: projectDataRow?.name || (isArabic ? "مشروع بدون اسم" : "Untitled project"),
+            file_name: projectDataRow?.file_name || null,
+            analysis_data: projectDataRow?.analysis_data || {},
+            wbs_data: projectDataRow?.wbs_data || null,
           })
           .select("id, user_id")
           .maybeSingle();
@@ -143,10 +166,10 @@ export function BOQUploadDialog({
         if (createErr || !created) {
           const e: any = new Error(
             isArabic
-              ? `تعذّر إنشاء سجل المشروع في جدول "saved_projects". ${
+              ? `تعذّر تجهيز سجل المشروع لحفظ البنود. ${
                   createErr?.message || ""
                 }`
-              : `Could not create the project record in "saved_projects". ${
+              : `Could not prepare the project record for saving items. ${
                   createErr?.message || ""
                 }`
           );
@@ -154,8 +177,8 @@ export function BOQUploadDialog({
             table: "saved_projects",
             canRetry: true,
             hint: isArabic
-              ? "خطوات الإصلاح: ١) تأكد من تسجيل الدخول. ٢) أنشئ المشروع من شاشة المشاريع. ٣) اضغط إعادة المحاولة."
-              : "Fix: 1) Confirm you are signed in. 2) Recreate the project from the Projects screen. 3) Click Retry.",
+              ? "خطوات الإصلاح: ١) تأكد من تسجيل الدخول. ٢) افتح المشروع من شاشة المشاريع. ٣) اضغط إعادة المحاولة."
+              : "Fix: 1) Confirm you are signed in. 2) Open the project from the Projects screen. 3) Click Retry.",
           };
           e._userId = userId;
           e._projectId = projectId;
