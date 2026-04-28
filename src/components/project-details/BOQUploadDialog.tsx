@@ -237,17 +237,39 @@ export function BOQUploadDialog({
 
       if (isExcelFile(selectedFile)) {
         setStatusMessage(isArabic ? "جارٍ قراءة ملف Excel..." : "Reading Excel file...");
-        const excelData = await extractDataFromExcel(selectedFile);
+        let excelData;
+        try {
+          excelData = await extractDataFromExcel(selectedFile);
+        } catch (xlErr: any) {
+          console.error("[BOQUpload] Excel extraction failed:", xlErr);
+          const e: any = new Error(
+            isArabic
+              ? `تعذّر قراءة ملف Excel: ${xlErr?.message || "ملف غير مدعوم أو تالف"}`
+              : `Failed to read Excel file: ${xlErr?.message || "Unsupported or corrupt file"}`
+          );
+          e._ctx = { canRetry: false };
+          throw e;
+        }
+
         const localResult = performLocalExcelAnalysis(excelData.items, selectedFile.name);
+        console.log("[BOQUpload] Excel local analysis items:", localResult.items.length, "raw:", excelData.items.length);
 
         if (localResult.items.length > 0) {
           items = localResult.items;
         } else {
+          setStatusMessage(isArabic ? "جارٍ تحليل البيانات بالذكاء الاصطناعي..." : "Analyzing with AI...");
           const formatted = formatExcelDataForAnalysis(excelData);
           const { data, error } = await supabase.functions.invoke("analyze-boq", {
             body: { boqText: formatted, fileName: selectedFile.name, projectId },
           });
-          if (error) throw error;
+          if (error) {
+            console.error("[BOQUpload] analyze-boq error (excel):", error);
+            throw new Error(
+              isArabic
+                ? `فشل تحليل الذكاء الاصطناعي: ${error.message || "خطأ غير معروف"}`
+                : `AI analysis failed: ${error.message || "Unknown error"}`
+            );
+          }
           items = data?.items || [];
         }
       } else {
@@ -255,15 +277,43 @@ export function BOQUploadDialog({
         let text = "";
         try {
           text = await extractTextFromPDF(selectedFile);
-        } catch {
-          text = await extractWithOCROnly(selectedFile);
+        } catch (pdfErr) {
+          console.warn("[BOQUpload] PDF text extraction failed, falling back to OCR:", pdfErr);
+          try {
+            text = await extractWithOCROnly(selectedFile);
+          } catch (ocrErr: any) {
+            console.error("[BOQUpload] OCR also failed:", ocrErr);
+            const e: any = new Error(
+              isArabic
+                ? `تعذّر قراءة ملف PDF: ${ocrErr?.message || "ملف غير مدعوم"}`
+                : `Failed to read PDF: ${ocrErr?.message || "Unsupported file"}`
+            );
+            e._ctx = { canRetry: false };
+            throw e;
+          }
         }
 
         if (!text || text.trim().length < 50) {
-          text = await extractWithOCROnly(selectedFile);
+          try {
+            text = await extractWithOCROnly(selectedFile);
+          } catch (ocrErr) {
+            console.error("[BOQUpload] OCR fallback failed:", ocrErr);
+          }
+        }
+
+        if (!text || text.trim().length < 20) {
+          const e: any = new Error(
+            isArabic
+              ? "لم يتم العثور على نص قابل للقراءة في الملف. تأكد من جودة الملف أو جرّب ملف Excel."
+              : "No readable text found in file. Verify file quality or try an Excel file."
+          );
+          e._ctx = { canRetry: false };
+          throw e;
         }
 
         const localResult = performLocalTextAnalysis(text, { fileName: selectedFile.name });
+        console.log("[BOQUpload] PDF local analysis items:", localResult.items.length, "text length:", text.length);
+
         if (localResult.items.length > 0) {
           items = localResult.items;
         } else {
@@ -271,9 +321,28 @@ export function BOQUploadDialog({
           const { data, error } = await supabase.functions.invoke("analyze-boq", {
             body: { boqText: text, fileName: selectedFile.name, projectId },
           });
-          if (error) throw error;
+          if (error) {
+            console.error("[BOQUpload] analyze-boq error (pdf):", error);
+            throw new Error(
+              isArabic
+                ? `فشل تحليل الذكاء الاصطناعي: ${error.message || "خطأ غير معروف"}`
+                : `AI analysis failed: ${error.message || "Unknown error"}`
+            );
+          }
           items = data?.items || [];
         }
+      }
+
+      console.log("[BOQUpload] Final extracted items count:", items.length);
+
+      if (!items || items.length === 0) {
+        const e: any = new Error(
+          isArabic
+            ? "لم يتم استخراج أي بنود من الملف. تحقق من تنسيق الجدول (يجب أن يحتوي على أعمدة: رقم البند، الوصف، الوحدة، الكمية)."
+            : "No items extracted from file. Verify table format (must include: item no, description, unit, quantity)."
+        );
+        e._ctx = { canRetry: false };
+        throw e;
       }
 
       lastItemsRef.current = items;
