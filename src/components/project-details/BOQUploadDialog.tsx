@@ -113,6 +113,7 @@ export function BOQUploadDialog({
     setStatus("idle");
     setStatusMessage("");
     setErrorContext(null);
+    setDryRunReport(null);
     lastItemsRef.current = null;
     autoRetriedRef.current = false;
     onClose();
@@ -123,6 +124,7 @@ export function BOQUploadDialog({
     setStatus("idle");
     setStatusMessage("");
     setErrorContext(null);
+    setDryRunReport(null);
     lastItemsRef.current = null;
     autoRetriedRef.current = false;
     onClose();
