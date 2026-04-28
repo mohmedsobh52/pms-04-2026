@@ -256,39 +256,56 @@ export function BOQUploadDialog({
         throw e;
       }
 
-      const rows = items.map((item: any, idx: number) => ({
-        project_id: projectId,
-        item_number: item.item_number || item.number || String(idx + 1),
-        description: item.description || item.desc || "",
-        unit: item.unit || "",
-        quantity: parseFloat(item.quantity) || 0,
-        unit_price: parseFloat(item.unit_price || item.rate || 0) || null,
-        total_price: parseFloat(item.total_price || item.amount || 0) || null,
-        sort_order: idx,
-      }));
+      const { sanitized, issues } = sanitizeItems(items);
+      const rows = sanitized.map((r) => ({ ...r, project_id: projectId }));
+      console.log("[BOQUpload] Sanitized rows:", rows.length, "issues:", issues.length);
 
       const { error } = await supabase.from("project_items").insert(rows);
       if (error) {
-        const isRls = error.message?.toLowerCase().includes("row-level security");
+        const rawMsg = error.message || "";
+        const code = (error as any).code || "";
+        const details = (error as any).details || "";
+        const isRls = rawMsg.toLowerCase().includes("row-level security");
+        const isFk = code === "23503" || rawMsg.toLowerCase().includes("foreign key");
+        const isNumeric = code === "22P02" || rawMsg.toLowerCase().includes("invalid input syntax");
+
+        let title: string;
+        let hint: string;
         if (isRls) {
-          const e: any = new Error(
-            isArabic
-              ? `فشل حفظ البنود في جدول "project_items" بسبب سياسة الأمان (RLS). المشروع موجود في جدول "${sourceTable}".`
-              : `Saving items to "project_items" failed due to RLS. The project exists in "${sourceTable}".`
-          );
-          e._ctx = {
-            table: "project_items",
-            canRetry: true,
-            hint: isArabic
-              ? `خطوات الإصلاح: ١) تأكد أن المشروع تم إنشاؤه بنفس حسابك في "${sourceTable}". ٢) سجّل الخروج والدخول مجدداً. ٣) اضغط إعادة المحاولة.`
-              : `Fix: 1) Ensure the project in "${sourceTable}" belongs to your account. 2) Sign out and back in. 3) Click Retry.`,
-          };
-          e._userId = userId;
-          e._projectId = projectId;
-          throw e;
+          title = isArabic
+            ? `فشل حفظ البنود في "project_items" بسبب سياسة الأمان (RLS). المشروع في "${sourceTable}".`
+            : `Saving items to "project_items" failed due to RLS. Project is in "${sourceTable}".`;
+          hint = isArabic
+            ? `خطوات الإصلاح: ١) تأكد أن المشروع بحسابك في "${sourceTable}". ٢) سجّل الخروج والدخول. ٣) إعادة المحاولة.`
+            : `Fix: 1) Ensure project in "${sourceTable}" belongs to you. 2) Sign out/in. 3) Retry.`;
+        } else if (isFk) {
+          title = isArabic
+            ? `فشل حفظ البنود: مفتاح خارجي مفقود (409). المعرّف ${projectId} غير موجود في الجدول المرجعي.`
+            : `Save failed: foreign key violation (409). project_id ${projectId} is missing in the referenced table.`;
+          hint = isArabic
+            ? "الحل: تأكد أن المشروع موجود فعلاً، ثم اضغط إعادة المحاولة. إن استمرت المشكلة قد تحتاج لتعديل المعرّف أو إعادة إنشاء المشروع."
+            : "Fix: ensure the project exists, then retry. If it persists, edit the ID or recreate the project.";
+        } else if (isNumeric) {
+          title = isArabic
+            ? "فشل حفظ البنود: قيم رقمية غير صالحة (NaN/null). تم تنظيف الأرقام لكن قاعدة البيانات رفضت الإدخال."
+            : "Save failed: invalid numeric values (NaN/null). Numbers were sanitized but DB rejected the row.";
+          hint = isArabic
+            ? "جرّب 'تشغيل تجريبي' لمعاينة البنود ومعرفة الصفوف غير الصالحة قبل الحفظ."
+            : "Try 'Dry Run' to preview items and see invalid rows before saving.";
+        } else {
+          title = rawMsg;
+          hint = details || "";
         }
-        const e: any = new Error(error.message);
-        e._ctx = { table: "project_items", canRetry: true };
+
+        const e: any = new Error(title);
+        e._ctx = {
+          table: "project_items",
+          canRetry: true,
+          hint,
+          code,
+          details,
+          rawMessage: rawMsg,
+        };
         e._userId = userId;
         e._projectId = projectId;
         throw e;
