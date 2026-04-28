@@ -560,7 +560,7 @@ export function BOQUploadDialog({
         variant: "destructive",
       });
     }
-  }, [selectedFile, projectId, isArabic, saveItemsToProject, toast]);
+  }, [selectedFile, projectId, isArabic, saveItemsToProject, toast, extractItemsFromFile, onSuccessWithData]);
 
   const handleRetrySave = useCallback(async () => {
     const items = lastItemsRef.current;
