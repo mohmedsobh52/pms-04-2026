@@ -762,24 +762,12 @@ export default function ProjectDetailsPage() {
   const handleEnhanceWithAI = async (item: ProjectItem) => {
     setEnhancingItemId(item.id);
     try {
-      const { data, error } = await supabase.functions.invoke("ai-chat", {
-        body: {
-          messages: [
-            {
-              role: "system",
-              content: isArabic
-                ? "أنت خبير في جداول الكميات الإنشائية. حسّن وصف البند ليكون واضحاً واحترافياً وموجزاً. أعد الوصف فقط بدون أي نص إضافي أو علامات اقتباس."
-                : "You are an expert in construction BOQs. Enhance the item description to be clear, professional, and concise. Return only the enhanced description.",
-            },
-            {
-              role: "user",
-              content: `Number: ${item.item_number || ""}\nUnit: ${item.unit || ""}\nDescription: ${item.description || ""}`,
-            },
-          ],
-        },
+      const { data, error } = await supabase.functions.invoke("enhance-item-description", {
+        body: { item, isArabic },
       });
       if (error) throw error;
-      const enhanced: string = (data?.content || data?.message || data?.text || "").toString().trim();
+      if (data?.error) throw new Error(data.error);
+      const enhanced: string = (data?.enhanced || "").toString().trim();
       if (!enhanced) throw new Error(isArabic ? "لم يتم إرجاع وصف" : "No description returned");
       const { error: updateError } = await supabase
         .from("project_items")
