@@ -1086,6 +1086,7 @@ export default function ProjectDetailsPage() {
               }}
               onHistoricalPrice={handleHistoricalPrice}
               onEnhanceWithAI={handleEnhanceWithAI}
+              enhancingItemId={enhancingItemId}
               onEditItem={(item) => {
                 setSelectedItemForEdit(item);
                 setShowEditItemDialog(true);

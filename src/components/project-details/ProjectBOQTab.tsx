@@ -61,6 +61,7 @@ interface ProjectBOQTabProps {
   onDetailedPrice: (item: ProjectItem) => void;
   onHistoricalPrice: (item: ProjectItem) => void;
   onEnhanceWithAI: (item: ProjectItem) => void;
+  enhancingItemId?: string | null;
   onEditItem: (item: ProjectItem) => void;
   onDeleteItem: (itemId: string) => void;
   onUnconfirmItem: (itemId: string) => void;
@@ -95,6 +96,7 @@ export function ProjectBOQTab({
   onDetailedPrice,
   onHistoricalPrice,
   onEnhanceWithAI,
+  enhancingItemId = null,
   onEditItem,
   onDeleteItem,
   onUnconfirmItem,
@@ -352,11 +354,21 @@ export function ProjectBOQTab({
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
-                              onClick={() => onEnhanceWithAI(item)}
+                              onClick={(e) => {
+                                if (enhancingItemId === item.id) { e.preventDefault(); return; }
+                                onEnhanceWithAI(item);
+                              }}
+                              disabled={enhancingItemId === item.id}
                               className="gap-2"
                             >
-                              <Sparkles className="w-4 h-4 text-primary" />
-                              {isArabic ? "تحسين بالذكاء الاصطناعي" : "Enhance with AI"}
+                              {enhancingItemId === item.id ? (
+                                <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                              ) : (
+                                <Sparkles className="w-4 h-4 text-primary" />
+                              )}
+                              {enhancingItemId === item.id
+                                ? (isArabic ? "جاري التحسين..." : "Enhancing...")
+                                : (isArabic ? "تحسين بالذكاء الاصطناعي" : "Enhance with AI")}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 

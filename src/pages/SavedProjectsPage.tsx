@@ -209,6 +209,19 @@ export default function SavedProjectsPage() {
     }
   }, [user]);
 
+  // Auto-reload when a project is saved/overwritten anywhere in the app
+  useEffect(() => {
+    if (!user) return;
+    const handler = () => { fetchProjects(); };
+    window.addEventListener("projects:updated", handler);
+    const onVis = () => { if (document.visibilityState === "visible") fetchProjects(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("projects:updated", handler);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [user]);
+
   const handleDelete = async (id: string) => {
     try {
       // Delete project items first (if any)
