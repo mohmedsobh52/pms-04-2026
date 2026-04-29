@@ -93,6 +93,8 @@ export function ProjectBOQTab({
   onAddItem,
   onQuickPrice,
   onDetailedPrice,
+  onHistoricalPrice,
+  onEnhanceWithAI,
   onEditItem,
   onDeleteItem,
   onUnconfirmItem,
