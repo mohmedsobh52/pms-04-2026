@@ -75,10 +75,28 @@ export function SaveProjectButton({
       return sum + (effectivePrice * item.quantity);
     }, 0);
 
-    // 1. Create the project in project_data table
-    const { data: projectData, error: projectError } = await supabase
+    // 1. Create the project in saved_projects FIRST (project_items FK references this table)
+    const { data: savedProjectRow, error: savedProjectError } = await supabase
+      .from('saved_projects')
+      .insert([{
+        user_id: user.id,
+        name: projectName.trim(),
+        file_name: fileName || null,
+        analysis_data: { items, summary } as any,
+        wbs_data: wbsData as any,
+      }])
+      .select('id')
+      .single();
+
+    if (savedProjectError) throw savedProjectError;
+
+    const projectId = (savedProjectRow as any).id as string;
+
+    // 1.5. Mirror to project_data table using the SAME id so both tables stay in sync
+    const { error: projectError } = await supabase
       .from('project_data' as any)
       .insert({
+        id: projectId,
         user_id: user.id,
         name: projectName.trim(),
         file_name: fileName,
@@ -87,29 +105,12 @@ export function SaveProjectButton({
         total_value: totalValue,
         currency: summary?.currency || 'SAR',
         items_count: items.length,
-      } as any)
-      .select('id')
-      .single();
+      } as any);
 
-    if (projectError) throw projectError;
-
-    // 1.5. Also save to saved_projects table for display in saved projects page
-    const { error: savedProjectError } = await supabase
-      .from('saved_projects')
-      .insert([{
-        user_id: user.id,
-        name: projectName.trim(),
-        file_name: fileName || null,
-        analysis_data: { items, summary } as any,
-        wbs_data: wbsData as any,
-      }]);
-
-    if (savedProjectError) {
-      console.error('Error saving to saved_projects:', savedProjectError);
-      // Don't throw, continue since main project was saved
+    if (projectError) {
+      console.error('Error mirroring to project_data:', projectError);
+      // Non-fatal: saved_projects already has the data
     }
-
-    const projectId = (projectData as any).id as string;
 
     // 2. Insert all project items with sort_order to preserve original file sequence
     const itemsToInsert = items.map((item, index) => {
