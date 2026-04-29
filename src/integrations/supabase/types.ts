@@ -3095,6 +3095,21 @@ export type Database = {
         }
         Returns: boolean
       }
+      save_project_with_items: {
+        Args: {
+          _analysis_data: Json
+          _costs: Json
+          _currency: string
+          _file_name: string
+          _items: Json
+          _name: string
+          _overwrite: boolean
+          _project_id: string
+          _total_value: number
+          _wbs_data: Json
+        }
+        Returns: string
+      }
       user_owns_project: { Args: { _project_id: string }; Returns: boolean }
     }
     Enums: {
