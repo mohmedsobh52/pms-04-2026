@@ -1384,6 +1384,64 @@ export default function ProjectDetailsPage() {
           }
         }}
       />
+
+      {/* Historical Price Dialog */}
+      <Dialog open={showHistoricalPriceDialog} onOpenChange={setShowHistoricalPriceDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{isArabic ? "السعر التاريخي" : "Historical Price"}</DialogTitle>
+            <DialogDescription>
+              {isArabic
+                ? "أسعار سابقة لبنود مشابهة من مشاريعك"
+                : "Past prices for similar items from your projects"}
+            </DialogDescription>
+          </DialogHeader>
+          {historicalPriceItem && (
+            <div className="text-sm text-muted-foreground border-l-2 border-primary/40 pl-3 mb-2">
+              {historicalPriceItem.description}
+            </div>
+          )}
+          <div className="max-h-[60vh] overflow-auto space-y-2">
+            {isLoadingHistorical ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            ) : historicalMatches.length === 0 ? (
+              <p className="text-center text-muted-foreground py-6">
+                {isArabic ? "لا توجد أسعار تاريخية مطابقة" : "No matching historical prices found"}
+              </p>
+            ) : (
+              historicalMatches.map((m, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-start justify-between gap-4 p-3 rounded-md border border-border/60 hover:bg-muted/40 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{m.description}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {m.project_name && <span>{m.project_name} · </span>}
+                      {m.created_at && new Date(m.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-primary whitespace-nowrap">
+                      {formatCurrency(m.unit_price)}
+                    </span>
+                    <Button size="sm" variant="outline" onClick={() => applyHistoricalPrice(m.unit_price)}>
+                      {isArabic ? "تطبيق" : "Apply"}
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowHistoricalPriceDialog(false)}>
+              {isArabic ? "إغلاق" : "Close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
