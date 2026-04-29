@@ -109,6 +109,11 @@ export default function ProjectDetailsPage() {
   const [showEditItemDialog, setShowEditItemDialog] = useState(false);
   const [selectedItemForEdit, setSelectedItemForEdit] = useState<ProjectItem | null>(null);
   const [showAutoPriceDialog, setShowAutoPriceDialog] = useState(false);
+  const [showHistoricalPriceDialog, setShowHistoricalPriceDialog] = useState(false);
+  const [historicalPriceItem, setHistoricalPriceItem] = useState<ProjectItem | null>(null);
+  const [historicalMatches, setHistoricalMatches] = useState<Array<{ unit_price: number; project_name?: string; description?: string; created_at?: string }>>([]);
+  const [isLoadingHistorical, setIsLoadingHistorical] = useState(false);
+  const [enhancingItemId, setEnhancingItemId] = useState<string | null>(null);
 
   // Fetch project data
   useEffect(() => {
