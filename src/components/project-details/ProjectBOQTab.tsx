@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   Package, Search, Filter, Download, Trash2, Plus, Wand2, RefreshCw,
   ArrowUpDown, Hash, FileText, CheckCircle, MoreVertical, DollarSign,
-  Edit, XCircle, Loader2
+  Edit, XCircle, Loader2, History, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
