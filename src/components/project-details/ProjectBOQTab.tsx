@@ -343,6 +343,21 @@ export function ProjectBOQTab({
                               <FileText className="w-4 h-4" />
                               {isArabic ? "تسعير مفصل" : "Detailed Price"}
                             </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => onHistoricalPrice(item)}
+                              className="gap-2"
+                            >
+                              <History className="w-4 h-4" />
+                              {isArabic ? "السعر التاريخي" : "Historical Price"}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => onEnhanceWithAI(item)}
+                              className="gap-2"
+                            >
+                              <Sparkles className="w-4 h-4 text-primary" />
+                              {isArabic ? "تحسين بالذكاء الاصطناعي" : "Enhance with AI"}
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
                               onClick={() => onEditItem(item)}
