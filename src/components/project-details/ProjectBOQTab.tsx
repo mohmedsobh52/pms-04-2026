@@ -59,6 +59,8 @@ interface ProjectBOQTabProps {
   onAddItem: () => void;
   onQuickPrice: (itemId: string) => void;
   onDetailedPrice: (item: ProjectItem) => void;
+  onHistoricalPrice: (item: ProjectItem) => void;
+  onEnhanceWithAI: (item: ProjectItem) => void;
   onEditItem: (item: ProjectItem) => void;
   onDeleteItem: (itemId: string) => void;
   onUnconfirmItem: (itemId: string) => void;
