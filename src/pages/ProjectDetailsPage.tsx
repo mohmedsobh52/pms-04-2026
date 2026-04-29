@@ -699,6 +699,106 @@ export default function ProjectDetailsPage() {
     }
   };
 
+  // Historical Price: search past project_items with similar description
+  const handleHistoricalPrice = async (item: ProjectItem) => {
+    setHistoricalPriceItem(item);
+    setShowHistoricalPriceDialog(true);
+    setIsLoadingHistorical(true);
+    setHistoricalMatches([]);
+    try {
+      const desc = (item.description || "").trim();
+      if (!desc) { setHistoricalMatches([]); return; }
+      const token = desc.split(/\s+/).slice(0, 3).join(" ");
+      const { data, error } = await supabase
+        .from("project_items")
+        .select("unit_price, description, created_at, project_id")
+        .neq("id", item.id)
+        .gt("unit_price", 0)
+        .ilike("description", `%${token}%`)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      const projectIds = Array.from(new Set((data || []).map((r: any) => r.project_id).filter(Boolean)));
+      const nameMap: Record<string, string> = {};
+      if (projectIds.length > 0) {
+        const { data: projs } = await supabase
+          .from("saved_projects")
+          .select("id, name")
+          .in("id", projectIds as string[]);
+        (projs || []).forEach((p: any) => { nameMap[p.id] = p.name; });
+      }
+      setHistoricalMatches((data || []).map((r: any) => ({
+        unit_price: r.unit_price,
+        description: r.description,
+        created_at: r.created_at,
+        project_name: nameMap[r.project_id] || undefined,
+      })));
+    } catch (e: any) {
+      toast({ title: isArabic ? "خطأ" : "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setIsLoadingHistorical(false);
+    }
+  };
+
+  const applyHistoricalPrice = async (price: number) => {
+    if (!historicalPriceItem) return;
+    try {
+      const totalPrice = (historicalPriceItem.quantity || 0) * price;
+      const { error } = await supabase
+        .from("project_items")
+        .update({ unit_price: price, total_price: totalPrice })
+        .eq("id", historicalPriceItem.id);
+      if (error) throw error;
+      setItems(prev => prev.map(i =>
+        i.id === historicalPriceItem.id ? { ...i, unit_price: price, total_price: totalPrice } : i
+      ));
+      toast({ title: isArabic ? "تم تطبيق السعر التاريخي" : "Historical price applied" });
+      setShowHistoricalPriceDialog(false);
+    } catch (e: any) {
+      toast({ title: isArabic ? "خطأ" : "Error", description: e.message, variant: "destructive" });
+    }
+  };
+
+  const handleEnhanceWithAI = async (item: ProjectItem) => {
+    setEnhancingItemId(item.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-chat", {
+        body: {
+          messages: [
+            {
+              role: "system",
+              content: isArabic
+                ? "أنت خبير في جداول الكميات الإنشائية. حسّن وصف البند ليكون واضحاً واحترافياً وموجزاً. أعد الوصف فقط بدون أي نص إضافي أو علامات اقتباس."
+                : "You are an expert in construction BOQs. Enhance the item description to be clear, professional, and concise. Return only the enhanced description.",
+            },
+            {
+              role: "user",
+              content: `Number: ${item.item_number || ""}\nUnit: ${item.unit || ""}\nDescription: ${item.description || ""}`,
+            },
+          ],
+        },
+      });
+      if (error) throw error;
+      const enhanced: string = (data?.content || data?.message || data?.text || "").toString().trim();
+      if (!enhanced) throw new Error(isArabic ? "لم يتم إرجاع وصف" : "No description returned");
+      const { error: updateError } = await supabase
+        .from("project_items")
+        .update({ description: enhanced })
+        .eq("id", item.id);
+      if (updateError) throw updateError;
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, description: enhanced } : i));
+      toast({ title: isArabic ? "تم تحسين الوصف بالذكاء الاصطناعي" : "Description enhanced with AI" });
+    } catch (e: any) {
+      toast({
+        title: isArabic ? "تعذر التحسين" : "Enhancement failed",
+        description: e.message,
+        variant: "destructive",
+      });
+    } finally {
+      setEnhancingItemId(null);
+    }
+  };
+
   const handleDeleteZeroQuantityItems = async () => {
     const zeroItems = items.filter(item => !item.quantity || item.quantity === 0);
     
