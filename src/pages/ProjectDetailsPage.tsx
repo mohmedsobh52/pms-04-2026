@@ -109,6 +109,11 @@ export default function ProjectDetailsPage() {
   const [showEditItemDialog, setShowEditItemDialog] = useState(false);
   const [selectedItemForEdit, setSelectedItemForEdit] = useState<ProjectItem | null>(null);
   const [showAutoPriceDialog, setShowAutoPriceDialog] = useState(false);
+  const [showHistoricalPriceDialog, setShowHistoricalPriceDialog] = useState(false);
+  const [historicalPriceItem, setHistoricalPriceItem] = useState<ProjectItem | null>(null);
+  const [historicalMatches, setHistoricalMatches] = useState<Array<{ unit_price: number; project_name?: string; description?: string; created_at?: string }>>([]);
+  const [isLoadingHistorical, setIsLoadingHistorical] = useState(false);
+  const [enhancingItemId, setEnhancingItemId] = useState<string | null>(null);
 
   // Fetch project data
   useEffect(() => {
@@ -694,6 +699,94 @@ export default function ProjectDetailsPage() {
     }
   };
 
+  // Historical Price: search past project_items with similar description
+  const handleHistoricalPrice = async (item: ProjectItem) => {
+    setHistoricalPriceItem(item);
+    setShowHistoricalPriceDialog(true);
+    setIsLoadingHistorical(true);
+    setHistoricalMatches([]);
+    try {
+      const desc = (item.description || "").trim();
+      if (!desc) { setHistoricalMatches([]); return; }
+      const token = desc.split(/\s+/).slice(0, 3).join(" ");
+      const { data, error } = await supabase
+        .from("project_items")
+        .select("unit_price, description, created_at, project_id")
+        .neq("id", item.id)
+        .gt("unit_price", 0)
+        .ilike("description", `%${token}%`)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      const projectIds = Array.from(new Set((data || []).map((r: any) => r.project_id).filter(Boolean)));
+      const nameMap: Record<string, string> = {};
+      if (projectIds.length > 0) {
+        const { data: projs } = await supabase
+          .from("saved_projects")
+          .select("id, name")
+          .in("id", projectIds as string[]);
+        (projs || []).forEach((p: any) => { nameMap[p.id] = p.name; });
+      }
+      setHistoricalMatches((data || []).map((r: any) => ({
+        unit_price: r.unit_price,
+        description: r.description,
+        created_at: r.created_at,
+        project_name: nameMap[r.project_id] || undefined,
+      })));
+    } catch (e: any) {
+      toast({ title: isArabic ? "خطأ" : "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setIsLoadingHistorical(false);
+    }
+  };
+
+  const applyHistoricalPrice = async (price: number) => {
+    if (!historicalPriceItem) return;
+    try {
+      const totalPrice = (historicalPriceItem.quantity || 0) * price;
+      const { error } = await supabase
+        .from("project_items")
+        .update({ unit_price: price, total_price: totalPrice })
+        .eq("id", historicalPriceItem.id);
+      if (error) throw error;
+      setItems(prev => prev.map(i =>
+        i.id === historicalPriceItem.id ? { ...i, unit_price: price, total_price: totalPrice } : i
+      ));
+      toast({ title: isArabic ? "تم تطبيق السعر التاريخي" : "Historical price applied" });
+      setShowHistoricalPriceDialog(false);
+    } catch (e: any) {
+      toast({ title: isArabic ? "خطأ" : "Error", description: e.message, variant: "destructive" });
+    }
+  };
+
+  const handleEnhanceWithAI = async (item: ProjectItem) => {
+    setEnhancingItemId(item.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("enhance-item-description", {
+        body: { item, isArabic },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const enhanced: string = (data?.enhanced || "").toString().trim();
+      if (!enhanced) throw new Error(isArabic ? "لم يتم إرجاع وصف" : "No description returned");
+      const { error: updateError } = await supabase
+        .from("project_items")
+        .update({ description: enhanced })
+        .eq("id", item.id);
+      if (updateError) throw updateError;
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, description: enhanced } : i));
+      toast({ title: isArabic ? "تم تحسين الوصف بالذكاء الاصطناعي" : "Description enhanced with AI" });
+    } catch (e: any) {
+      toast({
+        title: isArabic ? "تعذر التحسين" : "Enhancement failed",
+        description: e.message,
+        variant: "destructive",
+      });
+    } finally {
+      setEnhancingItemId(null);
+    }
+  };
+
   const handleDeleteZeroQuantityItems = async () => {
     const zeroItems = items.filter(item => !item.quantity || item.quantity === 0);
     
@@ -991,6 +1084,8 @@ export default function ProjectDetailsPage() {
                 setSelectedItemForPricing(item);
                 setShowDetailedPriceDialog(true);
               }}
+              onHistoricalPrice={handleHistoricalPrice}
+              onEnhanceWithAI={handleEnhanceWithAI}
               onEditItem={(item) => {
                 setSelectedItemForEdit(item);
                 setShowEditItemDialog(true);
@@ -1289,6 +1384,64 @@ export default function ProjectDetailsPage() {
           }
         }}
       />
+
+      {/* Historical Price Dialog */}
+      <Dialog open={showHistoricalPriceDialog} onOpenChange={setShowHistoricalPriceDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{isArabic ? "السعر التاريخي" : "Historical Price"}</DialogTitle>
+            <DialogDescription>
+              {isArabic
+                ? "أسعار سابقة لبنود مشابهة من مشاريعك"
+                : "Past prices for similar items from your projects"}
+            </DialogDescription>
+          </DialogHeader>
+          {historicalPriceItem && (
+            <div className="text-sm text-muted-foreground border-l-2 border-primary/40 pl-3 mb-2">
+              {historicalPriceItem.description}
+            </div>
+          )}
+          <div className="max-h-[60vh] overflow-auto space-y-2">
+            {isLoadingHistorical ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            ) : historicalMatches.length === 0 ? (
+              <p className="text-center text-muted-foreground py-6">
+                {isArabic ? "لا توجد أسعار تاريخية مطابقة" : "No matching historical prices found"}
+              </p>
+            ) : (
+              historicalMatches.map((m, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-start justify-between gap-4 p-3 rounded-md border border-border/60 hover:bg-muted/40 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{m.description}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {m.project_name && <span>{m.project_name} · </span>}
+                      {m.created_at && new Date(m.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-primary whitespace-nowrap">
+                      {formatCurrency(m.unit_price)}
+                    </span>
+                    <Button size="sm" variant="outline" onClick={() => applyHistoricalPrice(m.unit_price)}>
+                      {isArabic ? "تطبيق" : "Apply"}
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowHistoricalPriceDialog(false)}>
+              {isArabic ? "إغلاق" : "Close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   Package, Search, Filter, Download, Trash2, Plus, Wand2, RefreshCw,
   ArrowUpDown, Hash, FileText, CheckCircle, MoreVertical, DollarSign,
-  Edit, XCircle, Loader2
+  Edit, XCircle, Loader2, History, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +59,8 @@ interface ProjectBOQTabProps {
   onAddItem: () => void;
   onQuickPrice: (itemId: string) => void;
   onDetailedPrice: (item: ProjectItem) => void;
+  onHistoricalPrice: (item: ProjectItem) => void;
+  onEnhanceWithAI: (item: ProjectItem) => void;
   onEditItem: (item: ProjectItem) => void;
   onDeleteItem: (itemId: string) => void;
   onUnconfirmItem: (itemId: string) => void;
@@ -91,6 +93,8 @@ export function ProjectBOQTab({
   onAddItem,
   onQuickPrice,
   onDetailedPrice,
+  onHistoricalPrice,
+  onEnhanceWithAI,
   onEditItem,
   onDeleteItem,
   onUnconfirmItem,
@@ -338,6 +342,21 @@ export function ProjectBOQTab({
                             >
                               <FileText className="w-4 h-4" />
                               {isArabic ? "تسعير مفصل" : "Detailed Price"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => onHistoricalPrice(item)}
+                              className="gap-2"
+                            >
+                              <History className="w-4 h-4" />
+                              {isArabic ? "السعر التاريخي" : "Historical Price"}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => onEnhanceWithAI(item)}
+                              className="gap-2"
+                            >
+                              <Sparkles className="w-4 h-4 text-primary" />
+                              {isArabic ? "تحسين بالذكاء الاصطناعي" : "Enhance with AI"}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
