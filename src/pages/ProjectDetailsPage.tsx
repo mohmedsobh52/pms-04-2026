@@ -1238,6 +1238,29 @@ export default function ProjectDetailsPage() {
                 setShowEditItemDialog(true);
               }}
               onDeleteItem={handleDeleteItem}
+              onUpdateUnitPrice={async (itemId, newPrice) => {
+                const item = items.find(i => i.id === itemId);
+                if (!item) return;
+                const totalPrice = (item.quantity || 0) * newPrice;
+                const previous = items;
+                setItems(prev => prev.map(i =>
+                  i.id === itemId ? { ...i, unit_price: newPrice, total_price: totalPrice } : i
+                ));
+                const { error } = await supabase
+                  .from("project_items")
+                  .update({ unit_price: newPrice, total_price: totalPrice })
+                  .eq("id", itemId);
+                if (error) {
+                  setItems(previous);
+                  toast({
+                    title: isArabic ? "خطأ في تحديث السعر" : "Error updating price",
+                    description: error.message,
+                    variant: "destructive",
+                  });
+                } else {
+                  toast({ title: isArabic ? "تم تحديث السعر" : "Price updated" });
+                }
+              }}
               onUnconfirmItem={handleUnconfirmItem}
               onDeleteZeroQuantityItems={handleDeleteZeroQuantityItems}
               formatCurrency={formatCurrency}
