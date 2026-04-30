@@ -1150,6 +1150,51 @@ export default function ProjectDetailsPage() {
           </TabsContent>
 
           <TabsContent value="boq">
+            {backfillState.status !== "idle" && (
+              <div className="mb-4 rounded-lg border border-border bg-card p-4 shadow-sm">
+                <div className="flex items-start gap-3">
+                  {backfillState.status === "running" && (
+                    <Loader2 className="h-5 w-5 mt-0.5 text-primary animate-spin shrink-0" />
+                  )}
+                  {backfillState.status === "success" && (
+                    <CheckCircle2 className="h-5 w-5 mt-0.5 text-green-600 shrink-0" />
+                  )}
+                  {backfillState.status === "error" && (
+                    <AlertTriangle className="h-5 w-5 mt-0.5 text-destructive shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm">
+                      {backfillState.status === "running" &&
+                        (isArabic ? "يتم استرجاع البنود..." : "Restoring items...")}
+                      {backfillState.status === "success" &&
+                        (isArabic ? "تم استرجاع البنود بنجاح" : "Items restored successfully")}
+                      {backfillState.status === "error" &&
+                        (isArabic ? "فشل استرجاع البنود" : "Failed to restore items")}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {isArabic
+                        ? `${backfillState.inserted} من ${backfillState.total} بند`
+                        : `${backfillState.inserted} of ${backfillState.total} items`}
+                      {backfillState.error ? ` — ${backfillState.error}` : ""}
+                    </div>
+                    {backfillState.status === "running" && (
+                      <Progress value={backfillState.progress} className="h-2 mt-2" />
+                    )}
+                  </div>
+                  {backfillState.status === "error" && (
+                    <Button size="sm" variant="outline" onClick={retryBackfill}>
+                      <RefreshCw className="h-4 w-4 mr-1" />
+                      {isArabic ? "إعادة المحاولة" : "Retry"}
+                    </Button>
+                  )}
+                  {backfillState.status === "success" && (
+                    <Button size="sm" variant="ghost" onClick={() => setBackfillState((s) => ({ ...s, status: "idle" }))}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
             <ProjectBOQTab
               items={items}
               filteredItems={filteredItems}
