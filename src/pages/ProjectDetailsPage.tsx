@@ -274,51 +274,15 @@ export default function ProjectDetailsPage() {
 
         if (itemsError) throw itemsError;
 
-        let finalItems = itemsData || [];
+        const finalItems = itemsData || [];
+        setItems(finalItems);
 
         // Fallback: backfill from analysis_data.items if table is empty
         const embeddedItems: any[] = Array.isArray(analysisData?.items) ? analysisData.items : [];
         if (finalItems.length === 0 && embeddedItems.length > 0) {
-          const toNum = (v: any) => {
-            if (v === null || v === undefined || v === "") return null;
-            const n = typeof v === "number" ? v : parseFloat(String(v).replace(/,/g, ""));
-            return Number.isFinite(n) ? n : null;
-          };
-          const payload = embeddedItems.map((it: any, idx: number) => ({
-            project_id: projectId,
-            item_number: String(it.item_number ?? it.code ?? idx + 1),
-            description: it.description ?? "",
-            unit: it.unit ?? "",
-            quantity: toNum(it.quantity),
-            unit_price: toNum(it.unit_price),
-            total_price: toNum(it.total_price),
-            category: it.category ?? null,
-            notes: it.notes ?? null,
-            is_section: !!it.is_section,
-            sort_order: idx,
-          }));
-
-          const { data: inserted, error: insertErr } = await supabase
-            .from("project_items")
-            .insert(payload)
-            .select("*");
-
-          if (insertErr) {
-            console.warn("Backfill project_items failed, using in-memory items:", insertErr);
-            // Use embedded items in-memory so the table still renders
-            finalItems = payload.map((p, i) => ({ id: `mem_${i}`, ...p })) as any;
-          } else {
-            finalItems = inserted || [];
-            toast({
-              title: isArabic ? "تم استرجاع البنود" : "Items restored",
-              description: isArabic
-                ? `تم استرجاع ${finalItems.length} بند من بيانات المشروع`
-                : `Restored ${finalItems.length} items from project data`,
-            });
-          }
+          // Run async (don't block initial render); UI shows progress banner
+          runBackfill(projectId, embeddedItems);
         }
-
-        setItems(finalItems);
 
         // Fetch attachments
         await fetchAttachments();
