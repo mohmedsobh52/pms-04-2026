@@ -33,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ProjectItem, PricingStats } from "./types";
+import { EditableUnitPrice } from "@/components/EditableUnitPrice";
 
 interface ProjectBOQTabProps {
   items: ProjectItem[];
@@ -64,6 +65,7 @@ interface ProjectBOQTabProps {
   enhancingItemId?: string | null;
   onEditItem: (item: ProjectItem) => void;
   onDeleteItem: (itemId: string) => void;
+  onUpdateUnitPrice?: (itemId: string, newPrice: number) => void;
   onUnconfirmItem: (itemId: string) => void;
   onDeleteZeroQuantityItems: () => void;
   formatCurrency: (value: number) => string;
@@ -99,6 +101,7 @@ export function ProjectBOQTab({
   enhancingItemId = null,
   onEditItem,
   onDeleteItem,
+  onUpdateUnitPrice,
   onUnconfirmItem,
   onDeleteZeroQuantityItems,
   formatCurrency,
@@ -306,7 +309,14 @@ export function ProjectBOQTab({
                       <TableCell>{item.unit || '-'}</TableCell>
                       <TableCell className="text-right">{item.quantity?.toLocaleString() || '-'}</TableCell>
                       <TableCell className="text-right">
-                        {item.unit_price && item.unit_price > 0 ? formatCurrency(item.unit_price) : '-'}
+                        {onUpdateUnitPrice ? (
+                          <EditableUnitPrice
+                            value={item.unit_price || 0}
+                            onSave={(newPrice) => onUpdateUnitPrice(item.id, newPrice)}
+                          />
+                        ) : (
+                          item.unit_price && item.unit_price > 0 ? formatCurrency(item.unit_price) : '-'
+                        )}
                       </TableCell>
                       <TableCell className="text-right font-medium">
                         {item.total_price && item.total_price > 0 ? formatCurrency(item.total_price) : '-'}
