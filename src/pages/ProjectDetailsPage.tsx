@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import OnboardingModal from "@/components/OnboardingModal";
 import { BOQUploadDialog } from "@/components/project-details/BOQUploadDialog";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { Loader2, FolderOpen, Upload, X, Brain } from "lucide-react";
+import { Loader2, FolderOpen, Upload, X, Brain, RefreshCw, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -115,6 +116,97 @@ export default function ProjectDetailsPage() {
   const [isLoadingHistorical, setIsLoadingHistorical] = useState(false);
   const [enhancingItemId, setEnhancingItemId] = useState<string | null>(null);
 
+  // Backfill state for project_items <- analysis_data.items
+  const [backfillState, setBackfillState] = useState<{
+    status: "idle" | "running" | "success" | "error";
+    progress: number;
+    total: number;
+    inserted: number;
+    error: string | null;
+  }>({ status: "idle", progress: 0, total: 0, inserted: 0, error: null });
+
+  // Build payload from embedded analysis_data.items with normalized field mapping
+  const buildItemsPayload = (embeddedItems: any[], pid: string) => {
+    const toNum = (v: any) => {
+      if (v === null || v === undefined || v === "") return null;
+      const n = typeof v === "number" ? v : parseFloat(String(v).replace(/,/g, ""));
+      return Number.isFinite(n) ? n : null;
+    };
+    const pick = (obj: any, ...keys: string[]) => {
+      for (const k of keys) {
+        if (obj?.[k] !== undefined && obj?.[k] !== null && obj?.[k] !== "") return obj[k];
+      }
+      return undefined;
+    };
+    return embeddedItems.map((it: any, idx: number) => ({
+      project_id: pid,
+      item_number: String(pick(it, "item_number", "itemNumber", "code", "no", "number") ?? idx + 1),
+      description: pick(it, "description", "desc", "name", "item_description") ?? "",
+      unit: pick(it, "unit", "uom", "measurement_unit") ?? "",
+      quantity: toNum(pick(it, "quantity", "qty", "qnty")),
+      unit_price: toNum(pick(it, "unit_price", "unitPrice", "price", "rate")),
+      total_price: toNum(pick(it, "total_price", "totalPrice", "total", "amount")),
+      category: pick(it, "category", "section", "group") ?? null,
+      notes: pick(it, "notes", "remarks", "comment") ?? null,
+      is_section: !!(it.is_section ?? it.isSection),
+      sort_order: idx,
+    }));
+  };
+
+  // Backfill project_items from analysis_data.items in chunks with progress
+  const runBackfill = async (pid: string, embeddedItems: any[]) => {
+    const payload = buildItemsPayload(embeddedItems, pid);
+    setBackfillState({ status: "running", progress: 0, total: payload.length, inserted: 0, error: null });
+
+    const CHUNK = 50;
+    let inserted: any[] = [];
+    try {
+      for (let i = 0; i < payload.length; i += CHUNK) {
+        const slice = payload.slice(i, i + CHUNK);
+        const { data, error } = await supabase.from("project_items").insert(slice).select("*");
+        if (error) throw error;
+        inserted = inserted.concat(data || []);
+        setBackfillState((s) => ({
+          ...s,
+          inserted: inserted.length,
+          progress: Math.round((inserted.length / payload.length) * 100),
+        }));
+      }
+      setItems(inserted);
+      setBackfillState({ status: "success", progress: 100, total: payload.length, inserted: inserted.length, error: null });
+      toast({
+        title: isArabic ? "تم استرجاع البنود" : "Items restored",
+        description: isArabic
+          ? `تم استرجاع ${inserted.length} بند من بيانات المشروع`
+          : `Restored ${inserted.length} items from project data`,
+      });
+    } catch (e: any) {
+      console.error("Backfill failed:", e);
+      // Fallback: show items in-memory so UI still works
+      setItems(payload.map((p, i) => ({ id: `mem_${i}`, ...p })) as any);
+      setBackfillState({
+        status: "error",
+        progress: 0,
+        total: payload.length,
+        inserted: inserted.length,
+        error: e?.message || (isArabic ? "فشل الحفظ" : "Save failed"),
+      });
+      toast({
+        title: isArabic ? "فشل استرجاع البنود" : "Backfill failed",
+        description: e?.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const retryBackfill = async () => {
+    if (!projectId || !project) return;
+    const analysisData = (project as any).analysis_data as any;
+    const embeddedItems: any[] = Array.isArray(analysisData?.items) ? analysisData.items : [];
+    if (embeddedItems.length === 0) return;
+    await runBackfill(projectId, embeddedItems);
+  };
+
   // Fetch project data
   useEffect(() => {
     if (!user || !projectId) return;
@@ -183,51 +275,15 @@ export default function ProjectDetailsPage() {
 
         if (itemsError) throw itemsError;
 
-        let finalItems = itemsData || [];
+        const finalItems = itemsData || [];
+        setItems(finalItems);
 
         // Fallback: backfill from analysis_data.items if table is empty
         const embeddedItems: any[] = Array.isArray(analysisData?.items) ? analysisData.items : [];
         if (finalItems.length === 0 && embeddedItems.length > 0) {
-          const toNum = (v: any) => {
-            if (v === null || v === undefined || v === "") return null;
-            const n = typeof v === "number" ? v : parseFloat(String(v).replace(/,/g, ""));
-            return Number.isFinite(n) ? n : null;
-          };
-          const payload = embeddedItems.map((it: any, idx: number) => ({
-            project_id: projectId,
-            item_number: String(it.item_number ?? it.code ?? idx + 1),
-            description: it.description ?? "",
-            unit: it.unit ?? "",
-            quantity: toNum(it.quantity),
-            unit_price: toNum(it.unit_price),
-            total_price: toNum(it.total_price),
-            category: it.category ?? null,
-            notes: it.notes ?? null,
-            is_section: !!it.is_section,
-            sort_order: idx,
-          }));
-
-          const { data: inserted, error: insertErr } = await supabase
-            .from("project_items")
-            .insert(payload)
-            .select("*");
-
-          if (insertErr) {
-            console.warn("Backfill project_items failed, using in-memory items:", insertErr);
-            // Use embedded items in-memory so the table still renders
-            finalItems = payload.map((p, i) => ({ id: `mem_${i}`, ...p })) as any;
-          } else {
-            finalItems = inserted || [];
-            toast({
-              title: isArabic ? "تم استرجاع البنود" : "Items restored",
-              description: isArabic
-                ? `تم استرجاع ${finalItems.length} بند من بيانات المشروع`
-                : `Restored ${finalItems.length} items from project data`,
-            });
-          }
+          // Run async (don't block initial render); UI shows progress banner
+          runBackfill(projectId, embeddedItems);
         }
-
-        setItems(finalItems);
 
         // Fetch attachments
         await fetchAttachments();
@@ -1094,6 +1150,51 @@ export default function ProjectDetailsPage() {
           </TabsContent>
 
           <TabsContent value="boq">
+            {backfillState.status !== "idle" && (
+              <div className="mb-4 rounded-lg border border-border bg-card p-4 shadow-sm">
+                <div className="flex items-start gap-3">
+                  {backfillState.status === "running" && (
+                    <Loader2 className="h-5 w-5 mt-0.5 text-primary animate-spin shrink-0" />
+                  )}
+                  {backfillState.status === "success" && (
+                    <CheckCircle2 className="h-5 w-5 mt-0.5 text-green-600 shrink-0" />
+                  )}
+                  {backfillState.status === "error" && (
+                    <AlertTriangle className="h-5 w-5 mt-0.5 text-destructive shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm">
+                      {backfillState.status === "running" &&
+                        (isArabic ? "يتم استرجاع البنود..." : "Restoring items...")}
+                      {backfillState.status === "success" &&
+                        (isArabic ? "تم استرجاع البنود بنجاح" : "Items restored successfully")}
+                      {backfillState.status === "error" &&
+                        (isArabic ? "فشل استرجاع البنود" : "Failed to restore items")}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {isArabic
+                        ? `${backfillState.inserted} من ${backfillState.total} بند`
+                        : `${backfillState.inserted} of ${backfillState.total} items`}
+                      {backfillState.error ? ` — ${backfillState.error}` : ""}
+                    </div>
+                    {backfillState.status === "running" && (
+                      <Progress value={backfillState.progress} className="h-2 mt-2" />
+                    )}
+                  </div>
+                  {backfillState.status === "error" && (
+                    <Button size="sm" variant="outline" onClick={retryBackfill}>
+                      <RefreshCw className="h-4 w-4 mr-1" />
+                      {isArabic ? "إعادة المحاولة" : "Retry"}
+                    </Button>
+                  )}
+                  {backfillState.status === "success" && (
+                    <Button size="sm" variant="ghost" onClick={() => setBackfillState((s) => ({ ...s, status: "idle" }))}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
             <ProjectBOQTab
               items={items}
               filteredItems={filteredItems}
