@@ -115,6 +115,97 @@ export default function ProjectDetailsPage() {
   const [isLoadingHistorical, setIsLoadingHistorical] = useState(false);
   const [enhancingItemId, setEnhancingItemId] = useState<string | null>(null);
 
+  // Backfill state for project_items <- analysis_data.items
+  const [backfillState, setBackfillState] = useState<{
+    status: "idle" | "running" | "success" | "error";
+    progress: number;
+    total: number;
+    inserted: number;
+    error: string | null;
+  }>({ status: "idle", progress: 0, total: 0, inserted: 0, error: null });
+
+  // Build payload from embedded analysis_data.items with normalized field mapping
+  const buildItemsPayload = (embeddedItems: any[], pid: string) => {
+    const toNum = (v: any) => {
+      if (v === null || v === undefined || v === "") return null;
+      const n = typeof v === "number" ? v : parseFloat(String(v).replace(/,/g, ""));
+      return Number.isFinite(n) ? n : null;
+    };
+    const pick = (obj: any, ...keys: string[]) => {
+      for (const k of keys) {
+        if (obj?.[k] !== undefined && obj?.[k] !== null && obj?.[k] !== "") return obj[k];
+      }
+      return undefined;
+    };
+    return embeddedItems.map((it: any, idx: number) => ({
+      project_id: pid,
+      item_number: String(pick(it, "item_number", "itemNumber", "code", "no", "number") ?? idx + 1),
+      description: pick(it, "description", "desc", "name", "item_description") ?? "",
+      unit: pick(it, "unit", "uom", "measurement_unit") ?? "",
+      quantity: toNum(pick(it, "quantity", "qty", "qnty")),
+      unit_price: toNum(pick(it, "unit_price", "unitPrice", "price", "rate")),
+      total_price: toNum(pick(it, "total_price", "totalPrice", "total", "amount")),
+      category: pick(it, "category", "section", "group") ?? null,
+      notes: pick(it, "notes", "remarks", "comment") ?? null,
+      is_section: !!(it.is_section ?? it.isSection),
+      sort_order: idx,
+    }));
+  };
+
+  // Backfill project_items from analysis_data.items in chunks with progress
+  const runBackfill = async (pid: string, embeddedItems: any[]) => {
+    const payload = buildItemsPayload(embeddedItems, pid);
+    setBackfillState({ status: "running", progress: 0, total: payload.length, inserted: 0, error: null });
+
+    const CHUNK = 50;
+    let inserted: any[] = [];
+    try {
+      for (let i = 0; i < payload.length; i += CHUNK) {
+        const slice = payload.slice(i, i + CHUNK);
+        const { data, error } = await supabase.from("project_items").insert(slice).select("*");
+        if (error) throw error;
+        inserted = inserted.concat(data || []);
+        setBackfillState((s) => ({
+          ...s,
+          inserted: inserted.length,
+          progress: Math.round((inserted.length / payload.length) * 100),
+        }));
+      }
+      setItems(inserted);
+      setBackfillState({ status: "success", progress: 100, total: payload.length, inserted: inserted.length, error: null });
+      toast({
+        title: isArabic ? "تم استرجاع البنود" : "Items restored",
+        description: isArabic
+          ? `تم استرجاع ${inserted.length} بند من بيانات المشروع`
+          : `Restored ${inserted.length} items from project data`,
+      });
+    } catch (e: any) {
+      console.error("Backfill failed:", e);
+      // Fallback: show items in-memory so UI still works
+      setItems(payload.map((p, i) => ({ id: `mem_${i}`, ...p })) as any);
+      setBackfillState({
+        status: "error",
+        progress: 0,
+        total: payload.length,
+        inserted: inserted.length,
+        error: e?.message || (isArabic ? "فشل الحفظ" : "Save failed"),
+      });
+      toast({
+        title: isArabic ? "فشل استرجاع البنود" : "Backfill failed",
+        description: e?.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const retryBackfill = async () => {
+    if (!projectId || !project) return;
+    const analysisData = (project as any).analysis_data as any;
+    const embeddedItems: any[] = Array.isArray(analysisData?.items) ? analysisData.items : [];
+    if (embeddedItems.length === 0) return;
+    await runBackfill(projectId, embeddedItems);
+  };
+
   // Fetch project data
   useEffect(() => {
     if (!user || !projectId) return;
