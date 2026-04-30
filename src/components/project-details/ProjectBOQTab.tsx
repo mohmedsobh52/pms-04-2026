@@ -101,6 +101,7 @@ export function ProjectBOQTab({
   enhancingItemId = null,
   onEditItem,
   onDeleteItem,
+  onUpdateUnitPrice,
   onUnconfirmItem,
   onDeleteZeroQuantityItems,
   formatCurrency,
