@@ -1455,7 +1455,27 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                 </div>
                 
                 <h3 className="text-xl font-semibold">{viewingContract.contract_title}</h3>
-                
+
+                {viewingContract.project_id && (
+                  <div className="flex items-center justify-between gap-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                    <div className="flex items-center gap-2 text-sm">
+                      <FolderKanban className="w-4 h-4 text-primary" />
+                      <span className="text-muted-foreground">{isArabic ? "المشروع المرتبط:" : "Linked Project:"}</span>
+                      <span className="font-medium">
+                        {projectsById.get(viewingContract.project_id)?.name ||
+                          (isArabic ? "مشروع" : "Project")}
+                      </span>
+                    </div>
+                    <a
+                      href={`/projects/${viewingContract.project_id}`}
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90"
+                    >
+                      <LinkIcon className="w-3 h-3" />
+                      {isArabic ? "فتح جدول الكميات" : "Open BOQ"}
+                    </a>
+                  </div>
+                )}
+
                 <Separator />
                 
                 {/* Contractor Info */}
