@@ -212,6 +212,11 @@ export const useEditedPrices = ({ projectId, savedProjectId, fileName }: UseEdit
 
       setEditedPrices({});
       toast.success('تم مسح الأسعار المعدلة');
+      try {
+        window.dispatchEvent(new CustomEvent('boq-edited-prices-changed', {
+          detail: { projectId, savedProjectId, fileName, cleared: true }
+        }));
+      } catch {}
     } catch (error) {
       console.error('Error clearing prices:', error);
     }
