@@ -27,6 +27,8 @@ import {
   Sparkles,
   Languages,
   Printer,
+  FolderKanban,
+  Link as LinkIcon,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -68,6 +70,14 @@ interface RegisteredSubcontractor {
   specialty: string | null;
   license_number: string | null;
 }
+interface LinkedProject {
+  id: string;
+  name: string;
+  total_value?: number | null;
+  currency?: string | null;
+  items_count?: number | null;
+  source: "saved_projects" | "project_data";
+}
 interface Contract {
   id: string;
   contract_number: string;
@@ -95,6 +105,7 @@ interface Contract {
   execution_percentage: number | null;
   variation_limit_percentage: number | null;
   contract_duration_months: number | null;
+  project_id: string | null;
   created_at: string;
 }
 
@@ -142,12 +153,17 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
 
   // Registered subcontractors for linking
   const [registeredSubcontractors, setRegisteredSubcontractors] = useState<RegisteredSubcontractor[]>([]);
+
+  // Available projects for linking (from saved_projects + project_data)
+  const [availableProjects, setAvailableProjects] = useState<LinkedProject[]>([]);
+  const [projectFilter, setProjectFilter] = useState<string>("all");
   const [formData, setFormData] = useState({
     // Step 1: Basic Info
     contract_number: "",
     contract_title: "",
     contract_type: "fixed_price",
     status: "draft",
+    project_id: "",
     // Step 2: Contractor Data
     contractor_name: "",
     contractor_license_number: "",
@@ -233,6 +249,7 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
   useEffect(() => {
     fetchContracts();
     fetchRegisteredSubcontractors();
+    fetchAvailableProjects();
   }, [user, projectId]);
 
   const fetchRegisteredSubcontractors = async () => {
@@ -247,6 +264,43 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
       setRegisteredSubcontractors(data || []);
     } catch (error) {
       console.error("Error fetching subcontractors:", error);
+    }
+  };
+
+  const fetchAvailableProjects = async () => {
+    if (!user) return;
+    try {
+      const [savedRes, dataRes] = await Promise.all([
+        supabase
+          .from("saved_projects")
+          .select("id, name")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("project_data")
+          .select("id, name, total_value, currency, items_count")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
+      ]);
+
+      const map = new Map<string, LinkedProject>();
+      (savedRes.data || []).forEach((p: any) =>
+        map.set(p.id, { id: p.id, name: p.name, source: "saved_projects" })
+      );
+      (dataRes.data || []).forEach((p: any) => {
+        const existing = map.get(p.id);
+        map.set(p.id, {
+          id: p.id,
+          name: existing?.name || p.name,
+          total_value: p.total_value,
+          currency: p.currency,
+          items_count: p.items_count,
+          source: existing ? "saved_projects" : "project_data",
+        });
+      });
+      setAvailableProjects(Array.from(map.values()));
+    } catch (error) {
+      console.error("Error fetching projects:", error);
     }
   };
 
@@ -282,10 +336,19 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
       
       const matchesStatus = statusFilter === "all" || contract.status === statusFilter;
       const matchesType = typeFilter === "all" || contract.contract_type === typeFilter;
-      
-      return matchesSearch && matchesStatus && matchesType;
+      const matchesProject =
+        projectFilter === "all" ||
+        (projectFilter === "unlinked" ? !contract.project_id : contract.project_id === projectFilter);
+
+      return matchesSearch && matchesStatus && matchesType && matchesProject;
     });
-  }, [contracts, searchTerm, statusFilter, typeFilter]);
+  }, [contracts, searchTerm, statusFilter, typeFilter, projectFilter]);
+
+  const projectsById = useMemo(() => {
+    const m = new Map<string, LinkedProject>();
+    availableProjects.forEach((p) => m.set(p.id, p));
+    return m;
+  }, [availableProjects]);
 
   const handleSave = async () => {
     if (!user || !formData.contract_number || !formData.contract_title) return;
@@ -293,7 +356,7 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
     try {
       const contractData = {
         user_id: user.id,
-        project_id: projectId || null,
+        project_id: formData.project_id || projectId || null,
         contract_number: formData.contract_number,
         contract_title: formData.contract_title,
         contractor_name: formData.contractor_name || null,
@@ -361,6 +424,7 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
       contract_title: "",
       contract_type: "fixed_price",
       status: "draft",
+      project_id: projectId || "",
       contractor_name: "",
       contractor_license_number: "",
       contractor_phone: "",
@@ -392,6 +456,7 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
       contract_title: contract.contract_title,
       contract_type: contract.contract_type,
       status: contract.status,
+      project_id: contract.project_id || "",
       contractor_name: contract.contractor_name || "",
       contractor_license_number: contract.contractor_license_number || "",
       contractor_phone: contract.contractor_phone || "",
@@ -615,6 +680,63 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Project Linkage */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <FolderKanban className="w-4 h-4" />
+                {isArabic ? "ربط بمشروع (جدول الكميات)" : "Link to Project (BOQ)"}
+              </Label>
+              <Select
+                value={formData.project_id || "none"}
+                onValueChange={(v) => {
+                  const next = v === "none" ? "" : v;
+                  setFormData((prev) => {
+                    const linked = availableProjects.find((p) => p.id === next);
+                    const updates: Partial<typeof prev> = { project_id: next };
+                    // Auto-fill contract value & currency from project if empty
+                    if (linked) {
+                      if (!prev.contract_value && linked.total_value) {
+                        updates.contract_value = String(linked.total_value);
+                      }
+                      if (linked.currency && (!prev.currency || prev.currency === "SAR")) {
+                        updates.currency = linked.currency;
+                      }
+                    }
+                    return { ...prev, ...updates };
+                  });
+                }}
+                disabled={!!projectId}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={isArabic ? "اختر مشروعاً للربط (اختياري)" : "Pick a project to link (optional)"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isArabic ? "بدون ربط" : "No link"}</SelectItem>
+                  {availableProjects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <div className="flex items-center gap-2">
+                        <FolderKanban className="w-3 h-3 text-muted-foreground" />
+                        <span>{p.name}</span>
+                        {p.items_count ? (
+                          <span className="text-xs text-muted-foreground">· {p.items_count} {isArabic ? "بند" : "items"}</span>
+                        ) : null}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {formData.project_id && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <LinkIcon className="w-3 h-3" />
+                  {isArabic
+                    ? "سيتم استيراد قيمة العقد والعملة تلقائياً من جدول الكميات إن كانت فارغة"
+                    : "Contract value and currency will be auto-filled from the BOQ if empty"}
+                </p>
+              )}
             </div>
           </div>
         );
@@ -1135,6 +1257,21 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
               ))}
             </SelectContent>
           </Select>
+          {!projectId && (
+            <Select value={projectFilter} onValueChange={setProjectFilter}>
+              <SelectTrigger className="w-full md:w-[220px]">
+                <FolderKanban className="w-4 h-4 mr-2" />
+                <SelectValue placeholder={isArabic ? "المشروع" : "Project"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{isArabic ? "كل المشاريع" : "All Projects"}</SelectItem>
+                <SelectItem value="unlinked">{isArabic ? "غير مرتبطة بمشروع" : "Unlinked"}</SelectItem>
+                {availableProjects.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {/* Quick Stats */}
@@ -1207,6 +1344,22 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                               {isArabic ? category.labelAr : category.labelEn}
                             </Badge>
                           )}
+                        </div>
+                      )}
+                      {contract.project_id && (
+                        <div className="mt-2">
+                          <a
+                            href={`/projects/${contract.project_id}`}
+                            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                            title={isArabic ? "فتح المشروع" : "Open project"}
+                          >
+                            <FolderKanban className="w-3 h-3" />
+                            <span className="font-medium">
+                              {projectsById.get(contract.project_id)?.name ||
+                                (isArabic ? "مشروع مرتبط" : "Linked project")}
+                            </span>
+                            <LinkIcon className="w-3 h-3" />
+                          </a>
                         </div>
                       )}
                     </div>
@@ -1302,7 +1455,27 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                 </div>
                 
                 <h3 className="text-xl font-semibold">{viewingContract.contract_title}</h3>
-                
+
+                {viewingContract.project_id && (
+                  <div className="flex items-center justify-between gap-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                    <div className="flex items-center gap-2 text-sm">
+                      <FolderKanban className="w-4 h-4 text-primary" />
+                      <span className="text-muted-foreground">{isArabic ? "المشروع المرتبط:" : "Linked Project:"}</span>
+                      <span className="font-medium">
+                        {projectsById.get(viewingContract.project_id)?.name ||
+                          (isArabic ? "مشروع" : "Project")}
+                      </span>
+                    </div>
+                    <a
+                      href={`/projects/${viewingContract.project_id}`}
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90"
+                    >
+                      <LinkIcon className="w-3 h-3" />
+                      {isArabic ? "فتح جدول الكميات" : "Open BOQ"}
+                    </a>
+                  </div>
+                )}
+
                 <Separator />
                 
                 {/* Contractor Info */}
