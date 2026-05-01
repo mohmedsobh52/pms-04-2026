@@ -70,6 +70,14 @@ interface RegisteredSubcontractor {
   specialty: string | null;
   license_number: string | null;
 }
+interface LinkedProject {
+  id: string;
+  name: string;
+  total_value?: number | null;
+  currency?: string | null;
+  items_count?: number | null;
+  source: "saved_projects" | "project_data";
+}
 interface Contract {
   id: string;
   contract_number: string;
@@ -97,6 +105,7 @@ interface Contract {
   execution_percentage: number | null;
   variation_limit_percentage: number | null;
   contract_duration_months: number | null;
+  project_id: string | null;
   created_at: string;
 }
 
