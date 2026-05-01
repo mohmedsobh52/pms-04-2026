@@ -27,6 +27,8 @@ import {
   Sparkles,
   Languages,
   Printer,
+  FolderKanban,
+  Link as LinkIcon,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
