@@ -239,6 +239,20 @@ export const useEditedPrices = ({ projectId, savedProjectId, fileName }: UseEdit
     loadEditedPrices();
   }, [loadEditedPrices]);
 
+  // Listen for cross-instance updates (BOQ tab <-> Advanced Analysis sync)
+  useEffect(() => {
+    const onChange = (e: Event) => {
+      const detail: any = (e as CustomEvent).detail || {};
+      const sameScope =
+        (projectId && detail.projectId === projectId) ||
+        (savedProjectId && detail.savedProjectId === savedProjectId) ||
+        (!projectId && !savedProjectId && fileName && detail.fileName === fileName);
+      if (sameScope) loadEditedPrices();
+    };
+    window.addEventListener('boq-edited-prices-changed', onChange);
+    return () => window.removeEventListener('boq-edited-prices-changed', onChange);
+  }, [loadEditedPrices, projectId, savedProjectId, fileName]);
+
   // Flush pending saves on unmount
   useEffect(() => {
     return () => {
