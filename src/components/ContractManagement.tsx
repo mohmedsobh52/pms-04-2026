@@ -672,6 +672,63 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Project Linkage */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <FolderKanban className="w-4 h-4" />
+                {isArabic ? "ربط بمشروع (جدول الكميات)" : "Link to Project (BOQ)"}
+              </Label>
+              <Select
+                value={formData.project_id || "none"}
+                onValueChange={(v) => {
+                  const next = v === "none" ? "" : v;
+                  setFormData((prev) => {
+                    const linked = availableProjects.find((p) => p.id === next);
+                    const updates: Partial<typeof prev> = { project_id: next };
+                    // Auto-fill contract value & currency from project if empty
+                    if (linked) {
+                      if (!prev.contract_value && linked.total_value) {
+                        updates.contract_value = String(linked.total_value);
+                      }
+                      if (linked.currency && (!prev.currency || prev.currency === "SAR")) {
+                        updates.currency = linked.currency;
+                      }
+                    }
+                    return { ...prev, ...updates };
+                  });
+                }}
+                disabled={!!projectId}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={isArabic ? "اختر مشروعاً للربط (اختياري)" : "Pick a project to link (optional)"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isArabic ? "بدون ربط" : "No link"}</SelectItem>
+                  {availableProjects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <div className="flex items-center gap-2">
+                        <FolderKanban className="w-3 h-3 text-muted-foreground" />
+                        <span>{p.name}</span>
+                        {p.items_count ? (
+                          <span className="text-xs text-muted-foreground">· {p.items_count} {isArabic ? "بند" : "items"}</span>
+                        ) : null}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {formData.project_id && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <LinkIcon className="w-3 h-3" />
+                  {isArabic
+                    ? "سيتم استيراد قيمة العقد والعملة تلقائياً من جدول الكميات إن كانت فارغة"
+                    : "Contract value and currency will be auto-filled from the BOQ if empty"}
+                </p>
+              )}
+            </div>
           </div>
         );
 
