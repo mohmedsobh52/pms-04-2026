@@ -1257,6 +1257,21 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
               ))}
             </SelectContent>
           </Select>
+          {!projectId && (
+            <Select value={projectFilter} onValueChange={setProjectFilter}>
+              <SelectTrigger className="w-full md:w-[220px]">
+                <FolderKanban className="w-4 h-4 mr-2" />
+                <SelectValue placeholder={isArabic ? "المشروع" : "Project"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{isArabic ? "كل المشاريع" : "All Projects"}</SelectItem>
+                <SelectItem value="unlinked">{isArabic ? "غير مرتبطة بمشروع" : "Unlinked"}</SelectItem>
+                {availableProjects.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {/* Quick Stats */}
