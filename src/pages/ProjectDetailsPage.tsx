@@ -1268,6 +1268,13 @@ export default function ProjectDetailsPage() {
                 setItems(prev => prev.map(i =>
                   i.id === itemId ? { ...i, unit_price: newPrice, total_price: totalPrice } : i
                 ));
+                // Sync to shared edited prices store so Advanced Analysis reflects the change
+                if (item.item_number) {
+                  setSharedUnitPrice(item.item_number, newPrice);
+                  if ((item.quantity || 0) > 0) {
+                    setSharedTotalPrice(item.item_number, totalPrice);
+                  }
+                }
                 const { error } = await supabase
                   .from("project_items")
                   .update({ unit_price: newPrice, total_price: totalPrice })
