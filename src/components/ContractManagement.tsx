@@ -1346,6 +1346,22 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                           )}
                         </div>
                       )}
+                      {contract.project_id && (
+                        <div className="mt-2">
+                          <a
+                            href={`/projects/${contract.project_id}`}
+                            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                            title={isArabic ? "فتح المشروع" : "Open project"}
+                          >
+                            <FolderKanban className="w-3 h-3" />
+                            <span className="font-medium">
+                              {projectsById.get(contract.project_id)?.name ||
+                                (isArabic ? "مشروع مرتبط" : "Linked project")}
+                            </span>
+                            <LinkIcon className="w-3 h-3" />
+                          </a>
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" onClick={() => openViewDialog(contract)}>
