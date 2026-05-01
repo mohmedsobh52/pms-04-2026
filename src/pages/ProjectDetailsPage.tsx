@@ -1305,10 +1305,16 @@ export default function ProjectDetailsPage() {
                 onApplyRate={async (itemNumber: string, newRate: number) => {
                   const item = items.find(i => i.item_number === itemNumber);
                   if (!item) return;
+                  const totalPrice = (item.quantity || 0) * newRate;
                   await supabase
                     .from("project_items")
-                    .update({ unit_price: newRate, total_price: (item.quantity || 0) * newRate })
+                    .update({ unit_price: newRate, total_price: totalPrice })
                     .eq("id", item.id);
+                  // Mirror to shared edited prices for BOQ tab parity
+                  setSharedUnitPrice(itemNumber, newRate);
+                  if ((item.quantity || 0) > 0) {
+                    setSharedTotalPrice(itemNumber, totalPrice);
+                  }
                   const { data: updatedItems } = await supabase
                     .from("project_items")
                     .select("*")
