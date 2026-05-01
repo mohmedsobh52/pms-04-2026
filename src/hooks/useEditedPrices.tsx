@@ -96,6 +96,13 @@ export const useEditedPrices = ({ projectId, savedProjectId, fileName }: UseEdit
           ignoreDuplicates: false
         });
 
+      // Broadcast change so other hook instances (e.g., parent page) can resync
+      try {
+        window.dispatchEvent(new CustomEvent('boq-edited-prices-changed', {
+          detail: { projectId, savedProjectId, fileName, itemNumber, price }
+        }));
+      } catch {}
+
       if (error) {
         // If upsert fails, try insert or update manually
         const { data: existing } = await supabase
