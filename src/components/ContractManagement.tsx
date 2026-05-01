@@ -347,7 +347,7 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
     try {
       const contractData = {
         user_id: user.id,
-        project_id: projectId || null,
+        project_id: formData.project_id || projectId || null,
         contract_number: formData.contract_number,
         contract_title: formData.contract_title,
         contractor_name: formData.contractor_name || null,
