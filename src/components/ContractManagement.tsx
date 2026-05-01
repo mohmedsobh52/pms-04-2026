@@ -249,6 +249,7 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
   useEffect(() => {
     fetchContracts();
     fetchRegisteredSubcontractors();
+    fetchAvailableProjects();
   }, [user, projectId]);
 
   const fetchRegisteredSubcontractors = async () => {
@@ -263,6 +264,43 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
       setRegisteredSubcontractors(data || []);
     } catch (error) {
       console.error("Error fetching subcontractors:", error);
+    }
+  };
+
+  const fetchAvailableProjects = async () => {
+    if (!user) return;
+    try {
+      const [savedRes, dataRes] = await Promise.all([
+        supabase
+          .from("saved_projects")
+          .select("id, name")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("project_data")
+          .select("id, name, total_value, currency, items_count")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
+      ]);
+
+      const map = new Map<string, LinkedProject>();
+      (savedRes.data || []).forEach((p: any) =>
+        map.set(p.id, { id: p.id, name: p.name, source: "saved_projects" })
+      );
+      (dataRes.data || []).forEach((p: any) => {
+        const existing = map.get(p.id);
+        map.set(p.id, {
+          id: p.id,
+          name: existing?.name || p.name,
+          total_value: p.total_value,
+          currency: p.currency,
+          items_count: p.items_count,
+          source: existing ? "saved_projects" : "project_data",
+        });
+      });
+      setAvailableProjects(Array.from(map.values()));
+    } catch (error) {
+      console.error("Error fetching projects:", error);
     }
   };
 
