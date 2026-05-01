@@ -321,19 +321,40 @@ export default function ProjectDetailsPage() {
     }
   };
 
-  // Calculate pricing statistics
+  // Shared edited prices hook (syncs BOQ tab <-> Advanced Analysis)
+  const {
+    editedPrices: sharedEditedPrices,
+    updateUnitPrice: setSharedUnitPrice,
+    updateTotalPrice: setSharedTotalPrice,
+  } = useEditedPrices({ savedProjectId: projectId });
+
+  // Overlay items with edited prices so both screens show identical numbers
+  const effectiveItems = useMemo(() => {
+    if (!items.length) return items;
+    return items.map((it) => {
+      const key = it.item_number || "";
+      const ep = sharedEditedPrices[key];
+      if (!ep) return it;
+      const qty = Number(it.quantity) || 0;
+      const unit_price = ep.unitPrice ?? it.unit_price ?? 0;
+      const total_price = ep.totalPrice ?? (qty > 0 ? unit_price * qty : it.total_price ?? 0);
+      return { ...it, unit_price, total_price };
+    });
+  }, [items, sharedEditedPrices]);
+
+  // Calculate pricing statistics (uses effective items so edits reflect immediately)
   const pricingStats = useMemo(() => {
-    const totalItems = items.length;
-    const pricedItems = items.filter(item => item.unit_price && item.unit_price > 0).length;
-    const confirmedItems = items.filter(item => 
+    const totalItems = effectiveItems.length;
+    const pricedItems = effectiveItems.filter(item => item.unit_price && item.unit_price > 0).length;
+    const confirmedItems = effectiveItems.filter(item =>
       item.unit_price && item.unit_price > 0 && item.total_price && item.total_price > 0
     ).length;
     const unpricedItems = totalItems - pricedItems;
     const pricingPercentage = totalItems > 0 ? Math.round((pricedItems / totalItems) * 100 * 10) / 10 : 0;
-    const totalValue = items.reduce((sum, item) => sum + (item.total_price || 0), 0);
-    
+    const totalValue = effectiveItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+
     return { totalItems, pricedItems, confirmedItems, unpricedItems, pricingPercentage, totalValue };
-  }, [items]);
+  }, [effectiveItems]);
 
   // Transform project_items to AnalysisData format for AnalysisResults component
   const projectAnalysisData = useMemo(() => {
