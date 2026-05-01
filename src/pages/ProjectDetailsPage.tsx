@@ -41,6 +41,7 @@ import {
 } from "@/components/project-details/types";
 import { AnalysisResults } from "@/components/AnalysisResults";
 import { ColorLegend } from "@/components/ui/color-code";
+import { useEditedPrices } from "@/hooks/useEditedPrices";
 
 export default function ProjectDetailsPage() {
   const { projectId } = useParams<{ projectId: string }>();
