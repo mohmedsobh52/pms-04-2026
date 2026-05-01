@@ -336,10 +336,19 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
       
       const matchesStatus = statusFilter === "all" || contract.status === statusFilter;
       const matchesType = typeFilter === "all" || contract.contract_type === typeFilter;
-      
-      return matchesSearch && matchesStatus && matchesType;
+      const matchesProject =
+        projectFilter === "all" ||
+        (projectFilter === "unlinked" ? !contract.project_id : contract.project_id === projectFilter);
+
+      return matchesSearch && matchesStatus && matchesType && matchesProject;
     });
-  }, [contracts, searchTerm, statusFilter, typeFilter]);
+  }, [contracts, searchTerm, statusFilter, typeFilter, projectFilter]);
+
+  const projectsById = useMemo(() => {
+    const m = new Map<string, LinkedProject>();
+    availableProjects.forEach((p) => m.set(p.id, p));
+    return m;
+  }, [availableProjects]);
 
   const handleSave = async () => {
     if (!user || !formData.contract_number || !formData.contract_title) return;
