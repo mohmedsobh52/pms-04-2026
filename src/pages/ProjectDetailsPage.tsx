@@ -358,12 +358,12 @@ export default function ProjectDetailsPage() {
 
   // Transform project_items to AnalysisData format for AnalysisResults component
   const projectAnalysisData = useMemo(() => {
-    if (!project || items.length === 0) return null;
-    const categories = [...new Set(items.map(i => i.category).filter(Boolean))] as string[];
+    if (!project || effectiveItems.length === 0) return null;
+    const categories = [...new Set(effectiveItems.map(i => i.category).filter(Boolean))] as string[];
     return {
       analysis_type: "boq",
       file_name: (project as any).file_name || project.name,
-      items: items.map(item => ({
+      items: effectiveItems.map(item => ({
         item_number: item.item_number || "",
         description: item.description || "",
         unit: item.unit || "",
@@ -375,13 +375,13 @@ export default function ProjectDetailsPage() {
         notes: (item as any).notes || "",
       })),
       summary: {
-        total_items: items.length,
+        total_items: effectiveItems.length,
         total_value: pricingStats.totalValue,
         categories,
         currency: project.currency || "SAR",
       },
     };
-  }, [project, items, pricingStats]);
+  }, [project, effectiveItems, pricingStats]);
 
   // Chart data
   const pricingDistributionData = useMemo(() => [
@@ -390,7 +390,7 @@ export default function ProjectDetailsPage() {
   ], [pricingStats, isArabic]);
 
   const categoryDistribution = useMemo(() => {
-    const grouped = items.reduce((acc, item) => {
+    const grouped = effectiveItems.reduce((acc, item) => {
       const cat = item.category || (isArabic ? "غير مصنف" : "Uncategorized");
       acc[cat] = (acc[cat] || 0) + 1;
       return acc;
@@ -399,19 +399,19 @@ export default function ProjectDetailsPage() {
     return Object.entries(grouped)
       .map(([name, value]) => ({ name, value }))
       .slice(0, 6);
-  }, [items, isArabic]);
+  }, [effectiveItems, isArabic]);
 
   const topValueItems = useMemo(() => {
-    return items
+    return effectiveItems
       .filter(item => item.total_price && item.total_price > 0)
       .sort((a, b) => (b.total_price || 0) - (a.total_price || 0))
       .slice(0, 5)
       .map(item => ({ name: item.item_number, value: item.total_price || 0 }));
-  }, [items]);
+  }, [effectiveItems]);
 
-  // Filter and sort items
+  // Filter and sort items (use effective items so price edits propagate to BOQ table)
   const filteredItems = useMemo(() => {
-    let result = items;
+    let result = effectiveItems;
     
     if (itemsSearch) {
       const query = itemsSearch.toLowerCase();
@@ -432,7 +432,7 @@ export default function ProjectDetailsPage() {
     }
     
     return result;
-  }, [items, itemsSearch, sortMode]);
+  }, [effectiveItems, itemsSearch, sortMode]);
 
   // Pagination
   const effectiveItemsPerPage = itemsPerPage >= filteredItems.length ? filteredItems.length : itemsPerPage;
