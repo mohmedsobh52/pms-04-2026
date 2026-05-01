@@ -41,6 +41,7 @@ import {
 } from "@/components/project-details/types";
 import { AnalysisResults } from "@/components/AnalysisResults";
 import { ColorLegend } from "@/components/ui/color-code";
+import { useEditedPrices } from "@/hooks/useEditedPrices";
 
 export default function ProjectDetailsPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -320,28 +321,49 @@ export default function ProjectDetailsPage() {
     }
   };
 
-  // Calculate pricing statistics
+  // Shared edited prices hook (syncs BOQ tab <-> Advanced Analysis)
+  const {
+    editedPrices: sharedEditedPrices,
+    updateUnitPrice: setSharedUnitPrice,
+    updateTotalPrice: setSharedTotalPrice,
+  } = useEditedPrices({ savedProjectId: projectId });
+
+  // Overlay items with edited prices so both screens show identical numbers
+  const effectiveItems = useMemo(() => {
+    if (!items.length) return items;
+    return items.map((it) => {
+      const key = it.item_number || "";
+      const ep = sharedEditedPrices[key];
+      if (!ep) return it;
+      const qty = Number(it.quantity) || 0;
+      const unit_price = ep.unitPrice ?? it.unit_price ?? 0;
+      const total_price = ep.totalPrice ?? (qty > 0 ? unit_price * qty : it.total_price ?? 0);
+      return { ...it, unit_price, total_price };
+    });
+  }, [items, sharedEditedPrices]);
+
+  // Calculate pricing statistics (uses effective items so edits reflect immediately)
   const pricingStats = useMemo(() => {
-    const totalItems = items.length;
-    const pricedItems = items.filter(item => item.unit_price && item.unit_price > 0).length;
-    const confirmedItems = items.filter(item => 
+    const totalItems = effectiveItems.length;
+    const pricedItems = effectiveItems.filter(item => item.unit_price && item.unit_price > 0).length;
+    const confirmedItems = effectiveItems.filter(item =>
       item.unit_price && item.unit_price > 0 && item.total_price && item.total_price > 0
     ).length;
     const unpricedItems = totalItems - pricedItems;
     const pricingPercentage = totalItems > 0 ? Math.round((pricedItems / totalItems) * 100 * 10) / 10 : 0;
-    const totalValue = items.reduce((sum, item) => sum + (item.total_price || 0), 0);
-    
+    const totalValue = effectiveItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+
     return { totalItems, pricedItems, confirmedItems, unpricedItems, pricingPercentage, totalValue };
-  }, [items]);
+  }, [effectiveItems]);
 
   // Transform project_items to AnalysisData format for AnalysisResults component
   const projectAnalysisData = useMemo(() => {
-    if (!project || items.length === 0) return null;
-    const categories = [...new Set(items.map(i => i.category).filter(Boolean))] as string[];
+    if (!project || effectiveItems.length === 0) return null;
+    const categories = [...new Set(effectiveItems.map(i => i.category).filter(Boolean))] as string[];
     return {
       analysis_type: "boq",
       file_name: (project as any).file_name || project.name,
-      items: items.map(item => ({
+      items: effectiveItems.map(item => ({
         item_number: item.item_number || "",
         description: item.description || "",
         unit: item.unit || "",
@@ -353,13 +375,13 @@ export default function ProjectDetailsPage() {
         notes: (item as any).notes || "",
       })),
       summary: {
-        total_items: items.length,
+        total_items: effectiveItems.length,
         total_value: pricingStats.totalValue,
         categories,
         currency: project.currency || "SAR",
       },
     };
-  }, [project, items, pricingStats]);
+  }, [project, effectiveItems, pricingStats]);
 
   // Chart data
   const pricingDistributionData = useMemo(() => [
@@ -368,7 +390,7 @@ export default function ProjectDetailsPage() {
   ], [pricingStats, isArabic]);
 
   const categoryDistribution = useMemo(() => {
-    const grouped = items.reduce((acc, item) => {
+    const grouped = effectiveItems.reduce((acc, item) => {
       const cat = item.category || (isArabic ? "غير مصنف" : "Uncategorized");
       acc[cat] = (acc[cat] || 0) + 1;
       return acc;
@@ -377,19 +399,19 @@ export default function ProjectDetailsPage() {
     return Object.entries(grouped)
       .map(([name, value]) => ({ name, value }))
       .slice(0, 6);
-  }, [items, isArabic]);
+  }, [effectiveItems, isArabic]);
 
   const topValueItems = useMemo(() => {
-    return items
+    return effectiveItems
       .filter(item => item.total_price && item.total_price > 0)
       .sort((a, b) => (b.total_price || 0) - (a.total_price || 0))
       .slice(0, 5)
       .map(item => ({ name: item.item_number, value: item.total_price || 0 }));
-  }, [items]);
+  }, [effectiveItems]);
 
-  // Filter and sort items
+  // Filter and sort items (use effective items so price edits propagate to BOQ table)
   const filteredItems = useMemo(() => {
-    let result = items;
+    let result = effectiveItems;
     
     if (itemsSearch) {
       const query = itemsSearch.toLowerCase();
@@ -410,7 +432,7 @@ export default function ProjectDetailsPage() {
     }
     
     return result;
-  }, [items, itemsSearch, sortMode]);
+  }, [effectiveItems, itemsSearch, sortMode]);
 
   // Pagination
   const effectiveItemsPerPage = itemsPerPage >= filteredItems.length ? filteredItems.length : itemsPerPage;
@@ -1246,6 +1268,13 @@ export default function ProjectDetailsPage() {
                 setItems(prev => prev.map(i =>
                   i.id === itemId ? { ...i, unit_price: newPrice, total_price: totalPrice } : i
                 ));
+                // Sync to shared edited prices store so Advanced Analysis reflects the change
+                if (item.item_number) {
+                  setSharedUnitPrice(item.item_number, newPrice);
+                  if ((item.quantity || 0) > 0) {
+                    setSharedTotalPrice(item.item_number, totalPrice);
+                  }
+                }
                 const { error } = await supabase
                   .from("project_items")
                   .update({ unit_price: newPrice, total_price: totalPrice })
@@ -1276,10 +1305,16 @@ export default function ProjectDetailsPage() {
                 onApplyRate={async (itemNumber: string, newRate: number) => {
                   const item = items.find(i => i.item_number === itemNumber);
                   if (!item) return;
+                  const totalPrice = (item.quantity || 0) * newRate;
                   await supabase
                     .from("project_items")
-                    .update({ unit_price: newRate, total_price: (item.quantity || 0) * newRate })
+                    .update({ unit_price: newRate, total_price: totalPrice })
                     .eq("id", item.id);
+                  // Mirror to shared edited prices for BOQ tab parity
+                  setSharedUnitPrice(itemNumber, newRate);
+                  if ((item.quantity || 0) > 0) {
+                    setSharedTotalPrice(itemNumber, totalPrice);
+                  }
                   const { data: updatedItems } = await supabase
                     .from("project_items")
                     .select("*")

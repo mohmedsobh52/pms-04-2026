@@ -96,6 +96,13 @@ export const useEditedPrices = ({ projectId, savedProjectId, fileName }: UseEdit
           ignoreDuplicates: false
         });
 
+      // Broadcast change so other hook instances (e.g., parent page) can resync
+      try {
+        window.dispatchEvent(new CustomEvent('boq-edited-prices-changed', {
+          detail: { projectId, savedProjectId, fileName, itemNumber, price }
+        }));
+      } catch {}
+
       if (error) {
         // If upsert fails, try insert or update manually
         const { data: existing } = await supabase
@@ -205,6 +212,11 @@ export const useEditedPrices = ({ projectId, savedProjectId, fileName }: UseEdit
 
       setEditedPrices({});
       toast.success('تم مسح الأسعار المعدلة');
+      try {
+        window.dispatchEvent(new CustomEvent('boq-edited-prices-changed', {
+          detail: { projectId, savedProjectId, fileName, cleared: true }
+        }));
+      } catch {}
     } catch (error) {
       console.error('Error clearing prices:', error);
     }
@@ -231,6 +243,20 @@ export const useEditedPrices = ({ projectId, savedProjectId, fileName }: UseEdit
   useEffect(() => {
     loadEditedPrices();
   }, [loadEditedPrices]);
+
+  // Listen for cross-instance updates (BOQ tab <-> Advanced Analysis sync)
+  useEffect(() => {
+    const onChange = (e: Event) => {
+      const detail: any = (e as CustomEvent).detail || {};
+      const sameScope =
+        (projectId && detail.projectId === projectId) ||
+        (savedProjectId && detail.savedProjectId === savedProjectId) ||
+        (!projectId && !savedProjectId && fileName && detail.fileName === fileName);
+      if (sameScope) loadEditedPrices();
+    };
+    window.addEventListener('boq-edited-prices-changed', onChange);
+    return () => window.removeEventListener('boq-edited-prices-changed', onChange);
+  }, [loadEditedPrices, projectId, savedProjectId, fileName]);
 
   // Flush pending saves on unmount
   useEffect(() => {
