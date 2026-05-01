@@ -153,12 +153,17 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
 
   // Registered subcontractors for linking
   const [registeredSubcontractors, setRegisteredSubcontractors] = useState<RegisteredSubcontractor[]>([]);
+
+  // Available projects for linking (from saved_projects + project_data)
+  const [availableProjects, setAvailableProjects] = useState<LinkedProject[]>([]);
+  const [projectFilter, setProjectFilter] = useState<string>("all");
   const [formData, setFormData] = useState({
     // Step 1: Basic Info
     contract_number: "",
     contract_title: "",
     contract_type: "fixed_price",
     status: "draft",
+    project_id: "",
     // Step 2: Contractor Data
     contractor_name: "",
     contractor_license_number: "",
