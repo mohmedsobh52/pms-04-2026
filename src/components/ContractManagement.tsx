@@ -703,22 +703,54 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
               </Label>
               <Select
                 value={formData.project_id || "none"}
-                onValueChange={(v) => {
+                onValueChange={async (v) => {
                   const next = v === "none" ? "" : v;
                   setFormData((prev) => {
                     const linked = availableProjects.find((p) => p.id === next);
                     const updates: Partial<typeof prev> = { project_id: next };
-                    // Auto-fill contract value & currency from project if empty
+                    // Auto-fill contract value & currency from project ONLY if user
+                    // hasn't manually edited them (prevents overwriting user input)
                     if (linked) {
-                      if (!prev.contract_value && linked.total_value) {
+                      const valueUntouched = !manuallyEditedRef.current.has("contract_value");
+                      const currencyUntouched = !manuallyEditedRef.current.has("currency");
+                      if (valueUntouched && !prev.contract_value && linked.total_value) {
                         updates.contract_value = String(linked.total_value);
                       }
-                      if (linked.currency && (!prev.currency || prev.currency === "SAR")) {
+                      if (currencyUntouched && linked.currency && (!prev.currency || prev.currency === "SAR")) {
                         updates.currency = linked.currency;
                       }
                     }
                     return { ...prev, ...updates };
                   });
+
+                  // Auto-save linkage immediately when editing an existing contract
+                  if (editingContract && user) {
+                    try {
+                      setAutoLinkingId(editingContract.id);
+                      const { error } = await supabase
+                        .from("contracts")
+                        .update({ project_id: next || null })
+                        .eq("id", editingContract.id);
+                      if (error) throw error;
+                      // Optimistically update local list
+                      setContracts((prev) =>
+                        prev.map((c) =>
+                          c.id === editingContract.id ? { ...c, project_id: next || null } : c
+                        )
+                      );
+                      toast({
+                        title: isArabic ? "تم حفظ الربط تلقائياً" : "Link saved automatically",
+                      });
+                    } catch (err) {
+                      console.error("Auto-link save failed:", err);
+                      toast({
+                        title: isArabic ? "تعذر حفظ الربط" : "Failed to save link",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setAutoLinkingId(null);
+                    }
+                  }
                 }}
                 disabled={!!projectId}
               >
