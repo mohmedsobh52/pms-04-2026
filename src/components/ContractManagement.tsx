@@ -929,7 +929,10 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                 <Input
                   type="number"
                   value={formData.contract_value}
-                  onChange={(e) => setFormData({ ...formData, contract_value: e.target.value })}
+                  onChange={(e) => {
+                    manuallyEditedRef.current.add("contract_value");
+                    setFormData({ ...formData, contract_value: e.target.value });
+                  }}
                   placeholder="0"
                 />
               </div>
