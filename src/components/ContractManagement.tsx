@@ -1371,10 +1371,35 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
               const daysRemaining = getDaysRemaining(contract);
               const category = contractorCategories.find(c => c.value === contract.contractor_category);
 
+              const isLinked = !!contract.project_id;
+              const isSelected = selectedContractIds.has(contract.id);
               return (
-                <div key={contract.id} className="p-4 rounded-lg border bg-card hover:shadow-md transition-shadow">
+                <div
+                  key={contract.id}
+                  className={cn(
+                    "p-4 rounded-lg border bg-card hover:shadow-md transition-shadow",
+                    isLinked
+                      ? "border-l-4 border-l-primary"
+                      : "border-l-4 border-l-muted-foreground/30",
+                    isSelected && "ring-2 ring-primary/40"
+                  )}
+                >
                   <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
+                    <div className="flex items-start gap-3 flex-1">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) => {
+                          setSelectedContractIds((prev) => {
+                            const next = new Set(prev);
+                            if (checked) next.add(contract.id);
+                            else next.delete(contract.id);
+                            return next;
+                          });
+                        }}
+                        className="mt-1"
+                        aria-label={isArabic ? "تحديد العقد" : "Select contract"}
+                      />
+                      <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <Badge variant="outline" className="text-xs">
                           {contract.contract_number}
@@ -1385,6 +1410,23 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                         {contractType && (
                           <Badge variant="secondary" className={cn("text-xs text-white", contractType.color)}>
                             {contract.contract_type.startsWith("fidic_") ? "FIDIC" : ""}
+                          </Badge>
+                        )}
+                        {isLinked ? (
+                          <Badge
+                            variant="outline"
+                            className="text-xs border-primary/40 bg-primary/10 text-primary gap-1"
+                          >
+                            <LinkIcon className="w-3 h-3" />
+                            {isArabic ? "مرتبط بمشروع" : "Linked"}
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="text-xs border-muted-foreground/30 bg-muted/40 text-muted-foreground gap-1"
+                          >
+                            <Link2Off className="w-3 h-3" />
+                            {isArabic ? "غير مرتبط" : "Unlinked"}
                           </Badge>
                         )}
                       </div>
@@ -1401,9 +1443,10 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                         </div>
                       )}
                       {contract.project_id && (
-                        <div className="mt-2">
-                          <a
-                            href={`/projects/${contract.project_id}`}
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/projects/${contract.project_id}`)}
                             className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                             title={isArabic ? "فتح المشروع" : "Open project"}
                           >
@@ -1412,10 +1455,21 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                               {projectsById.get(contract.project_id)?.name ||
                                 (isArabic ? "مشروع مرتبط" : "Linked project")}
                             </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(`/projects/${contract.project_id}?tab=boq`)
+                            }
+                            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+                            title={isArabic ? "فتح جدول الكميات" : "Open BOQ"}
+                          >
                             <LinkIcon className="w-3 h-3" />
-                          </a>
+                            {isArabic ? "فتح جدول الكميات" : "Open BOQ"}
+                          </button>
                         </div>
                       )}
+                      </div>
                     </div>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" onClick={() => openViewDialog(contract)}>
