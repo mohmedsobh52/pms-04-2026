@@ -1883,6 +1883,103 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Link Dialog */}
+      <Dialog open={isBulkLinkDialogOpen} onOpenChange={setIsBulkLinkDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LinkIcon className="w-5 h-5" />
+              {isArabic ? "ربط جماعي بمشروع" : "Bulk link to project"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              {isArabic
+                ? `سيتم تحديث ${selectedContractIds.size} عقد وربطها بالمشروع المختار.`
+                : `${selectedContractIds.size} contract(s) will be linked to the selected project.`}
+            </p>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <FolderKanban className="w-4 h-4" />
+                {isArabic ? "المشروع" : "Project"}
+              </Label>
+              <Select
+                value={bulkLinkProjectId || "none"}
+                onValueChange={(v) => setBulkLinkProjectId(v === "none" ? "" : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={isArabic ? "اختر مشروعاً" : "Pick a project"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    {isArabic ? "إلغاء الربط (بدون مشروع)" : "Unlink (no project)"}
+                  </SelectItem>
+                  {availableProjects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkLinkDialogOpen(false)}
+              disabled={bulkLinking}
+            >
+              {isArabic ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!user || selectedContractIds.size === 0) return;
+                setBulkLinking(true);
+                try {
+                  const ids = Array.from(selectedContractIds);
+                  const newProjectId = bulkLinkProjectId || null;
+                  const { error } = await supabase
+                    .from("contracts")
+                    .update({ project_id: newProjectId })
+                    .in("id", ids)
+                    .eq("user_id", user.id);
+                  if (error) throw error;
+                  setContracts((prev) =>
+                    prev.map((c) =>
+                      selectedContractIds.has(c.id)
+                        ? { ...c, project_id: newProjectId }
+                        : c
+                    )
+                  );
+                  toast({
+                    title: isArabic ? "تم الربط الجماعي" : "Bulk link applied",
+                    description: isArabic
+                      ? `تم تحديث ${ids.length} عقد`
+                      : `${ids.length} contract(s) updated`,
+                  });
+                  setSelectedContractIds(new Set());
+                  setIsBulkLinkDialogOpen(false);
+                } catch (err) {
+                  console.error("Bulk link failed:", err);
+                  toast({
+                    title: isArabic ? "تعذر الربط الجماعي" : "Bulk link failed",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setBulkLinking(false);
+                }
+              }}
+              disabled={bulkLinking}
+            >
+              {bulkLinking && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              {isArabic ? "تطبيق" : "Apply"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
