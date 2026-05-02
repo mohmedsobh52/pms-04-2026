@@ -464,6 +464,8 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
   };
 
   const openEditDialog = (contract: Contract) => {
+    // Existing contract values are considered manually-set so auto-fill won't overwrite them
+    manuallyEditedRef.current = new Set(["contract_value", "currency"]);
     setEditingContract(contract);
     setFormData({
       contract_number: contract.contract_number,
