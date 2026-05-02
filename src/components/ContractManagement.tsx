@@ -460,6 +460,7 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
     });
     setEditingContract(null);
     setCurrentStep(1);
+    manuallyEditedRef.current.clear();
   };
 
   const openEditDialog = (contract: Contract) => {
