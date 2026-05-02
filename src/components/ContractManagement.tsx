@@ -129,8 +129,18 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
   const { isArabic } = useLanguage();
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(false);
+  // Track which fields were manually edited by the user so auto-fill won't overwrite them
+  const manuallyEditedRef = useRef<Set<string>>(new Set());
+  // Selected contract IDs for bulk actions
+  const [selectedContractIds, setSelectedContractIds] = useState<Set<string>>(new Set());
+  const [isBulkLinkDialogOpen, setIsBulkLinkDialogOpen] = useState(false);
+  const [bulkLinkProjectId, setBulkLinkProjectId] = useState<string>("");
+  const [bulkLinking, setBulkLinking] = useState(false);
+  // Track auto-saving project link from inline change
+  const [autoLinkingId, setAutoLinkingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
