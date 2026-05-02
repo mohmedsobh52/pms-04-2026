@@ -940,7 +940,10 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                 <Label>{isArabic ? "العملة" : "Currency"}</Label>
                 <Select
                   value={formData.currency}
-                  onValueChange={(v) => setFormData({ ...formData, currency: v })}
+                  onValueChange={(v) => {
+                    manuallyEditedRef.current.add("currency");
+                    setFormData({ ...formData, currency: v });
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
