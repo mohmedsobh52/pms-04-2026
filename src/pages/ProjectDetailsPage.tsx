@@ -68,7 +68,21 @@ export default function ProjectDetailsPage() {
   const [items, setItems] = useState<ProjectItem[]>([]);
   const [attachments, setAttachments] = useState<ProjectAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    const t = params.get("tab");
+    return t && ["overview", "boq", "analysis", "documents", "settings"].includes(t) ? t : "overview";
+  });
+
+  // React to URL ?tab= changes (e.g., navigation from Contracts "Open BOQ")
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const t = params.get("tab");
+    if (t && ["overview", "boq", "analysis", "documents", "settings"].includes(t) && t !== activeTab) {
+      setActiveTab(t);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
   const [itemsSearch, setItemsSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(() => {
