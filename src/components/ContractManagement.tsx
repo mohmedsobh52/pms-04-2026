@@ -785,6 +785,12 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                     : "Contract value and currency will be auto-filled from the BOQ if empty"}
                 </p>
               )}
+              {editingContract && autoLinkingId === editingContract.id && (
+                <p className="text-xs text-primary flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  {isArabic ? "جاري حفظ الربط..." : "Saving link..."}
+                </p>
+              )}
             </div>
           </div>
         );
