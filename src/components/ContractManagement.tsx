@@ -1352,6 +1352,60 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
           </div>
         </div>
 
+        {/* Bulk selection + linking bar */}
+        {filteredContracts.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg border bg-muted/30">
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={
+                  selectedContractIds.size > 0 &&
+                  filteredContracts.every((c) => selectedContractIds.has(c.id))
+                }
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    setSelectedContractIds(new Set(filteredContracts.map((c) => c.id)));
+                  } else {
+                    setSelectedContractIds(new Set());
+                  }
+                }}
+                aria-label={isArabic ? "تحديد الكل" : "Select all"}
+              />
+              <span className="text-sm text-muted-foreground">
+                {selectedContractIds.size > 0
+                  ? isArabic
+                    ? `محدد: ${selectedContractIds.size}`
+                    : `${selectedContractIds.size} selected`
+                  : isArabic
+                  ? "تحديد الكل"
+                  : "Select all"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={selectedContractIds.size === 0}
+                onClick={() => {
+                  setBulkLinkProjectId("");
+                  setIsBulkLinkDialogOpen(true);
+                }}
+              >
+                <LinkIcon className="w-4 h-4 mr-1" />
+                {isArabic ? "ربط بمشروع" : "Link to project"}
+              </Button>
+              {selectedContractIds.size > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedContractIds(new Set())}
+                >
+                  {isArabic ? "إلغاء التحديد" : "Clear"}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Contracts List */}
         {loading ? (
           <div className="text-center py-8">
