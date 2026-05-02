@@ -1,4 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   FileText,
   Plus,
@@ -29,6 +31,7 @@ import {
   Printer,
   FolderKanban,
   Link as LinkIcon,
+  Link2Off,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -126,8 +129,18 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
   const { isArabic } = useLanguage();
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(false);
+  // Track which fields were manually edited by the user so auto-fill won't overwrite them
+  const manuallyEditedRef = useRef<Set<string>>(new Set());
+  // Selected contract IDs for bulk actions
+  const [selectedContractIds, setSelectedContractIds] = useState<Set<string>>(new Set());
+  const [isBulkLinkDialogOpen, setIsBulkLinkDialogOpen] = useState(false);
+  const [bulkLinkProjectId, setBulkLinkProjectId] = useState<string>("");
+  const [bulkLinking, setBulkLinking] = useState(false);
+  // Track auto-saving project link from inline change
+  const [autoLinkingId, setAutoLinkingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -447,9 +460,12 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
     });
     setEditingContract(null);
     setCurrentStep(1);
+    manuallyEditedRef.current.clear();
   };
 
   const openEditDialog = (contract: Contract) => {
+    // Existing contract values are considered manually-set so auto-fill won't overwrite them
+    manuallyEditedRef.current = new Set(["contract_value", "currency"]);
     setEditingContract(contract);
     setFormData({
       contract_number: contract.contract_number,
@@ -690,22 +706,54 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
               </Label>
               <Select
                 value={formData.project_id || "none"}
-                onValueChange={(v) => {
+                onValueChange={async (v) => {
                   const next = v === "none" ? "" : v;
                   setFormData((prev) => {
                     const linked = availableProjects.find((p) => p.id === next);
                     const updates: Partial<typeof prev> = { project_id: next };
-                    // Auto-fill contract value & currency from project if empty
+                    // Auto-fill contract value & currency from project ONLY if user
+                    // hasn't manually edited them (prevents overwriting user input)
                     if (linked) {
-                      if (!prev.contract_value && linked.total_value) {
+                      const valueUntouched = !manuallyEditedRef.current.has("contract_value");
+                      const currencyUntouched = !manuallyEditedRef.current.has("currency");
+                      if (valueUntouched && !prev.contract_value && linked.total_value) {
                         updates.contract_value = String(linked.total_value);
                       }
-                      if (linked.currency && (!prev.currency || prev.currency === "SAR")) {
+                      if (currencyUntouched && linked.currency && (!prev.currency || prev.currency === "SAR")) {
                         updates.currency = linked.currency;
                       }
                     }
                     return { ...prev, ...updates };
                   });
+
+                  // Auto-save linkage immediately when editing an existing contract
+                  if (editingContract && user) {
+                    try {
+                      setAutoLinkingId(editingContract.id);
+                      const { error } = await supabase
+                        .from("contracts")
+                        .update({ project_id: next || null })
+                        .eq("id", editingContract.id);
+                      if (error) throw error;
+                      // Optimistically update local list
+                      setContracts((prev) =>
+                        prev.map((c) =>
+                          c.id === editingContract.id ? { ...c, project_id: next || null } : c
+                        )
+                      );
+                      toast({
+                        title: isArabic ? "تم حفظ الربط تلقائياً" : "Link saved automatically",
+                      });
+                    } catch (err) {
+                      console.error("Auto-link save failed:", err);
+                      toast({
+                        title: isArabic ? "تعذر حفظ الربط" : "Failed to save link",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setAutoLinkingId(null);
+                    }
+                  }
                 }}
                 disabled={!!projectId}
               >
@@ -735,6 +783,12 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                   {isArabic
                     ? "سيتم استيراد قيمة العقد والعملة تلقائياً من جدول الكميات إن كانت فارغة"
                     : "Contract value and currency will be auto-filled from the BOQ if empty"}
+                </p>
+              )}
+              {editingContract && autoLinkingId === editingContract.id && (
+                <p className="text-xs text-primary flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  {isArabic ? "جاري حفظ الربط..." : "Saving link..."}
                 </p>
               )}
             </div>
@@ -884,7 +938,10 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                 <Input
                   type="number"
                   value={formData.contract_value}
-                  onChange={(e) => setFormData({ ...formData, contract_value: e.target.value })}
+                  onChange={(e) => {
+                    manuallyEditedRef.current.add("contract_value");
+                    setFormData({ ...formData, contract_value: e.target.value });
+                  }}
                   placeholder="0"
                 />
               </div>
@@ -892,7 +949,10 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                 <Label>{isArabic ? "العملة" : "Currency"}</Label>
                 <Select
                   value={formData.currency}
-                  onValueChange={(v) => setFormData({ ...formData, currency: v })}
+                  onValueChange={(v) => {
+                    manuallyEditedRef.current.add("currency");
+                    setFormData({ ...formData, currency: v });
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -1298,6 +1358,60 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
           </div>
         </div>
 
+        {/* Bulk selection + linking bar */}
+        {filteredContracts.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg border bg-muted/30">
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={
+                  selectedContractIds.size > 0 &&
+                  filteredContracts.every((c) => selectedContractIds.has(c.id))
+                }
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    setSelectedContractIds(new Set(filteredContracts.map((c) => c.id)));
+                  } else {
+                    setSelectedContractIds(new Set());
+                  }
+                }}
+                aria-label={isArabic ? "تحديد الكل" : "Select all"}
+              />
+              <span className="text-sm text-muted-foreground">
+                {selectedContractIds.size > 0
+                  ? isArabic
+                    ? `محدد: ${selectedContractIds.size}`
+                    : `${selectedContractIds.size} selected`
+                  : isArabic
+                  ? "تحديد الكل"
+                  : "Select all"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={selectedContractIds.size === 0}
+                onClick={() => {
+                  setBulkLinkProjectId("");
+                  setIsBulkLinkDialogOpen(true);
+                }}
+              >
+                <LinkIcon className="w-4 h-4 mr-1" />
+                {isArabic ? "ربط بمشروع" : "Link to project"}
+              </Button>
+              {selectedContractIds.size > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedContractIds(new Set())}
+                >
+                  {isArabic ? "إلغاء التحديد" : "Clear"}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Contracts List */}
         {loading ? (
           <div className="text-center py-8">
@@ -1317,10 +1431,35 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
               const daysRemaining = getDaysRemaining(contract);
               const category = contractorCategories.find(c => c.value === contract.contractor_category);
 
+              const isLinked = !!contract.project_id;
+              const isSelected = selectedContractIds.has(contract.id);
               return (
-                <div key={contract.id} className="p-4 rounded-lg border bg-card hover:shadow-md transition-shadow">
+                <div
+                  key={contract.id}
+                  className={cn(
+                    "p-4 rounded-lg border bg-card hover:shadow-md transition-shadow",
+                    isLinked
+                      ? "border-l-4 border-l-primary"
+                      : "border-l-4 border-l-muted-foreground/30",
+                    isSelected && "ring-2 ring-primary/40"
+                  )}
+                >
                   <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
+                    <div className="flex items-start gap-3 flex-1">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) => {
+                          setSelectedContractIds((prev) => {
+                            const next = new Set(prev);
+                            if (checked) next.add(contract.id);
+                            else next.delete(contract.id);
+                            return next;
+                          });
+                        }}
+                        className="mt-1"
+                        aria-label={isArabic ? "تحديد العقد" : "Select contract"}
+                      />
+                      <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <Badge variant="outline" className="text-xs">
                           {contract.contract_number}
@@ -1331,6 +1470,23 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                         {contractType && (
                           <Badge variant="secondary" className={cn("text-xs text-white", contractType.color)}>
                             {contract.contract_type.startsWith("fidic_") ? "FIDIC" : ""}
+                          </Badge>
+                        )}
+                        {isLinked ? (
+                          <Badge
+                            variant="outline"
+                            className="text-xs border-primary/40 bg-primary/10 text-primary gap-1"
+                          >
+                            <LinkIcon className="w-3 h-3" />
+                            {isArabic ? "مرتبط بمشروع" : "Linked"}
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="text-xs border-muted-foreground/30 bg-muted/40 text-muted-foreground gap-1"
+                          >
+                            <Link2Off className="w-3 h-3" />
+                            {isArabic ? "غير مرتبط" : "Unlinked"}
                           </Badge>
                         )}
                       </div>
@@ -1347,9 +1503,10 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                         </div>
                       )}
                       {contract.project_id && (
-                        <div className="mt-2">
-                          <a
-                            href={`/projects/${contract.project_id}`}
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/projects/${contract.project_id}`)}
                             className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                             title={isArabic ? "فتح المشروع" : "Open project"}
                           >
@@ -1358,10 +1515,21 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                               {projectsById.get(contract.project_id)?.name ||
                                 (isArabic ? "مشروع مرتبط" : "Linked project")}
                             </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(`/projects/${contract.project_id}?tab=boq`)
+                            }
+                            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+                            title={isArabic ? "فتح جدول الكميات" : "Open BOQ"}
+                          >
                             <LinkIcon className="w-3 h-3" />
-                          </a>
+                            {isArabic ? "فتح جدول الكميات" : "Open BOQ"}
+                          </button>
                         </div>
                       )}
+                      </div>
                     </div>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" onClick={() => openViewDialog(contract)}>
@@ -1452,11 +1620,28 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                   <Badge className={cn("text-white", statuses.find(s => s.value === viewingContract.status)?.color)}>
                     {isArabic ? statuses.find(s => s.value === viewingContract.status)?.labelAr : statuses.find(s => s.value === viewingContract.status)?.labelEn}
                   </Badge>
+                  {viewingContract.project_id ? (
+                    <Badge
+                      variant="outline"
+                      className="text-xs border-primary/40 bg-primary/10 text-primary gap-1"
+                    >
+                      <LinkIcon className="w-3 h-3" />
+                      {isArabic ? "مرتبط بمشروع" : "Linked to project"}
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="text-xs border-muted-foreground/30 bg-muted/40 text-muted-foreground gap-1"
+                    >
+                      <Link2Off className="w-3 h-3" />
+                      {isArabic ? "غير مرتبط بمشروع" : "Not linked"}
+                    </Badge>
+                  )}
                 </div>
-                
+
                 <h3 className="text-xl font-semibold">{viewingContract.contract_title}</h3>
 
-                {viewingContract.project_id && (
+                {viewingContract.project_id ? (
                   <div className="flex items-center justify-between gap-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
                     <div className="flex items-center gap-2 text-sm">
                       <FolderKanban className="w-4 h-4 text-primary" />
@@ -1466,13 +1651,27 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                           (isArabic ? "مشروع" : "Project")}
                       </span>
                     </div>
-                    <a
-                      href={`/projects/${viewingContract.project_id}`}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const pid = viewingContract.project_id;
+                        setIsViewDialogOpen(false);
+                        if (pid) navigate(`/projects/${pid}?tab=boq`);
+                      }}
                       className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90"
                     >
                       <LinkIcon className="w-3 h-3" />
                       {isArabic ? "فتح جدول الكميات" : "Open BOQ"}
-                    </a>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 p-3 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 text-sm text-muted-foreground">
+                    <Link2Off className="w-4 h-4" />
+                    <span>
+                      {isArabic
+                        ? "هذا العقد غير مرتبط بأي مشروع. يمكنك ربطه من خلال زر التعديل."
+                        : "This contract is not linked to any project. Use the edit button to link it."}
+                    </span>
                   </div>
                 )}
 
@@ -1687,6 +1886,103 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                 </Button>
               )}
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Link Dialog */}
+      <Dialog open={isBulkLinkDialogOpen} onOpenChange={setIsBulkLinkDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LinkIcon className="w-5 h-5" />
+              {isArabic ? "ربط جماعي بمشروع" : "Bulk link to project"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              {isArabic
+                ? `سيتم تحديث ${selectedContractIds.size} عقد وربطها بالمشروع المختار.`
+                : `${selectedContractIds.size} contract(s) will be linked to the selected project.`}
+            </p>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <FolderKanban className="w-4 h-4" />
+                {isArabic ? "المشروع" : "Project"}
+              </Label>
+              <Select
+                value={bulkLinkProjectId || "none"}
+                onValueChange={(v) => setBulkLinkProjectId(v === "none" ? "" : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={isArabic ? "اختر مشروعاً" : "Pick a project"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    {isArabic ? "إلغاء الربط (بدون مشروع)" : "Unlink (no project)"}
+                  </SelectItem>
+                  {availableProjects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkLinkDialogOpen(false)}
+              disabled={bulkLinking}
+            >
+              {isArabic ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!user || selectedContractIds.size === 0) return;
+                setBulkLinking(true);
+                try {
+                  const ids = Array.from(selectedContractIds);
+                  const newProjectId = bulkLinkProjectId || null;
+                  const { error } = await supabase
+                    .from("contracts")
+                    .update({ project_id: newProjectId })
+                    .in("id", ids)
+                    .eq("user_id", user.id);
+                  if (error) throw error;
+                  setContracts((prev) =>
+                    prev.map((c) =>
+                      selectedContractIds.has(c.id)
+                        ? { ...c, project_id: newProjectId }
+                        : c
+                    )
+                  );
+                  toast({
+                    title: isArabic ? "تم الربط الجماعي" : "Bulk link applied",
+                    description: isArabic
+                      ? `تم تحديث ${ids.length} عقد`
+                      : `${ids.length} contract(s) updated`,
+                  });
+                  setSelectedContractIds(new Set());
+                  setIsBulkLinkDialogOpen(false);
+                } catch (err) {
+                  console.error("Bulk link failed:", err);
+                  toast({
+                    title: isArabic ? "تعذر الربط الجماعي" : "Bulk link failed",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setBulkLinking(false);
+                }
+              }}
+              disabled={bulkLinking}
+            >
+              {bulkLinking && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              {isArabic ? "تطبيق" : "Apply"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
