@@ -1560,11 +1560,28 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                   <Badge className={cn("text-white", statuses.find(s => s.value === viewingContract.status)?.color)}>
                     {isArabic ? statuses.find(s => s.value === viewingContract.status)?.labelAr : statuses.find(s => s.value === viewingContract.status)?.labelEn}
                   </Badge>
+                  {viewingContract.project_id ? (
+                    <Badge
+                      variant="outline"
+                      className="text-xs border-primary/40 bg-primary/10 text-primary gap-1"
+                    >
+                      <LinkIcon className="w-3 h-3" />
+                      {isArabic ? "مرتبط بمشروع" : "Linked to project"}
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="text-xs border-muted-foreground/30 bg-muted/40 text-muted-foreground gap-1"
+                    >
+                      <Link2Off className="w-3 h-3" />
+                      {isArabic ? "غير مرتبط بمشروع" : "Not linked"}
+                    </Badge>
+                  )}
                 </div>
-                
+
                 <h3 className="text-xl font-semibold">{viewingContract.contract_title}</h3>
 
-                {viewingContract.project_id && (
+                {viewingContract.project_id ? (
                   <div className="flex items-center justify-between gap-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
                     <div className="flex items-center gap-2 text-sm">
                       <FolderKanban className="w-4 h-4 text-primary" />
@@ -1574,13 +1591,27 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
                           (isArabic ? "مشروع" : "Project")}
                       </span>
                     </div>
-                    <a
-                      href={`/projects/${viewingContract.project_id}`}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const pid = viewingContract.project_id;
+                        setIsViewDialogOpen(false);
+                        if (pid) navigate(`/projects/${pid}?tab=boq`);
+                      }}
                       className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90"
                     >
                       <LinkIcon className="w-3 h-3" />
                       {isArabic ? "فتح جدول الكميات" : "Open BOQ"}
-                    </a>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 p-3 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 text-sm text-muted-foreground">
+                    <Link2Off className="w-4 h-4" />
+                    <span>
+                      {isArabic
+                        ? "هذا العقد غير مرتبط بأي مشروع. يمكنك ربطه من خلال زر التعديل."
+                        : "This contract is not linked to any project. Use the edit button to link it."}
+                    </span>
                   </div>
                 )}
 
