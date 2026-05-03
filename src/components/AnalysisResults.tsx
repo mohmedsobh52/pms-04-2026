@@ -157,6 +157,8 @@ interface AnalysisResultsProps {
   onEditItem?: (item: BOQItem) => void;
   onClearPrice?: (item: BOQItem) => void;
   onDeleteItem?: (item: BOQItem) => void;
+  // Inline row edit (description) — when provided, "Edit" enters inline mode in the row
+  onUpdateItemFields?: (itemNumber: string, fields: { description?: string }) => Promise<void> | void;
 }
 
 // Cost range definitions
