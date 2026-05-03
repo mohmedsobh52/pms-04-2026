@@ -148,6 +148,15 @@ interface AnalysisResultsProps {
   onApplyRate?: (itemNumber: string, newRate: number) => void;
   fileName?: string;
   savedProjectId?: string;
+  // Item-level actions (mirror BOQ tab dropdown)
+  onQuickPrice?: (item: BOQItem) => void;
+  onDetailedPrice?: (item: BOQItem) => void;
+  onHistoricalPrice?: (item: BOQItem) => void;
+  onEnhanceWithAI?: (item: BOQItem) => void;
+  enhancingItemNumber?: string | null;
+  onEditItem?: (item: BOQItem) => void;
+  onClearPrice?: (item: BOQItem) => void;
+  onDeleteItem?: (item: BOQItem) => void;
 }
 
 // Cost range definitions
