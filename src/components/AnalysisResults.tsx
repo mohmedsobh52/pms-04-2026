@@ -157,6 +157,8 @@ interface AnalysisResultsProps {
   onEditItem?: (item: BOQItem) => void;
   onClearPrice?: (item: BOQItem) => void;
   onDeleteItem?: (item: BOQItem) => void;
+  // Inline row edit (description) — when provided, "Edit" enters inline mode in the row
+  onUpdateItemFields?: (itemNumber: string, fields: { description?: string }) => Promise<void> | void;
 }
 
 // Cost range definitions
@@ -166,7 +168,12 @@ const getCostRange = (price: number): string => {
   return "high";
 };
 
-export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedProjectId, onQuickPrice, onDetailedPrice, onHistoricalPrice, onEnhanceWithAI, enhancingItemNumber, onEditItem, onClearPrice, onDeleteItem }: AnalysisResultsProps) {
+export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedProjectId, onQuickPrice, onDetailedPrice, onHistoricalPrice, onEnhanceWithAI, enhancingItemNumber, onEditItem, onClearPrice, onDeleteItem, onUpdateItemFields }: AnalysisResultsProps) {
+  // Inline edit state for description (per item_number)
+  const [inlineEditItem, setInlineEditItem] = useState<string | null>(null);
+  const [inlineEditValue, setInlineEditValue] = useState<string>("");
+  const [inlineSaving, setInlineSaving] = useState(false);
+  const [inlineDescriptions, setInlineDescriptions] = useState<Record<string, string>>({});
   const { isArabic } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -2524,9 +2531,56 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                             pinnedColumns.includes("description") && "sticky left-[200px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
                             idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
                           )}>
-                            <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words" title={cleanText(item.description)}>
-                              {cleanText(item.description)}
-                            </p>
+                            {inlineEditItem === item.item_number ? (
+                              <div className="flex flex-col gap-2">
+                                <textarea
+                                  autoFocus
+                                  value={inlineEditValue}
+                                  onChange={(e) => setInlineEditValue(e.target.value)}
+                                  rows={3}
+                                  className="w-full text-sm rounded-md border border-input bg-background px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
+                                  dir="auto"
+                                />
+                                <div className="flex items-center gap-2 justify-end">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={inlineSaving}
+                                    onClick={() => { setInlineEditItem(null); setInlineEditValue(""); }}
+                                  >
+                                    {isArabic ? "إلغاء" : "Cancel"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    disabled={inlineSaving}
+                                    onClick={async () => {
+                                      const newVal = inlineEditValue.trim();
+                                      if (!newVal) return;
+                                      try {
+                                        setInlineSaving(true);
+                                        if (onUpdateItemFields) {
+                                          await onUpdateItemFields(item.item_number, { description: newVal });
+                                        }
+                                        setInlineDescriptions(prev => ({ ...prev, [item.item_number]: newVal }));
+                                        toast({ title: isArabic ? "تم حفظ التعديل" : "Saved" });
+                                        setInlineEditItem(null);
+                                        setInlineEditValue("");
+                                      } catch (e: any) {
+                                        toast({ title: isArabic ? "خطأ في الحفظ" : "Error saving", description: e?.message, variant: "destructive" });
+                                      } finally {
+                                        setInlineSaving(false);
+                                      }
+                                    }}
+                                  >
+                                    {inlineSaving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "حفظ" : "Save")}
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words" title={cleanText(inlineDescriptions[item.item_number] ?? item.description)}>
+                                {cleanText(inlineDescriptions[item.item_number] ?? item.description)}
+                              </p>
+                            )}
                           </td>
                         )}
                         {visibleColumns.includes("unit") && (
@@ -2654,9 +2708,20 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                                       </DropdownMenuItem>
                                     </>
                                   )}
-                                  {(onEditItem || onClearPrice) && <DropdownMenuSeparator />}
-                                  {onEditItem && (
-                                    <DropdownMenuItem onClick={() => onEditItem(item)} className="gap-2">
+                                  {(onEditItem || onUpdateItemFields || onClearPrice) && <DropdownMenuSeparator />}
+                                  {(onEditItem || onUpdateItemFields) && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        if (onUpdateItemFields) {
+                                          // Inline row edit mode
+                                          setInlineEditItem(item.item_number);
+                                          setInlineEditValue(inlineDescriptions[item.item_number] ?? item.description ?? "");
+                                        } else if (onEditItem) {
+                                          onEditItem(item);
+                                        }
+                                      }}
+                                      className="gap-2"
+                                    >
                                       <Edit className="w-4 h-4" />
                                       {isArabic ? "تعديل" : "Edit"}
                                     </DropdownMenuItem>
