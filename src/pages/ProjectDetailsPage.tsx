@@ -1376,6 +1376,23 @@ export default function ProjectDetailsPage() {
                   const item = items.find(i => i.item_number === boq.item_number);
                   if (item) handleDeleteItem(item.id);
                 }}
+                onUpdateItemFields={async (itemNumber, fields) => {
+                  const item = items.find(i => i.item_number === itemNumber);
+                  if (!item) return;
+                  const update: any = {};
+                  if (typeof fields.description === "string") update.description = fields.description;
+                  if (Object.keys(update).length === 0) return;
+                  const previous = items;
+                  setItems(prev => prev.map(i => i.id === item.id ? { ...i, ...update } : i));
+                  const { error } = await supabase
+                    .from("project_items")
+                    .update(update)
+                    .eq("id", item.id);
+                  if (error) {
+                    setItems(previous);
+                    throw error;
+                  }
+                }}
               />
             ) : (
               <div className="text-center py-16 text-muted-foreground">
