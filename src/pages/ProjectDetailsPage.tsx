@@ -1337,6 +1337,45 @@ export default function ProjectDetailsPage() {
                     .order("created_at", { ascending: true });
                   if (updatedItems) setItems(updatedItems);
                 }}
+                enhancingItemNumber={enhancingItemId ? (items.find(i => i.id === enhancingItemId)?.item_number || null) : null}
+                onQuickPrice={(boq) => {
+                  const item = items.find(i => i.item_number === boq.item_number);
+                  if (item) {
+                    setSelectedItemForQuickPrice(item);
+                    setShowQuickPriceDialog(item.id);
+                    setQuickPriceValue(item?.unit_price?.toString() || "");
+                  }
+                }}
+                onDetailedPrice={(boq) => {
+                  const item = items.find(i => i.item_number === boq.item_number);
+                  if (item) {
+                    setSelectedItemForPricing(item);
+                    setShowDetailedPriceDialog(true);
+                  }
+                }}
+                onHistoricalPrice={(boq) => {
+                  const item = items.find(i => i.item_number === boq.item_number);
+                  if (item) handleHistoricalPrice(item);
+                }}
+                onEnhanceWithAI={(boq) => {
+                  const item = items.find(i => i.item_number === boq.item_number);
+                  if (item) handleEnhanceWithAI(item);
+                }}
+                onEditItem={(boq) => {
+                  const item = items.find(i => i.item_number === boq.item_number);
+                  if (item) {
+                    setSelectedItemForEdit(item);
+                    setShowEditItemDialog(true);
+                  }
+                }}
+                onClearPrice={(boq) => {
+                  const item = items.find(i => i.item_number === boq.item_number);
+                  if (item) handleUnconfirmItem(item.id);
+                }}
+                onDeleteItem={(boq) => {
+                  const item = items.find(i => i.item_number === boq.item_number);
+                  if (item) handleDeleteItem(item.id);
+                }}
               />
             ) : (
               <div className="text-center py-16 text-muted-foreground">
