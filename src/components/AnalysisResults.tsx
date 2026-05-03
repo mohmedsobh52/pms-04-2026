@@ -2708,9 +2708,20 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                                       </DropdownMenuItem>
                                     </>
                                   )}
-                                  {(onEditItem || onClearPrice) && <DropdownMenuSeparator />}
-                                  {onEditItem && (
-                                    <DropdownMenuItem onClick={() => onEditItem(item)} className="gap-2">
+                                  {(onEditItem || onUpdateItemFields || onClearPrice) && <DropdownMenuSeparator />}
+                                  {(onEditItem || onUpdateItemFields) && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        if (onUpdateItemFields) {
+                                          // Inline row edit mode
+                                          setInlineEditItem(item.item_number);
+                                          setInlineEditValue(inlineDescriptions[item.item_number] ?? item.description ?? "");
+                                        } else if (onEditItem) {
+                                          onEditItem(item);
+                                        }
+                                      }}
+                                      className="gap-2"
+                                    >
                                       <Edit className="w-4 h-4" />
                                       {isArabic ? "تعديل" : "Edit"}
                                     </DropdownMenuItem>
