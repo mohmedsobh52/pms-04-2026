@@ -2531,9 +2531,56 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                             pinnedColumns.includes("description") && "sticky left-[200px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
                             idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
                           )}>
-                            <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words" title={cleanText(item.description)}>
-                              {cleanText(item.description)}
-                            </p>
+                            {inlineEditItem === item.item_number ? (
+                              <div className="flex flex-col gap-2">
+                                <textarea
+                                  autoFocus
+                                  value={inlineEditValue}
+                                  onChange={(e) => setInlineEditValue(e.target.value)}
+                                  rows={3}
+                                  className="w-full text-sm rounded-md border border-input bg-background px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
+                                  dir="auto"
+                                />
+                                <div className="flex items-center gap-2 justify-end">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={inlineSaving}
+                                    onClick={() => { setInlineEditItem(null); setInlineEditValue(""); }}
+                                  >
+                                    {isArabic ? "إلغاء" : "Cancel"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    disabled={inlineSaving}
+                                    onClick={async () => {
+                                      const newVal = inlineEditValue.trim();
+                                      if (!newVal) return;
+                                      try {
+                                        setInlineSaving(true);
+                                        if (onUpdateItemFields) {
+                                          await onUpdateItemFields(item.item_number, { description: newVal });
+                                        }
+                                        setInlineDescriptions(prev => ({ ...prev, [item.item_number]: newVal }));
+                                        toast({ title: isArabic ? "تم حفظ التعديل" : "Saved" });
+                                        setInlineEditItem(null);
+                                        setInlineEditValue("");
+                                      } catch (e: any) {
+                                        toast({ title: isArabic ? "خطأ في الحفظ" : "Error saving", description: e?.message, variant: "destructive" });
+                                      } finally {
+                                        setInlineSaving(false);
+                                      }
+                                    }}
+                                  >
+                                    {inlineSaving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "حفظ" : "Save")}
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words" title={cleanText(inlineDescriptions[item.item_number] ?? item.description)}>
+                                {cleanText(inlineDescriptions[item.item_number] ?? item.description)}
+                              </p>
+                            )}
                           </td>
                         )}
                         {visibleColumns.includes("unit") && (
