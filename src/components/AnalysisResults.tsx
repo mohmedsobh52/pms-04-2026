@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud, ArrowUp, ArrowDown, XCircle, TrendingUp, Sparkles, Brain, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, MoreVertical, Pin, CloudOff, Cloud, ArrowUp, ArrowDown, XCircle, TrendingUp, Sparkles, Brain, PanelLeftClose, PanelLeftOpen, Edit, Loader2, History } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DualHorizontalScrollBar } from "./DualHorizontalScrollBar";
@@ -148,6 +148,15 @@ interface AnalysisResultsProps {
   onApplyRate?: (itemNumber: string, newRate: number) => void;
   fileName?: string;
   savedProjectId?: string;
+  // Item-level actions (mirror BOQ tab dropdown)
+  onQuickPrice?: (item: BOQItem) => void;
+  onDetailedPrice?: (item: BOQItem) => void;
+  onHistoricalPrice?: (item: BOQItem) => void;
+  onEnhanceWithAI?: (item: BOQItem) => void;
+  enhancingItemNumber?: string | null;
+  onEditItem?: (item: BOQItem) => void;
+  onClearPrice?: (item: BOQItem) => void;
+  onDeleteItem?: (item: BOQItem) => void;
 }
 
 // Cost range definitions
@@ -157,7 +166,7 @@ const getCostRange = (price: number): string => {
   return "high";
 };
 
-export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedProjectId }: AnalysisResultsProps) {
+export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedProjectId, onQuickPrice, onDetailedPrice, onHistoricalPrice, onEnhanceWithAI, enhancingItemNumber, onEditItem, onClearPrice, onDeleteItem }: AnalysisResultsProps) {
   const { isArabic } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -2595,6 +2604,84 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                               >
                                 <XCircle className="w-4 h-4" />
                               </Button>
+                            )}
+                            {/* Mirror BOQ tab actions menu */}
+                            {(onQuickPrice || onDetailedPrice || onHistoricalPrice || onEnhanceWithAI || onEditItem || onClearPrice || onDeleteItem) && (
+                              <DropdownMenu modal={false}>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreVertical className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align={isArabic ? "start" : "end"} className="bg-popover">
+                                  {onQuickPrice && (
+                                    <DropdownMenuItem onClick={() => onQuickPrice(item)} className="gap-2">
+                                      <DollarSign className="w-4 h-4" />
+                                      {isArabic ? "تسعير سريع" : "Quick Price"}
+                                    </DropdownMenuItem>
+                                  )}
+                                  {onDetailedPrice && (
+                                    <DropdownMenuItem onClick={() => onDetailedPrice(item)} className="gap-2">
+                                      <FileText className="w-4 h-4" />
+                                      {isArabic ? "تسعير مفصل" : "Detailed Price"}
+                                    </DropdownMenuItem>
+                                  )}
+                                  {onHistoricalPrice && (
+                                    <DropdownMenuItem onClick={() => onHistoricalPrice(item)} className="gap-2">
+                                      <History className="w-4 h-4" />
+                                      {isArabic ? "السعر التاريخي" : "Historical Price"}
+                                    </DropdownMenuItem>
+                                  )}
+                                  {onEnhanceWithAI && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={(e) => {
+                                          if (enhancingItemNumber === item.item_number) { e.preventDefault(); return; }
+                                          onEnhanceWithAI(item);
+                                        }}
+                                        disabled={enhancingItemNumber === item.item_number}
+                                        className="gap-2"
+                                      >
+                                        {enhancingItemNumber === item.item_number ? (
+                                          <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                                        ) : (
+                                          <Sparkles className="w-4 h-4 text-primary" />
+                                        )}
+                                        {enhancingItemNumber === item.item_number
+                                          ? (isArabic ? "جاري التحسين..." : "Enhancing...")
+                                          : (isArabic ? "تحسين بالذكاء الاصطناعي" : "Enhance with AI")}
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                  {(onEditItem || onClearPrice) && <DropdownMenuSeparator />}
+                                  {onEditItem && (
+                                    <DropdownMenuItem onClick={() => onEditItem(item)} className="gap-2">
+                                      <Edit className="w-4 h-4" />
+                                      {isArabic ? "تعديل" : "Edit"}
+                                    </DropdownMenuItem>
+                                  )}
+                                  {onClearPrice && (
+                                    <DropdownMenuItem
+                                      onClick={() => onClearPrice(item)}
+                                      className="gap-2"
+                                      disabled={!item.unit_price || item.unit_price === 0}
+                                    >
+                                      <XCircle className="w-4 h-4" />
+                                      {isArabic ? "إلغاء التحقق" : "Clear Price"}
+                                    </DropdownMenuItem>
+                                  )}
+                                  {onDeleteItem && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem onClick={() => onDeleteItem(item)} className="gap-2 text-destructive">
+                                        <Trash2 className="w-4 h-4" />
+                                        {isArabic ? "حذف" : "Delete"}
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             )}
                           </div>
                         </td>
