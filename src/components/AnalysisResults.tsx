@@ -166,7 +166,7 @@ const getCostRange = (price: number): string => {
   return "high";
 };
 
-export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedProjectId }: AnalysisResultsProps) {
+export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedProjectId, onQuickPrice, onDetailedPrice, onHistoricalPrice, onEnhanceWithAI, enhancingItemNumber, onEditItem, onClearPrice, onDeleteItem }: AnalysisResultsProps) {
   const { isArabic } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
