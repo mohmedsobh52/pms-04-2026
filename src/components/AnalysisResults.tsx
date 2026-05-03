@@ -168,7 +168,12 @@ const getCostRange = (price: number): string => {
   return "high";
 };
 
-export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedProjectId, onQuickPrice, onDetailedPrice, onHistoricalPrice, onEnhanceWithAI, enhancingItemNumber, onEditItem, onClearPrice, onDeleteItem }: AnalysisResultsProps) {
+export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedProjectId, onQuickPrice, onDetailedPrice, onHistoricalPrice, onEnhanceWithAI, enhancingItemNumber, onEditItem, onClearPrice, onDeleteItem, onUpdateItemFields }: AnalysisResultsProps) {
+  // Inline edit state for description (per item_number)
+  const [inlineEditItem, setInlineEditItem] = useState<string | null>(null);
+  const [inlineEditValue, setInlineEditValue] = useState<string>("");
+  const [inlineSaving, setInlineSaving] = useState(false);
+  const [inlineDescriptions, setInlineDescriptions] = useState<Record<string, string>>({});
   const { isArabic } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
