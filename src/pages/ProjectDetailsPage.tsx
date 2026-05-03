@@ -1585,6 +1585,7 @@ export default function ProjectDetailsPage() {
             if (error) {
               toast({
                 title: isArabic ? "خطأ في الحفظ" : "Error saving",
+                description: error.message,
                 variant: "destructive",
               });
               throw error;
