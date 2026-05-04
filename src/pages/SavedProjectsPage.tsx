@@ -215,6 +215,32 @@ export default function SavedProjectsPage() {
     }
   }, [user]);
 
+  // Load lightweight badges: contract counts and attachment counts per project
+  useEffect(() => {
+    if (!user || projects.length === 0) return;
+    const ids = projects.map((p) => p.id);
+    (async () => {
+      try {
+        const [{ data: contracts }, { data: atts }] = await Promise.all([
+          supabase.from("contracts").select("project_id").in("project_id", ids),
+          supabase.from("attachment_folders").select("project_id").in("project_id", ids),
+        ]);
+        const cMap: Record<string, number> = {};
+        (contracts || []).forEach((c: any) => {
+          if (c.project_id) cMap[c.project_id] = (cMap[c.project_id] || 0) + 1;
+        });
+        const aMap: Record<string, number> = {};
+        (atts || []).forEach((a: any) => {
+          if (a.project_id) aMap[a.project_id] = (aMap[a.project_id] || 0) + 1;
+        });
+        setContractMap(cMap);
+        setAttachmentMap(aMap);
+      } catch {
+        // best-effort badges
+      }
+    })();
+  }, [user, projects]);
+
   // Auto-reload when a project is saved/overwritten anywhere in the app
   useEffect(() => {
     if (!user) return;
