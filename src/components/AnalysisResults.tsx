@@ -2729,11 +2729,13 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                                   {(onEditItem || onUpdateItemFields || onClearPrice) && <DropdownMenuSeparator />}
                                   {(onEditItem || onUpdateItemFields) && (
                                     <DropdownMenuItem
+                                      disabled={inlineSaving}
                                       onClick={() => {
                                         if (onUpdateItemFields) {
-                                          // Inline row edit mode
+                                          // Always reset and switch to the clicked row's inline edit
+                                          const currentDesc = inlineDescriptions[item.item_number] ?? item.description ?? "";
                                           setInlineEditItem(item.item_number);
-                                          setInlineEditValue(inlineDescriptions[item.item_number] ?? item.description ?? "");
+                                          setInlineEditValue(currentDesc);
                                         } else if (onEditItem) {
                                           onEditItem(item);
                                         }
