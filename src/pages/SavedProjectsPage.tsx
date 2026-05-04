@@ -945,6 +945,34 @@ export default function SavedProjectsPage() {
                     </AlertDialogContent>
                   </AlertDialog>
                 </div>
+
+                {/* Quick links */}
+                <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-border/50">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-[11px] gap-1"
+                    onClick={() => navigate(`/projects/${project.id}?tab=boq`)}
+                  >
+                    <Package className="w-3 h-3" /> BOQ
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-[11px] gap-1"
+                    onClick={() => navigate(`/contracts?project_id=${project.id}`)}
+                  >
+                    <Link2 className="w-3 h-3" /> {isArabic ? "العقود" : "Contracts"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-[11px] gap-1"
+                    onClick={() => navigate(`/reports?project_id=${project.id}`)}
+                  >
+                    <FileBarChart className="w-3 h-3" /> {isArabic ? "تقارير" : "Reports"}
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
