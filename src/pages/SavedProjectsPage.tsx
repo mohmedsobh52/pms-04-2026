@@ -816,21 +816,55 @@ export default function SavedProjectsPage() {
                 key={project.id}
                 onMouseEnter={() => prefetchRoute("/project-details")}
                 onFocus={() => prefetchRoute("/project-details")}
-                className="glass-card p-5 hover:border-primary/30 transition-all duration-200 group"
+                className={`glass-card p-5 hover:border-primary/30 transition-all duration-200 group ${selectedIds.has(project.id) ? "ring-2 ring-primary/50" : ""}`}
               >
                 {/* Header */}
-                <div className="flex items-start justify-between gap-2 mb-4">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-display font-semibold truncate group-hover:text-primary transition-colors">
-                      {project.name}
-                    </h3>
-                    {project.file_name && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 truncate">
-                        <FileText className="w-3 h-3 shrink-0" />
-                        {project.file_name}
-                      </p>
-                    )}
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                    <Checkbox
+                      checked={selectedIds.has(project.id)}
+                      onCheckedChange={() => toggleSelect(project.id)}
+                      className="mt-1"
+                      aria-label={isArabic ? "تحديد المشروع" : "Select project"}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-display font-semibold truncate group-hover:text-primary transition-colors">
+                        {project.name}
+                      </h3>
+                      {project.file_name && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 truncate">
+                          <FileText className="w-3 h-3 shrink-0" />
+                          {project.file_name}
+                        </p>
+                      )}
+                    </div>
                   </div>
+                </div>
+
+                {/* Status badges */}
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {(project.items_count || 0) > 0 ? (
+                    <Badge variant="secondary" className="gap-1 text-[10px]">
+                      <Package className="w-3 h-3" />
+                      {isArabic ? "BOQ" : "BOQ"}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="gap-1 text-[10px] text-muted-foreground">
+                      {isArabic ? "بدون BOQ" : "No BOQ"}
+                    </Badge>
+                  )}
+                  {(contractMap[project.id] || 0) > 0 && (
+                    <Badge variant="default" className="gap-1 text-[10px] bg-blue-500/15 text-blue-600 border-blue-500/30 hover:bg-blue-500/20">
+                      <Link2 className="w-3 h-3" />
+                      {isArabic ? `عقد (${contractMap[project.id]})` : `Contract (${contractMap[project.id]})`}
+                    </Badge>
+                  )}
+                  {(attachmentMap[project.id] || 0) > 0 && (
+                    <Badge variant="outline" className="gap-1 text-[10px]">
+                      <Paperclip className="w-3 h-3" />
+                      {attachmentMap[project.id]}
+                    </Badge>
+                  )}
                 </div>
 
                 {/* Stats */}
