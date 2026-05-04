@@ -3,8 +3,10 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
   FolderOpen, Trash2, Calendar, FileText, Search,
   ArrowLeft, Eye, Edit, DollarSign, Package, Filter, X,
-  SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3, Paperclip, Sparkles, Upload
+  SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3, Paperclip, Sparkles, Upload,
+  CheckSquare, Square, FileSpreadsheet, FileBarChart, Link2, CheckCircle2
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { SuspenseFallback, ErrorState } from "@/components/ui/loading-states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,6 +92,10 @@ export default function SavedProjectsPage() {
   const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [currencyFilter, setCurrencyFilter] = useState<string>("all");
+  const [contractMap, setContractMap] = useState<Record<string, number>>({});
+  const [attachmentMap, setAttachmentMap] = useState<Record<string, number>>({});
   
   // Drag-and-drop state
   const [draggedFile, setDraggedFile] = useState<File | null>(null);
