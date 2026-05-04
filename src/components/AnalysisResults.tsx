@@ -2552,10 +2552,17 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                                   </Button>
                                   <Button
                                     size="sm"
-                                    disabled={inlineSaving}
+                                    disabled={inlineSaving || !inlineEditValue.trim()}
                                     onClick={async () => {
                                       const newVal = inlineEditValue.trim();
-                                      if (!newVal) return;
+                                      if (!newVal) {
+                                        toast({
+                                          title: isArabic ? "حقل مطلوب" : "Required field",
+                                          description: isArabic ? "الوصف لا يمكن أن يكون فارغًا" : "Description cannot be empty",
+                                          variant: "destructive",
+                                        });
+                                        return;
+                                      }
                                       try {
                                         setInlineSaving(true);
                                         if (onUpdateItemFields) {
@@ -2566,13 +2573,24 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                                         setInlineEditItem(null);
                                         setInlineEditValue("");
                                       } catch (e: any) {
-                                        toast({ title: isArabic ? "خطأ في الحفظ" : "Error saving", description: e?.message, variant: "destructive" });
+                                        toast({
+                                          title: isArabic ? "فشل حفظ التعديل" : "Failed to save",
+                                          description: e?.message || (isArabic ? "حدث خطأ غير متوقع" : "An unexpected error occurred"),
+                                          variant: "destructive",
+                                        });
                                       } finally {
                                         setInlineSaving(false);
                                       }
                                     }}
                                   >
-                                    {inlineSaving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "حفظ" : "Save")}
+                                    {inlineSaving ? (
+                                      <>
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                        {isArabic ? "جاري الحفظ..." : "Saving..."}
+                                      </>
+                                    ) : (
+                                      isArabic ? "حفظ" : "Save"
+                                    )}
                                   </Button>
                                 </div>
                               </div>
@@ -2711,11 +2729,13 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                                   {(onEditItem || onUpdateItemFields || onClearPrice) && <DropdownMenuSeparator />}
                                   {(onEditItem || onUpdateItemFields) && (
                                     <DropdownMenuItem
+                                      disabled={inlineSaving}
                                       onClick={() => {
                                         if (onUpdateItemFields) {
-                                          // Inline row edit mode
+                                          // Always reset and switch to the clicked row's inline edit
+                                          const currentDesc = inlineDescriptions[item.item_number] ?? item.description ?? "";
                                           setInlineEditItem(item.item_number);
-                                          setInlineEditValue(inlineDescriptions[item.item_number] ?? item.description ?? "");
+                                          setInlineEditValue(currentDesc);
                                         } else if (onEditItem) {
                                           onEditItem(item);
                                         }
