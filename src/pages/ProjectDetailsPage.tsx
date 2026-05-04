@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import { logAudit } from "@/lib/audit-log";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -1379,18 +1380,33 @@ export default function ProjectDetailsPage() {
                 onUpdateItemFields={async (itemNumber, fields) => {
                   const item = items.find(i => i.item_number === itemNumber);
                   if (!item) {
-                    throw new Error(isArabic ? "تعذر العثور على البند المحدد" : "Could not find the selected item");
+                    const err = new Error(isArabic ? "تعذر العثور على البند المحدد" : "Could not find the selected item");
+                    logAudit({
+                      userId: user?.id,
+                      projectId,
+                      itemNumber,
+                      action: "inline_edit",
+                      status: "failure",
+                      attempts: 0,
+                      changedFields: fields as any,
+                      errorMessage: err.message,
+                    });
+                    throw err;
                   }
                   const update: any = {};
                   if (typeof fields.description === "string") update.description = fields.description;
                   if (Object.keys(update).length === 0) return;
+                  const previousValues: Record<string, unknown> = {};
+                  for (const k of Object.keys(update)) previousValues[k] = (item as any)[k];
                   const previous = items;
                   setItems(prev => prev.map(i => i.id === item.id ? { ...i, ...update } : i));
 
                   // Retry with exponential backoff (up to 3 attempts) for transient failures
                   let lastError: any = null;
+                  let attemptsMade = 0;
                   const maxAttempts = 3;
                   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                    attemptsMade = attempt;
                     const { error } = await supabase
                       .from("project_items")
                       .update(update)
@@ -1400,7 +1416,6 @@ export default function ProjectDetailsPage() {
                       break;
                     }
                     lastError = error;
-                    // Don't retry on permission / validation errors
                     const code = (error as any)?.code || "";
                     const msg = (error.message || "").toLowerCase();
                     const isAuthOrValidation =
@@ -1434,10 +1449,38 @@ export default function ProjectDetailsPage() {
                         ? "البند غير موجود أو تم حذفه"
                         : "Item no longer exists";
                     }
+                    const audit = logAudit({
+                      userId: user?.id,
+                      projectId,
+                      projectItemId: item.id,
+                      itemNumber: item.item_number,
+                      action: "inline_edit",
+                      status: "failure",
+                      attempts: attemptsMade,
+                      changedFields: update,
+                      previousValues,
+                      newValues: update,
+                      errorCode: code,
+                      errorMessage: rawMsg,
+                    });
                     const err = new Error(friendly);
                     (err as any).code = code;
+                    (err as any).ref = audit.ref;
                     throw err;
                   }
+
+                  logAudit({
+                    userId: user?.id,
+                    projectId,
+                    projectItemId: item.id,
+                    itemNumber: item.item_number,
+                    action: "inline_edit",
+                    status: "success",
+                    attempts: attemptsMade,
+                    changedFields: update,
+                    previousValues,
+                    newValues: update,
+                  });
                 }}
               />
             ) : (

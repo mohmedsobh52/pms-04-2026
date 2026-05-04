@@ -2563,19 +2563,34 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                                         });
                                         return;
                                       }
+                                      const previousDesc = inlineDescriptions[item.item_number] ?? item.description ?? "";
+                                      // Optimistic update — show new value immediately
+                                      setInlineDescriptions(prev => ({ ...prev, [item.item_number]: newVal }));
                                       try {
                                         setInlineSaving(true);
                                         if (onUpdateItemFields) {
                                           await onUpdateItemFields(item.item_number, { description: newVal });
                                         }
-                                        setInlineDescriptions(prev => ({ ...prev, [item.item_number]: newVal }));
                                         toast({ title: isArabic ? "تم حفظ التعديل" : "Saved" });
                                         setInlineEditItem(null);
                                         setInlineEditValue("");
                                       } catch (e: any) {
+                                        // Rollback optimistic update
+                                        setInlineDescriptions(prev => {
+                                          const next = { ...prev };
+                                          if (item.description === previousDesc) {
+                                            delete next[item.item_number];
+                                          } else {
+                                            next[item.item_number] = previousDesc;
+                                          }
+                                          return next;
+                                        });
+                                        // Re-open the editor on the SAME row, keeping the user's value
+                                        setInlineEditItem(item.item_number);
+                                        setInlineEditValue(newVal);
                                         toast({
                                           title: isArabic ? "فشل حفظ التعديل" : "Failed to save",
-                                          description: e?.message || (isArabic ? "حدث خطأ غير متوقع" : "An unexpected error occurred"),
+                                          description: (e?.message || (isArabic ? "حدث خطأ غير متوقع" : "An unexpected error occurred")) + (e?.ref ? ` (${e.ref})` : ""),
                                           variant: "destructive",
                                         });
                                       } finally {

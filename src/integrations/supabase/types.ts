@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      analysis_audit_logs: {
+        Row: {
+          action: string
+          attempts: number
+          changed_fields: Json | null
+          client_ref: string | null
+          created_at: string
+          error_code: string | null
+          error_message: string | null
+          id: string
+          item_number: string | null
+          new_values: Json | null
+          previous_values: Json | null
+          project_id: string | null
+          project_item_id: string | null
+          status: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          attempts?: number
+          changed_fields?: Json | null
+          client_ref?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          item_number?: string | null
+          new_values?: Json | null
+          previous_values?: Json | null
+          project_id?: string | null
+          project_item_id?: string | null
+          status: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          attempts?: number
+          changed_fields?: Json | null
+          client_ref?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          item_number?: string | null
+          new_values?: Json | null
+          previous_values?: Json | null
+          project_id?: string | null
+          project_item_id?: string | null
+          status?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       analysis_comments: {
         Row: {
           author_email: string | null

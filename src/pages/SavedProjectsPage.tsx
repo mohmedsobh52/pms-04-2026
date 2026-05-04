@@ -3,8 +3,10 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
   FolderOpen, Trash2, Calendar, FileText, Search,
   ArrowLeft, Eye, Edit, DollarSign, Package, Filter, X,
-  SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3, Paperclip, Sparkles, Upload
+  SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3, Paperclip, Sparkles, Upload,
+  CheckSquare, Square, FileSpreadsheet, FileBarChart, Link2, CheckCircle2
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { SuspenseFallback, ErrorState } from "@/components/ui/loading-states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,6 +92,10 @@ export default function SavedProjectsPage() {
   const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [currencyFilter, setCurrencyFilter] = useState<string>("all");
+  const [contractMap, setContractMap] = useState<Record<string, number>>({});
+  const [attachmentMap, setAttachmentMap] = useState<Record<string, number>>({});
   
   // Drag-and-drop state
   const [draggedFile, setDraggedFile] = useState<File | null>(null);
@@ -209,6 +215,32 @@ export default function SavedProjectsPage() {
     }
   }, [user]);
 
+  // Load lightweight badges: contract counts and attachment counts per project
+  useEffect(() => {
+    if (!user || projects.length === 0) return;
+    const ids = projects.map((p) => p.id);
+    (async () => {
+      try {
+        const [{ data: contracts }, { data: atts }] = await Promise.all([
+          supabase.from("contracts").select("project_id").in("project_id", ids),
+          supabase.from("attachment_folders").select("project_id").in("project_id", ids),
+        ]);
+        const cMap: Record<string, number> = {};
+        (contracts || []).forEach((c: any) => {
+          if (c.project_id) cMap[c.project_id] = (cMap[c.project_id] || 0) + 1;
+        });
+        const aMap: Record<string, number> = {};
+        (atts || []).forEach((a: any) => {
+          if (a.project_id) aMap[a.project_id] = (aMap[a.project_id] || 0) + 1;
+        });
+        setContractMap(cMap);
+        setAttachmentMap(aMap);
+      } catch {
+        // best-effort badges
+      }
+    })();
+  }, [user, projects]);
+
   // Auto-reload when a project is saved/overwritten anywhere in the app
   useEffect(() => {
     if (!user) return;
@@ -308,6 +340,10 @@ export default function SavedProjectsPage() {
         p.file_name?.toLowerCase().includes(query)
       );
     }
+
+    if (currencyFilter !== "all") {
+      result = result.filter(p => (p.currency || "SAR") === currencyFilter);
+    }
     
     result.sort((a, b) => {
       let aVal: any, bVal: any;
@@ -340,7 +376,78 @@ export default function SavedProjectsPage() {
     });
     
     return result;
-  }, [projects, searchQuery, sortField, sortDirection]);
+  }, [projects, searchQuery, sortField, sortDirection, currencyFilter]);
+
+  const availableCurrencies = useMemo(() => {
+    const set = new Set<string>();
+    projects.forEach((p) => set.add(p.currency || "SAR"));
+    return Array.from(set);
+  }, [projects]);
+
+  const pageProjects = useMemo(
+    () => filteredProjects.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredProjects, currentPage, pageSize],
+  );
+  const allOnPageSelected = pageProjects.length > 0 && pageProjects.every((p) => selectedIds.has(p.id));
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const toggleSelectAllOnPage = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allOnPageSelected) pageProjects.forEach((p) => next.delete(p.id));
+      else pageProjects.forEach((p) => next.add(p.id));
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    try {
+      await supabase.from("project_items").delete().in("project_id", ids);
+      await supabase.from("project_data").delete().in("id", ids);
+      await supabase.from("saved_projects").delete().in("id", ids);
+      toast({
+        title: isArabic ? "تم الحذف" : "Deleted",
+        description: isArabic ? `تم حذف ${ids.length} مشروع` : `${ids.length} project(s) deleted`,
+      });
+      clearSelection();
+      fetchProjects();
+    } catch (error: any) {
+      toast({
+        title: isArabic ? "فشل الحذف الجماعي" : "Bulk delete failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkExportCsv = () => {
+    if (selectedIds.size === 0) return;
+    const rows = projects.filter((p) => selectedIds.has(p.id));
+    const header = ["name", "file_name", "items_count", "total_value", "currency", "created_at"];
+    const escape = (v: any) => {
+      const s = v == null ? "" : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = [header.join(",")]
+      .concat(rows.map((r) => header.map((h) => escape((r as any)[h])).join(",")))
+      .join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `projects-export-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
 
   const handleLoadProject = (project: ProjectData) => {
     navigate(`/projects/${project.id}`);
@@ -589,8 +696,72 @@ export default function SavedProjectsPage() {
                   <SortDesc className="w-4 h-4" />
                 )}
               </Button>
+              {/* Currency filter */}
+              <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder={isArabic ? "العملة" : "Currency"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{isArabic ? "كل العملات" : "All currencies"}</SelectItem>
+                  {availableCurrencies.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
+
+          {/* Bulk action bar */}
+          {selectedIds.size > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+              <CheckCircle2 className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium">
+                {isArabic ? `محدد: ${selectedIds.size}` : `${selectedIds.size} selected`}
+              </span>
+              <div className="ml-auto flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={toggleSelectAllOnPage} className="gap-2">
+                  {allOnPageSelected ? <Square className="w-4 h-4" /> : <CheckSquare className="w-4 h-4" />}
+                  {allOnPageSelected
+                    ? (isArabic ? "إلغاء تحديد الصفحة" : "Unselect page")
+                    : (isArabic ? "تحديد الصفحة" : "Select page")}
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleBulkExportCsv} className="gap-2">
+                  <FileSpreadsheet className="w-4 h-4" />
+                  {isArabic ? "تصدير CSV" : "Export CSV"}
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" variant="destructive" className="gap-2">
+                      <Trash2 className="w-4 h-4" />
+                      {isArabic ? "حذف" : "Delete"}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent dir={isArabic ? "rtl" : "ltr"}>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        {isArabic ? "حذف جماعي" : "Bulk delete"}
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {isArabic
+                          ? `سيتم حذف ${selectedIds.size} مشروعًا نهائيًا. لا يمكن التراجع.`
+                          : `${selectedIds.size} project(s) will be permanently deleted. This cannot be undone.`}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="gap-2">
+                      <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground">
+                        {isArabic ? "حذف" : "Delete"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                <Button size="sm" variant="ghost" onClick={clearSelection} className="gap-2">
+                  <X className="w-4 h-4" />
+                  {isArabic ? "إلغاء" : "Clear"}
+                </Button>
+              </div>
+            </div>
+          )}
           
           {/* Stats */}
           <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
@@ -645,21 +816,55 @@ export default function SavedProjectsPage() {
                 key={project.id}
                 onMouseEnter={() => prefetchRoute("/project-details")}
                 onFocus={() => prefetchRoute("/project-details")}
-                className="glass-card p-5 hover:border-primary/30 transition-all duration-200 group"
+                className={`glass-card p-5 hover:border-primary/30 transition-all duration-200 group ${selectedIds.has(project.id) ? "ring-2 ring-primary/50" : ""}`}
               >
                 {/* Header */}
-                <div className="flex items-start justify-between gap-2 mb-4">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-display font-semibold truncate group-hover:text-primary transition-colors">
-                      {project.name}
-                    </h3>
-                    {project.file_name && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 truncate">
-                        <FileText className="w-3 h-3 shrink-0" />
-                        {project.file_name}
-                      </p>
-                    )}
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                    <Checkbox
+                      checked={selectedIds.has(project.id)}
+                      onCheckedChange={() => toggleSelect(project.id)}
+                      className="mt-1"
+                      aria-label={isArabic ? "تحديد المشروع" : "Select project"}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-display font-semibold truncate group-hover:text-primary transition-colors">
+                        {project.name}
+                      </h3>
+                      {project.file_name && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 truncate">
+                          <FileText className="w-3 h-3 shrink-0" />
+                          {project.file_name}
+                        </p>
+                      )}
+                    </div>
                   </div>
+                </div>
+
+                {/* Status badges */}
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {(project.items_count || 0) > 0 ? (
+                    <Badge variant="secondary" className="gap-1 text-[10px]">
+                      <Package className="w-3 h-3" />
+                      {isArabic ? "BOQ" : "BOQ"}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="gap-1 text-[10px] text-muted-foreground">
+                      {isArabic ? "بدون BOQ" : "No BOQ"}
+                    </Badge>
+                  )}
+                  {(contractMap[project.id] || 0) > 0 && (
+                    <Badge variant="default" className="gap-1 text-[10px] bg-blue-500/15 text-blue-600 border-blue-500/30 hover:bg-blue-500/20">
+                      <Link2 className="w-3 h-3" />
+                      {isArabic ? `عقد (${contractMap[project.id]})` : `Contract (${contractMap[project.id]})`}
+                    </Badge>
+                  )}
+                  {(attachmentMap[project.id] || 0) > 0 && (
+                    <Badge variant="outline" className="gap-1 text-[10px]">
+                      <Paperclip className="w-3 h-3" />
+                      {attachmentMap[project.id]}
+                    </Badge>
+                  )}
                 </div>
 
                 {/* Stats */}
@@ -739,6 +944,34 @@ export default function SavedProjectsPage() {
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
+                </div>
+
+                {/* Quick links */}
+                <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-border/50">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-[11px] gap-1"
+                    onClick={() => navigate(`/projects/${project.id}?tab=boq`)}
+                  >
+                    <Package className="w-3 h-3" /> BOQ
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-[11px] gap-1"
+                    onClick={() => navigate(`/contracts?project_id=${project.id}`)}
+                  >
+                    <Link2 className="w-3 h-3" /> {isArabic ? "العقود" : "Contracts"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-[11px] gap-1"
+                    onClick={() => navigate(`/reports?project_id=${project.id}`)}
+                  >
+                    <FileBarChart className="w-3 h-3" /> {isArabic ? "تقارير" : "Reports"}
+                  </Button>
                 </div>
               </div>
             ))}
