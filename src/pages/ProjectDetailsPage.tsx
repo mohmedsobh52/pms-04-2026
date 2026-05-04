@@ -1378,19 +1378,65 @@ export default function ProjectDetailsPage() {
                 }}
                 onUpdateItemFields={async (itemNumber, fields) => {
                   const item = items.find(i => i.item_number === itemNumber);
-                  if (!item) return;
+                  if (!item) {
+                    throw new Error(isArabic ? "تعذر العثور على البند المحدد" : "Could not find the selected item");
+                  }
                   const update: any = {};
                   if (typeof fields.description === "string") update.description = fields.description;
                   if (Object.keys(update).length === 0) return;
                   const previous = items;
                   setItems(prev => prev.map(i => i.id === item.id ? { ...i, ...update } : i));
-                  const { error } = await supabase
-                    .from("project_items")
-                    .update(update)
-                    .eq("id", item.id);
-                  if (error) {
+
+                  // Retry with exponential backoff (up to 3 attempts) for transient failures
+                  let lastError: any = null;
+                  const maxAttempts = 3;
+                  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                    const { error } = await supabase
+                      .from("project_items")
+                      .update(update)
+                      .eq("id", item.id);
+                    if (!error) {
+                      lastError = null;
+                      break;
+                    }
+                    lastError = error;
+                    // Don't retry on permission / validation errors
+                    const code = (error as any)?.code || "";
+                    const msg = (error.message || "").toLowerCase();
+                    const isAuthOrValidation =
+                      code === "42501" || code === "23514" || code === "23502" || code === "PGRST301" ||
+                      msg.includes("row-level security") || msg.includes("permission") ||
+                      msg.includes("policy") || msg.includes("violates");
+                    if (isAuthOrValidation || attempt === maxAttempts) break;
+                    await new Promise(r => setTimeout(r, 400 * attempt));
+                  }
+
+                  if (lastError) {
                     setItems(previous);
-                    throw error;
+                    const code = (lastError as any)?.code || "";
+                    const rawMsg = lastError.message || "";
+                    const lower = rawMsg.toLowerCase();
+                    let friendly = rawMsg;
+                    if (code === "42501" || lower.includes("row-level security") || lower.includes("permission") || lower.includes("policy")) {
+                      friendly = isArabic
+                        ? "ليست لديك صلاحية تعديل هذا البند"
+                        : "You don't have permission to edit this item";
+                    } else if (lower.includes("violates") || code === "23514" || code === "23502") {
+                      friendly = isArabic
+                        ? "القيمة المُدخلة غير صالحة، يرجى المراجعة"
+                        : "The submitted value is invalid, please review";
+                    } else if (lower.includes("network") || lower.includes("fetch") || lower.includes("timeout") || lower.includes("failed to fetch")) {
+                      friendly = isArabic
+                        ? "تعذّر الاتصال بالخادم بعد عدة محاولات. تحقق من اتصالك بالإنترنت"
+                        : "Could not reach the server after several attempts. Check your connection";
+                    } else if (code === "PGRST116") {
+                      friendly = isArabic
+                        ? "البند غير موجود أو تم حذفه"
+                        : "Item no longer exists";
+                    }
+                    const err = new Error(friendly);
+                    (err as any).code = code;
+                    throw err;
                   }
                 }}
               />
