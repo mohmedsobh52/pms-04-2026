@@ -696,8 +696,72 @@ export default function SavedProjectsPage() {
                   <SortDesc className="w-4 h-4" />
                 )}
               </Button>
+              {/* Currency filter */}
+              <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder={isArabic ? "العملة" : "Currency"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{isArabic ? "كل العملات" : "All currencies"}</SelectItem>
+                  {availableCurrencies.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
+
+          {/* Bulk action bar */}
+          {selectedIds.size > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+              <CheckCircle2 className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium">
+                {isArabic ? `محدد: ${selectedIds.size}` : `${selectedIds.size} selected`}
+              </span>
+              <div className="ml-auto flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={toggleSelectAllOnPage} className="gap-2">
+                  {allOnPageSelected ? <Square className="w-4 h-4" /> : <CheckSquare className="w-4 h-4" />}
+                  {allOnPageSelected
+                    ? (isArabic ? "إلغاء تحديد الصفحة" : "Unselect page")
+                    : (isArabic ? "تحديد الصفحة" : "Select page")}
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleBulkExportCsv} className="gap-2">
+                  <FileSpreadsheet className="w-4 h-4" />
+                  {isArabic ? "تصدير CSV" : "Export CSV"}
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" variant="destructive" className="gap-2">
+                      <Trash2 className="w-4 h-4" />
+                      {isArabic ? "حذف" : "Delete"}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent dir={isArabic ? "rtl" : "ltr"}>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        {isArabic ? "حذف جماعي" : "Bulk delete"}
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {isArabic
+                          ? `سيتم حذف ${selectedIds.size} مشروعًا نهائيًا. لا يمكن التراجع.`
+                          : `${selectedIds.size} project(s) will be permanently deleted. This cannot be undone.`}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="gap-2">
+                      <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground">
+                        {isArabic ? "حذف" : "Delete"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                <Button size="sm" variant="ghost" onClick={clearSelection} className="gap-2">
+                  <X className="w-4 h-4" />
+                  {isArabic ? "إلغاء" : "Clear"}
+                </Button>
+              </div>
+            </div>
+          )}
           
           {/* Stats */}
           <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
