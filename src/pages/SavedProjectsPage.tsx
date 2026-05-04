@@ -340,6 +340,10 @@ export default function SavedProjectsPage() {
         p.file_name?.toLowerCase().includes(query)
       );
     }
+
+    if (currencyFilter !== "all") {
+      result = result.filter(p => (p.currency || "SAR") === currencyFilter);
+    }
     
     result.sort((a, b) => {
       let aVal: any, bVal: any;
@@ -372,7 +376,78 @@ export default function SavedProjectsPage() {
     });
     
     return result;
-  }, [projects, searchQuery, sortField, sortDirection]);
+  }, [projects, searchQuery, sortField, sortDirection, currencyFilter]);
+
+  const availableCurrencies = useMemo(() => {
+    const set = new Set<string>();
+    projects.forEach((p) => set.add(p.currency || "SAR"));
+    return Array.from(set);
+  }, [projects]);
+
+  const pageProjects = useMemo(
+    () => filteredProjects.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredProjects, currentPage, pageSize],
+  );
+  const allOnPageSelected = pageProjects.length > 0 && pageProjects.every((p) => selectedIds.has(p.id));
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const toggleSelectAllOnPage = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allOnPageSelected) pageProjects.forEach((p) => next.delete(p.id));
+      else pageProjects.forEach((p) => next.add(p.id));
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    try {
+      await supabase.from("project_items").delete().in("project_id", ids);
+      await supabase.from("project_data").delete().in("id", ids);
+      await supabase.from("saved_projects").delete().in("id", ids);
+      toast({
+        title: isArabic ? "تم الحذف" : "Deleted",
+        description: isArabic ? `تم حذف ${ids.length} مشروع` : `${ids.length} project(s) deleted`,
+      });
+      clearSelection();
+      fetchProjects();
+    } catch (error: any) {
+      toast({
+        title: isArabic ? "فشل الحذف الجماعي" : "Bulk delete failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkExportCsv = () => {
+    if (selectedIds.size === 0) return;
+    const rows = projects.filter((p) => selectedIds.has(p.id));
+    const header = ["name", "file_name", "items_count", "total_value", "currency", "created_at"];
+    const escape = (v: any) => {
+      const s = v == null ? "" : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = [header.join(",")]
+      .concat(rows.map((r) => header.map((h) => escape((r as any)[h])).join(",")))
+      .join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `projects-export-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
 
   const handleLoadProject = (project: ProjectData) => {
     navigate(`/projects/${project.id}`);
