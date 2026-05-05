@@ -204,6 +204,16 @@ export default function ProjectDetailsPage() {
     const CHUNK = 50;
     let inserted: any[] = [];
     try {
+      // Make sure FK parent (saved_projects) exists, otherwise inserts will fail with FK violation
+      const ok = await ensureSavedProjectExists(pid);
+      if (!ok) {
+        throw new Error(
+          isArabic
+            ? "تعذر تجهيز المشروع لحفظ البنود (saved_projects)"
+            : "Could not prepare parent project record (saved_projects)"
+        );
+      }
+
       for (let i = 0; i < payload.length; i += CHUNK) {
         const slice = payload.slice(i, i + CHUNK);
         const { data, error } = await supabase.from("project_items").insert(slice).select("*");
