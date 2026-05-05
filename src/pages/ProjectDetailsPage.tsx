@@ -169,6 +169,33 @@ export default function ProjectDetailsPage() {
     }));
   };
 
+  // Ensure a saved_projects row exists (FK target for project_items.project_id)
+  const ensureSavedProjectExists = async (pid: string) => {
+    if (!user) return false;
+    const { data: existing } = await supabase
+      .from("saved_projects")
+      .select("id")
+      .eq("id", pid)
+      .maybeSingle();
+    if (existing) return true;
+
+    const pd = (project as any) || {};
+    const insertPayload: any = {
+      id: pid,
+      user_id: user.id,
+      name: pd.name || "Untitled",
+      file_name: pd.file_name || null,
+      analysis_data: pd.analysis_data ?? {},
+      wbs_data: pd.wbs_data ?? null,
+    };
+    const { error } = await supabase.from("saved_projects").insert(insertPayload);
+    if (error) {
+      console.error("ensureSavedProjectExists failed:", error);
+      return false;
+    }
+    return true;
+  };
+
   // Backfill project_items from analysis_data.items in chunks with progress
   const runBackfill = async (pid: string, embeddedItems: any[]) => {
     const payload = buildItemsPayload(embeddedItems, pid);
@@ -177,6 +204,16 @@ export default function ProjectDetailsPage() {
     const CHUNK = 50;
     let inserted: any[] = [];
     try {
+      // Make sure FK parent (saved_projects) exists, otherwise inserts will fail with FK violation
+      const ok = await ensureSavedProjectExists(pid);
+      if (!ok) {
+        throw new Error(
+          isArabic
+            ? "تعذر تجهيز المشروع لحفظ البنود (saved_projects)"
+            : "Could not prepare parent project record (saved_projects)"
+        );
+      }
+
       for (let i = 0; i < payload.length; i += CHUNK) {
         const slice = payload.slice(i, i + CHUNK);
         const { data, error } = await supabase.from("project_items").insert(slice).select("*");
