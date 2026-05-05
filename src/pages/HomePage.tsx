@@ -42,6 +42,7 @@ const groups: { titleAr: string; titleEn: string; items: Section[] }[] = [
     titleAr: "نظرة عامة", titleEn: "Overview",
     items: [
       { nameAr: "لوحة المعلومات", nameEn: "Dashboard", descAr: "نظرة عامة على الأداء", descEn: "Performance overview", path: "/dashboard", icon: BarChart3, token: "status-active", countKey: null },
+      { nameAr: "مراقبة التكاليف", nameEn: "Cost Control", descAr: "EVM وتحليل الأداء", descEn: "EVM & performance analysis", path: "/cost-control-report", icon: Shield, token: "priority-high", countKey: null },
       { nameAr: "التقارير", nameEn: "Reports", descAr: "التقارير والتحليلات", descEn: "Reports & analytics", path: "/projects?tab=reports", icon: FileText, token: "status-completed", countKey: null },
     ],
   },

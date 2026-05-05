@@ -795,7 +795,49 @@ export default function ProjectDetailsPage() {
 
   const handleDeleteItem = async (itemId: string) => {
     try {
-      await supabase.from("project_items").delete().eq("id", itemId);
+      // Find item to remove from analysis_data sync
+      const target = items.find(i => i.id === itemId);
+
+      // Delete with explicit select to verify RLS allowed it
+      const { data: deleted, error: delErr } = await supabase
+        .from("project_items")
+        .delete()
+        .eq("id", itemId)
+        .select("id");
+
+      if (delErr) throw delErr;
+      if (!deleted || deleted.length === 0) {
+        throw new Error(
+          isArabic
+            ? "لم يتم حذف البند (قد تكون الصلاحيات غير كافية)"
+            : "Item was not deleted (insufficient permissions)"
+        );
+      }
+
+      // Sync analysis_data.items so backfill won't restore it on reload
+      try {
+        const currentAnalysis = (project as any)?.analysis_data ?? {};
+        const embedded: any[] = Array.isArray(currentAnalysis.items) ? currentAnalysis.items : [];
+        if (embedded.length > 0 && target) {
+          const filtered = embedded.filter((it: any) => {
+            const num = String(it.item_number ?? it.itemNumber ?? it.code ?? "");
+            const desc = String(it.description ?? it.desc ?? it.name ?? "");
+            return !(num === String(target.item_number ?? "") && desc === String(target.description ?? ""));
+          });
+          if (filtered.length !== embedded.length) {
+            const updatedAnalysis = { ...currentAnalysis, items: filtered };
+            const tasks = [
+              supabase.from("saved_projects").update({ analysis_data: updatedAnalysis }).eq("id", projectId!),
+              supabase.from("project_data").update({ analysis_data: updatedAnalysis, items_count: filtered.length }).eq("id", projectId!),
+            ];
+            await Promise.allSettled(tasks);
+            setProject((p: any) => p ? { ...p, analysis_data: updatedAnalysis } : p);
+          }
+        }
+      } catch (syncErr) {
+        console.warn("analysis_data sync after delete failed:", syncErr);
+      }
+
       setItems(prev => prev.filter(i => i.id !== itemId));
       setSelectedItems(prev => {
         const newSet = new Set(prev);
@@ -951,6 +993,29 @@ export default function ProjectDetailsPage() {
         .or("quantity.is.null,quantity.eq.0");
 
       if (error) throw error;
+
+      // Sync analysis_data.items so deleted zero-qty rows don't reappear after reload
+      try {
+        const currentAnalysis = (project as any)?.analysis_data ?? {};
+        const embedded: any[] = Array.isArray(currentAnalysis.items) ? currentAnalysis.items : [];
+        if (embedded.length > 0) {
+          const filtered = embedded.filter((it: any) => {
+            const q = it.quantity ?? it.qty ?? it.qnty;
+            const num = q === null || q === undefined || q === "" ? null : Number(q);
+            return num !== null && num !== 0 && Number.isFinite(num);
+          });
+          if (filtered.length !== embedded.length) {
+            const updatedAnalysis = { ...currentAnalysis, items: filtered };
+            await Promise.allSettled([
+              supabase.from("saved_projects").update({ analysis_data: updatedAnalysis }).eq("id", projectId!),
+              supabase.from("project_data").update({ analysis_data: updatedAnalysis, items_count: filtered.length }).eq("id", projectId!),
+            ]);
+            setProject((p: any) => p ? { ...p, analysis_data: updatedAnalysis } : p);
+          }
+        }
+      } catch (syncErr) {
+        console.warn("analysis_data sync after bulk-delete failed:", syncErr);
+      }
 
       toast({ 
         title: isArabic ? "تم الحذف بنجاح" : "Deleted successfully",
