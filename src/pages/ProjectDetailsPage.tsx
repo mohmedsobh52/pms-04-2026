@@ -994,6 +994,29 @@ export default function ProjectDetailsPage() {
 
       if (error) throw error;
 
+      // Sync analysis_data.items so deleted zero-qty rows don't reappear after reload
+      try {
+        const currentAnalysis = (project as any)?.analysis_data ?? {};
+        const embedded: any[] = Array.isArray(currentAnalysis.items) ? currentAnalysis.items : [];
+        if (embedded.length > 0) {
+          const filtered = embedded.filter((it: any) => {
+            const q = it.quantity ?? it.qty ?? it.qnty;
+            const num = q === null || q === undefined || q === "" ? null : Number(q);
+            return num !== null && num !== 0 && Number.isFinite(num);
+          });
+          if (filtered.length !== embedded.length) {
+            const updatedAnalysis = { ...currentAnalysis, items: filtered };
+            await Promise.allSettled([
+              supabase.from("saved_projects").update({ analysis_data: updatedAnalysis }).eq("id", projectId!),
+              supabase.from("project_data").update({ analysis_data: updatedAnalysis, items_count: filtered.length }).eq("id", projectId!),
+            ]);
+            setProject((p: any) => p ? { ...p, analysis_data: updatedAnalysis } : p);
+          }
+        }
+      } catch (syncErr) {
+        console.warn("analysis_data sync after bulk-delete failed:", syncErr);
+      }
+
       toast({ 
         title: isArabic ? "تم الحذف بنجاح" : "Deleted successfully",
         description: isArabic 
