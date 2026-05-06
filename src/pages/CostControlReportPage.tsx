@@ -1425,6 +1425,7 @@ export default function CostControlReportPage() {
                       <TableHead className="w-24 text-right cursor-pointer hover:bg-muted/80" onClick={() => handleSort('etc')}>
                         ETC <ArrowUpDown className="inline h-3 w-3 ml-1" />
                       </TableHead>
+                      <TableHead className="w-20 text-center">{isArabic ? "إجراء" : "Action"}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
