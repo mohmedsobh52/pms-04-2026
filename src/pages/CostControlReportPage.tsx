@@ -576,13 +576,31 @@ export default function CostControlReportPage() {
     fetchProjectData();
   }, [selectedProjectId, useRealData, isArabic]);
 
-  // Get activities based on data source
+  // Get activities based on data source (with inline overrides applied)
   const allActivities = useMemo(() => {
-    if (useRealData && projectItems.length > 0) {
-      return convertItemsToActivities(projectItems, progressHistory);
-    }
-    return sampleActivities;
-  }, [useRealData, projectItems, progressHistory]);
+    const base = (useRealData && projectItems.length > 0)
+      ? convertItemsToActivities(projectItems, progressHistory)
+      : sampleActivities;
+    return base.map(a => {
+      const ov = overrides[a.sn];
+      if (!ov) return a;
+      const progress = ov.progress ?? a.progress;
+      const ac = ov.ac ?? a.ac;
+      const ev = a.pv * (progress / 100);
+      const cv = ev - ac;
+      const sv = ev - a.pv;
+      const cpi = ac > 0 ? ev / ac : 0;
+      const spi = a.pv > 0 ? ev / a.pv : 0;
+      const bac = a.pv;
+      const eac1 = cpi > 0 ? bac / cpi : bac;
+      const eac2 = ac + (bac - ev);
+      const eac3 = cpi > 0 && spi > 0 ? ac + ((bac - ev) / (cpi * spi)) : bac;
+      const eacByPert = (eac1 + 4 * eac2 + eac3) / 6;
+      const etc = eacByPert - ac;
+      const tcpi = (bac - ev) > 0 ? (bac - ev) / (bac - ac) : 0;
+      return { ...a, progress, ev, ac, cv, sv, cpi, spi, eac1, eac2, eac3, eacByPert, etc, tcpi };
+    });
+  }, [useRealData, projectItems, progressHistory, overrides]);
 
   // Filter activities based on selections
   const filteredActivities = useMemo(() => {
