@@ -19,8 +19,10 @@ import { toast } from "sonner";
 import { 
   Search, FileSpreadsheet, TrendingUp, TrendingDown, DollarSign, Target, 
   BarChart3, Activity, ChevronLeft, ChevronRight, ArrowUpDown, Download,
-  Building2, Zap, Wrench, PaintBucket, HardHat, Database, Loader2, Edit, Save, RefreshCw
+  Building2, Zap, Wrench, PaintBucket, HardHat, Database, Loader2, Edit, Save, RefreshCw,
+  Printer, FileText, AlertTriangle, LineChart as LineChartIcon, Check, X
 } from "lucide-react";
+import { exportCostControlPDF } from "@/lib/cost-control-pdf";
 import {
   Chart as ChartJS,
   CategoryScale,
