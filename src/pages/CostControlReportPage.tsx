@@ -1260,31 +1260,27 @@ export default function CostControlReportPage() {
                   disabled={isExporting}
                   size="sm"
                 >
-                  {isExporting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
+                  {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                   {isArabic ? "تصدير Excel" : "Export Excel"}
                 </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={handleExportPDF} disabled={isExportingPDF}>
+                    {isExportingPDF ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+                    PDF
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={handlePrint}>
+                    <Printer className="h-3 w-3" />
+                    {isArabic ? "طباعة" : "Print"}
+                  </Button>
+                </div>
                 {useRealData && selectedProjectId && (
                   <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1 gap-1"
-                      onClick={() => setEditProgressDialog({ open: true, progress: progressHistory?.actual_progress || 60 })}
-                    >
+                    <Button variant="outline" size="sm" className="flex-1 gap-1"
+                      onClick={() => setEditProgressDialog({ open: true, progress: progressHistory?.actual_progress || 60 })}>
                       <Edit className="h-3 w-3" />
                       {isArabic ? "تحديث" : "Edit"}
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1 gap-1"
-                      onClick={handleSaveReport}
-                      disabled={isSaving}
-                    >
+                    <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={handleSaveReport} disabled={isSaving}>
                       {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                       {isArabic ? "حفظ" : "Save"}
                     </Button>
@@ -1293,6 +1289,29 @@ export default function CostControlReportPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Alerts Banner */}
+          {alerts.length > 0 && (
+            <Card className="border-amber-300/50 bg-gradient-to-br from-amber-50 to-rose-50 dark:from-amber-950/30 dark:to-rose-950/30 shadow-lg">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                  {isArabic ? "تنبيهات الأداء والتنبؤات" : "Performance & Forecast Alerts"}
+                  <Badge variant="secondary" className="ml-1">{alerts.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <ul className="space-y-1.5">
+                  {alerts.map((a, i) => (
+                    <li key={i} className={`flex items-start gap-2 text-sm ${a.level === "danger" ? "text-rose-700 dark:text-rose-300" : "text-amber-700 dark:text-amber-300"}`}>
+                      <span className={`mt-1 h-2 w-2 rounded-full shrink-0 ${a.level === "danger" ? "bg-rose-500" : "bg-amber-500"}`} />
+                      <span>{a.msg}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Main Chart */}
           <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
