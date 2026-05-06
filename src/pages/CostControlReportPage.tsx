@@ -497,6 +497,12 @@ export default function CostControlReportPage() {
   const [isSaving, setIsSaving] = useState(false);
   const itemsPerPage = 15;
 
+  // Inline edit state for table rows (Progress / AC)
+  const [editingRow, setEditingRow] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<{ progress: number; ac: number }>({ progress: 0, ac: 0 });
+  const [overrides, setOverrides] = useState<Record<number, { progress?: number; ac?: number }>>({});
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+
   // Edit progress dialog
   const [editProgressDialog, setEditProgressDialog] = useState<{
     open: boolean;
