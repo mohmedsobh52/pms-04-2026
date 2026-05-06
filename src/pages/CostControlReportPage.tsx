@@ -1453,29 +1453,56 @@ export default function CostControlReportPage() {
                           </TableCell>
                         )}
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1">
-                              <Progress value={activity.progress} className="h-2" />
+                          {editingRow === activity.sn ? (
+                            <Input
+                              type="number" min={0} max={100}
+                              value={editDraft.progress}
+                              onChange={(e) => setEditDraft(d => ({ ...d, progress: Number(e.target.value) }))}
+                              className="h-7 w-20 text-xs"
+                            />
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1"><Progress value={activity.progress} className="h-2" /></div>
+                              <span className={`text-xs font-bold w-10 text-right ${getProgressTextColor(activity.progress)}`}>
+                                {activity.progress}%
+                              </span>
+                              {overrides[activity.sn] && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">{isArabic ? "معدّل" : "edit"}</Badge>
+                              )}
                             </div>
-                            <span className={`text-xs font-bold w-10 text-right ${getProgressTextColor(activity.progress)}`}>
-                              {activity.progress}%
-                            </span>
-                          </div>
+                          )}
                         </TableCell>
+                        <TableCell className="text-right font-mono text-sm">{formatValue(activity.pv)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">{formatValue(activity.ev)}</TableCell>
                         <TableCell className="text-right font-mono text-sm">
-                          {formatValue(activity.pv)}
+                          {editingRow === activity.sn ? (
+                            <Input
+                              type="number" min={0}
+                              value={editDraft.ac}
+                              onChange={(e) => setEditDraft(d => ({ ...d, ac: Number(e.target.value) }))}
+                              className="h-7 w-24 text-xs ml-auto"
+                            />
+                          ) : (
+                            formatValue(activity.ac)
+                          )}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatValue(activity.ev)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatValue(activity.ac)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatValue(activity.eacByPert)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatValue(activity.etc)}
+                        <TableCell className="text-right font-mono text-sm">{formatValue(activity.eacByPert)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">{formatValue(activity.etc)}</TableCell>
+                        <TableCell className="text-center">
+                          {editingRow === activity.sn ? (
+                            <div className="flex gap-1 justify-center">
+                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => saveEditRow(activity.sn)}>
+                                <Check className="h-3.5 w-3.5 text-emerald-600" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={cancelEditRow}>
+                                <X className="h-3.5 w-3.5 text-rose-600" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => startEditRow(activity)}>
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
