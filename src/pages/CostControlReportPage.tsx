@@ -1333,6 +1333,40 @@ export default function CostControlReportPage() {
             </CardContent>
           </Card>
 
+          {/* S-Curve & CPI/SPI Trend */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <LineChartIcon className="h-4 w-4 text-primary" />
+                  {isArabic ? "منحنى S التراكمي (PV/EV/AC)" : "Cumulative S-Curve (PV/EV/AC)"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[280px]">
+                  <Chart type="line" data={sCurveData} options={createChartOptions(isArabic)} />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Activity className="h-4 w-4 text-primary" />
+                  {isArabic ? "اتجاه CPI / SPI" : "CPI / SPI Trend"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[280px]">
+                  <Chart type="line" data={cpiSpiTrendData} options={{
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: "top" as const, labels: { usePointStyle: true, font: { size: 11 } } } },
+                    scales: { y: { suggestedMin: 0, suggestedMax: 1.4 }, x: { ticks: { font: { size: 9 }, maxRotation: 45, minRotation: 45 } } },
+                  }} />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Data Table */}
           <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
             <CardHeader className="pb-3">
