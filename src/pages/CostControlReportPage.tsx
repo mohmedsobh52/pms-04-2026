@@ -19,8 +19,10 @@ import { toast } from "sonner";
 import { 
   Search, FileSpreadsheet, TrendingUp, TrendingDown, DollarSign, Target, 
   BarChart3, Activity, ChevronLeft, ChevronRight, ArrowUpDown, Download,
-  Building2, Zap, Wrench, PaintBucket, HardHat, Database, Loader2, Edit, Save, RefreshCw
+  Building2, Zap, Wrench, PaintBucket, HardHat, Database, Loader2, Edit, Save, RefreshCw,
+  Printer, FileText, AlertTriangle, LineChart as LineChartIcon, Check, X
 } from "lucide-react";
+import { exportCostControlPDF } from "@/lib/cost-control-pdf";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -495,6 +497,12 @@ export default function CostControlReportPage() {
   const [isSaving, setIsSaving] = useState(false);
   const itemsPerPage = 15;
 
+  // Inline edit state for table rows (Progress / AC)
+  const [editingRow, setEditingRow] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<{ progress: number; ac: number }>({ progress: 0, ac: 0 });
+  const [overrides, setOverrides] = useState<Record<number, { progress?: number; ac?: number }>>({});
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+
   // Edit progress dialog
   const [editProgressDialog, setEditProgressDialog] = useState<{
     open: boolean;
@@ -568,13 +576,31 @@ export default function CostControlReportPage() {
     fetchProjectData();
   }, [selectedProjectId, useRealData, isArabic]);
 
-  // Get activities based on data source
+  // Get activities based on data source (with inline overrides applied)
   const allActivities = useMemo(() => {
-    if (useRealData && projectItems.length > 0) {
-      return convertItemsToActivities(projectItems, progressHistory);
-    }
-    return sampleActivities;
-  }, [useRealData, projectItems, progressHistory]);
+    const base = (useRealData && projectItems.length > 0)
+      ? convertItemsToActivities(projectItems, progressHistory)
+      : sampleActivities;
+    return base.map(a => {
+      const ov = overrides[a.sn];
+      if (!ov) return a;
+      const progress = ov.progress ?? a.progress;
+      const ac = ov.ac ?? a.ac;
+      const ev = a.pv * (progress / 100);
+      const cv = ev - ac;
+      const sv = ev - a.pv;
+      const cpi = ac > 0 ? ev / ac : 0;
+      const spi = a.pv > 0 ? ev / a.pv : 0;
+      const bac = a.pv;
+      const eac1 = cpi > 0 ? bac / cpi : bac;
+      const eac2 = ac + (bac - ev);
+      const eac3 = cpi > 0 && spi > 0 ? ac + ((bac - ev) / (cpi * spi)) : bac;
+      const eacByPert = (eac1 + 4 * eac2 + eac3) / 6;
+      const etc = eacByPert - ac;
+      const tcpi = (bac - ev) > 0 ? (bac - ev) / (bac - ac) : 0;
+      return { ...a, progress, ev, ac, cv, sv, cpi, spi, eac1, eac2, eac3, eacByPert, etc, tcpi };
+    });
+  }, [useRealData, projectItems, progressHistory, overrides]);
 
   // Filter activities based on selections
   const filteredActivities = useMemo(() => {
@@ -828,6 +854,87 @@ export default function CostControlReportPage() {
       setIsSaving(false);
     }
   };
+
+  // ===== Inline edit handlers =====
+  const startEditRow = (a: EVMActivity) => {
+    setEditingRow(a.sn);
+    setEditDraft({ progress: a.progress, ac: a.ac });
+  };
+  const cancelEditRow = () => setEditingRow(null);
+  const saveEditRow = (sn: number) => {
+    setOverrides(prev => ({
+      ...prev,
+      [sn]: { progress: Math.max(0, Math.min(100, editDraft.progress)), ac: Math.max(0, editDraft.ac) },
+    }));
+    setEditingRow(null);
+    toast.success(isArabic ? "تم تحديث الصف" : "Row updated");
+  };
+
+  // ===== Alerts (Forecast/Variance) =====
+  const alerts = useMemo(() => {
+    const list: { level: "warn" | "danger"; msg: string }[] = [];
+    if (totals.cpi > 0 && totals.cpi < 0.85) list.push({ level: "danger", msg: isArabic ? `CPI حرج (${totals.cpi.toFixed(2)}) — تجاوز كبير في التكلفة` : `Critical CPI (${totals.cpi.toFixed(2)}) — major cost overrun` });
+    else if (totals.cpi > 0 && totals.cpi < 0.95) list.push({ level: "warn", msg: isArabic ? `CPI منخفض (${totals.cpi.toFixed(2)})` : `Low CPI (${totals.cpi.toFixed(2)})` });
+    if (totals.spi > 0 && totals.spi < 0.85) list.push({ level: "danger", msg: isArabic ? `SPI حرج (${totals.spi.toFixed(2)}) — تأخر كبير عن الجدول` : `Critical SPI (${totals.spi.toFixed(2)}) — major schedule slip` });
+    else if (totals.spi > 0 && totals.spi < 0.95) list.push({ level: "warn", msg: isArabic ? `SPI منخفض (${totals.spi.toFixed(2)})` : `Low SPI (${totals.spi.toFixed(2)})` });
+    if (totals.eacByPert > totals.pv * 1.1) list.push({ level: "danger", msg: isArabic ? `التكلفة المتوقعة (EAC) تتجاوز الميزانية بأكثر من 10%` : `EAC exceeds budget by more than 10%` });
+    if (totals.tcpi > 1.1) list.push({ level: "warn", msg: isArabic ? `TCPI=${totals.tcpi.toFixed(2)} يتطلب أداءً صعبًا للإنجاز ضمن الميزانية` : `TCPI=${totals.tcpi.toFixed(2)} — challenging recovery required` });
+    return list;
+  }, [totals, isArabic]);
+
+  // ===== S-Curve & Trend data =====
+  const sCurveData = useMemo(() => {
+    const sorted = [...filteredActivities].sort((a, b) => a.sn - b.sn);
+    let cumPV = 0, cumEV = 0, cumAC = 0;
+    const labels: string[] = [];
+    const pvArr: number[] = [], evArr: number[] = [], acArr: number[] = [];
+    sorted.forEach((a, idx) => {
+      cumPV += a.pv; cumEV += a.ev; cumAC += a.ac;
+      labels.push(`P${idx + 1}`);
+      pvArr.push(cumPV / 1e6); evArr.push(cumEV / 1e6); acArr.push(cumAC / 1e6);
+    });
+    return {
+      labels,
+      datasets: [
+        { type: "line" as const, label: "PV (cum)", data: pvArr, borderColor: "hsl(217,91%,60%)", backgroundColor: "hsla(217,91%,60%,0.1)", borderWidth: 2, tension: 0.35, fill: true, pointRadius: 0 },
+        { type: "line" as const, label: "EV (cum)", data: evArr, borderColor: "hsl(160,84%,39%)", backgroundColor: "hsla(160,84%,39%,0.1)", borderWidth: 2, tension: 0.35, fill: true, pointRadius: 0 },
+        { type: "line" as const, label: "AC (cum)", data: acArr, borderColor: "hsl(25,95%,53%)", backgroundColor: "hsla(25,95%,53%,0.1)", borderWidth: 2, tension: 0.35, fill: true, pointRadius: 0 },
+      ],
+    };
+  }, [filteredActivities]);
+
+  const cpiSpiTrendData = useMemo(() => {
+    const sorted = [...filteredActivities].sort((a, b) => a.sn - b.sn);
+    return {
+      labels: sorted.map(a => a.activityCode),
+      datasets: [
+        { type: "line" as const, label: "CPI", data: sorted.map(a => a.cpi), borderColor: "hsl(217,91%,60%)", borderWidth: 2, pointRadius: 2, tension: 0.3 },
+        { type: "line" as const, label: "SPI", data: sorted.map(a => a.spi), borderColor: "hsl(280,80%,55%)", borderWidth: 2, pointRadius: 2, tension: 0.3 },
+        { type: "line" as const, label: "Target (1.0)", data: sorted.map(() => 1), borderColor: "hsl(0,0%,55%)", borderWidth: 1, borderDash: [5, 5], pointRadius: 0 },
+      ],
+    };
+  }, [filteredActivities]);
+
+  const handlePrint = () => window.print();
+
+  const handleExportPDF = useCallback(async () => {
+    setIsExportingPDF(true);
+    try {
+      exportCostControlPDF({
+        isArabic,
+        projectName: projects.find(p => p.id === selectedProjectId)?.name,
+        totals,
+        activities: filteredActivities,
+        alerts: alerts.map(a => a.msg),
+      });
+      toast.success(isArabic ? "تم تصدير PDF" : "PDF exported");
+    } catch (e) {
+      console.error(e);
+      toast.error(isArabic ? "فشل تصدير PDF" : "PDF export failed");
+    } finally {
+      setIsExportingPDF(false);
+    }
+  }, [isArabic, totals, filteredActivities, alerts, projects, selectedProjectId]);
 
   const handleExportExcel = useCallback(async () => {
     setIsExporting(true);
@@ -1153,31 +1260,27 @@ export default function CostControlReportPage() {
                   disabled={isExporting}
                   size="sm"
                 >
-                  {isExporting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
+                  {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                   {isArabic ? "تصدير Excel" : "Export Excel"}
                 </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={handleExportPDF} disabled={isExportingPDF}>
+                    {isExportingPDF ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+                    PDF
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={handlePrint}>
+                    <Printer className="h-3 w-3" />
+                    {isArabic ? "طباعة" : "Print"}
+                  </Button>
+                </div>
                 {useRealData && selectedProjectId && (
                   <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1 gap-1"
-                      onClick={() => setEditProgressDialog({ open: true, progress: progressHistory?.actual_progress || 60 })}
-                    >
+                    <Button variant="outline" size="sm" className="flex-1 gap-1"
+                      onClick={() => setEditProgressDialog({ open: true, progress: progressHistory?.actual_progress || 60 })}>
                       <Edit className="h-3 w-3" />
                       {isArabic ? "تحديث" : "Edit"}
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1 gap-1"
-                      onClick={handleSaveReport}
-                      disabled={isSaving}
-                    >
+                    <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={handleSaveReport} disabled={isSaving}>
                       {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                       {isArabic ? "حفظ" : "Save"}
                     </Button>
@@ -1186,6 +1289,29 @@ export default function CostControlReportPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Alerts Banner */}
+          {alerts.length > 0 && (
+            <Card className="border-amber-300/50 bg-gradient-to-br from-amber-50 to-rose-50 dark:from-amber-950/30 dark:to-rose-950/30 shadow-lg">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                  {isArabic ? "تنبيهات الأداء والتنبؤات" : "Performance & Forecast Alerts"}
+                  <Badge variant="secondary" className="ml-1">{alerts.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <ul className="space-y-1.5">
+                  {alerts.map((a, i) => (
+                    <li key={i} className={`flex items-start gap-2 text-sm ${a.level === "danger" ? "text-rose-700 dark:text-rose-300" : "text-amber-700 dark:text-amber-300"}`}>
+                      <span className={`mt-1 h-2 w-2 rounded-full shrink-0 ${a.level === "danger" ? "bg-rose-500" : "bg-amber-500"}`} />
+                      <span>{a.msg}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Main Chart */}
           <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
@@ -1206,6 +1332,40 @@ export default function CostControlReportPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* S-Curve & CPI/SPI Trend */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <LineChartIcon className="h-4 w-4 text-primary" />
+                  {isArabic ? "منحنى S التراكمي (PV/EV/AC)" : "Cumulative S-Curve (PV/EV/AC)"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[280px]">
+                  <Chart type="line" data={sCurveData} options={createChartOptions(isArabic)} />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Activity className="h-4 w-4 text-primary" />
+                  {isArabic ? "اتجاه CPI / SPI" : "CPI / SPI Trend"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[280px]">
+                  <Chart type="line" data={cpiSpiTrendData} options={{
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: "top" as const, labels: { usePointStyle: true, font: { size: 11 } } } },
+                    scales: { y: { suggestedMin: 0, suggestedMax: 1.4 }, x: { ticks: { font: { size: 9 }, maxRotation: 45, minRotation: 45 } } },
+                  }} />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Data Table */}
           <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
@@ -1265,6 +1425,7 @@ export default function CostControlReportPage() {
                       <TableHead className="w-24 text-right cursor-pointer hover:bg-muted/80" onClick={() => handleSort('etc')}>
                         ETC <ArrowUpDown className="inline h-3 w-3 ml-1" />
                       </TableHead>
+                      <TableHead className="w-20 text-center">{isArabic ? "إجراء" : "Action"}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1292,29 +1453,56 @@ export default function CostControlReportPage() {
                           </TableCell>
                         )}
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1">
-                              <Progress value={activity.progress} className="h-2" />
+                          {editingRow === activity.sn ? (
+                            <Input
+                              type="number" min={0} max={100}
+                              value={editDraft.progress}
+                              onChange={(e) => setEditDraft(d => ({ ...d, progress: Number(e.target.value) }))}
+                              className="h-7 w-20 text-xs"
+                            />
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1"><Progress value={activity.progress} className="h-2" /></div>
+                              <span className={`text-xs font-bold w-10 text-right ${getProgressTextColor(activity.progress)}`}>
+                                {activity.progress}%
+                              </span>
+                              {overrides[activity.sn] && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">{isArabic ? "معدّل" : "edit"}</Badge>
+                              )}
                             </div>
-                            <span className={`text-xs font-bold w-10 text-right ${getProgressTextColor(activity.progress)}`}>
-                              {activity.progress}%
-                            </span>
-                          </div>
+                          )}
                         </TableCell>
+                        <TableCell className="text-right font-mono text-sm">{formatValue(activity.pv)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">{formatValue(activity.ev)}</TableCell>
                         <TableCell className="text-right font-mono text-sm">
-                          {formatValue(activity.pv)}
+                          {editingRow === activity.sn ? (
+                            <Input
+                              type="number" min={0}
+                              value={editDraft.ac}
+                              onChange={(e) => setEditDraft(d => ({ ...d, ac: Number(e.target.value) }))}
+                              className="h-7 w-24 text-xs ml-auto"
+                            />
+                          ) : (
+                            formatValue(activity.ac)
+                          )}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatValue(activity.ev)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatValue(activity.ac)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatValue(activity.eacByPert)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatValue(activity.etc)}
+                        <TableCell className="text-right font-mono text-sm">{formatValue(activity.eacByPert)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">{formatValue(activity.etc)}</TableCell>
+                        <TableCell className="text-center">
+                          {editingRow === activity.sn ? (
+                            <div className="flex gap-1 justify-center">
+                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => saveEditRow(activity.sn)}>
+                                <Check className="h-3.5 w-3.5 text-emerald-600" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={cancelEditRow}>
+                                <X className="h-3.5 w-3.5 text-rose-600" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => startEditRow(activity)}>
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1345,6 +1533,13 @@ export default function CostControlReportPage() {
                       <TableCell className="text-right font-mono">{formatValue(totals.ac)}</TableCell>
                       <TableCell className="text-right font-mono">{formatValue(totals.eacByPert)}</TableCell>
                       <TableCell className="text-right font-mono">{formatValue(totals.etc)}</TableCell>
+                      <TableCell className="text-center">
+                        {Object.keys(overrides).length > 0 && (
+                          <Button size="icon" variant="ghost" className="h-6 w-6" title={isArabic ? "إعادة تعيين التعديلات" : "Reset overrides"} onClick={() => { setOverrides({}); toast.success(isArabic ? "تم إعادة التعيين" : "Reset"); }}>
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
