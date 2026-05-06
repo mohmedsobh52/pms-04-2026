@@ -936,6 +936,7 @@ export default function CostControlReportPage() {
     }
   }, [isArabic, totals, filteredActivities, alerts, projects, selectedProjectId]);
 
+  const handleExportExcel = useCallback(async () => {
     setIsExporting(true);
     try {
       const workbook = createWorkbook();
