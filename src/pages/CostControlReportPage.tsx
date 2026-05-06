@@ -855,7 +855,87 @@ export default function CostControlReportPage() {
     }
   };
 
-  const handleExportExcel = useCallback(async () => {
+  // ===== Inline edit handlers =====
+  const startEditRow = (a: EVMActivity) => {
+    setEditingRow(a.sn);
+    setEditDraft({ progress: a.progress, ac: a.ac });
+  };
+  const cancelEditRow = () => setEditingRow(null);
+  const saveEditRow = (sn: number) => {
+    setOverrides(prev => ({
+      ...prev,
+      [sn]: { progress: Math.max(0, Math.min(100, editDraft.progress)), ac: Math.max(0, editDraft.ac) },
+    }));
+    setEditingRow(null);
+    toast.success(isArabic ? "تم تحديث الصف" : "Row updated");
+  };
+
+  // ===== Alerts (Forecast/Variance) =====
+  const alerts = useMemo(() => {
+    const list: { level: "warn" | "danger"; msg: string }[] = [];
+    if (totals.cpi > 0 && totals.cpi < 0.85) list.push({ level: "danger", msg: isArabic ? `CPI حرج (${totals.cpi.toFixed(2)}) — تجاوز كبير في التكلفة` : `Critical CPI (${totals.cpi.toFixed(2)}) — major cost overrun` });
+    else if (totals.cpi > 0 && totals.cpi < 0.95) list.push({ level: "warn", msg: isArabic ? `CPI منخفض (${totals.cpi.toFixed(2)})` : `Low CPI (${totals.cpi.toFixed(2)})` });
+    if (totals.spi > 0 && totals.spi < 0.85) list.push({ level: "danger", msg: isArabic ? `SPI حرج (${totals.spi.toFixed(2)}) — تأخر كبير عن الجدول` : `Critical SPI (${totals.spi.toFixed(2)}) — major schedule slip` });
+    else if (totals.spi > 0 && totals.spi < 0.95) list.push({ level: "warn", msg: isArabic ? `SPI منخفض (${totals.spi.toFixed(2)})` : `Low SPI (${totals.spi.toFixed(2)})` });
+    if (totals.eacByPert > totals.pv * 1.1) list.push({ level: "danger", msg: isArabic ? `التكلفة المتوقعة (EAC) تتجاوز الميزانية بأكثر من 10%` : `EAC exceeds budget by more than 10%` });
+    if (totals.tcpi > 1.1) list.push({ level: "warn", msg: isArabic ? `TCPI=${totals.tcpi.toFixed(2)} يتطلب أداءً صعبًا للإنجاز ضمن الميزانية` : `TCPI=${totals.tcpi.toFixed(2)} — challenging recovery required` });
+    return list;
+  }, [totals, isArabic]);
+
+  // ===== S-Curve & Trend data =====
+  const sCurveData = useMemo(() => {
+    const sorted = [...filteredActivities].sort((a, b) => a.sn - b.sn);
+    let cumPV = 0, cumEV = 0, cumAC = 0;
+    const labels: string[] = [];
+    const pvArr: number[] = [], evArr: number[] = [], acArr: number[] = [];
+    sorted.forEach((a, idx) => {
+      cumPV += a.pv; cumEV += a.ev; cumAC += a.ac;
+      labels.push(`P${idx + 1}`);
+      pvArr.push(cumPV / 1e6); evArr.push(cumEV / 1e6); acArr.push(cumAC / 1e6);
+    });
+    return {
+      labels,
+      datasets: [
+        { type: "line" as const, label: "PV (cum)", data: pvArr, borderColor: "hsl(217,91%,60%)", backgroundColor: "hsla(217,91%,60%,0.1)", borderWidth: 2, tension: 0.35, fill: true, pointRadius: 0 },
+        { type: "line" as const, label: "EV (cum)", data: evArr, borderColor: "hsl(160,84%,39%)", backgroundColor: "hsla(160,84%,39%,0.1)", borderWidth: 2, tension: 0.35, fill: true, pointRadius: 0 },
+        { type: "line" as const, label: "AC (cum)", data: acArr, borderColor: "hsl(25,95%,53%)", backgroundColor: "hsla(25,95%,53%,0.1)", borderWidth: 2, tension: 0.35, fill: true, pointRadius: 0 },
+      ],
+    };
+  }, [filteredActivities]);
+
+  const cpiSpiTrendData = useMemo(() => {
+    const sorted = [...filteredActivities].sort((a, b) => a.sn - b.sn);
+    return {
+      labels: sorted.map(a => a.activityCode),
+      datasets: [
+        { type: "line" as const, label: "CPI", data: sorted.map(a => a.cpi), borderColor: "hsl(217,91%,60%)", borderWidth: 2, pointRadius: 2, tension: 0.3 },
+        { type: "line" as const, label: "SPI", data: sorted.map(a => a.spi), borderColor: "hsl(280,80%,55%)", borderWidth: 2, pointRadius: 2, tension: 0.3 },
+        { type: "line" as const, label: "Target (1.0)", data: sorted.map(() => 1), borderColor: "hsl(0,0%,55%)", borderWidth: 1, borderDash: [5, 5], pointRadius: 0 },
+      ],
+    };
+  }, [filteredActivities]);
+
+  const handlePrint = () => window.print();
+
+  const handleExportPDF = useCallback(async () => {
+    setIsExportingPDF(true);
+    try {
+      exportCostControlPDF({
+        isArabic,
+        projectName: projects.find(p => p.id === selectedProjectId)?.name,
+        totals,
+        activities: filteredActivities,
+        alerts: alerts.map(a => a.msg),
+      });
+      toast.success(isArabic ? "تم تصدير PDF" : "PDF exported");
+    } catch (e) {
+      console.error(e);
+      toast.error(isArabic ? "فشل تصدير PDF" : "PDF export failed");
+    } finally {
+      setIsExportingPDF(false);
+    }
+  }, [isArabic, totals, filteredActivities, alerts, projects, selectedProjectId]);
+
     setIsExporting(true);
     try {
       const workbook = createWorkbook();
