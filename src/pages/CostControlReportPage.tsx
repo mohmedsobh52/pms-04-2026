@@ -503,6 +503,18 @@ export default function CostControlReportPage() {
   const [overrides, setOverrides] = useState<Record<number, { progress?: number; ac?: number }>>({});
   const [isExportingPDF, setIsExportingPDF] = useState(false);
 
+  // Threshold settings (CPI/SPI/EAC overrun %/TCPI)
+  const [thresholds, setThresholds] = useState({
+    cpi_warn: 0.95, cpi_critical: 0.85,
+    spi_warn: 0.95, spi_critical: 0.85,
+    eac_overrun_pct: 10, tcpi_warn: 1.10,
+  });
+  const [thresholdsDialogOpen, setThresholdsDialogOpen] = useState(false);
+  const [isSavingThresholds, setIsSavingThresholds] = useState(false);
+
+  // Clickable alert filter
+  const [alertFilter, setAlertFilter] = useState<null | "cpi-warn" | "cpi-crit" | "spi-warn" | "spi-crit" | "eac" | "tcpi">(null);
+
   // Edit progress dialog
   const [editProgressDialog, setEditProgressDialog] = useState<{
     open: boolean;
