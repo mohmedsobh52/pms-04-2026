@@ -1685,7 +1685,7 @@ export default function CostControlReportPage() {
                       <TableCell className="text-right font-mono">{formatValue(totals.etc)}</TableCell>
                       <TableCell className="text-center">
                         {Object.keys(overrides).length > 0 && (
-                          <Button size="icon" variant="ghost" className="h-6 w-6" title={isArabic ? "إعادة تعيين التعديلات" : "Reset overrides"} onClick={() => { setOverrides({}); toast.success(isArabic ? "تم إعادة التعيين" : "Reset"); }}>
+                          <Button size="icon" variant="ghost" className="h-6 w-6" title={isArabic ? "إعادة تعيين التعديلات" : "Reset overrides"} onClick={resetOverrides}>
                             <RefreshCw className="h-3.5 w-3.5" />
                           </Button>
                         )}
