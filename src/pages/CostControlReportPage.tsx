@@ -1418,7 +1418,7 @@ export default function CostControlReportPage() {
             </Card>
           </div>
 
-          {/* Alerts Banner */}
+          {/* Alerts Banner — clickable to filter table */}
           {alerts.length > 0 && (
             <Card className="border-amber-300/50 bg-gradient-to-br from-amber-50 to-rose-50 dark:from-amber-950/30 dark:to-rose-950/30 shadow-lg">
               <CardHeader className="pb-2">
@@ -1426,16 +1426,38 @@ export default function CostControlReportPage() {
                   <AlertTriangle className="h-5 w-5 text-amber-600" />
                   {isArabic ? "تنبيهات الأداء والتنبؤات" : "Performance & Forecast Alerts"}
                   <Badge variant="secondary" className="ml-1">{alerts.length}</Badge>
+                  <Button size="sm" variant="ghost" className="ml-auto h-7 text-xs gap-1" onClick={() => setThresholdsDialogOpen(true)}>
+                    <Edit className="h-3 w-3" />
+                    {isArabic ? "إعدادات العتبات" : "Thresholds"}
+                  </Button>
+                  {alertFilter && (
+                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => { setAlertFilter(null); setCurrentPage(1); }}>
+                      <X className="h-3 w-3" />
+                      {isArabic ? "إلغاء فلتر التنبيه" : "Clear alert filter"}
+                    </Button>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
                 <ul className="space-y-1.5">
-                  {alerts.map((a, i) => (
-                    <li key={i} className={`flex items-start gap-2 text-sm ${a.level === "danger" ? "text-rose-700 dark:text-rose-300" : "text-amber-700 dark:text-amber-300"}`}>
-                      <span className={`mt-1 h-2 w-2 rounded-full shrink-0 ${a.level === "danger" ? "bg-rose-500" : "bg-amber-500"}`} />
-                      <span>{a.msg}</span>
-                    </li>
-                  ))}
+                  {alerts.map((a) => {
+                    const active = alertFilter === a.key;
+                    return (
+                      <li key={a.key}>
+                        <button
+                          type="button"
+                          onClick={() => { setAlertFilter(active ? null : a.key); setCurrentPage(1); }}
+                          className={`w-full text-left flex items-start gap-2 text-sm rounded-md px-2 py-1.5 transition-colors hover:bg-white/40 dark:hover:bg-black/20 ${active ? "ring-2 ring-primary/40 bg-white/60 dark:bg-black/30" : ""} ${a.level === "danger" ? "text-rose-700 dark:text-rose-300" : "text-amber-700 dark:text-amber-300"}`}
+                        >
+                          <span className={`mt-1 h-2 w-2 rounded-full shrink-0 ${a.level === "danger" ? "bg-rose-500" : "bg-amber-500"}`} />
+                          <span className="flex-1">{a.msg}</span>
+                          <span className="text-[10px] opacity-70 shrink-0">
+                            {active ? (isArabic ? "مُفعّل" : "filtered") : (isArabic ? "اضغط للفلترة" : "click to filter")}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               </CardContent>
             </Card>
