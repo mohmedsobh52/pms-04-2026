@@ -1798,6 +1798,43 @@ export default function CostControlReportPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Thresholds Settings Dialog */}
+      <Dialog open={thresholdsDialogOpen} onOpenChange={setThresholdsDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{isArabic ? "إعدادات عتبات التنبيه" : "Alert Threshold Settings"}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            {([
+              ["cpi_warn", isArabic ? "CPI تحذير" : "CPI warn", 0.01],
+              ["cpi_critical", isArabic ? "CPI حرج" : "CPI critical", 0.01],
+              ["spi_warn", isArabic ? "SPI تحذير" : "SPI warn", 0.01],
+              ["spi_critical", isArabic ? "SPI حرج" : "SPI critical", 0.01],
+              ["eac_overrun_pct", isArabic ? "EAC تجاوز %" : "EAC overrun %", 1],
+              ["tcpi_warn", isArabic ? "TCPI تحذير" : "TCPI warn", 0.01],
+            ] as const).map(([k, label, step]) => (
+              <div key={k} className="space-y-1">
+                <Label className="text-xs">{label}</Label>
+                <Input
+                  type="number" step={step}
+                  value={(thresholds as any)[k]}
+                  onChange={(e) => setThresholds(t => ({ ...t, [k]: Number(e.target.value) }))}
+                />
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setThresholdsDialogOpen(false)}>
+              {isArabic ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button onClick={saveThresholds} disabled={isSavingThresholds}>
+              {isSavingThresholds ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+              {isArabic ? "حفظ" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageLayout>
   );
 }
