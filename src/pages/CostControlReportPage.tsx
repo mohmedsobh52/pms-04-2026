@@ -649,8 +649,9 @@ export default function CostControlReportPage() {
       filtered = filtered.filter(a => selectedActivities.includes(a.activityCode));
     }
     
+    if (alertFilter) filtered = filtered.filter(matchesAlertFilter);
     return filtered;
-  }, [allActivities, selectedDisciplines, selectedActivities]);
+  }, [allActivities, selectedDisciplines, selectedActivities, alertFilter, matchesAlertFilter]);
 
   // Calculate totals from filtered activities
   const totals = useMemo(() => {
