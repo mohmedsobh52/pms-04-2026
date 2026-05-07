@@ -1517,7 +1517,25 @@ export default function CostControlReportPage() {
             </Card>
           </div>
 
-          {/* Data Table */}
+          {/* Cashflow Chart */}
+          <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <DollarSign className="h-4 w-4 text-primary" />
+                {isArabic ? "التدفق النقدي التراكمي (PV / AC / EV)" : "Cumulative Cashflow (PV / AC / EV)"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px]">
+                <Chart type="bar" data={cashflowData} options={{
+                  responsive: true, maintainAspectRatio: false,
+                  plugins: { legend: { position: "top" as const, labels: { usePointStyle: true, font: { size: 11 } } } },
+                  scales: { y: { beginAtZero: true, title: { display: true, text: isArabic ? "مليون" : "Millions" } } },
+                }} />
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
