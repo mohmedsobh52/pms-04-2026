@@ -503,6 +503,18 @@ export default function CostControlReportPage() {
   const [overrides, setOverrides] = useState<Record<number, { progress?: number; ac?: number }>>({});
   const [isExportingPDF, setIsExportingPDF] = useState(false);
 
+  // Threshold settings (CPI/SPI/EAC overrun %/TCPI)
+  const [thresholds, setThresholds] = useState({
+    cpi_warn: 0.95, cpi_critical: 0.85,
+    spi_warn: 0.95, spi_critical: 0.85,
+    eac_overrun_pct: 10, tcpi_warn: 1.10,
+  });
+  const [thresholdsDialogOpen, setThresholdsDialogOpen] = useState(false);
+  const [isSavingThresholds, setIsSavingThresholds] = useState(false);
+
+  // Clickable alert filter
+  const [alertFilter, setAlertFilter] = useState<null | "cpi-warn" | "cpi-crit" | "spi-warn" | "spi-crit" | "eac" | "tcpi">(null);
+
   // Edit progress dialog
   const [editProgressDialog, setEditProgressDialog] = useState<{
     open: boolean;
@@ -576,6 +588,29 @@ export default function CostControlReportPage() {
     fetchProjectData();
   }, [selectedProjectId, useRealData, isArabic]);
 
+  // Load saved overrides + thresholds for selected project
+  useEffect(() => {
+    if (!selectedProjectId) return;
+    (async () => {
+      try {
+        const [{ data: ovs }, { data: th }] = await Promise.all([
+          supabase.from("cost_control_overrides").select("sn, progress, ac").eq("project_id", selectedProjectId),
+          supabase.from("cost_control_thresholds").select("*").eq("project_id", selectedProjectId).maybeSingle(),
+        ]);
+        if (ovs) {
+          const map: Record<number, { progress?: number; ac?: number }> = {};
+          ovs.forEach((o: any) => { map[o.sn] = { progress: o.progress ?? undefined, ac: o.ac ?? undefined }; });
+          setOverrides(map);
+        }
+        if (th) setThresholds({
+          cpi_warn: Number(th.cpi_warn), cpi_critical: Number(th.cpi_critical),
+          spi_warn: Number(th.spi_warn), spi_critical: Number(th.spi_critical),
+          eac_overrun_pct: Number(th.eac_overrun_pct), tcpi_warn: Number(th.tcpi_warn),
+        });
+      } catch (e) { console.warn("Load overrides/thresholds failed", e); }
+    })();
+  }, [selectedProjectId]);
+
   // Get activities based on data source (with inline overrides applied)
   const allActivities = useMemo(() => {
     const base = (useRealData && projectItems.length > 0)
@@ -614,8 +649,22 @@ export default function CostControlReportPage() {
       filtered = filtered.filter(a => selectedActivities.includes(a.activityCode));
     }
     
+    if (alertFilter) {
+      const t = thresholds;
+      filtered = filtered.filter(a => {
+        switch (alertFilter) {
+          case "cpi-crit": return a.cpi > 0 && a.cpi < t.cpi_critical;
+          case "cpi-warn": return a.cpi > 0 && a.cpi < t.cpi_warn && a.cpi >= t.cpi_critical;
+          case "spi-crit": return a.spi > 0 && a.spi < t.spi_critical;
+          case "spi-warn": return a.spi > 0 && a.spi < t.spi_warn && a.spi >= t.spi_critical;
+          case "eac": return a.eacByPert > a.pv * (1 + t.eac_overrun_pct / 100);
+          case "tcpi": return a.tcpi > t.tcpi_warn;
+          default: return true;
+        }
+      });
+    }
     return filtered;
-  }, [allActivities, selectedDisciplines, selectedActivities]);
+  }, [allActivities, selectedDisciplines, selectedActivities, alertFilter, thresholds]);
 
   // Calculate totals from filtered activities
   const totals = useMemo(() => {
@@ -861,26 +910,105 @@ export default function CostControlReportPage() {
     setEditDraft({ progress: a.progress, ac: a.ac });
   };
   const cancelEditRow = () => setEditingRow(null);
-  const saveEditRow = (sn: number) => {
-    setOverrides(prev => ({
-      ...prev,
-      [sn]: { progress: Math.max(0, Math.min(100, editDraft.progress)), ac: Math.max(0, editDraft.ac) },
-    }));
+  const saveEditRow = async (sn: number) => {
+    const progress = Math.max(0, Math.min(100, editDraft.progress));
+    const ac = Math.max(0, editDraft.ac);
+    setOverrides(prev => ({ ...prev, [sn]: { progress, ac } }));
     setEditingRow(null);
+
+    if (selectedProjectId) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const activity = allActivities.find(a => a.sn === sn);
+          const { error } = await supabase.from("cost_control_overrides").upsert({
+            user_id: user.id,
+            project_id: selectedProjectId,
+            sn,
+            activity_code: activity?.activityCode ?? null,
+            progress, ac,
+          }, { onConflict: "user_id,project_id,sn" });
+          if (error) throw error;
+          toast.success(isArabic ? "تم حفظ التعديل" : "Override saved");
+          return;
+        }
+      } catch (e) {
+        console.error(e);
+        toast.error(isArabic ? "فشل حفظ التعديل في القاعدة" : "Failed to save override");
+        return;
+      }
+    }
     toast.success(isArabic ? "تم تحديث الصف" : "Row updated");
   };
 
-  // ===== Alerts (Forecast/Variance) =====
+  const resetOverrides = async () => {
+    setOverrides({});
+    if (selectedProjectId) {
+      try { await supabase.from("cost_control_overrides").delete().eq("project_id", selectedProjectId); } catch {}
+    }
+    toast.success(isArabic ? "تم إعادة التعيين" : "Reset");
+  };
+
+  const saveThresholds = async () => {
+    if (!selectedProjectId) { toast.error(isArabic ? "اختر مشروع" : "Select a project"); return; }
+    setIsSavingThresholds(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("not signed in");
+      const { error } = await supabase.from("cost_control_thresholds").upsert({
+        user_id: user.id, project_id: selectedProjectId, ...thresholds,
+      }, { onConflict: "user_id,project_id" });
+      if (error) throw error;
+      toast.success(isArabic ? "تم حفظ الإعدادات" : "Thresholds saved");
+      setThresholdsDialogOpen(false);
+    } catch (e) {
+      console.error(e);
+      toast.error(isArabic ? "فشل الحفظ" : "Save failed");
+    } finally { setIsSavingThresholds(false); }
+  };
+
+  // ===== Alerts (Forecast/Variance) — uses configurable thresholds =====
+  type AlertKey = "cpi-warn"|"cpi-crit"|"spi-warn"|"spi-crit"|"eac"|"tcpi";
   const alerts = useMemo(() => {
-    const list: { level: "warn" | "danger"; msg: string }[] = [];
-    if (totals.cpi > 0 && totals.cpi < 0.85) list.push({ level: "danger", msg: isArabic ? `CPI حرج (${totals.cpi.toFixed(2)}) — تجاوز كبير في التكلفة` : `Critical CPI (${totals.cpi.toFixed(2)}) — major cost overrun` });
-    else if (totals.cpi > 0 && totals.cpi < 0.95) list.push({ level: "warn", msg: isArabic ? `CPI منخفض (${totals.cpi.toFixed(2)})` : `Low CPI (${totals.cpi.toFixed(2)})` });
-    if (totals.spi > 0 && totals.spi < 0.85) list.push({ level: "danger", msg: isArabic ? `SPI حرج (${totals.spi.toFixed(2)}) — تأخر كبير عن الجدول` : `Critical SPI (${totals.spi.toFixed(2)}) — major schedule slip` });
-    else if (totals.spi > 0 && totals.spi < 0.95) list.push({ level: "warn", msg: isArabic ? `SPI منخفض (${totals.spi.toFixed(2)})` : `Low SPI (${totals.spi.toFixed(2)})` });
-    if (totals.eacByPert > totals.pv * 1.1) list.push({ level: "danger", msg: isArabic ? `التكلفة المتوقعة (EAC) تتجاوز الميزانية بأكثر من 10%` : `EAC exceeds budget by more than 10%` });
-    if (totals.tcpi > 1.1) list.push({ level: "warn", msg: isArabic ? `TCPI=${totals.tcpi.toFixed(2)} يتطلب أداءً صعبًا للإنجاز ضمن الميزانية` : `TCPI=${totals.tcpi.toFixed(2)} — challenging recovery required` });
+    const list: { level: "warn" | "danger"; msg: string; key: AlertKey }[] = [];
+    if (totals.cpi > 0 && totals.cpi < thresholds.cpi_critical) list.push({ key: "cpi-crit", level: "danger", msg: isArabic ? `CPI حرج (${totals.cpi.toFixed(2)}) — تجاوز كبير في التكلفة` : `Critical CPI (${totals.cpi.toFixed(2)}) — major cost overrun` });
+    else if (totals.cpi > 0 && totals.cpi < thresholds.cpi_warn) list.push({ key: "cpi-warn", level: "warn", msg: isArabic ? `CPI منخفض (${totals.cpi.toFixed(2)})` : `Low CPI (${totals.cpi.toFixed(2)})` });
+    if (totals.spi > 0 && totals.spi < thresholds.spi_critical) list.push({ key: "spi-crit", level: "danger", msg: isArabic ? `SPI حرج (${totals.spi.toFixed(2)}) — تأخر كبير عن الجدول` : `Critical SPI (${totals.spi.toFixed(2)}) — major schedule slip` });
+    else if (totals.spi > 0 && totals.spi < thresholds.spi_warn) list.push({ key: "spi-warn", level: "warn", msg: isArabic ? `SPI منخفض (${totals.spi.toFixed(2)})` : `Low SPI (${totals.spi.toFixed(2)})` });
+    if (totals.eacByPert > totals.pv * (1 + thresholds.eac_overrun_pct / 100)) list.push({ key: "eac", level: "danger", msg: isArabic ? `EAC يتجاوز الميزانية بأكثر من ${thresholds.eac_overrun_pct}%` : `EAC exceeds budget by more than ${thresholds.eac_overrun_pct}%` });
+    if (totals.tcpi > thresholds.tcpi_warn) list.push({ key: "tcpi", level: "warn", msg: isArabic ? `TCPI=${totals.tcpi.toFixed(2)} يتطلب أداءً صعبًا` : `TCPI=${totals.tcpi.toFixed(2)} — challenging recovery required` });
     return list;
-  }, [totals, isArabic]);
+  }, [totals, isArabic, thresholds]);
+
+  // ===== Cashflow data (cumulative inflow vs outflow per period) =====
+  const cashflowData = useMemo(() => {
+    const sorted = [...filteredActivities].sort((a, b) => a.sn - b.sn);
+    const buckets = 12;
+    const size = Math.max(1, Math.ceil(sorted.length / buckets));
+    const labels: string[] = [];
+    const planned: number[] = [];
+    const actual: number[] = [];
+    const earned: number[] = [];
+    let cumP = 0, cumA = 0, cumE = 0;
+    for (let i = 0; i < buckets; i++) {
+      const slice = sorted.slice(i * size, (i + 1) * size);
+      if (slice.length === 0) break;
+      cumP += slice.reduce((s, x) => s + x.pv, 0);
+      cumA += slice.reduce((s, x) => s + x.ac, 0);
+      cumE += slice.reduce((s, x) => s + x.ev, 0);
+      labels.push(`M${i + 1}`);
+      planned.push(cumP / 1e6); actual.push(cumA / 1e6); earned.push(cumE / 1e6);
+    }
+    return {
+      labels,
+      datasets: [
+        { type: "bar" as const, label: isArabic ? "صرف فعلي (AC)" : "Outflow AC", data: actual, backgroundColor: "hsla(25,95%,53%,0.6)", borderColor: "hsl(25,95%,53%)", borderWidth: 1, yAxisID: "y" },
+        { type: "bar" as const, label: isArabic ? "صرف مخطط (PV)" : "Outflow PV", data: planned, backgroundColor: "hsla(217,91%,60%,0.5)", borderColor: "hsl(217,91%,60%)", borderWidth: 1, yAxisID: "y" },
+        { type: "line" as const, label: isArabic ? "تدفق مكتسب (EV)" : "Earned EV", data: earned, borderColor: "hsl(160,84%,39%)", backgroundColor: "hsla(160,84%,39%,0.15)", borderWidth: 2.5, tension: 0.35, fill: true, pointRadius: 0, yAxisID: "y" },
+      ],
+    };
+  }, [filteredActivities, isArabic]);
+
 
   // ===== S-Curve & Trend data =====
   const sCurveData = useMemo(() => {
@@ -1290,7 +1418,7 @@ export default function CostControlReportPage() {
             </Card>
           </div>
 
-          {/* Alerts Banner */}
+          {/* Alerts Banner — clickable to filter table */}
           {alerts.length > 0 && (
             <Card className="border-amber-300/50 bg-gradient-to-br from-amber-50 to-rose-50 dark:from-amber-950/30 dark:to-rose-950/30 shadow-lg">
               <CardHeader className="pb-2">
@@ -1298,16 +1426,38 @@ export default function CostControlReportPage() {
                   <AlertTriangle className="h-5 w-5 text-amber-600" />
                   {isArabic ? "تنبيهات الأداء والتنبؤات" : "Performance & Forecast Alerts"}
                   <Badge variant="secondary" className="ml-1">{alerts.length}</Badge>
+                  <Button size="sm" variant="ghost" className="ml-auto h-7 text-xs gap-1" onClick={() => setThresholdsDialogOpen(true)}>
+                    <Edit className="h-3 w-3" />
+                    {isArabic ? "إعدادات العتبات" : "Thresholds"}
+                  </Button>
+                  {alertFilter && (
+                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => { setAlertFilter(null); setCurrentPage(1); }}>
+                      <X className="h-3 w-3" />
+                      {isArabic ? "إلغاء فلتر التنبيه" : "Clear alert filter"}
+                    </Button>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
                 <ul className="space-y-1.5">
-                  {alerts.map((a, i) => (
-                    <li key={i} className={`flex items-start gap-2 text-sm ${a.level === "danger" ? "text-rose-700 dark:text-rose-300" : "text-amber-700 dark:text-amber-300"}`}>
-                      <span className={`mt-1 h-2 w-2 rounded-full shrink-0 ${a.level === "danger" ? "bg-rose-500" : "bg-amber-500"}`} />
-                      <span>{a.msg}</span>
-                    </li>
-                  ))}
+                  {alerts.map((a) => {
+                    const active = alertFilter === a.key;
+                    return (
+                      <li key={a.key}>
+                        <button
+                          type="button"
+                          onClick={() => { setAlertFilter(active ? null : a.key); setCurrentPage(1); }}
+                          className={`w-full text-left flex items-start gap-2 text-sm rounded-md px-2 py-1.5 transition-colors hover:bg-white/40 dark:hover:bg-black/20 ${active ? "ring-2 ring-primary/40 bg-white/60 dark:bg-black/30" : ""} ${a.level === "danger" ? "text-rose-700 dark:text-rose-300" : "text-amber-700 dark:text-amber-300"}`}
+                        >
+                          <span className={`mt-1 h-2 w-2 rounded-full shrink-0 ${a.level === "danger" ? "bg-rose-500" : "bg-amber-500"}`} />
+                          <span className="flex-1">{a.msg}</span>
+                          <span className="text-[10px] opacity-70 shrink-0">
+                            {active ? (isArabic ? "مُفعّل" : "filtered") : (isArabic ? "اضغط للفلترة" : "click to filter")}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               </CardContent>
             </Card>
@@ -1367,7 +1517,25 @@ export default function CostControlReportPage() {
             </Card>
           </div>
 
-          {/* Data Table */}
+          {/* Cashflow Chart */}
+          <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <DollarSign className="h-4 w-4 text-primary" />
+                {isArabic ? "التدفق النقدي التراكمي (PV / AC / EV)" : "Cumulative Cashflow (PV / AC / EV)"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px]">
+                <Chart type="bar" data={cashflowData} options={{
+                  responsive: true, maintainAspectRatio: false,
+                  plugins: { legend: { position: "top" as const, labels: { usePointStyle: true, font: { size: 11 } } } },
+                  scales: { y: { beginAtZero: true, title: { display: true, text: isArabic ? "مليون" : "Millions" } } },
+                }} />
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -1535,7 +1703,7 @@ export default function CostControlReportPage() {
                       <TableCell className="text-right font-mono">{formatValue(totals.etc)}</TableCell>
                       <TableCell className="text-center">
                         {Object.keys(overrides).length > 0 && (
-                          <Button size="icon" variant="ghost" className="h-6 w-6" title={isArabic ? "إعادة تعيين التعديلات" : "Reset overrides"} onClick={() => { setOverrides({}); toast.success(isArabic ? "تم إعادة التعيين" : "Reset"); }}>
+                          <Button size="icon" variant="ghost" className="h-6 w-6" title={isArabic ? "إعادة تعيين التعديلات" : "Reset overrides"} onClick={resetOverrides}>
                             <RefreshCw className="h-3.5 w-3.5" />
                           </Button>
                         )}
@@ -1625,6 +1793,43 @@ export default function CostControlReportPage() {
             </Button>
             <Button onClick={handleUpdateProgress}>
               <Save className="h-4 w-4 mr-2" />
+              {isArabic ? "حفظ" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Thresholds Settings Dialog */}
+      <Dialog open={thresholdsDialogOpen} onOpenChange={setThresholdsDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{isArabic ? "إعدادات عتبات التنبيه" : "Alert Threshold Settings"}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            {([
+              ["cpi_warn", isArabic ? "CPI تحذير" : "CPI warn", 0.01],
+              ["cpi_critical", isArabic ? "CPI حرج" : "CPI critical", 0.01],
+              ["spi_warn", isArabic ? "SPI تحذير" : "SPI warn", 0.01],
+              ["spi_critical", isArabic ? "SPI حرج" : "SPI critical", 0.01],
+              ["eac_overrun_pct", isArabic ? "EAC تجاوز %" : "EAC overrun %", 1],
+              ["tcpi_warn", isArabic ? "TCPI تحذير" : "TCPI warn", 0.01],
+            ] as const).map(([k, label, step]) => (
+              <div key={k} className="space-y-1">
+                <Label className="text-xs">{label}</Label>
+                <Input
+                  type="number" step={step}
+                  value={(thresholds as any)[k]}
+                  onChange={(e) => setThresholds(t => ({ ...t, [k]: Number(e.target.value) }))}
+                />
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setThresholdsDialogOpen(false)}>
+              {isArabic ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button onClick={saveThresholds} disabled={isSavingThresholds}>
+              {isSavingThresholds ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               {isArabic ? "حفظ" : "Save"}
             </Button>
           </DialogFooter>

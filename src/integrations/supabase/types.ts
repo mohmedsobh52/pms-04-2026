@@ -864,6 +864,84 @@ export type Database = {
           },
         ]
       }
+      cost_control_overrides: {
+        Row: {
+          ac: number | null
+          activity_code: string | null
+          created_at: string
+          id: string
+          progress: number | null
+          project_id: string
+          sn: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ac?: number | null
+          activity_code?: string | null
+          created_at?: string
+          id?: string
+          progress?: number | null
+          project_id: string
+          sn: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ac?: number | null
+          activity_code?: string | null
+          created_at?: string
+          id?: string
+          progress?: number | null
+          project_id?: string
+          sn?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      cost_control_thresholds: {
+        Row: {
+          cpi_critical: number
+          cpi_warn: number
+          created_at: string
+          eac_overrun_pct: number
+          id: string
+          project_id: string | null
+          spi_critical: number
+          spi_warn: number
+          tcpi_warn: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cpi_critical?: number
+          cpi_warn?: number
+          created_at?: string
+          eac_overrun_pct?: number
+          id?: string
+          project_id?: string | null
+          spi_critical?: number
+          spi_warn?: number
+          tcpi_warn?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cpi_critical?: number
+          cpi_warn?: number
+          created_at?: string
+          eac_overrun_pct?: number
+          id?: string
+          project_id?: string | null
+          spi_critical?: number
+          spi_warn?: number
+          tcpi_warn?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       edited_boq_prices: {
         Row: {
           created_at: string
