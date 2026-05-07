@@ -896,26 +896,89 @@ export default function CostControlReportPage() {
     setEditDraft({ progress: a.progress, ac: a.ac });
   };
   const cancelEditRow = () => setEditingRow(null);
-  const saveEditRow = (sn: number) => {
-    setOverrides(prev => ({
-      ...prev,
-      [sn]: { progress: Math.max(0, Math.min(100, editDraft.progress)), ac: Math.max(0, editDraft.ac) },
-    }));
+  const saveEditRow = async (sn: number) => {
+    const progress = Math.max(0, Math.min(100, editDraft.progress));
+    const ac = Math.max(0, editDraft.ac);
+    setOverrides(prev => ({ ...prev, [sn]: { progress, ac } }));
     setEditingRow(null);
+
+    if (selectedProjectId) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const activity = allActivities.find(a => a.sn === sn);
+          const { error } = await supabase.from("cost_control_overrides").upsert({
+            user_id: user.id,
+            project_id: selectedProjectId,
+            sn,
+            activity_code: activity?.activityCode ?? null,
+            progress, ac,
+          }, { onConflict: "user_id,project_id,sn" });
+          if (error) throw error;
+          toast.success(isArabic ? "تم حفظ التعديل" : "Override saved");
+          return;
+        }
+      } catch (e) {
+        console.error(e);
+        toast.error(isArabic ? "فشل حفظ التعديل في القاعدة" : "Failed to save override");
+        return;
+      }
+    }
     toast.success(isArabic ? "تم تحديث الصف" : "Row updated");
   };
 
-  // ===== Alerts (Forecast/Variance) =====
+  const resetOverrides = async () => {
+    setOverrides({});
+    if (selectedProjectId) {
+      try { await supabase.from("cost_control_overrides").delete().eq("project_id", selectedProjectId); } catch {}
+    }
+    toast.success(isArabic ? "تم إعادة التعيين" : "Reset");
+  };
+
+  const saveThresholds = async () => {
+    if (!selectedProjectId) { toast.error(isArabic ? "اختر مشروع" : "Select a project"); return; }
+    setIsSavingThresholds(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("not signed in");
+      const { error } = await supabase.from("cost_control_thresholds").upsert({
+        user_id: user.id, project_id: selectedProjectId, ...thresholds,
+      }, { onConflict: "user_id,project_id" });
+      if (error) throw error;
+      toast.success(isArabic ? "تم حفظ الإعدادات" : "Thresholds saved");
+      setThresholdsDialogOpen(false);
+    } catch (e) {
+      console.error(e);
+      toast.error(isArabic ? "فشل الحفظ" : "Save failed");
+    } finally { setIsSavingThresholds(false); }
+  };
+
+  // ===== Alerts (Forecast/Variance) — uses configurable thresholds =====
+  type AlertKey = "cpi-warn"|"cpi-crit"|"spi-warn"|"spi-crit"|"eac"|"tcpi";
   const alerts = useMemo(() => {
-    const list: { level: "warn" | "danger"; msg: string }[] = [];
-    if (totals.cpi > 0 && totals.cpi < 0.85) list.push({ level: "danger", msg: isArabic ? `CPI حرج (${totals.cpi.toFixed(2)}) — تجاوز كبير في التكلفة` : `Critical CPI (${totals.cpi.toFixed(2)}) — major cost overrun` });
-    else if (totals.cpi > 0 && totals.cpi < 0.95) list.push({ level: "warn", msg: isArabic ? `CPI منخفض (${totals.cpi.toFixed(2)})` : `Low CPI (${totals.cpi.toFixed(2)})` });
-    if (totals.spi > 0 && totals.spi < 0.85) list.push({ level: "danger", msg: isArabic ? `SPI حرج (${totals.spi.toFixed(2)}) — تأخر كبير عن الجدول` : `Critical SPI (${totals.spi.toFixed(2)}) — major schedule slip` });
-    else if (totals.spi > 0 && totals.spi < 0.95) list.push({ level: "warn", msg: isArabic ? `SPI منخفض (${totals.spi.toFixed(2)})` : `Low SPI (${totals.spi.toFixed(2)})` });
-    if (totals.eacByPert > totals.pv * 1.1) list.push({ level: "danger", msg: isArabic ? `التكلفة المتوقعة (EAC) تتجاوز الميزانية بأكثر من 10%` : `EAC exceeds budget by more than 10%` });
-    if (totals.tcpi > 1.1) list.push({ level: "warn", msg: isArabic ? `TCPI=${totals.tcpi.toFixed(2)} يتطلب أداءً صعبًا للإنجاز ضمن الميزانية` : `TCPI=${totals.tcpi.toFixed(2)} — challenging recovery required` });
+    const list: { level: "warn" | "danger"; msg: string; key: AlertKey }[] = [];
+    if (totals.cpi > 0 && totals.cpi < thresholds.cpi_critical) list.push({ key: "cpi-crit", level: "danger", msg: isArabic ? `CPI حرج (${totals.cpi.toFixed(2)}) — تجاوز كبير في التكلفة` : `Critical CPI (${totals.cpi.toFixed(2)}) — major cost overrun` });
+    else if (totals.cpi > 0 && totals.cpi < thresholds.cpi_warn) list.push({ key: "cpi-warn", level: "warn", msg: isArabic ? `CPI منخفض (${totals.cpi.toFixed(2)})` : `Low CPI (${totals.cpi.toFixed(2)})` });
+    if (totals.spi > 0 && totals.spi < thresholds.spi_critical) list.push({ key: "spi-crit", level: "danger", msg: isArabic ? `SPI حرج (${totals.spi.toFixed(2)}) — تأخر كبير عن الجدول` : `Critical SPI (${totals.spi.toFixed(2)}) — major schedule slip` });
+    else if (totals.spi > 0 && totals.spi < thresholds.spi_warn) list.push({ key: "spi-warn", level: "warn", msg: isArabic ? `SPI منخفض (${totals.spi.toFixed(2)})` : `Low SPI (${totals.spi.toFixed(2)})` });
+    if (totals.eacByPert > totals.pv * (1 + thresholds.eac_overrun_pct / 100)) list.push({ key: "eac", level: "danger", msg: isArabic ? `EAC يتجاوز الميزانية بأكثر من ${thresholds.eac_overrun_pct}%` : `EAC exceeds budget by more than ${thresholds.eac_overrun_pct}%` });
+    if (totals.tcpi > thresholds.tcpi_warn) list.push({ key: "tcpi", level: "warn", msg: isArabic ? `TCPI=${totals.tcpi.toFixed(2)} يتطلب أداءً صعبًا` : `TCPI=${totals.tcpi.toFixed(2)} — challenging recovery required` });
     return list;
-  }, [totals, isArabic]);
+  }, [totals, isArabic, thresholds]);
+
+  // Per-row alert match for filtering
+  const matchesAlertFilter = useCallback((a: EVMActivity) => {
+    if (!alertFilter) return true;
+    switch (alertFilter) {
+      case "cpi-crit": return a.cpi > 0 && a.cpi < thresholds.cpi_critical;
+      case "cpi-warn": return a.cpi > 0 && a.cpi < thresholds.cpi_warn && a.cpi >= thresholds.cpi_critical;
+      case "spi-crit": return a.spi > 0 && a.spi < thresholds.spi_critical;
+      case "spi-warn": return a.spi > 0 && a.spi < thresholds.spi_warn && a.spi >= thresholds.spi_critical;
+      case "eac": return a.eacByPert > a.pv * (1 + thresholds.eac_overrun_pct / 100);
+      case "tcpi": return a.tcpi > thresholds.tcpi_warn;
+      default: return true;
+    }
+  }, [alertFilter, thresholds]);
 
   // ===== S-Curve & Trend data =====
   const sCurveData = useMemo(() => {
