@@ -980,19 +980,35 @@ export default function CostControlReportPage() {
     return list;
   }, [totals, isArabic, thresholds]);
 
-  // Per-row alert match for filtering
-  const matchesAlertFilter = useCallback((a: EVMActivity) => {
-    if (!alertFilter) return true;
-    switch (alertFilter) {
-      case "cpi-crit": return a.cpi > 0 && a.cpi < thresholds.cpi_critical;
-      case "cpi-warn": return a.cpi > 0 && a.cpi < thresholds.cpi_warn && a.cpi >= thresholds.cpi_critical;
-      case "spi-crit": return a.spi > 0 && a.spi < thresholds.spi_critical;
-      case "spi-warn": return a.spi > 0 && a.spi < thresholds.spi_warn && a.spi >= thresholds.spi_critical;
-      case "eac": return a.eacByPert > a.pv * (1 + thresholds.eac_overrun_pct / 100);
-      case "tcpi": return a.tcpi > thresholds.tcpi_warn;
-      default: return true;
+  // ===== Cashflow data (cumulative inflow vs outflow per period) =====
+  const cashflowData = useMemo(() => {
+    const sorted = [...filteredActivities].sort((a, b) => a.sn - b.sn);
+    const buckets = 12;
+    const size = Math.max(1, Math.ceil(sorted.length / buckets));
+    const labels: string[] = [];
+    const planned: number[] = [];
+    const actual: number[] = [];
+    const earned: number[] = [];
+    let cumP = 0, cumA = 0, cumE = 0;
+    for (let i = 0; i < buckets; i++) {
+      const slice = sorted.slice(i * size, (i + 1) * size);
+      if (slice.length === 0) break;
+      cumP += slice.reduce((s, x) => s + x.pv, 0);
+      cumA += slice.reduce((s, x) => s + x.ac, 0);
+      cumE += slice.reduce((s, x) => s + x.ev, 0);
+      labels.push(`M${i + 1}`);
+      planned.push(cumP / 1e6); actual.push(cumA / 1e6); earned.push(cumE / 1e6);
     }
-  }, [alertFilter, thresholds]);
+    return {
+      labels,
+      datasets: [
+        { type: "bar" as const, label: isArabic ? "صرف فعلي (AC)" : "Outflow AC", data: actual, backgroundColor: "hsla(25,95%,53%,0.6)", borderColor: "hsl(25,95%,53%)", borderWidth: 1, yAxisID: "y" },
+        { type: "bar" as const, label: isArabic ? "صرف مخطط (PV)" : "Outflow PV", data: planned, backgroundColor: "hsla(217,91%,60%,0.5)", borderColor: "hsl(217,91%,60%)", borderWidth: 1, yAxisID: "y" },
+        { type: "line" as const, label: isArabic ? "تدفق مكتسب (EV)" : "Earned EV", data: earned, borderColor: "hsl(160,84%,39%)", backgroundColor: "hsla(160,84%,39%,0.15)", borderWidth: 2.5, tension: 0.35, fill: true, pointRadius: 0, yAxisID: "y" },
+      ],
+    };
+  }, [filteredActivities, isArabic]);
+
 
   // ===== S-Curve & Trend data =====
   const sCurveData = useMemo(() => {
