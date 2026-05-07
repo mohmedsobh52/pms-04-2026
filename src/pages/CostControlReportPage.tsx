@@ -649,9 +649,22 @@ export default function CostControlReportPage() {
       filtered = filtered.filter(a => selectedActivities.includes(a.activityCode));
     }
     
-    if (alertFilter) filtered = filtered.filter(matchesAlertFilter);
+    if (alertFilter) {
+      const t = thresholds;
+      filtered = filtered.filter(a => {
+        switch (alertFilter) {
+          case "cpi-crit": return a.cpi > 0 && a.cpi < t.cpi_critical;
+          case "cpi-warn": return a.cpi > 0 && a.cpi < t.cpi_warn && a.cpi >= t.cpi_critical;
+          case "spi-crit": return a.spi > 0 && a.spi < t.spi_critical;
+          case "spi-warn": return a.spi > 0 && a.spi < t.spi_warn && a.spi >= t.spi_critical;
+          case "eac": return a.eacByPert > a.pv * (1 + t.eac_overrun_pct / 100);
+          case "tcpi": return a.tcpi > t.tcpi_warn;
+          default: return true;
+        }
+      });
+    }
     return filtered;
-  }, [allActivities, selectedDisciplines, selectedActivities, alertFilter, matchesAlertFilter]);
+  }, [allActivities, selectedDisciplines, selectedActivities, alertFilter, thresholds]);
 
   // Calculate totals from filtered activities
   const totals = useMemo(() => {
