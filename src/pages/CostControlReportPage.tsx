@@ -588,6 +588,29 @@ export default function CostControlReportPage() {
     fetchProjectData();
   }, [selectedProjectId, useRealData, isArabic]);
 
+  // Load saved overrides + thresholds for selected project
+  useEffect(() => {
+    if (!selectedProjectId) return;
+    (async () => {
+      try {
+        const [{ data: ovs }, { data: th }] = await Promise.all([
+          supabase.from("cost_control_overrides").select("sn, progress, ac").eq("project_id", selectedProjectId),
+          supabase.from("cost_control_thresholds").select("*").eq("project_id", selectedProjectId).maybeSingle(),
+        ]);
+        if (ovs) {
+          const map: Record<number, { progress?: number; ac?: number }> = {};
+          ovs.forEach((o: any) => { map[o.sn] = { progress: o.progress ?? undefined, ac: o.ac ?? undefined }; });
+          setOverrides(map);
+        }
+        if (th) setThresholds({
+          cpi_warn: Number(th.cpi_warn), cpi_critical: Number(th.cpi_critical),
+          spi_warn: Number(th.spi_warn), spi_critical: Number(th.spi_critical),
+          eac_overrun_pct: Number(th.eac_overrun_pct), tcpi_warn: Number(th.tcpi_warn),
+        });
+      } catch (e) { console.warn("Load overrides/thresholds failed", e); }
+    })();
+  }, [selectedProjectId]);
+
   // Get activities based on data source (with inline overrides applied)
   const allActivities = useMemo(() => {
     const base = (useRealData && projectItems.length > 0)
