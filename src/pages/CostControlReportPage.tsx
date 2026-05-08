@@ -1,5 +1,8 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import { PageLayout } from "@/components/PageLayout";
+import { useDebounce } from "@/hooks/useDebounce";
+import { useUndoRedo, heatmapClass } from "@/hooks/useEvmTools";
+import html2canvas from "html2canvas";
 import { ColorLegend } from "@/components/ui/color-code";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
