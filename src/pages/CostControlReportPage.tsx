@@ -1,5 +1,8 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import { PageLayout } from "@/components/PageLayout";
+import { useDebounce } from "@/hooks/useDebounce";
+import { useUndoRedo, heatmapClass } from "@/hooks/useEvmTools";
+import html2canvas from "html2canvas";
 import { ColorLegend } from "@/components/ui/color-code";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,7 +23,8 @@ import {
   Search, FileSpreadsheet, TrendingUp, TrendingDown, DollarSign, Target, 
   BarChart3, Activity, ChevronLeft, ChevronRight, ArrowUpDown, Download,
   Building2, Zap, Wrench, PaintBucket, HardHat, Database, Loader2, Edit, Save, RefreshCw,
-  Printer, FileText, AlertTriangle, LineChart as LineChartIcon, Check, X
+  Printer, FileText, AlertTriangle, LineChart as LineChartIcon, Check, X,
+  Undo2, Redo2, Camera, Bookmark, Layers, Filter, GitCompare, Plus
 } from "lucide-react";
 import { exportCostControlPDF } from "@/lib/cost-control-pdf";
 import {
@@ -497,11 +501,18 @@ export default function CostControlReportPage() {
   const [isSaving, setIsSaving] = useState(false);
   const itemsPerPage = 15;
 
-  // Inline edit state for table rows (Progress / AC)
+  // Inline edit state for table rows (Progress / AC) — with Undo/Redo
   const [editingRow, setEditingRow] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<{ progress: number; ac: number }>({ progress: 0, ac: 0 });
-  const [overrides, setOverrides] = useState<Record<number, { progress?: number; ac?: number }>>({});
+  const overridesUR = useUndoRedo<Record<number, { progress?: number; ac?: number }>>({});
+  const overrides = overridesUR.state;
+  const setOverrides = overridesUR.set as (
+    next: Record<number, { progress?: number; ac?: number }> | ((prev: Record<number, { progress?: number; ac?: number }>) => Record<number, { progress?: number; ac?: number }>),
+    opts?: { silent?: boolean },
+  ) => void;
   const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [isExportingPNG, setIsExportingPNG] = useState(false);
+  const kpiSectionRef = useRef<HTMLDivElement>(null);
 
   // Threshold settings (CPI/SPI/EAC overrun %/TCPI)
   const [thresholds, setThresholds] = useState({
@@ -514,6 +525,31 @@ export default function CostControlReportPage() {
 
   // Clickable alert filter
   const [alertFilter, setAlertFilter] = useState<null | "cpi-warn" | "cpi-crit" | "spi-warn" | "spi-crit" | "eac" | "tcpi">(null);
+
+  // Quick filters
+  const [quickFilter, setQuickFilter] = useState<null | "critical" | "late" | "over-budget" | "completed" | "in-progress">(null);
+
+  // EAC forecast method
+  const [eacMethod, setEacMethod] = useState<"pert" | "cpi" | "linear" | "composite">("pert");
+
+  // Baselines (snapshots)
+  const [baselines, setBaselines] = useState<Array<{ id: string; name: string; created_at: string; is_active: boolean; snapshot: any }>>([]);
+  const [activeBaseline, setActiveBaseline] = useState<{ id: string; name: string; map: Record<number, { pv: number; progress: number; ac: number }> } | null>(null);
+  const [baselineDialogOpen, setBaselineDialogOpen] = useState(false);
+  const [baselineName, setBaselineName] = useState("");
+
+  // Saved Views
+  const [savedViews, setSavedViews] = useState<Array<{ id: string; name: string; config: any }>>([]);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [viewName, setViewName] = useState("");
+
+  // Group by discipline (drill-down)
+  const [groupByDiscipline, setGroupByDiscipline] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  // Debounced search inputs
+  const debouncedDisciplineSearch = useDebounce(disciplineSearch, 200);
+  const debouncedActivitySearch = useDebounce(activitySearch, 200);
 
   // Edit progress dialog
   const [editProgressDialog, setEditProgressDialog] = useState<{
@@ -588,26 +624,38 @@ export default function CostControlReportPage() {
     fetchProjectData();
   }, [selectedProjectId, useRealData, isArabic]);
 
-  // Load saved overrides + thresholds for selected project
+  // Load saved overrides + thresholds + baselines + views for selected project
   useEffect(() => {
     if (!selectedProjectId) return;
     (async () => {
       try {
-        const [{ data: ovs }, { data: th }] = await Promise.all([
+        const [{ data: ovs }, { data: th }, { data: bls }, { data: vs }] = await Promise.all([
           supabase.from("cost_control_overrides").select("sn, progress, ac").eq("project_id", selectedProjectId),
           supabase.from("cost_control_thresholds").select("*").eq("project_id", selectedProjectId).maybeSingle(),
+          supabase.from("cost_control_baselines").select("id, name, created_at, is_active, snapshot").eq("project_id", selectedProjectId).order("created_at", { ascending: false }),
+          supabase.from("cost_control_views").select("id, name, config").eq("project_id", selectedProjectId).order("created_at", { ascending: false }),
         ]);
         if (ovs) {
           const map: Record<number, { progress?: number; ac?: number }> = {};
           ovs.forEach((o: any) => { map[o.sn] = { progress: o.progress ?? undefined, ac: o.ac ?? undefined }; });
-          setOverrides(map);
+          overridesUR.reset(map);
         }
         if (th) setThresholds({
           cpi_warn: Number(th.cpi_warn), cpi_critical: Number(th.cpi_critical),
           spi_warn: Number(th.spi_warn), spi_critical: Number(th.spi_critical),
           eac_overrun_pct: Number(th.eac_overrun_pct), tcpi_warn: Number(th.tcpi_warn),
         });
-      } catch (e) { console.warn("Load overrides/thresholds failed", e); }
+        if (bls) {
+          setBaselines(bls as any);
+          const active = bls.find((b: any) => b.is_active);
+          if (active && active.snapshot && Array.isArray((active.snapshot as any).activities)) {
+            const map: Record<number, { pv: number; progress: number; ac: number }> = {};
+            (active.snapshot as any).activities.forEach((a: any) => { map[a.sn] = { pv: a.pv, progress: a.progress, ac: a.ac }; });
+            setActiveBaseline({ id: active.id, name: active.name, map });
+          }
+        }
+        if (vs) setSavedViews(vs as any);
+      } catch (e) { console.warn("Load cost-control state failed", e); }
     })();
   }, [selectedProjectId]);
 
@@ -663,8 +711,32 @@ export default function CostControlReportPage() {
         }
       });
     }
+    if (quickFilter) {
+      const t = thresholds;
+      filtered = filtered.filter(a => {
+        switch (quickFilter) {
+          case "critical": return (a.cpi > 0 && a.cpi < t.cpi_critical) || (a.spi > 0 && a.spi < t.spi_critical);
+          case "late": return a.spi > 0 && a.spi < 1;
+          case "over-budget": return a.cpi > 0 && a.cpi < 1;
+          case "completed": return a.progress >= 100;
+          case "in-progress": return a.progress > 0 && a.progress < 100;
+          default: return true;
+        }
+      });
+    }
     return filtered;
-  }, [allActivities, selectedDisciplines, selectedActivities, alertFilter, thresholds]);
+  }, [allActivities, selectedDisciplines, selectedActivities, alertFilter, thresholds, quickFilter]);
+
+  // Pick effective EAC according to selected method
+  const pickEac = useCallback((a: { pv: number; ev: number; ac: number; cpi: number; spi: number; eac1: number; eac2: number; eac3: number; eacByPert: number; }) => {
+    switch (eacMethod) {
+      case "cpi": return a.eac1;
+      case "linear": return a.eac2;
+      case "composite": return a.eac3;
+      case "pert":
+      default: return a.eacByPert;
+    }
+  }, [eacMethod]);
 
   // Calculate totals from filtered activities
   const totals = useMemo(() => {
@@ -966,6 +1038,122 @@ export default function CostControlReportPage() {
       toast.error(isArabic ? "فشل الحفظ" : "Save failed");
     } finally { setIsSavingThresholds(false); }
   };
+
+  // ===== Baselines: save / load / activate / delete =====
+  const saveBaseline = async () => {
+    if (!selectedProjectId) { toast.error(isArabic ? "اختر مشروع" : "Select a project"); return; }
+    const name = baselineName.trim() || `Baseline ${new Date().toISOString().slice(0, 16).replace("T", " ")}`;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("not signed in");
+      const snapshot = {
+        captured_at: new Date().toISOString(),
+        totals,
+        activities: allActivities.map(a => ({ sn: a.sn, activityCode: a.activityCode, pv: a.pv, ev: a.ev, ac: a.ac, progress: a.progress })),
+      };
+      const { data, error } = await supabase.from("cost_control_baselines")
+        .insert({ user_id: user.id, project_id: selectedProjectId, name, snapshot, is_active: baselines.length === 0 })
+        .select("id, name, created_at, is_active, snapshot").single();
+      if (error) throw error;
+      setBaselines(prev => [data as any, ...prev]);
+      setBaselineDialogOpen(false);
+      setBaselineName("");
+      toast.success(isArabic ? "تم حفظ خط الأساس" : "Baseline saved");
+    } catch (e: any) {
+      console.error(e);
+      toast.error((isArabic ? "فشل الحفظ: " : "Save failed: ") + (e?.message || ""));
+    }
+  };
+
+  const activateBaseline = async (b: { id: string; name: string; snapshot: any }) => {
+    try {
+      await supabase.from("cost_control_baselines").update({ is_active: false }).eq("project_id", selectedProjectId);
+      await supabase.from("cost_control_baselines").update({ is_active: true }).eq("id", b.id);
+      setBaselines(prev => prev.map(x => ({ ...x, is_active: x.id === b.id })));
+      const map: Record<number, { pv: number; progress: number; ac: number }> = {};
+      (b.snapshot?.activities || []).forEach((a: any) => { map[a.sn] = { pv: a.pv, progress: a.progress, ac: a.ac }; });
+      setActiveBaseline({ id: b.id, name: b.name, map });
+      toast.success(isArabic ? "تم التفعيل" : "Baseline activated");
+    } catch (e) { console.error(e); toast.error(isArabic ? "فشل التفعيل" : "Activation failed"); }
+  };
+
+  const clearBaseline = () => setActiveBaseline(null);
+
+  const deleteBaseline = async (id: string) => {
+    try {
+      await supabase.from("cost_control_baselines").delete().eq("id", id);
+      setBaselines(prev => prev.filter(b => b.id !== id));
+      if (activeBaseline?.id === id) setActiveBaseline(null);
+    } catch (e) { console.error(e); }
+  };
+
+  // ===== Saved Views =====
+  const saveCurrentView = async () => {
+    if (!selectedProjectId) { toast.error(isArabic ? "اختر مشروع" : "Select a project"); return; }
+    const name = viewName.trim();
+    if (!name) { toast.error(isArabic ? "أدخل اسماً" : "Enter a name"); return; }
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("not signed in");
+      const config = { selectedDisciplines, selectedActivities, sortField, sortDirection, alertFilter, quickFilter, eacMethod, groupByDiscipline };
+      const { data, error } = await supabase.from("cost_control_views")
+        .insert({ user_id: user.id, project_id: selectedProjectId, name, config })
+        .select("id, name, config").single();
+      if (error) throw error;
+      setSavedViews(prev => [data as any, ...prev]);
+      setViewDialogOpen(false);
+      setViewName("");
+      toast.success(isArabic ? "تم حفظ العرض" : "View saved");
+    } catch (e: any) { console.error(e); toast.error(isArabic ? "فشل" : "Failed"); }
+  };
+
+  const applyView = (cfg: any) => {
+    setSelectedDisciplines(cfg.selectedDisciplines || []);
+    setSelectedActivities(cfg.selectedActivities || []);
+    setSortField(cfg.sortField || "sn");
+    setSortDirection(cfg.sortDirection || "asc");
+    setAlertFilter(cfg.alertFilter ?? null);
+    setQuickFilter(cfg.quickFilter ?? null);
+    setEacMethod(cfg.eacMethod || "pert");
+    setGroupByDiscipline(!!cfg.groupByDiscipline);
+    setCurrentPage(1);
+  };
+
+  const deleteView = async (id: string) => {
+    try {
+      await supabase.from("cost_control_views").delete().eq("id", id);
+      setSavedViews(prev => prev.filter(v => v.id !== id));
+    } catch (e) { console.error(e); }
+  };
+
+  // ===== KPI Dashboard PNG export =====
+  const handleExportKpiPng = useCallback(async () => {
+    if (!kpiSectionRef.current) return;
+    setIsExportingPNG(true);
+    try {
+      const canvas = await html2canvas(kpiSectionRef.current, { scale: 2, backgroundColor: null, useCORS: true });
+      const url = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `cost-control-kpi-${new Date().toISOString().slice(0, 10)}.png`;
+      link.click();
+      toast.success(isArabic ? "تم حفظ صورة KPI" : "KPI image saved");
+    } catch (e) {
+      console.error(e);
+      toast.error(isArabic ? "فشل حفظ الصورة" : "Image export failed");
+    } finally { setIsExportingPNG(false); }
+  }, [isArabic]);
+
+  // ===== Undo/Redo keyboard shortcuts =====
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "z" && !e.shiftKey) { e.preventDefault(); overridesUR.undo(); }
+      else if ((e.key === "z" && e.shiftKey) || e.key === "y") { e.preventDefault(); overridesUR.redo(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [overridesUR]);
 
   // ===== Alerts (Forecast/Variance) — uses configurable thresholds =====
   type AlertKey = "cpi-warn"|"cpi-crit"|"spi-warn"|"spi-crit"|"eac"|"tcpi";
@@ -1343,6 +1531,8 @@ export default function CostControlReportPage() {
             </div>
           </div>
 
+          {/* KPI Section (capturable for PNG export) */}
+          <div ref={kpiSectionRef} className="space-y-4 bg-background rounded-2xl">
           {/* KPI Grid Row 1 */}
           <div className="grid grid-cols-5 gap-4">
             {kpiRow1.map((kpi) => (
@@ -1417,6 +1607,110 @@ export default function CostControlReportPage() {
               </CardContent>
             </Card>
           </div>
+          </div>{/* /KPI capture wrapper */}
+
+          {/* Pro Toolbar: Baseline + Views + EAC method + Quick filters + Undo/Redo + PNG */}
+          <Card className="bg-card/95 backdrop-blur border-border/50 shadow-md">
+            <CardContent className="p-3 flex flex-wrap items-center gap-2">
+              {/* Quick Filters */}
+              <div className="flex items-center gap-1 mr-2">
+                <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground">{isArabic ? "فلاتر سريعة:" : "Quick:"}</span>
+              </div>
+              {([
+                ["critical", isArabic ? "حرج" : "Critical", "bg-rose-500/15 text-rose-700 dark:text-rose-300"],
+                ["late", isArabic ? "متأخر" : "Late", "bg-amber-500/15 text-amber-700 dark:text-amber-300"],
+                ["over-budget", isArabic ? "تجاوز ميزانية" : "Over Budget", "bg-orange-500/15 text-orange-700 dark:text-orange-300"],
+                ["in-progress", isArabic ? "قيد التنفيذ" : "In Progress", "bg-blue-500/15 text-blue-700 dark:text-blue-300"],
+                ["completed", isArabic ? "مكتمل" : "Completed", "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"],
+              ] as const).map(([k, lbl, cls]) => {
+                const active = quickFilter === k;
+                return (
+                  <button key={k} onClick={() => { setQuickFilter(active ? null : k); setCurrentPage(1); }}
+                    className={`text-xs px-2.5 py-1 rounded-full border transition ${cls} ${active ? "ring-2 ring-primary/40 font-semibold" : "opacity-80 hover:opacity-100"}`}>
+                    {lbl}
+                  </button>
+                );
+              })}
+              {quickFilter && (
+                <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setQuickFilter(null)}>
+                  <X className="h-3 w-3" />{isArabic ? "مسح" : "clear"}
+                </Button>
+              )}
+
+              <div className="h-6 border-l mx-2" />
+
+              {/* EAC method */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">EAC:</span>
+                <Select value={eacMethod} onValueChange={(v) => setEacMethod(v as any)}>
+                  <SelectTrigger className="h-7 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pert">PERT (BAC/CPI/SPI)</SelectItem>
+                    <SelectItem value="cpi">{isArabic ? "حسب CPI" : "CPI-based"}</SelectItem>
+                    <SelectItem value="linear">{isArabic ? "خطي (AC+BAC-EV)" : "Linear (AC+BAC-EV)"}</SelectItem>
+                    <SelectItem value="composite">{isArabic ? "مركّب (CPI×SPI)" : "Composite (CPI×SPI)"}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="h-6 border-l mx-2" />
+
+              {/* Group by */}
+              <Button size="sm" variant={groupByDiscipline ? "default" : "outline"} className="h-7 text-xs gap-1"
+                onClick={() => setGroupByDiscipline(g => !g)}>
+                <Layers className="h-3 w-3" />{isArabic ? "تجميع حسب التخصص" : "Group by Discipline"}
+              </Button>
+
+              <div className="ml-auto flex items-center gap-1.5">
+                {/* Undo / Redo */}
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={overridesUR.undo} disabled={!overridesUR.canUndo} title="Ctrl+Z">
+                  <Undo2 className="h-3 w-3" />
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={overridesUR.redo} disabled={!overridesUR.canRedo} title="Ctrl+Shift+Z">
+                  <Redo2 className="h-3 w-3" />
+                </Button>
+
+                {/* PNG export */}
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={handleExportKpiPng} disabled={isExportingPNG}>
+                  {isExportingPNG ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                  PNG
+                </Button>
+
+                {/* Saved Views */}
+                <Select onValueChange={(id) => { const v = savedViews.find(x => x.id === id); if (v) applyView(v.config); }}>
+                  <SelectTrigger className="h-7 w-[140px] text-xs">
+                    <SelectValue placeholder={isArabic ? "عرض محفوظ" : "Saved view"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {savedViews.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">{isArabic ? "لا يوجد" : "None"}</div>}
+                    {savedViews.map(v => (
+                      <SelectItem key={v.id} value={v.id}>
+                        <span className="flex items-center gap-2">
+                          <Bookmark className="h-3 w-3" />{v.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setViewDialogOpen(true)}>
+                  <Plus className="h-3 w-3" />{isArabic ? "حفظ عرض" : "Save view"}
+                </Button>
+
+                {/* Baseline */}
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setBaselineDialogOpen(true)}>
+                  <Bookmark className="h-3 w-3" />{isArabic ? "خط أساس" : "Baseline"}
+                </Button>
+                {activeBaseline && (
+                  <Badge variant="secondary" className="h-7 text-xs gap-1 px-2">
+                    <GitCompare className="h-3 w-3" />
+                    <span className="max-w-[100px] truncate">{activeBaseline.name}</span>
+                    <button onClick={clearBaseline} className="hover:text-destructive ml-1"><X className="h-3 w-3" /></button>
+                  </Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Alerts Banner — clickable to filter table */}
           {alerts.length > 0 && (
@@ -1832,6 +2126,84 @@ export default function CostControlReportPage() {
               {isSavingThresholds ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               {isArabic ? "حفظ" : "Save"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Baseline Manager Dialog */}
+      <Dialog open={baselineDialogOpen} onOpenChange={setBaselineDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bookmark className="h-4 w-4 text-primary" />
+              {isArabic ? "إدارة خطوط الأساس (Baselines)" : "Baseline Manager"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-end gap-2">
+              <div className="flex-1 space-y-1">
+                <Label className="text-xs">{isArabic ? "اسم خط الأساس الجديد" : "New baseline name"}</Label>
+                <Input value={baselineName} onChange={(e) => setBaselineName(e.target.value)} placeholder={isArabic ? "مثال: خطة Q2 2026" : "e.g. Q2 2026 Plan"} />
+              </div>
+              <Button onClick={saveBaseline} className="gap-2"><Save className="h-4 w-4" />{isArabic ? "حفظ لقطة حالية" : "Snapshot now"}</Button>
+            </div>
+            <div className="border rounded-lg max-h-[320px] overflow-y-auto">
+              {baselines.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">{isArabic ? "لا توجد خطوط أساس محفوظة" : "No baselines saved yet"}</p>
+              ) : baselines.map(b => (
+                <div key={b.id} className={`flex items-center gap-2 p-3 border-b last:border-0 ${b.is_active ? "bg-primary/5" : ""}`}>
+                  <Bookmark className={`h-4 w-4 ${b.is_active ? "text-primary fill-primary/30" : "text-muted-foreground"}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{b.name}</p>
+                    <p className="text-[11px] text-muted-foreground">{new Date(b.created_at).toLocaleString()}</p>
+                  </div>
+                  <Button size="sm" variant={activeBaseline?.id === b.id ? "default" : "outline"} onClick={() => activateBaseline(b)}>
+                    {activeBaseline?.id === b.id ? (isArabic ? "مفعّل" : "Active") : (isArabic ? "تفعيل" : "Activate")}
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => deleteBaseline(b.id)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Save View Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bookmark className="h-4 w-4 text-primary" />
+              {isArabic ? "حفظ عرض مخصص" : "Save Custom View"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label className="text-xs">{isArabic ? "اسم العرض" : "View name"}</Label>
+              <Input value={viewName} onChange={(e) => setViewName(e.target.value)} placeholder={isArabic ? "مثال: المتأخرات الحرجة" : "e.g. Critical Late"} />
+            </div>
+            {savedViews.length > 0 && (
+              <div className="border rounded-lg max-h-[200px] overflow-y-auto">
+                {savedViews.map(v => (
+                  <div key={v.id} className="flex items-center gap-2 p-2 border-b last:border-0">
+                    <Bookmark className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-sm flex-1 truncate">{v.name}</span>
+                    <Button size="sm" variant="outline" onClick={() => { applyView(v.config); setViewDialogOpen(false); }}>
+                      {isArabic ? "تطبيق" : "Apply"}
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => deleteView(v.id)}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewDialogOpen(false)}>{isArabic ? "إلغاء" : "Cancel"}</Button>
+            <Button onClick={saveCurrentView} className="gap-2"><Save className="h-4 w-4" />{isArabic ? "حفظ" : "Save"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -864,6 +864,42 @@ export type Database = {
           },
         ]
       }
+      cost_control_baselines: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          project_id: string
+          snapshot: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          project_id: string
+          snapshot: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          project_id?: string
+          snapshot?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       cost_control_overrides: {
         Row: {
           ac: number | null
@@ -937,6 +973,36 @@ export type Database = {
           spi_critical?: number
           spi_warn?: number
           tcpi_warn?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      cost_control_views: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          name: string
+          project_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          id?: string
+          name: string
+          project_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          project_id?: string | null
           updated_at?: string
           user_id?: string
         }
