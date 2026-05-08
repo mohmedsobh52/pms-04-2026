@@ -624,26 +624,38 @@ export default function CostControlReportPage() {
     fetchProjectData();
   }, [selectedProjectId, useRealData, isArabic]);
 
-  // Load saved overrides + thresholds for selected project
+  // Load saved overrides + thresholds + baselines + views for selected project
   useEffect(() => {
     if (!selectedProjectId) return;
     (async () => {
       try {
-        const [{ data: ovs }, { data: th }] = await Promise.all([
+        const [{ data: ovs }, { data: th }, { data: bls }, { data: vs }] = await Promise.all([
           supabase.from("cost_control_overrides").select("sn, progress, ac").eq("project_id", selectedProjectId),
           supabase.from("cost_control_thresholds").select("*").eq("project_id", selectedProjectId).maybeSingle(),
+          supabase.from("cost_control_baselines").select("id, name, created_at, is_active, snapshot").eq("project_id", selectedProjectId).order("created_at", { ascending: false }),
+          supabase.from("cost_control_views").select("id, name, config").eq("project_id", selectedProjectId).order("created_at", { ascending: false }),
         ]);
         if (ovs) {
           const map: Record<number, { progress?: number; ac?: number }> = {};
           ovs.forEach((o: any) => { map[o.sn] = { progress: o.progress ?? undefined, ac: o.ac ?? undefined }; });
-          setOverrides(map);
+          overridesUR.reset(map);
         }
         if (th) setThresholds({
           cpi_warn: Number(th.cpi_warn), cpi_critical: Number(th.cpi_critical),
           spi_warn: Number(th.spi_warn), spi_critical: Number(th.spi_critical),
           eac_overrun_pct: Number(th.eac_overrun_pct), tcpi_warn: Number(th.tcpi_warn),
         });
-      } catch (e) { console.warn("Load overrides/thresholds failed", e); }
+        if (bls) {
+          setBaselines(bls as any);
+          const active = bls.find((b: any) => b.is_active);
+          if (active && active.snapshot && Array.isArray((active.snapshot as any).activities)) {
+            const map: Record<number, { pv: number; progress: number; ac: number }> = {};
+            (active.snapshot as any).activities.forEach((a: any) => { map[a.sn] = { pv: a.pv, progress: a.progress, ac: a.ac }; });
+            setActiveBaseline({ id: active.id, name: active.name, map });
+          }
+        }
+        if (vs) setSavedViews(vs as any);
+      } catch (e) { console.warn("Load cost-control state failed", e); }
     })();
   }, [selectedProjectId]);
 
