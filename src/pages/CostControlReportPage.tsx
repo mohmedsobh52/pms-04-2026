@@ -2129,6 +2129,84 @@ export default function CostControlReportPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Baseline Manager Dialog */}
+      <Dialog open={baselineDialogOpen} onOpenChange={setBaselineDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bookmark className="h-4 w-4 text-primary" />
+              {isArabic ? "إدارة خطوط الأساس (Baselines)" : "Baseline Manager"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-end gap-2">
+              <div className="flex-1 space-y-1">
+                <Label className="text-xs">{isArabic ? "اسم خط الأساس الجديد" : "New baseline name"}</Label>
+                <Input value={baselineName} onChange={(e) => setBaselineName(e.target.value)} placeholder={isArabic ? "مثال: خطة Q2 2026" : "e.g. Q2 2026 Plan"} />
+              </div>
+              <Button onClick={saveBaseline} className="gap-2"><Save className="h-4 w-4" />{isArabic ? "حفظ لقطة حالية" : "Snapshot now"}</Button>
+            </div>
+            <div className="border rounded-lg max-h-[320px] overflow-y-auto">
+              {baselines.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">{isArabic ? "لا توجد خطوط أساس محفوظة" : "No baselines saved yet"}</p>
+              ) : baselines.map(b => (
+                <div key={b.id} className={`flex items-center gap-2 p-3 border-b last:border-0 ${b.is_active ? "bg-primary/5" : ""}`}>
+                  <Bookmark className={`h-4 w-4 ${b.is_active ? "text-primary fill-primary/30" : "text-muted-foreground"}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{b.name}</p>
+                    <p className="text-[11px] text-muted-foreground">{new Date(b.created_at).toLocaleString()}</p>
+                  </div>
+                  <Button size="sm" variant={activeBaseline?.id === b.id ? "default" : "outline"} onClick={() => activateBaseline(b)}>
+                    {activeBaseline?.id === b.id ? (isArabic ? "مفعّل" : "Active") : (isArabic ? "تفعيل" : "Activate")}
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => deleteBaseline(b.id)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Save View Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bookmark className="h-4 w-4 text-primary" />
+              {isArabic ? "حفظ عرض مخصص" : "Save Custom View"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label className="text-xs">{isArabic ? "اسم العرض" : "View name"}</Label>
+              <Input value={viewName} onChange={(e) => setViewName(e.target.value)} placeholder={isArabic ? "مثال: المتأخرات الحرجة" : "e.g. Critical Late"} />
+            </div>
+            {savedViews.length > 0 && (
+              <div className="border rounded-lg max-h-[200px] overflow-y-auto">
+                {savedViews.map(v => (
+                  <div key={v.id} className="flex items-center gap-2 p-2 border-b last:border-0">
+                    <Bookmark className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-sm flex-1 truncate">{v.name}</span>
+                    <Button size="sm" variant="outline" onClick={() => { applyView(v.config); setViewDialogOpen(false); }}>
+                      {isArabic ? "تطبيق" : "Apply"}
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => deleteView(v.id)}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewDialogOpen(false)}>{isArabic ? "إلغاء" : "Cancel"}</Button>
+            <Button onClick={saveCurrentView} className="gap-2"><Save className="h-4 w-4" />{isArabic ? "حفظ" : "Save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageLayout>
   );
 }
