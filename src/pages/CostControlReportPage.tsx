@@ -1531,6 +1531,8 @@ export default function CostControlReportPage() {
             </div>
           </div>
 
+          {/* KPI Section (capturable for PNG export) */}
+          <div ref={kpiSectionRef} className="space-y-4 bg-background rounded-2xl">
           {/* KPI Grid Row 1 */}
           <div className="grid grid-cols-5 gap-4">
             {kpiRow1.map((kpi) => (
