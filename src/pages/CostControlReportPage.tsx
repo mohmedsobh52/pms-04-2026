@@ -1607,6 +1607,110 @@ export default function CostControlReportPage() {
               </CardContent>
             </Card>
           </div>
+          </div>{/* /KPI capture wrapper */}
+
+          {/* Pro Toolbar: Baseline + Views + EAC method + Quick filters + Undo/Redo + PNG */}
+          <Card className="bg-card/95 backdrop-blur border-border/50 shadow-md">
+            <CardContent className="p-3 flex flex-wrap items-center gap-2">
+              {/* Quick Filters */}
+              <div className="flex items-center gap-1 mr-2">
+                <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground">{isArabic ? "فلاتر سريعة:" : "Quick:"}</span>
+              </div>
+              {([
+                ["critical", isArabic ? "حرج" : "Critical", "bg-rose-500/15 text-rose-700 dark:text-rose-300"],
+                ["late", isArabic ? "متأخر" : "Late", "bg-amber-500/15 text-amber-700 dark:text-amber-300"],
+                ["over-budget", isArabic ? "تجاوز ميزانية" : "Over Budget", "bg-orange-500/15 text-orange-700 dark:text-orange-300"],
+                ["in-progress", isArabic ? "قيد التنفيذ" : "In Progress", "bg-blue-500/15 text-blue-700 dark:text-blue-300"],
+                ["completed", isArabic ? "مكتمل" : "Completed", "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"],
+              ] as const).map(([k, lbl, cls]) => {
+                const active = quickFilter === k;
+                return (
+                  <button key={k} onClick={() => { setQuickFilter(active ? null : k); setCurrentPage(1); }}
+                    className={`text-xs px-2.5 py-1 rounded-full border transition ${cls} ${active ? "ring-2 ring-primary/40 font-semibold" : "opacity-80 hover:opacity-100"}`}>
+                    {lbl}
+                  </button>
+                );
+              })}
+              {quickFilter && (
+                <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setQuickFilter(null)}>
+                  <X className="h-3 w-3" />{isArabic ? "مسح" : "clear"}
+                </Button>
+              )}
+
+              <div className="h-6 border-l mx-2" />
+
+              {/* EAC method */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">EAC:</span>
+                <Select value={eacMethod} onValueChange={(v) => setEacMethod(v as any)}>
+                  <SelectTrigger className="h-7 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pert">PERT (BAC/CPI/SPI)</SelectItem>
+                    <SelectItem value="cpi">{isArabic ? "حسب CPI" : "CPI-based"}</SelectItem>
+                    <SelectItem value="linear">{isArabic ? "خطي (AC+BAC-EV)" : "Linear (AC+BAC-EV)"}</SelectItem>
+                    <SelectItem value="composite">{isArabic ? "مركّب (CPI×SPI)" : "Composite (CPI×SPI)"}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="h-6 border-l mx-2" />
+
+              {/* Group by */}
+              <Button size="sm" variant={groupByDiscipline ? "default" : "outline"} className="h-7 text-xs gap-1"
+                onClick={() => setGroupByDiscipline(g => !g)}>
+                <Layers className="h-3 w-3" />{isArabic ? "تجميع حسب التخصص" : "Group by Discipline"}
+              </Button>
+
+              <div className="ml-auto flex items-center gap-1.5">
+                {/* Undo / Redo */}
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={overridesUR.undo} disabled={!overridesUR.canUndo} title="Ctrl+Z">
+                  <Undo2 className="h-3 w-3" />
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={overridesUR.redo} disabled={!overridesUR.canRedo} title="Ctrl+Shift+Z">
+                  <Redo2 className="h-3 w-3" />
+                </Button>
+
+                {/* PNG export */}
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={handleExportKpiPng} disabled={isExportingPNG}>
+                  {isExportingPNG ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                  PNG
+                </Button>
+
+                {/* Saved Views */}
+                <Select onValueChange={(id) => { const v = savedViews.find(x => x.id === id); if (v) applyView(v.config); }}>
+                  <SelectTrigger className="h-7 w-[140px] text-xs">
+                    <SelectValue placeholder={isArabic ? "عرض محفوظ" : "Saved view"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {savedViews.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">{isArabic ? "لا يوجد" : "None"}</div>}
+                    {savedViews.map(v => (
+                      <SelectItem key={v.id} value={v.id}>
+                        <span className="flex items-center gap-2">
+                          <Bookmark className="h-3 w-3" />{v.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setViewDialogOpen(true)}>
+                  <Plus className="h-3 w-3" />{isArabic ? "حفظ عرض" : "Save view"}
+                </Button>
+
+                {/* Baseline */}
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setBaselineDialogOpen(true)}>
+                  <Bookmark className="h-3 w-3" />{isArabic ? "خط أساس" : "Baseline"}
+                </Button>
+                {activeBaseline && (
+                  <Badge variant="secondary" className="h-7 text-xs gap-1 px-2">
+                    <GitCompare className="h-3 w-3" />
+                    <span className="max-w-[100px] truncate">{activeBaseline.name}</span>
+                    <button onClick={clearBaseline} className="hover:text-destructive ml-1"><X className="h-3 w-3" /></button>
+                  </Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Alerts Banner — clickable to filter table */}
           {alerts.length > 0 && (
