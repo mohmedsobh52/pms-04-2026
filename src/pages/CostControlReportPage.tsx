@@ -711,8 +711,32 @@ export default function CostControlReportPage() {
         }
       });
     }
+    if (quickFilter) {
+      const t = thresholds;
+      filtered = filtered.filter(a => {
+        switch (quickFilter) {
+          case "critical": return (a.cpi > 0 && a.cpi < t.cpi_critical) || (a.spi > 0 && a.spi < t.spi_critical);
+          case "late": return a.spi > 0 && a.spi < 1;
+          case "over-budget": return a.cpi > 0 && a.cpi < 1;
+          case "completed": return a.progress >= 100;
+          case "in-progress": return a.progress > 0 && a.progress < 100;
+          default: return true;
+        }
+      });
+    }
     return filtered;
-  }, [allActivities, selectedDisciplines, selectedActivities, alertFilter, thresholds]);
+  }, [allActivities, selectedDisciplines, selectedActivities, alertFilter, thresholds, quickFilter]);
+
+  // Pick effective EAC according to selected method
+  const pickEac = useCallback((a: { pv: number; ev: number; ac: number; cpi: number; spi: number; eac1: number; eac2: number; eac3: number; eacByPert: number; }) => {
+    switch (eacMethod) {
+      case "cpi": return a.eac1;
+      case "linear": return a.eac2;
+      case "composite": return a.eac3;
+      case "pert":
+      default: return a.eacByPert;
+    }
+  }, [eacMethod]);
 
   // Calculate totals from filtered activities
   const totals = useMemo(() => {
