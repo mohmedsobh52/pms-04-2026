@@ -501,11 +501,18 @@ export default function CostControlReportPage() {
   const [isSaving, setIsSaving] = useState(false);
   const itemsPerPage = 15;
 
-  // Inline edit state for table rows (Progress / AC)
+  // Inline edit state for table rows (Progress / AC) — with Undo/Redo
   const [editingRow, setEditingRow] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<{ progress: number; ac: number }>({ progress: 0, ac: 0 });
-  const [overrides, setOverrides] = useState<Record<number, { progress?: number; ac?: number }>>({});
+  const overridesUR = useUndoRedo<Record<number, { progress?: number; ac?: number }>>({});
+  const overrides = overridesUR.state;
+  const setOverrides = overridesUR.set as (
+    next: Record<number, { progress?: number; ac?: number }> | ((prev: Record<number, { progress?: number; ac?: number }>) => Record<number, { progress?: number; ac?: number }>),
+    opts?: { silent?: boolean },
+  ) => void;
   const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [isExportingPNG, setIsExportingPNG] = useState(false);
+  const kpiSectionRef = useRef<HTMLDivElement>(null);
 
   // Threshold settings (CPI/SPI/EAC overrun %/TCPI)
   const [thresholds, setThresholds] = useState({
@@ -518,6 +525,31 @@ export default function CostControlReportPage() {
 
   // Clickable alert filter
   const [alertFilter, setAlertFilter] = useState<null | "cpi-warn" | "cpi-crit" | "spi-warn" | "spi-crit" | "eac" | "tcpi">(null);
+
+  // Quick filters
+  const [quickFilter, setQuickFilter] = useState<null | "critical" | "late" | "over-budget" | "completed" | "in-progress">(null);
+
+  // EAC forecast method
+  const [eacMethod, setEacMethod] = useState<"pert" | "cpi" | "linear" | "composite">("pert");
+
+  // Baselines (snapshots)
+  const [baselines, setBaselines] = useState<Array<{ id: string; name: string; created_at: string; is_active: boolean; snapshot: any }>>([]);
+  const [activeBaseline, setActiveBaseline] = useState<{ id: string; name: string; map: Record<number, { pv: number; progress: number; ac: number }> } | null>(null);
+  const [baselineDialogOpen, setBaselineDialogOpen] = useState(false);
+  const [baselineName, setBaselineName] = useState("");
+
+  // Saved Views
+  const [savedViews, setSavedViews] = useState<Array<{ id: string; name: string; config: any }>>([]);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [viewName, setViewName] = useState("");
+
+  // Group by discipline (drill-down)
+  const [groupByDiscipline, setGroupByDiscipline] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  // Debounced search inputs
+  const debouncedDisciplineSearch = useDebounce(disciplineSearch, 200);
+  const debouncedActivitySearch = useDebounce(activitySearch, 200);
 
   // Edit progress dialog
   const [editProgressDialog, setEditProgressDialog] = useState<{
