@@ -1039,6 +1039,122 @@ export default function CostControlReportPage() {
     } finally { setIsSavingThresholds(false); }
   };
 
+  // ===== Baselines: save / load / activate / delete =====
+  const saveBaseline = async () => {
+    if (!selectedProjectId) { toast.error(isArabic ? "اختر مشروع" : "Select a project"); return; }
+    const name = baselineName.trim() || `Baseline ${new Date().toISOString().slice(0, 16).replace("T", " ")}`;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("not signed in");
+      const snapshot = {
+        captured_at: new Date().toISOString(),
+        totals,
+        activities: allActivities.map(a => ({ sn: a.sn, activityCode: a.activityCode, pv: a.pv, ev: a.ev, ac: a.ac, progress: a.progress })),
+      };
+      const { data, error } = await supabase.from("cost_control_baselines")
+        .insert({ user_id: user.id, project_id: selectedProjectId, name, snapshot, is_active: baselines.length === 0 })
+        .select("id, name, created_at, is_active, snapshot").single();
+      if (error) throw error;
+      setBaselines(prev => [data as any, ...prev]);
+      setBaselineDialogOpen(false);
+      setBaselineName("");
+      toast.success(isArabic ? "تم حفظ خط الأساس" : "Baseline saved");
+    } catch (e: any) {
+      console.error(e);
+      toast.error((isArabic ? "فشل الحفظ: " : "Save failed: ") + (e?.message || ""));
+    }
+  };
+
+  const activateBaseline = async (b: { id: string; name: string; snapshot: any }) => {
+    try {
+      await supabase.from("cost_control_baselines").update({ is_active: false }).eq("project_id", selectedProjectId);
+      await supabase.from("cost_control_baselines").update({ is_active: true }).eq("id", b.id);
+      setBaselines(prev => prev.map(x => ({ ...x, is_active: x.id === b.id })));
+      const map: Record<number, { pv: number; progress: number; ac: number }> = {};
+      (b.snapshot?.activities || []).forEach((a: any) => { map[a.sn] = { pv: a.pv, progress: a.progress, ac: a.ac }; });
+      setActiveBaseline({ id: b.id, name: b.name, map });
+      toast.success(isArabic ? "تم التفعيل" : "Baseline activated");
+    } catch (e) { console.error(e); toast.error(isArabic ? "فشل التفعيل" : "Activation failed"); }
+  };
+
+  const clearBaseline = () => setActiveBaseline(null);
+
+  const deleteBaseline = async (id: string) => {
+    try {
+      await supabase.from("cost_control_baselines").delete().eq("id", id);
+      setBaselines(prev => prev.filter(b => b.id !== id));
+      if (activeBaseline?.id === id) setActiveBaseline(null);
+    } catch (e) { console.error(e); }
+  };
+
+  // ===== Saved Views =====
+  const saveCurrentView = async () => {
+    if (!selectedProjectId) { toast.error(isArabic ? "اختر مشروع" : "Select a project"); return; }
+    const name = viewName.trim();
+    if (!name) { toast.error(isArabic ? "أدخل اسماً" : "Enter a name"); return; }
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("not signed in");
+      const config = { selectedDisciplines, selectedActivities, sortField, sortDirection, alertFilter, quickFilter, eacMethod, groupByDiscipline };
+      const { data, error } = await supabase.from("cost_control_views")
+        .insert({ user_id: user.id, project_id: selectedProjectId, name, config })
+        .select("id, name, config").single();
+      if (error) throw error;
+      setSavedViews(prev => [data as any, ...prev]);
+      setViewDialogOpen(false);
+      setViewName("");
+      toast.success(isArabic ? "تم حفظ العرض" : "View saved");
+    } catch (e: any) { console.error(e); toast.error(isArabic ? "فشل" : "Failed"); }
+  };
+
+  const applyView = (cfg: any) => {
+    setSelectedDisciplines(cfg.selectedDisciplines || []);
+    setSelectedActivities(cfg.selectedActivities || []);
+    setSortField(cfg.sortField || "sn");
+    setSortDirection(cfg.sortDirection || "asc");
+    setAlertFilter(cfg.alertFilter ?? null);
+    setQuickFilter(cfg.quickFilter ?? null);
+    setEacMethod(cfg.eacMethod || "pert");
+    setGroupByDiscipline(!!cfg.groupByDiscipline);
+    setCurrentPage(1);
+  };
+
+  const deleteView = async (id: string) => {
+    try {
+      await supabase.from("cost_control_views").delete().eq("id", id);
+      setSavedViews(prev => prev.filter(v => v.id !== id));
+    } catch (e) { console.error(e); }
+  };
+
+  // ===== KPI Dashboard PNG export =====
+  const handleExportKpiPng = useCallback(async () => {
+    if (!kpiSectionRef.current) return;
+    setIsExportingPNG(true);
+    try {
+      const canvas = await html2canvas(kpiSectionRef.current, { scale: 2, backgroundColor: null, useCORS: true });
+      const url = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `cost-control-kpi-${new Date().toISOString().slice(0, 10)}.png`;
+      link.click();
+      toast.success(isArabic ? "تم حفظ صورة KPI" : "KPI image saved");
+    } catch (e) {
+      console.error(e);
+      toast.error(isArabic ? "فشل حفظ الصورة" : "Image export failed");
+    } finally { setIsExportingPNG(false); }
+  }, [isArabic]);
+
+  // ===== Undo/Redo keyboard shortcuts =====
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "z" && !e.shiftKey) { e.preventDefault(); overridesUR.undo(); }
+      else if ((e.key === "z" && e.shiftKey) || e.key === "y") { e.preventDefault(); overridesUR.redo(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [overridesUR]);
+
   // ===== Alerts (Forecast/Variance) — uses configurable thresholds =====
   type AlertKey = "cpi-warn"|"cpi-crit"|"spi-warn"|"spi-crit"|"eac"|"tcpi";
   const alerts = useMemo(() => {
