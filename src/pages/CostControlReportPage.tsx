@@ -1479,6 +1479,31 @@ export default function CostControlReportPage() {
   return (
     <PageLayout>
       <ColorLegend type="status" isArabic={isArabic} className="mb-4" />
+      {/* Breadcrumb / Back nav */}
+      <div className="mb-4 flex items-center gap-2 flex-wrap">
+        <Button variant="outline" size="sm" asChild className="gap-1.5">
+          <Link to="/"><Home className="h-3.5 w-3.5" />{isArabic ? "الرئيسية" : "Home"}</Link>
+        </Button>
+        <Button variant="ghost" size="sm" asChild className="gap-1.5">
+          <Link to="/projects"><FolderOpen className="h-3.5 w-3.5" />{isArabic ? "المشاريع" : "Projects"}</Link>
+        </Button>
+        {selectedProjectId && selectedProject && (
+          <>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground rtl:rotate-180" />
+            <Button variant="ghost" size="sm" asChild className="gap-1.5 max-w-[260px]">
+              <Link to={`/projects/${selectedProjectId}`}>
+                <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" />
+                <span className="truncate">{selectedProject.name}</span>
+              </Link>
+            </Button>
+          </>
+        )}
+        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground rtl:rotate-180" />
+        <span className="text-sm font-medium text-foreground">
+          {isArabic ? "مراقبة التكاليف" : "Cost Control"}
+        </span>
+      </div>
+
       <div className="flex gap-6 min-h-[calc(100vh-200px)]">
         {/* Left Sidebar */}
         <aside className="w-72 shrink-0 space-y-4">
