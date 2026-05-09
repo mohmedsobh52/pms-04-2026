@@ -1872,6 +1872,52 @@ export default function CostControlReportPage() {
             </CardContent>
           </Card>
 
+          {/* Baseline vs Current comparison */}
+          {baselineComparison && (
+            <Card className="bg-card/95 backdrop-blur border-border/50 shadow-md">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <GitCompare className="h-4 w-4 text-primary" />
+                  {isArabic ? "مقارنة بخط الأساس" : "Baseline vs Current"}
+                  <Badge variant="outline" className="ml-2 max-w-[200px] truncate">{baselineComparison.name}</Badge>
+                  <Badge variant="secondary" className="ml-1">
+                    {baselineComparison.activities} {isArabic ? "نشاط" : "act."}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {([
+                    ["PV", baselineComparison.baseline.pv, baselineComparison.current.pv, baselineComparison.delta.pv, "money"],
+                    ["EV", baselineComparison.baseline.ev, baselineComparison.current.ev, baselineComparison.delta.ev, "money"],
+                    ["AC", baselineComparison.baseline.ac, baselineComparison.current.ac, baselineComparison.delta.ac, "money-rev"],
+                    [isArabic ? "الإنجاز %" : "Progress %", baselineComparison.baseline.progress, baselineComparison.current.progress, baselineComparison.delta.progress, "pct"],
+                  ] as const).map(([label, b, c, d, kind]) => {
+                    const fmt = (v: number) => kind === "pct" ? `${v.toFixed(1)}%` : formatValue(v);
+                    // For AC, positive delta is bad (costs more); for PV/EV/Progress positive is good
+                    const good = kind === "money-rev" ? d <= 0 : d >= 0;
+                    const cls = Math.abs(d) < (kind === "pct" ? 0.5 : 1)
+                      ? "text-muted-foreground"
+                      : good ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400";
+                    const sign = d > 0 ? "+" : "";
+                    return (
+                      <div key={label} className="rounded-lg border bg-muted/30 p-3">
+                        <div className="text-[11px] uppercase text-muted-foreground tracking-wide">{label}</div>
+                        <div className="mt-1 text-base font-bold">{fmt(c)}</div>
+                        <div className="mt-1 text-[11px] text-muted-foreground">
+                          {isArabic ? "أساس:" : "Base:"} {fmt(b)}
+                        </div>
+                        <div className={`text-xs font-semibold ${cls}`}>
+                          Δ {sign}{kind === "pct" ? `${d.toFixed(1)}%` : formatValue(d)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Alerts Banner — clickable to filter table */}
           {alerts.length > 0 && (
             <Card className="border-amber-300/50 bg-gradient-to-br from-amber-50 to-rose-50 dark:from-amber-950/30 dark:to-rose-950/30 shadow-lg">
