@@ -480,15 +480,20 @@ const convertItemsToActivities = (items: ProjectItem[], progressData: ProgressHi
 
 export default function CostControlReportPage() {
   const { isArabic } = useLanguage();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const routeParams = useParams<{ projectId?: string }>();
+  const urlProjectId = routeParams.projectId || searchParams.get("projectId");
   
   // Project and data state
   const [projects, setProjects] = useState<ProjectData[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    urlProjectId || (typeof window !== "undefined" ? localStorage.getItem("cc:lastProjectId") : null)
+  );
   const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
   const [progressHistory, setProgressHistory] = useState<ProgressHistory | null>(null);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
-  const [useRealData, setUseRealData] = useState(false);
+  const [useRealData, setUseRealData] = useState(!!urlProjectId);
   
   // UI state
   const [disciplineSearch, setDisciplineSearch] = useState("");
