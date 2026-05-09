@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from "react";
+import { useSearchParams, useParams } from "react-router-dom";
 import { PageLayout } from "@/components/PageLayout";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useUndoRedo, heatmapClass } from "@/hooks/useEvmTools";
