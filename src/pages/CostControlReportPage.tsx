@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from "react";
-import { useSearchParams, useParams } from "react-router-dom";
+import { useSearchParams, useParams, Link } from "react-router-dom";
 import { PageLayout } from "@/components/PageLayout";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useUndoRedo, heatmapClass } from "@/hooks/useEvmTools";
@@ -25,7 +25,7 @@ import {
   BarChart3, Activity, ChevronLeft, ChevronRight, ArrowUpDown, Download,
   Building2, Zap, Wrench, PaintBucket, HardHat, Database, Loader2, Edit, Save, RefreshCw,
   Printer, FileText, AlertTriangle, LineChart as LineChartIcon, Check, X,
-  Undo2, Redo2, Camera, Bookmark, Layers, Filter, GitCompare, Plus
+  Undo2, Redo2, Camera, Bookmark, Layers, Filter, GitCompare, Plus, ArrowLeft, Home, FolderOpen
 } from "lucide-react";
 import { exportCostControlPDF } from "@/lib/cost-control-pdf";
 import {
@@ -684,6 +684,38 @@ export default function CostControlReportPage() {
     })();
   }, [selectedProjectId]);
 
+  // ===== Per-project filter persistence (localStorage) =====
+  const filterStorageKey = selectedProjectId ? `cc:filters:${selectedProjectId}` : null;
+  // Load saved filters when project changes
+  useEffect(() => {
+    if (!filterStorageKey) return;
+    try {
+      const raw = localStorage.getItem(filterStorageKey);
+      if (!raw) return;
+      const f = JSON.parse(raw);
+      if (Array.isArray(f.selectedDisciplines)) setSelectedDisciplines(f.selectedDisciplines);
+      if (Array.isArray(f.selectedActivities)) setSelectedActivities(f.selectedActivities);
+      if (typeof f.disciplineSearch === "string") setDisciplineSearch(f.disciplineSearch);
+      if (typeof f.activitySearch === "string") setActivitySearch(f.activitySearch);
+      if (typeof f.sortField === "string") setSortField(f.sortField);
+      if (f.sortDirection === "asc" || f.sortDirection === "desc") setSortDirection(f.sortDirection);
+      if (f.alertFilter === null || typeof f.alertFilter === "string") setAlertFilter(f.alertFilter ?? null);
+      if (f.quickFilter === null || typeof f.quickFilter === "string") setQuickFilter(f.quickFilter ?? null);
+      if (typeof f.eacMethod === "string") setEacMethod(f.eacMethod);
+      if (typeof f.groupByDiscipline === "boolean") setGroupByDiscipline(f.groupByDiscipline);
+    } catch {}
+  }, [filterStorageKey]);
+  // Save on changes
+  useEffect(() => {
+    if (!filterStorageKey) return;
+    try {
+      localStorage.setItem(filterStorageKey, JSON.stringify({
+        selectedDisciplines, selectedActivities, disciplineSearch, activitySearch,
+        sortField, sortDirection, alertFilter, quickFilter, eacMethod, groupByDiscipline,
+      }));
+    } catch {}
+  }, [filterStorageKey, selectedDisciplines, selectedActivities, disciplineSearch, activitySearch, sortField, sortDirection, alertFilter, quickFilter, eacMethod, groupByDiscipline]);
+
   // Get activities based on data source (with inline overrides applied)
   const allActivities = useMemo(() => {
     const base = (useRealData && projectItems.length > 0)
@@ -783,6 +815,37 @@ export default function CostControlReportPage() {
 
     return { pv, ev, ac, cv, sv, cpi, spi, eacByPert, etc, tcpi, progress };
   }, [filteredActivities]);
+
+  // ===== Baseline comparison vs current =====
+  const baselineComparison = useMemo(() => {
+    if (!activeBaseline) return null;
+    const map = activeBaseline.map;
+    const inScope = filteredActivities.filter(a => map[a.sn]);
+    if (inScope.length === 0) return null;
+    let bPV = 0, bAC = 0, bEV = 0, bProgSum = 0;
+    inScope.forEach(a => {
+      const b = map[a.sn];
+      bPV += b.pv;
+      bAC += b.ac;
+      bEV += b.pv * (b.progress / 100);
+      bProgSum += b.progress;
+    });
+    const bProgress = bProgSum / inScope.length;
+    const cProgress = inScope.reduce((s, a) => s + a.progress, 0) / inScope.length;
+    const cPV = inScope.reduce((s, a) => s + a.pv, 0);
+    const cAC = inScope.reduce((s, a) => s + a.ac, 0);
+    const cEV = inScope.reduce((s, a) => s + a.ev, 0);
+    return {
+      name: activeBaseline.name,
+      activities: inScope.length,
+      baseline: { pv: bPV, ac: bAC, ev: bEV, progress: bProgress },
+      current:  { pv: cPV, ac: cAC, ev: cEV, progress: cProgress },
+      delta: {
+        pv: cPV - bPV, ac: cAC - bAC, ev: cEV - bEV,
+        progress: cProgress - bProgress,
+      },
+    };
+  }, [activeBaseline, filteredActivities]);
 
   // Calculate discipline progress
   const disciplineProgress = useMemo(() => {
@@ -1281,8 +1344,32 @@ export default function CostControlReportPage() {
     setIsExporting(true);
     try {
       const workbook = createWorkbook();
-      
-      // Summary Sheet
+      const proj = projects.find(p => p.id === selectedProjectId);
+      const projName = proj?.name || (isArabic ? "بدون مشروع" : "No project");
+      const safeName = projName.replace(/[^\w\u0600-\u06FF\-]+/g, "_").slice(0, 60);
+      const sanitizeSheet = (s: string) => s.replace(/[\\\/\?\*\[\]:]/g, " ").slice(0, 28);
+
+      // Context / Filters sheet
+      addJsonSheet(workbook, [
+        { Field: 'Project', Value: projName },
+        { Field: 'Project ID', Value: selectedProjectId || '-' },
+        { Field: 'Generated', Value: new Date().toISOString() },
+        { Field: 'Data Source', Value: useRealData ? 'Database (real)' : 'Sample' },
+        { Field: 'EAC Method', Value: eacMethod },
+        { Field: 'Disciplines Filter', Value: selectedDisciplines.join(", ") || 'All' },
+        { Field: 'Activities Filter', Value: selectedActivities.join(", ") || 'All' },
+        { Field: 'Alert Filter', Value: alertFilter || 'None' },
+        { Field: 'Quick Filter', Value: quickFilter || 'None' },
+        { Field: 'Discipline Search', Value: disciplineSearch || '-' },
+        { Field: 'Activity Search', Value: activitySearch || '-' },
+        { Field: 'Sort', Value: `${sortField} ${sortDirection}` },
+        { Field: 'Active Baseline', Value: activeBaseline?.name || 'None' },
+        { Field: 'Manual Overrides', Value: Object.keys(overrides).length },
+        { Field: 'Filtered Activities', Value: filteredActivities.length },
+        { Field: 'Total Activities', Value: allActivities.length },
+      ], sanitizeSheet('Context'));
+
+      // Summary Sheet (totals reflect filtered + overrides)
       addJsonSheet(workbook, [
         { Metric: 'PV (Planned Value)', Value: totals.pv, Formatted: formatValue(totals.pv) },
         { Metric: 'EV (Earned Value)', Value: totals.ev, Formatted: formatValue(totals.ev) },
@@ -1295,30 +1382,53 @@ export default function CostControlReportPage() {
         { Metric: 'ETC (Estimate to Complete)', Value: totals.etc, Formatted: formatValue(totals.etc) },
         { Metric: 'TCPI', Value: totals.tcpi.toFixed(2) },
         { Metric: 'Progress %', Value: totals.progress.toFixed(1) + '%' },
-      ], 'Summary');
-      
-      // Activities Sheet
-      addJsonSheet(workbook, filteredActivities.map(a => ({
-        'SN': a.sn,
-        'Activity Code': a.activityCode,
-        'Activity': a.activity,
-        'Activity (AR)': a.activityAr,
-        'Discipline': a.discipline,
-        'Progress %': a.progress,
-        'PV': a.pv,
-        'EV': a.ev,
-        'AC': a.ac,
-        'CV': a.cv,
-        'SV': a.sv,
-        'CPI': a.cpi.toFixed(2),
-        'SPI': a.spi.toFixed(2),
-        'EAC BY PERT': a.eacByPert.toFixed(0),
-        'ETC': a.etc.toFixed(0),
-        'TCPI': a.tcpi.toFixed(2),
-        'Items Count': a.itemsCount || '-',
-      })), 'Activities');
-      
-      await downloadWorkbook(workbook, 'Cost_Control_Report.xlsx');
+      ], sanitizeSheet('Summary'));
+
+      // Activities Sheet (post-overrides + filtered)
+      addJsonSheet(workbook, filteredActivities.map(a => {
+        const ov = overrides[a.sn];
+        const baseline = activeBaseline?.map?.[a.sn];
+        return {
+          'SN': a.sn,
+          'Activity Code': a.activityCode,
+          'Activity': a.activity,
+          'Activity (AR)': a.activityAr,
+          'Discipline': a.discipline,
+          'Progress %': a.progress,
+          'PV': a.pv,
+          'EV': a.ev,
+          'AC': a.ac,
+          'CV': a.cv,
+          'SV': a.sv,
+          'CPI': Number(a.cpi.toFixed(3)),
+          'SPI': Number(a.spi.toFixed(3)),
+          'EAC BY PERT': Math.round(a.eacByPert),
+          'ETC': Math.round(a.etc),
+          'TCPI': Number(a.tcpi.toFixed(3)),
+          'Items Count': a.itemsCount || '-',
+          'Override?': ov ? 'YES' : '',
+          'Override Progress': ov?.progress ?? '',
+          'Override AC': ov?.ac ?? '',
+          'Baseline PV': baseline?.pv ?? '',
+          'Baseline Progress': baseline?.progress ?? '',
+          'Baseline AC': baseline?.ac ?? '',
+        };
+      }), sanitizeSheet('Activities'));
+
+      // Baseline comparison sheet
+      if (baselineComparison) {
+        addJsonSheet(workbook, [
+          { Metric: 'Baseline Name', Baseline: baselineComparison.name, Current: '-', Delta: '-' },
+          { Metric: 'Activities (in scope)', Baseline: baselineComparison.activities, Current: baselineComparison.activities, Delta: 0 },
+          { Metric: 'PV', Baseline: Math.round(baselineComparison.baseline.pv), Current: Math.round(baselineComparison.current.pv), Delta: Math.round(baselineComparison.delta.pv) },
+          { Metric: 'EV', Baseline: Math.round(baselineComparison.baseline.ev), Current: Math.round(baselineComparison.current.ev), Delta: Math.round(baselineComparison.delta.ev) },
+          { Metric: 'AC', Baseline: Math.round(baselineComparison.baseline.ac), Current: Math.round(baselineComparison.current.ac), Delta: Math.round(baselineComparison.delta.ac) },
+          { Metric: 'Progress %', Baseline: baselineComparison.baseline.progress.toFixed(1), Current: baselineComparison.current.progress.toFixed(1), Delta: baselineComparison.delta.progress.toFixed(1) },
+        ], sanitizeSheet('Baseline_vs_Current'));
+      }
+
+      const dateStr = new Date().toISOString().slice(0, 10);
+      await downloadWorkbook(workbook, `CostControl_${safeName}_${dateStr}.xlsx`);
       toast.success(isArabic ? 'تم التصدير بنجاح' : 'Export successful');
     } catch (error) {
       console.error('Export error:', error);
@@ -1326,7 +1436,7 @@ export default function CostControlReportPage() {
     } finally {
       setIsExporting(false);
     }
-  }, [filteredActivities, totals, isArabic]);
+  }, [filteredActivities, allActivities, totals, isArabic, projects, selectedProjectId, useRealData, eacMethod, selectedDisciplines, selectedActivities, alertFilter, quickFilter, disciplineSearch, activitySearch, sortField, sortDirection, activeBaseline, overrides, baselineComparison]);
 
   // Filter sidebar lists
   const filteredDisciplineList = disciplineProgress.filter(d =>
@@ -1369,6 +1479,31 @@ export default function CostControlReportPage() {
   return (
     <PageLayout>
       <ColorLegend type="status" isArabic={isArabic} className="mb-4" />
+      {/* Breadcrumb / Back nav */}
+      <div className="mb-4 flex items-center gap-2 flex-wrap">
+        <Button variant="outline" size="sm" asChild className="gap-1.5">
+          <Link to="/"><Home className="h-3.5 w-3.5" />{isArabic ? "الرئيسية" : "Home"}</Link>
+        </Button>
+        <Button variant="ghost" size="sm" asChild className="gap-1.5">
+          <Link to="/projects"><FolderOpen className="h-3.5 w-3.5" />{isArabic ? "المشاريع" : "Projects"}</Link>
+        </Button>
+        {selectedProjectId && selectedProject && (
+          <>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground rtl:rotate-180" />
+            <Button variant="ghost" size="sm" asChild className="gap-1.5 max-w-[260px]">
+              <Link to={`/projects/${selectedProjectId}`}>
+                <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" />
+                <span className="truncate">{selectedProject.name}</span>
+              </Link>
+            </Button>
+          </>
+        )}
+        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground rtl:rotate-180" />
+        <span className="text-sm font-medium text-foreground">
+          {isArabic ? "مراقبة التكاليف" : "Cost Control"}
+        </span>
+      </div>
+
       <div className="flex gap-6 min-h-[calc(100vh-200px)]">
         {/* Left Sidebar */}
         <aside className="w-72 shrink-0 space-y-4">
@@ -1736,6 +1871,52 @@ export default function CostControlReportPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Baseline vs Current comparison */}
+          {baselineComparison && (
+            <Card className="bg-card/95 backdrop-blur border-border/50 shadow-md">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <GitCompare className="h-4 w-4 text-primary" />
+                  {isArabic ? "مقارنة بخط الأساس" : "Baseline vs Current"}
+                  <Badge variant="outline" className="ml-2 max-w-[200px] truncate">{baselineComparison.name}</Badge>
+                  <Badge variant="secondary" className="ml-1">
+                    {baselineComparison.activities} {isArabic ? "نشاط" : "act."}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {([
+                    ["PV", baselineComparison.baseline.pv, baselineComparison.current.pv, baselineComparison.delta.pv, "money"],
+                    ["EV", baselineComparison.baseline.ev, baselineComparison.current.ev, baselineComparison.delta.ev, "money"],
+                    ["AC", baselineComparison.baseline.ac, baselineComparison.current.ac, baselineComparison.delta.ac, "money-rev"],
+                    [isArabic ? "الإنجاز %" : "Progress %", baselineComparison.baseline.progress, baselineComparison.current.progress, baselineComparison.delta.progress, "pct"],
+                  ] as const).map(([label, b, c, d, kind]) => {
+                    const fmt = (v: number) => kind === "pct" ? `${v.toFixed(1)}%` : formatValue(v);
+                    // For AC, positive delta is bad (costs more); for PV/EV/Progress positive is good
+                    const good = kind === "money-rev" ? d <= 0 : d >= 0;
+                    const cls = Math.abs(d) < (kind === "pct" ? 0.5 : 1)
+                      ? "text-muted-foreground"
+                      : good ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400";
+                    const sign = d > 0 ? "+" : "";
+                    return (
+                      <div key={label} className="rounded-lg border bg-muted/30 p-3">
+                        <div className="text-[11px] uppercase text-muted-foreground tracking-wide">{label}</div>
+                        <div className="mt-1 text-base font-bold">{fmt(c)}</div>
+                        <div className="mt-1 text-[11px] text-muted-foreground">
+                          {isArabic ? "أساس:" : "Base:"} {fmt(b)}
+                        </div>
+                        <div className={`text-xs font-semibold ${cls}`}>
+                          Δ {sign}{kind === "pct" ? `${d.toFixed(1)}%` : formatValue(d)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Alerts Banner — clickable to filter table */}
           {alerts.length > 0 && (
