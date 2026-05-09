@@ -120,6 +120,16 @@ export function ProjectHeader({
             <Play className="w-4 h-4" />
             {isArabic ? "بدء التسعير" : "Start Pricing"}
           </Button>
+          <Button
+            variant="outline"
+            asChild
+            className="gap-2"
+          >
+            <Link to={`/projects/${project.id}/cost-control`}>
+              <Shield className="w-4 h-4" />
+              {isArabic ? "مراقبة التكاليف" : "Cost Control"}
+            </Link>
+          </Button>
           <Button variant="outline" onClick={onEditProject} className="gap-2">
             <Edit className="w-4 h-4" />
             {isArabic ? "تعديل المشروع" : "Edit Project"}
