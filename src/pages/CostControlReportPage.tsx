@@ -1344,8 +1344,32 @@ export default function CostControlReportPage() {
     setIsExporting(true);
     try {
       const workbook = createWorkbook();
-      
-      // Summary Sheet
+      const proj = projects.find(p => p.id === selectedProjectId);
+      const projName = proj?.name || (isArabic ? "بدون مشروع" : "No project");
+      const safeName = projName.replace(/[^\w\u0600-\u06FF\-]+/g, "_").slice(0, 60);
+      const sanitizeSheet = (s: string) => s.replace(/[\\\/\?\*\[\]:]/g, " ").slice(0, 28);
+
+      // Context / Filters sheet
+      addJsonSheet(workbook, [
+        { Field: 'Project', Value: projName },
+        { Field: 'Project ID', Value: selectedProjectId || '-' },
+        { Field: 'Generated', Value: new Date().toISOString() },
+        { Field: 'Data Source', Value: useRealData ? 'Database (real)' : 'Sample' },
+        { Field: 'EAC Method', Value: eacMethod },
+        { Field: 'Disciplines Filter', Value: selectedDisciplines.join(", ") || 'All' },
+        { Field: 'Activities Filter', Value: selectedActivities.join(", ") || 'All' },
+        { Field: 'Alert Filter', Value: alertFilter || 'None' },
+        { Field: 'Quick Filter', Value: quickFilter || 'None' },
+        { Field: 'Discipline Search', Value: disciplineSearch || '-' },
+        { Field: 'Activity Search', Value: activitySearch || '-' },
+        { Field: 'Sort', Value: `${sortField} ${sortDirection}` },
+        { Field: 'Active Baseline', Value: activeBaseline?.name || 'None' },
+        { Field: 'Manual Overrides', Value: Object.keys(overrides).length },
+        { Field: 'Filtered Activities', Value: filteredActivities.length },
+        { Field: 'Total Activities', Value: allActivities.length },
+      ], sanitizeSheet('Context'));
+
+      // Summary Sheet (totals reflect filtered + overrides)
       addJsonSheet(workbook, [
         { Metric: 'PV (Planned Value)', Value: totals.pv, Formatted: formatValue(totals.pv) },
         { Metric: 'EV (Earned Value)', Value: totals.ev, Formatted: formatValue(totals.ev) },
@@ -1358,30 +1382,53 @@ export default function CostControlReportPage() {
         { Metric: 'ETC (Estimate to Complete)', Value: totals.etc, Formatted: formatValue(totals.etc) },
         { Metric: 'TCPI', Value: totals.tcpi.toFixed(2) },
         { Metric: 'Progress %', Value: totals.progress.toFixed(1) + '%' },
-      ], 'Summary');
-      
-      // Activities Sheet
-      addJsonSheet(workbook, filteredActivities.map(a => ({
-        'SN': a.sn,
-        'Activity Code': a.activityCode,
-        'Activity': a.activity,
-        'Activity (AR)': a.activityAr,
-        'Discipline': a.discipline,
-        'Progress %': a.progress,
-        'PV': a.pv,
-        'EV': a.ev,
-        'AC': a.ac,
-        'CV': a.cv,
-        'SV': a.sv,
-        'CPI': a.cpi.toFixed(2),
-        'SPI': a.spi.toFixed(2),
-        'EAC BY PERT': a.eacByPert.toFixed(0),
-        'ETC': a.etc.toFixed(0),
-        'TCPI': a.tcpi.toFixed(2),
-        'Items Count': a.itemsCount || '-',
-      })), 'Activities');
-      
-      await downloadWorkbook(workbook, 'Cost_Control_Report.xlsx');
+      ], sanitizeSheet('Summary'));
+
+      // Activities Sheet (post-overrides + filtered)
+      addJsonSheet(workbook, filteredActivities.map(a => {
+        const ov = overrides[a.sn];
+        const baseline = activeBaseline?.map?.[a.sn];
+        return {
+          'SN': a.sn,
+          'Activity Code': a.activityCode,
+          'Activity': a.activity,
+          'Activity (AR)': a.activityAr,
+          'Discipline': a.discipline,
+          'Progress %': a.progress,
+          'PV': a.pv,
+          'EV': a.ev,
+          'AC': a.ac,
+          'CV': a.cv,
+          'SV': a.sv,
+          'CPI': Number(a.cpi.toFixed(3)),
+          'SPI': Number(a.spi.toFixed(3)),
+          'EAC BY PERT': Math.round(a.eacByPert),
+          'ETC': Math.round(a.etc),
+          'TCPI': Number(a.tcpi.toFixed(3)),
+          'Items Count': a.itemsCount || '-',
+          'Override?': ov ? 'YES' : '',
+          'Override Progress': ov?.progress ?? '',
+          'Override AC': ov?.ac ?? '',
+          'Baseline PV': baseline?.pv ?? '',
+          'Baseline Progress': baseline?.progress ?? '',
+          'Baseline AC': baseline?.ac ?? '',
+        };
+      }), sanitizeSheet('Activities'));
+
+      // Baseline comparison sheet
+      if (baselineComparison) {
+        addJsonSheet(workbook, [
+          { Metric: 'Baseline Name', Baseline: baselineComparison.name, Current: '-', Delta: '-' },
+          { Metric: 'Activities (in scope)', Baseline: baselineComparison.activities, Current: baselineComparison.activities, Delta: 0 },
+          { Metric: 'PV', Baseline: Math.round(baselineComparison.baseline.pv), Current: Math.round(baselineComparison.current.pv), Delta: Math.round(baselineComparison.delta.pv) },
+          { Metric: 'EV', Baseline: Math.round(baselineComparison.baseline.ev), Current: Math.round(baselineComparison.current.ev), Delta: Math.round(baselineComparison.delta.ev) },
+          { Metric: 'AC', Baseline: Math.round(baselineComparison.baseline.ac), Current: Math.round(baselineComparison.current.ac), Delta: Math.round(baselineComparison.delta.ac) },
+          { Metric: 'Progress %', Baseline: baselineComparison.baseline.progress.toFixed(1), Current: baselineComparison.current.progress.toFixed(1), Delta: baselineComparison.delta.progress.toFixed(1) },
+        ], sanitizeSheet('Baseline_vs_Current'));
+      }
+
+      const dateStr = new Date().toISOString().slice(0, 10);
+      await downloadWorkbook(workbook, `CostControl_${safeName}_${dateStr}.xlsx`);
       toast.success(isArabic ? 'تم التصدير بنجاح' : 'Export successful');
     } catch (error) {
       console.error('Export error:', error);
@@ -1389,7 +1436,7 @@ export default function CostControlReportPage() {
     } finally {
       setIsExporting(false);
     }
-  }, [filteredActivities, totals, isArabic]);
+  }, [filteredActivities, allActivities, totals, isArabic, projects, selectedProjectId, useRealData, eacMethod, selectedDisciplines, selectedActivities, alertFilter, quickFilter, disciplineSearch, activitySearch, sortField, sortDirection, activeBaseline, overrides, baselineComparison]);
 
   // Filter sidebar lists
   const filteredDisciplineList = disciplineProgress.filter(d =>
