@@ -25,7 +25,7 @@ import {
   BarChart3, Activity, ChevronLeft, ChevronRight, ArrowUpDown, Download,
   Building2, Zap, Wrench, PaintBucket, HardHat, Database, Loader2, Edit, Save, RefreshCw,
   Printer, FileText, AlertTriangle, LineChart as LineChartIcon, Check, X,
-  Undo2, Redo2, Camera, Bookmark, Layers, Filter, GitCompare, Plus
+  Undo2, Redo2, Camera, Bookmark, Layers, Filter, GitCompare, Plus, ArrowLeft, Home, FolderOpen
 } from "lucide-react";
 import { exportCostControlPDF } from "@/lib/cost-control-pdf";
 import {
