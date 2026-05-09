@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Home, ChevronRight, Edit, Play, MoreVertical,
   Package, Percent, DollarSign, Building2, FolderOpen,
-  FileText, Download, Trash2
+  FileText, Download, Trash2, Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
