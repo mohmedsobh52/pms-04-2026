@@ -145,6 +145,7 @@ const App = () => (
                         <Route path="/fast-extraction" element={<Navigate to="/projects?tab=attachments&mode=extraction" replace />} />
                         <Route path="/library" element={<LibraryPage />} />
                         <Route path="/cost-control-report" element={<CostControlReportPage />} />
+                        <Route path="/projects/:projectId/cost-control" element={<CostControlReportPage />} />
                         <Route path="/pricing-accuracy" element={<PricingAccuracyPage />} />
                         <Route path="/progress-certificates" element={<ProgressCertificatesPage />} />
                         <Route path="/progress-certificates/new" element={<NewCertificatePage />} />

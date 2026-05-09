@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from "react";
+import { useSearchParams, useParams } from "react-router-dom";
 import { PageLayout } from "@/components/PageLayout";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useUndoRedo, heatmapClass } from "@/hooks/useEvmTools";
@@ -479,15 +480,20 @@ const convertItemsToActivities = (items: ProjectItem[], progressData: ProgressHi
 
 export default function CostControlReportPage() {
   const { isArabic } = useLanguage();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const routeParams = useParams<{ projectId?: string }>();
+  const urlProjectId = routeParams.projectId || searchParams.get("projectId");
   
   // Project and data state
   const [projects, setProjects] = useState<ProjectData[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    urlProjectId || (typeof window !== "undefined" ? localStorage.getItem("cc:lastProjectId") : null)
+  );
   const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
   const [progressHistory, setProgressHistory] = useState<ProgressHistory | null>(null);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
-  const [useRealData, setUseRealData] = useState(false);
+  const [useRealData, setUseRealData] = useState(!!urlProjectId);
   
   // UI state
   const [disciplineSearch, setDisciplineSearch] = useState("");
@@ -579,6 +585,25 @@ export default function CostControlReportPage() {
     
     fetchProjects();
   }, [isArabic]);
+
+  // React to URL projectId changes (deep links from project page)
+  useEffect(() => {
+    if (urlProjectId && urlProjectId !== selectedProjectId) {
+      setSelectedProjectId(urlProjectId);
+      setUseRealData(true);
+    }
+  }, [urlProjectId]);
+
+  // Persist last selected project + sync URL query string
+  useEffect(() => {
+    if (!selectedProjectId) return;
+    try { localStorage.setItem("cc:lastProjectId", selectedProjectId); } catch {}
+    if (!routeParams.projectId && searchParams.get("projectId") !== selectedProjectId) {
+      const next = new URLSearchParams(searchParams);
+      next.set("projectId", selectedProjectId);
+      setSearchParams(next, { replace: true });
+    }
+  }, [selectedProjectId]);
 
   // Fetch project items when project is selected
   useEffect(() => {

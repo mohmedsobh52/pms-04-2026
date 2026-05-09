@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Home, ChevronRight, Edit, Play, MoreVertical,
   Package, Percent, DollarSign, Building2, FolderOpen,
-  FileText, Download, Trash2
+  FileText, Download, Trash2, Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -119,6 +119,16 @@ export function ProjectHeader({
           <Button onClick={onStartPricing} className="gap-2">
             <Play className="w-4 h-4" />
             {isArabic ? "بدء التسعير" : "Start Pricing"}
+          </Button>
+          <Button
+            variant="outline"
+            asChild
+            className="gap-2"
+          >
+            <Link to={`/projects/${project.id}/cost-control`}>
+              <Shield className="w-4 h-4" />
+              {isArabic ? "مراقبة التكاليف" : "Cost Control"}
+            </Link>
           </Button>
           <Button variant="outline" onClick={onEditProject} className="gap-2">
             <Edit className="w-4 h-4" />
