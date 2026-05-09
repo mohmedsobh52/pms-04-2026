@@ -816,6 +816,37 @@ export default function CostControlReportPage() {
     return { pv, ev, ac, cv, sv, cpi, spi, eacByPert, etc, tcpi, progress };
   }, [filteredActivities]);
 
+  // ===== Baseline comparison vs current =====
+  const baselineComparison = useMemo(() => {
+    if (!activeBaseline) return null;
+    const map = activeBaseline.map;
+    const inScope = filteredActivities.filter(a => map[a.sn]);
+    if (inScope.length === 0) return null;
+    let bPV = 0, bAC = 0, bEV = 0, bProgSum = 0;
+    inScope.forEach(a => {
+      const b = map[a.sn];
+      bPV += b.pv;
+      bAC += b.ac;
+      bEV += b.pv * (b.progress / 100);
+      bProgSum += b.progress;
+    });
+    const bProgress = bProgSum / inScope.length;
+    const cProgress = inScope.reduce((s, a) => s + a.progress, 0) / inScope.length;
+    const cPV = inScope.reduce((s, a) => s + a.pv, 0);
+    const cAC = inScope.reduce((s, a) => s + a.ac, 0);
+    const cEV = inScope.reduce((s, a) => s + a.ev, 0);
+    return {
+      name: activeBaseline.name,
+      activities: inScope.length,
+      baseline: { pv: bPV, ac: bAC, ev: bEV, progress: bProgress },
+      current:  { pv: cPV, ac: cAC, ev: cEV, progress: cProgress },
+      delta: {
+        pv: cPV - bPV, ac: cAC - bAC, ev: cEV - bEV,
+        progress: cProgress - bProgress,
+      },
+    };
+  }, [activeBaseline, filteredActivities]);
+
   // Calculate discipline progress
   const disciplineProgress = useMemo(() => {
     return disciplines.map(d => {
