@@ -684,6 +684,38 @@ export default function CostControlReportPage() {
     })();
   }, [selectedProjectId]);
 
+  // ===== Per-project filter persistence (localStorage) =====
+  const filterStorageKey = selectedProjectId ? `cc:filters:${selectedProjectId}` : null;
+  // Load saved filters when project changes
+  useEffect(() => {
+    if (!filterStorageKey) return;
+    try {
+      const raw = localStorage.getItem(filterStorageKey);
+      if (!raw) return;
+      const f = JSON.parse(raw);
+      if (Array.isArray(f.selectedDisciplines)) setSelectedDisciplines(f.selectedDisciplines);
+      if (Array.isArray(f.selectedActivities)) setSelectedActivities(f.selectedActivities);
+      if (typeof f.disciplineSearch === "string") setDisciplineSearch(f.disciplineSearch);
+      if (typeof f.activitySearch === "string") setActivitySearch(f.activitySearch);
+      if (typeof f.sortField === "string") setSortField(f.sortField);
+      if (f.sortDirection === "asc" || f.sortDirection === "desc") setSortDirection(f.sortDirection);
+      if (f.alertFilter === null || typeof f.alertFilter === "string") setAlertFilter(f.alertFilter ?? null);
+      if (f.quickFilter === null || typeof f.quickFilter === "string") setQuickFilter(f.quickFilter ?? null);
+      if (typeof f.eacMethod === "string") setEacMethod(f.eacMethod);
+      if (typeof f.groupByDiscipline === "boolean") setGroupByDiscipline(f.groupByDiscipline);
+    } catch {}
+  }, [filterStorageKey]);
+  // Save on changes
+  useEffect(() => {
+    if (!filterStorageKey) return;
+    try {
+      localStorage.setItem(filterStorageKey, JSON.stringify({
+        selectedDisciplines, selectedActivities, disciplineSearch, activitySearch,
+        sortField, sortDirection, alertFilter, quickFilter, eacMethod, groupByDiscipline,
+      }));
+    } catch {}
+  }, [filterStorageKey, selectedDisciplines, selectedActivities, disciplineSearch, activitySearch, sortField, sortDirection, alertFilter, quickFilter, eacMethod, groupByDiscipline]);
+
   // Get activities based on data source (with inline overrides applied)
   const allActivities = useMemo(() => {
     const base = (useRealData && projectItems.length > 0)
