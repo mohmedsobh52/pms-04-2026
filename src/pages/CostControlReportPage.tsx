@@ -586,6 +586,25 @@ export default function CostControlReportPage() {
     fetchProjects();
   }, [isArabic]);
 
+  // React to URL projectId changes (deep links from project page)
+  useEffect(() => {
+    if (urlProjectId && urlProjectId !== selectedProjectId) {
+      setSelectedProjectId(urlProjectId);
+      setUseRealData(true);
+    }
+  }, [urlProjectId]);
+
+  // Persist last selected project + sync URL query string
+  useEffect(() => {
+    if (!selectedProjectId) return;
+    try { localStorage.setItem("cc:lastProjectId", selectedProjectId); } catch {}
+    if (!routeParams.projectId && searchParams.get("projectId") !== selectedProjectId) {
+      const next = new URLSearchParams(searchParams);
+      next.set("projectId", selectedProjectId);
+      setSearchParams(next, { replace: true });
+    }
+  }, [selectedProjectId]);
+
   // Fetch project items when project is selected
   useEffect(() => {
     if (!selectedProjectId || !useRealData) return;
