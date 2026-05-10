@@ -1225,7 +1225,62 @@ export default function CostControlReportPage() {
     toast.success(isArabic ? "تم إعادة التعيين" : "Reset");
   };
 
-  const saveThresholds = async () => {
+  // ===== Reset filters to defaults (per project) =====
+  const resetFilters = () => {
+    setSelectedDisciplines([]);
+    setSelectedActivities([]);
+    setDisciplineSearch("");
+    setActivitySearch("");
+    setSortField("sn");
+    setSortDirection("asc");
+    setAlertFilter(null);
+    setQuickFilter(null);
+    setEacMethod("pert");
+    setGroupByDiscipline(false);
+    setCurrentPage(1);
+    if (filterStorageKey) {
+      try { localStorage.removeItem(filterStorageKey); } catch {}
+    }
+    toast.success(isArabic ? "تمت إعادة ضبط الفلاتر" : "Filters reset");
+  };
+
+  // ===== Share link: encode current filter state into URL and copy =====
+  const buildShareUrl = () => {
+    const state = {
+      selectedDisciplines, selectedActivities, disciplineSearch, activitySearch,
+      sortField, sortDirection, alertFilter, quickFilter, eacMethod, groupByDiscipline,
+    };
+    const f = encodeURIComponent(btoa(JSON.stringify(state)));
+    const url = new URL(window.location.href);
+    if (selectedProjectId) url.searchParams.set("projectId", selectedProjectId);
+    url.searchParams.set("f", f);
+    return url.toString();
+  };
+  const copyShareLink = async () => {
+    try {
+      const url = buildShareUrl();
+      await navigator.clipboard.writeText(url);
+      toast.success(isArabic ? "تم نسخ رابط المشاركة" : "Share link copied");
+    } catch (e) {
+      console.error(e);
+      toast.error(isArabic ? "فشل نسخ الرابط" : "Failed to copy link");
+    }
+  };
+
+  // ===== Rename baseline =====
+  const renameBaseline = async (id: string) => {
+    const name = renameDraft.trim();
+    if (!name) { toast.error(isArabic ? "أدخل اسماً" : "Enter a name"); return; }
+    try {
+      const { error } = await supabase.from("cost_control_baselines").update({ name }).eq("id", id);
+      if (error) throw error;
+      setBaselines(prev => prev.map(b => b.id === id ? { ...b, name } : b));
+      if (activeBaseline?.id === id) setActiveBaseline({ ...activeBaseline, name });
+      setRenamingBaselineId(null); setRenameDraft("");
+      toast.success(isArabic ? "تم تغيير الاسم" : "Renamed");
+    } catch (e) { console.error(e); toast.error(isArabic ? "فشل التغيير" : "Rename failed"); }
+  };
+
     if (!selectedProjectId) { toast.error(isArabic ? "اختر مشروع" : "Select a project"); return; }
     setIsSavingThresholds(true);
     try {
