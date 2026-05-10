@@ -480,6 +480,8 @@ const convertItemsToActivities = (items: ProjectItem[], progressData: ProgressHi
       tcpi: evmMetrics.tcpi,
       itemsCount: categoryItems.length,
       isFromDB: true,
+      category,
+      itemIds: categoryItems.map(i => i.id),
     });
     
     sn++;
