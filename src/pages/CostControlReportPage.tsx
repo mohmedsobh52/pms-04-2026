@@ -1281,6 +1281,7 @@ export default function CostControlReportPage() {
     } catch (e) { console.error(e); toast.error(isArabic ? "فشل التغيير" : "Rename failed"); }
   };
 
+  const saveThresholds = async () => {
     if (!selectedProjectId) { toast.error(isArabic ? "اختر مشروع" : "Select a project"); return; }
     setIsSavingThresholds(true);
     try {
