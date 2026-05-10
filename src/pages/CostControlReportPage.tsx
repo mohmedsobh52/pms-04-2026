@@ -76,6 +76,16 @@ interface EVMActivity {
   tcpi: number;
   itemsCount?: number;
   isFromDB?: boolean;
+  category?: string;
+  itemIds?: string[];
+}
+
+interface ResourceTotals {
+  materials: number;
+  labor: number;
+  equipment: number;
+  total: number;
+  count: number;
 }
 
 interface ProjectData {
