@@ -715,11 +715,35 @@ export default function CostControlReportPage() {
     })();
   }, [selectedProjectId]);
 
-  // ===== Per-project filter persistence (localStorage) =====
+  // ===== Per-project filter persistence (localStorage + URL) =====
   const filterStorageKey = selectedProjectId ? `cc:filters:${selectedProjectId}` : null;
-  // Load saved filters when project changes
+
+  // ONE-SHOT: Apply filter state from URL (?f=base64) on first mount — overrides localStorage
+  useEffect(() => {
+    if (urlFiltersAppliedRef.current) return;
+    const fParam = searchParams.get("f");
+    if (!fParam) return;
+    try {
+      const f = JSON.parse(atob(decodeURIComponent(fParam)));
+      if (Array.isArray(f.selectedDisciplines)) setSelectedDisciplines(f.selectedDisciplines);
+      if (Array.isArray(f.selectedActivities)) setSelectedActivities(f.selectedActivities);
+      if (typeof f.disciplineSearch === "string") setDisciplineSearch(f.disciplineSearch);
+      if (typeof f.activitySearch === "string") setActivitySearch(f.activitySearch);
+      if (typeof f.sortField === "string") setSortField(f.sortField);
+      if (f.sortDirection === "asc" || f.sortDirection === "desc") setSortDirection(f.sortDirection);
+      if (f.alertFilter === null || typeof f.alertFilter === "string") setAlertFilter(f.alertFilter ?? null);
+      if (f.quickFilter === null || typeof f.quickFilter === "string") setQuickFilter(f.quickFilter ?? null);
+      if (typeof f.eacMethod === "string") setEacMethod(f.eacMethod);
+      if (typeof f.groupByDiscipline === "boolean") setGroupByDiscipline(f.groupByDiscipline);
+      urlFiltersAppliedRef.current = true;
+      toast.success(isArabic ? "تم تحميل الفلاتر من الرابط" : "Filters loaded from link");
+    } catch (e) { console.warn("Bad filter URL param", e); }
+  }, []);
+
+  // Load saved filters when project changes (skip if URL filters already applied)
   useEffect(() => {
     if (!filterStorageKey) return;
+    if (urlFiltersAppliedRef.current) { urlFiltersAppliedRef.current = false; return; }
     try {
       const raw = localStorage.getItem(filterStorageKey);
       if (!raw) return;
