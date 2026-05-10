@@ -771,6 +771,40 @@ export default function CostControlReportPage() {
     } catch {}
   }, [filterStorageKey, selectedDisciplines, selectedActivities, disciplineSearch, activitySearch, sortField, sortDirection, alertFilter, quickFilter, eacMethod, groupByDiscipline]);
 
+  // ===== Resources: Fetch item_pricing_details for project items =====
+  useEffect(() => {
+    if (!selectedProjectId || !useRealData || projectItems.length === 0) {
+      setResourceMap({});
+      return;
+    }
+    (async () => {
+      try {
+        const ids = projectItems.map(i => i.id);
+        const chunkSize = 200;
+        const map: Record<string, ResourceTotals> = {};
+        for (let i = 0; i < ids.length; i += chunkSize) {
+          const slice = ids.slice(i, i + chunkSize);
+          const { data, error } = await supabase
+            .from("item_pricing_details")
+            .select("project_item_id, pricing_type, total_cost")
+            .in("project_item_id", slice);
+          if (error) throw error;
+          (data || []).forEach((d: any) => {
+            const pid = d.project_item_id as string;
+            if (!map[pid]) map[pid] = { materials: 0, labor: 0, equipment: 0, total: 0, count: 0 };
+            const cost = Number(d.total_cost) || 0;
+            if (d.pricing_type === "material") map[pid].materials += cost;
+            else if (d.pricing_type === "labor") map[pid].labor += cost;
+            else if (d.pricing_type === "equipment") map[pid].equipment += cost;
+            map[pid].total += cost;
+            map[pid].count += 1;
+          });
+        }
+        setResourceMap(map);
+      } catch (e) { console.warn("Load resources failed", e); }
+    })();
+  }, [selectedProjectId, useRealData, projectItems]);
+
   // Get activities based on data source (with inline overrides applied)
   const allActivities = useMemo(() => {
     const base = (useRealData && projectItems.length > 0)
