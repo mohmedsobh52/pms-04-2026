@@ -1521,15 +1521,34 @@ export default function CostControlReportPage() {
       const safeName = projName.replace(/[^\w\u0600-\u06FF\-]+/g, "_").slice(0, 60);
       const sanitizeSheet = (s: string) => s.replace(/[\\\/\?\*\[\]:]/g, " ").slice(0, 28);
 
+      // Apply export scope on top of current filters (visible activities only)
+      let scoped = filteredActivities;
+      if (exportScopeDisciplines.length > 0) scoped = scoped.filter(a => exportScopeDisciplines.includes(a.discipline));
+      if (exportScopeCategories.length > 0) scoped = scoped.filter(a => a.category ? exportScopeCategories.includes(a.category) : false);
+
+      // Recompute totals for the scoped slice
+      const sPV = scoped.reduce((s, a) => s + a.pv, 0);
+      const sEV = scoped.reduce((s, a) => s + a.ev, 0);
+      const sAC = scoped.reduce((s, a) => s + a.ac, 0);
+      const sCV = sEV - sAC, sSV = sEV - sPV;
+      const sCPI = sAC > 0 ? sEV / sAC : 0;
+      const sSPI = sPV > 0 ? sEV / sPV : 0;
+      const sEAC = sCPI > 0 ? sPV / sCPI : sPV;
+      const sETC = sEAC - sAC;
+      const sProgress = sPV > 0 ? (sEV / sPV) * 100 : 0;
+
       // Context / Filters sheet
       addJsonSheet(workbook, [
         { Field: 'Project', Value: projName },
         { Field: 'Project ID', Value: selectedProjectId || '-' },
         { Field: 'Generated', Value: new Date().toISOString() },
         { Field: 'Data Source', Value: useRealData ? 'Database (real)' : 'Sample' },
+        { Field: 'Export Mode', Value: exportMode },
         { Field: 'EAC Method', Value: eacMethod },
         { Field: 'Disciplines Filter', Value: selectedDisciplines.join(", ") || 'All' },
         { Field: 'Activities Filter', Value: selectedActivities.join(", ") || 'All' },
+        { Field: 'Export Scope (Disciplines)', Value: exportScopeDisciplines.join(", ") || 'All visible' },
+        { Field: 'Export Scope (Categories)', Value: exportScopeCategories.join(", ") || 'All visible' },
         { Field: 'Alert Filter', Value: alertFilter || 'None' },
         { Field: 'Quick Filter', Value: quickFilter || 'None' },
         { Field: 'Discipline Search', Value: disciplineSearch || '-' },
@@ -1537,55 +1556,93 @@ export default function CostControlReportPage() {
         { Field: 'Sort', Value: `${sortField} ${sortDirection}` },
         { Field: 'Active Baseline', Value: activeBaseline?.name || 'None' },
         { Field: 'Manual Overrides', Value: Object.keys(overrides).length },
+        { Field: 'Scoped Activities', Value: scoped.length },
         { Field: 'Filtered Activities', Value: filteredActivities.length },
         { Field: 'Total Activities', Value: allActivities.length },
       ], sanitizeSheet('Context'));
 
-      // Summary Sheet (totals reflect filtered + overrides)
-      addJsonSheet(workbook, [
-        { Metric: 'PV (Planned Value)', Value: totals.pv, Formatted: formatValue(totals.pv) },
-        { Metric: 'EV (Earned Value)', Value: totals.ev, Formatted: formatValue(totals.ev) },
-        { Metric: 'AC (Actual Cost)', Value: totals.ac, Formatted: formatValue(totals.ac) },
-        { Metric: 'CV (Cost Variance)', Value: totals.cv, Formatted: formatValue(totals.cv) },
-        { Metric: 'SV (Schedule Variance)', Value: totals.sv, Formatted: formatValue(totals.sv) },
-        { Metric: 'CPI (Cost Performance Index)', Value: totals.cpi.toFixed(2) },
-        { Metric: 'SPI (Schedule Performance Index)', Value: totals.spi.toFixed(2) },
-        { Metric: 'EAC BY PERT', Value: totals.eacByPert, Formatted: formatValue(totals.eacByPert) },
-        { Metric: 'ETC (Estimate to Complete)', Value: totals.etc, Formatted: formatValue(totals.etc) },
-        { Metric: 'TCPI', Value: totals.tcpi.toFixed(2) },
-        { Metric: 'Progress %', Value: totals.progress.toFixed(1) + '%' },
-      ], sanitizeSheet('Summary'));
+      // Summary Sheet (scoped + overrides)
+      if (exportMode === "summary" || exportMode === "full") {
+        addJsonSheet(workbook, [
+          { Metric: 'PV (Planned Value)', Value: sPV, Formatted: formatValue(sPV) },
+          { Metric: 'EV (Earned Value)', Value: sEV, Formatted: formatValue(sEV) },
+          { Metric: 'AC (Actual Cost)', Value: sAC, Formatted: formatValue(sAC) },
+          { Metric: 'CV (Cost Variance)', Value: sCV, Formatted: formatValue(sCV) },
+          { Metric: 'SV (Schedule Variance)', Value: sSV, Formatted: formatValue(sSV) },
+          { Metric: 'CPI', Value: sCPI.toFixed(2) },
+          { Metric: 'SPI', Value: sSPI.toFixed(2) },
+          { Metric: 'EAC', Value: sEAC, Formatted: formatValue(sEAC) },
+          { Metric: 'ETC', Value: sETC, Formatted: formatValue(sETC) },
+          { Metric: 'Progress %', Value: sProgress.toFixed(1) + '%' },
+        ], sanitizeSheet('Summary'));
+      }
 
-      // Activities Sheet (post-overrides + filtered)
-      addJsonSheet(workbook, filteredActivities.map(a => {
-        const ov = overrides[a.sn];
-        const baseline = activeBaseline?.map?.[a.sn];
-        return {
-          'SN': a.sn,
-          'Activity Code': a.activityCode,
-          'Activity': a.activity,
-          'Activity (AR)': a.activityAr,
-          'Discipline': a.discipline,
-          'Progress %': a.progress,
-          'PV': a.pv,
-          'EV': a.ev,
-          'AC': a.ac,
-          'CV': a.cv,
-          'SV': a.sv,
-          'CPI': Number(a.cpi.toFixed(3)),
-          'SPI': Number(a.spi.toFixed(3)),
-          'EAC BY PERT': Math.round(a.eacByPert),
-          'ETC': Math.round(a.etc),
-          'TCPI': Number(a.tcpi.toFixed(3)),
-          'Items Count': a.itemsCount || '-',
-          'Override?': ov ? 'YES' : '',
-          'Override Progress': ov?.progress ?? '',
-          'Override AC': ov?.ac ?? '',
-          'Baseline PV': baseline?.pv ?? '',
-          'Baseline Progress': baseline?.progress ?? '',
-          'Baseline AC': baseline?.ac ?? '',
-        };
-      }), sanitizeSheet('Activities'));
+      // Detailed activities (post-overrides + filtered + scoped)
+      if (exportMode === "detailed" || exportMode === "full") {
+        addJsonSheet(workbook, scoped.map(a => {
+          const ov = overrides[a.sn];
+          const baseline = activeBaseline?.map?.[a.sn];
+          const r = activityResources[a.sn];
+          return {
+            'SN': a.sn,
+            'Activity Code': a.activityCode,
+            'Activity': a.activity,
+            'Activity (AR)': a.activityAr,
+            'Discipline': a.discipline,
+            'Category': a.category || '-',
+            'Progress %': a.progress,
+            'PV': a.pv, 'EV': a.ev, 'AC': a.ac, 'CV': a.cv, 'SV': a.sv,
+            'CPI': Number(a.cpi.toFixed(3)), 'SPI': Number(a.spi.toFixed(3)),
+            'EAC BY PERT': Math.round(a.eacByPert), 'ETC': Math.round(a.etc),
+            'TCPI': Number(a.tcpi.toFixed(3)),
+            'Items Count': a.itemsCount || '-',
+            'Override?': ov ? 'YES' : '',
+            'Override Progress': ov?.progress ?? '',
+            'Override AC': ov?.ac ?? '',
+            'Baseline PV': baseline?.pv ?? '',
+            'Baseline Progress': baseline?.progress ?? '',
+            'Baseline AC': baseline?.ac ?? '',
+            'Resources Total': r ? Math.round(r.total) : '',
+            'Materials': r ? Math.round(r.materials) : '',
+            'Labor': r ? Math.round(r.labor) : '',
+            'Equipment': r ? Math.round(r.equipment) : '',
+          };
+        }), sanitizeSheet('Activities'));
+      }
+
+      // Resources sheet
+      if (exportIncludeResources && useRealData) {
+        addJsonSheet(workbook, scoped.map(a => {
+          const r = activityResources[a.sn] || { materials: 0, labor: 0, equipment: 0, total: 0, count: 0 };
+          return {
+            'SN': a.sn,
+            'Activity Code': a.activityCode,
+            'Activity': a.activity,
+            'Discipline': a.discipline,
+            'Category': a.category || '-',
+            'Resource Lines': r.count,
+            'Materials Cost': Math.round(r.materials),
+            'Labor Cost': Math.round(r.labor),
+            'Equipment Cost': Math.round(r.equipment),
+            'Total Resources Cost': Math.round(r.total),
+          };
+        }), sanitizeSheet('Resources'));
+
+        // Resources totals row
+        const tR = scoped.reduce((acc, a) => {
+          const r = activityResources[a.sn]; if (!r) return acc;
+          acc.materials += r.materials; acc.labor += r.labor; acc.equipment += r.equipment;
+          acc.total += r.total; acc.count += r.count;
+          return acc;
+        }, { materials: 0, labor: 0, equipment: 0, total: 0, count: 0 });
+        addJsonSheet(workbook, [
+          { Metric: 'Total Resource Lines', Value: tR.count },
+          { Metric: 'Total Materials', Value: Math.round(tR.materials), Formatted: formatValue(tR.materials) },
+          { Metric: 'Total Labor', Value: Math.round(tR.labor), Formatted: formatValue(tR.labor) },
+          { Metric: 'Total Equipment', Value: Math.round(tR.equipment), Formatted: formatValue(tR.equipment) },
+          { Metric: 'Total Resources Cost', Value: Math.round(tR.total), Formatted: formatValue(tR.total) },
+        ], sanitizeSheet('Resources_Totals'));
+      }
 
       // Baseline comparison sheet
       if (baselineComparison) {
@@ -1608,7 +1665,7 @@ export default function CostControlReportPage() {
     } finally {
       setIsExporting(false);
     }
-  }, [filteredActivities, allActivities, totals, isArabic, projects, selectedProjectId, useRealData, eacMethod, selectedDisciplines, selectedActivities, alertFilter, quickFilter, disciplineSearch, activitySearch, sortField, sortDirection, activeBaseline, overrides, baselineComparison]);
+  }, [filteredActivities, allActivities, totals, isArabic, projects, selectedProjectId, useRealData, eacMethod, selectedDisciplines, selectedActivities, alertFilter, quickFilter, disciplineSearch, activitySearch, sortField, sortDirection, activeBaseline, overrides, baselineComparison, exportMode, exportScopeDisciplines, exportScopeCategories, exportIncludeResources, activityResources]);
 
   // Filter sidebar lists
   const filteredDisciplineList = disciplineProgress.filter(d =>
