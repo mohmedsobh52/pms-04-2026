@@ -576,6 +576,24 @@ export default function CostControlReportPage() {
     progress: number;
   }>({ open: false, progress: 60 });
 
+  // Resources (item_pricing_details aggregated per project_item_id)
+  const [resourceMap, setResourceMap] = useState<Record<string, ResourceTotals>>({});
+  const [resourcesDialogOpen, setResourcesDialogOpen] = useState(false);
+
+  // Export options
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportMode, setExportMode] = useState<"summary" | "detailed" | "full">("full");
+  const [exportScopeDisciplines, setExportScopeDisciplines] = useState<string[]>([]);
+  const [exportScopeCategories, setExportScopeCategories] = useState<string[]>([]);
+  const [exportIncludeResources, setExportIncludeResources] = useState(true);
+
+  // Baseline rename inline edit
+  const [renamingBaselineId, setRenamingBaselineId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+
+  // Track whether URL filter state has been applied (one-shot)
+  const urlFiltersAppliedRef = useRef(false);
+
   // Fetch projects on mount
   useEffect(() => {
     const fetchProjects = async () => {
