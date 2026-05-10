@@ -25,7 +25,8 @@ import {
   BarChart3, Activity, ChevronLeft, ChevronRight, ArrowUpDown, Download,
   Building2, Zap, Wrench, PaintBucket, HardHat, Database, Loader2, Edit, Save, RefreshCw,
   Printer, FileText, AlertTriangle, LineChart as LineChartIcon, Check, X,
-  Undo2, Redo2, Camera, Bookmark, Layers, Filter, GitCompare, Plus, ArrowLeft, Home, FolderOpen
+  Undo2, Redo2, Camera, Bookmark, Layers, Filter, GitCompare, Plus, ArrowLeft, Home, FolderOpen,
+  Share2, RotateCcw, Package, Users, Truck, Settings2
 } from "lucide-react";
 import { exportCostControlPDF } from "@/lib/cost-control-pdf";
 import {
@@ -76,6 +77,16 @@ interface EVMActivity {
   tcpi: number;
   itemsCount?: number;
   isFromDB?: boolean;
+  category?: string;
+  itemIds?: string[];
+}
+
+interface ResourceTotals {
+  materials: number;
+  labor: number;
+  equipment: number;
+  total: number;
+  count: number;
 }
 
 interface ProjectData {
@@ -470,6 +481,8 @@ const convertItemsToActivities = (items: ProjectItem[], progressData: ProgressHi
       tcpi: evmMetrics.tcpi,
       itemsCount: categoryItems.length,
       isFromDB: true,
+      category,
+      itemIds: categoryItems.map(i => i.id),
     });
     
     sn++;
@@ -562,6 +575,24 @@ export default function CostControlReportPage() {
     open: boolean;
     progress: number;
   }>({ open: false, progress: 60 });
+
+  // Resources (item_pricing_details aggregated per project_item_id)
+  const [resourceMap, setResourceMap] = useState<Record<string, ResourceTotals>>({});
+  const [resourcesDialogOpen, setResourcesDialogOpen] = useState(false);
+
+  // Export options
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportMode, setExportMode] = useState<"summary" | "detailed" | "full">("full");
+  const [exportScopeDisciplines, setExportScopeDisciplines] = useState<string[]>([]);
+  const [exportScopeCategories, setExportScopeCategories] = useState<string[]>([]);
+  const [exportIncludeResources, setExportIncludeResources] = useState(true);
+
+  // Baseline rename inline edit
+  const [renamingBaselineId, setRenamingBaselineId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+
+  // Track whether URL filter state has been applied (one-shot)
+  const urlFiltersAppliedRef = useRef(false);
 
   // Fetch projects on mount
   useEffect(() => {
@@ -684,11 +715,35 @@ export default function CostControlReportPage() {
     })();
   }, [selectedProjectId]);
 
-  // ===== Per-project filter persistence (localStorage) =====
+  // ===== Per-project filter persistence (localStorage + URL) =====
   const filterStorageKey = selectedProjectId ? `cc:filters:${selectedProjectId}` : null;
-  // Load saved filters when project changes
+
+  // ONE-SHOT: Apply filter state from URL (?f=base64) on first mount — overrides localStorage
+  useEffect(() => {
+    if (urlFiltersAppliedRef.current) return;
+    const fParam = searchParams.get("f");
+    if (!fParam) return;
+    try {
+      const f = JSON.parse(atob(decodeURIComponent(fParam)));
+      if (Array.isArray(f.selectedDisciplines)) setSelectedDisciplines(f.selectedDisciplines);
+      if (Array.isArray(f.selectedActivities)) setSelectedActivities(f.selectedActivities);
+      if (typeof f.disciplineSearch === "string") setDisciplineSearch(f.disciplineSearch);
+      if (typeof f.activitySearch === "string") setActivitySearch(f.activitySearch);
+      if (typeof f.sortField === "string") setSortField(f.sortField);
+      if (f.sortDirection === "asc" || f.sortDirection === "desc") setSortDirection(f.sortDirection);
+      if (f.alertFilter === null || typeof f.alertFilter === "string") setAlertFilter(f.alertFilter ?? null);
+      if (f.quickFilter === null || typeof f.quickFilter === "string") setQuickFilter(f.quickFilter ?? null);
+      if (typeof f.eacMethod === "string") setEacMethod(f.eacMethod);
+      if (typeof f.groupByDiscipline === "boolean") setGroupByDiscipline(f.groupByDiscipline);
+      urlFiltersAppliedRef.current = true;
+      toast.success(isArabic ? "تم تحميل الفلاتر من الرابط" : "Filters loaded from link");
+    } catch (e) { console.warn("Bad filter URL param", e); }
+  }, []);
+
+  // Load saved filters when project changes (skip if URL filters already applied)
   useEffect(() => {
     if (!filterStorageKey) return;
+    if (urlFiltersAppliedRef.current) { urlFiltersAppliedRef.current = false; return; }
     try {
       const raw = localStorage.getItem(filterStorageKey);
       if (!raw) return;
@@ -715,6 +770,40 @@ export default function CostControlReportPage() {
       }));
     } catch {}
   }, [filterStorageKey, selectedDisciplines, selectedActivities, disciplineSearch, activitySearch, sortField, sortDirection, alertFilter, quickFilter, eacMethod, groupByDiscipline]);
+
+  // ===== Resources: Fetch item_pricing_details for project items =====
+  useEffect(() => {
+    if (!selectedProjectId || !useRealData || projectItems.length === 0) {
+      setResourceMap({});
+      return;
+    }
+    (async () => {
+      try {
+        const ids = projectItems.map(i => i.id);
+        const chunkSize = 200;
+        const map: Record<string, ResourceTotals> = {};
+        for (let i = 0; i < ids.length; i += chunkSize) {
+          const slice = ids.slice(i, i + chunkSize);
+          const { data, error } = await supabase
+            .from("item_pricing_details")
+            .select("project_item_id, pricing_type, total_cost")
+            .in("project_item_id", slice);
+          if (error) throw error;
+          (data || []).forEach((d: any) => {
+            const pid = d.project_item_id as string;
+            if (!map[pid]) map[pid] = { materials: 0, labor: 0, equipment: 0, total: 0, count: 0 };
+            const cost = Number(d.total_cost) || 0;
+            if (d.pricing_type === "material") map[pid].materials += cost;
+            else if (d.pricing_type === "labor") map[pid].labor += cost;
+            else if (d.pricing_type === "equipment") map[pid].equipment += cost;
+            map[pid].total += cost;
+            map[pid].count += 1;
+          });
+        }
+        setResourceMap(map);
+      } catch (e) { console.warn("Load resources failed", e); }
+    })();
+  }, [selectedProjectId, useRealData, projectItems]);
 
   // Get activities based on data source (with inline overrides applied)
   const allActivities = useMemo(() => {
@@ -815,6 +904,33 @@ export default function CostControlReportPage() {
 
     return { pv, ev, ac, cv, sv, cpi, spi, eacByPert, etc, tcpi, progress };
   }, [filteredActivities]);
+
+  // ===== Activity-level resources (from item_pricing_details aggregated by activity.itemIds) =====
+  const activityResources = useMemo(() => {
+    const out: Record<number, ResourceTotals> = {};
+    allActivities.forEach(a => {
+      const acc: ResourceTotals = { materials: 0, labor: 0, equipment: 0, total: 0, count: 0 };
+      (a.itemIds || []).forEach(pid => {
+        const r = resourceMap[pid];
+        if (!r) return;
+        acc.materials += r.materials; acc.labor += r.labor; acc.equipment += r.equipment;
+        acc.total += r.total; acc.count += r.count;
+      });
+      out[a.sn] = acc;
+    });
+    return out;
+  }, [allActivities, resourceMap]);
+
+  const totalResources = useMemo(() => {
+    const acc: ResourceTotals = { materials: 0, labor: 0, equipment: 0, total: 0, count: 0 };
+    filteredActivities.forEach(a => {
+      const r = activityResources[a.sn];
+      if (!r) return;
+      acc.materials += r.materials; acc.labor += r.labor; acc.equipment += r.equipment;
+      acc.total += r.total; acc.count += r.count;
+    });
+    return acc;
+  }, [filteredActivities, activityResources]);
 
   // ===== Baseline comparison vs current =====
   const baselineComparison = useMemo(() => {
@@ -1109,6 +1225,62 @@ export default function CostControlReportPage() {
     toast.success(isArabic ? "تم إعادة التعيين" : "Reset");
   };
 
+  // ===== Reset filters to defaults (per project) =====
+  const resetFilters = () => {
+    setSelectedDisciplines([]);
+    setSelectedActivities([]);
+    setDisciplineSearch("");
+    setActivitySearch("");
+    setSortField("sn");
+    setSortDirection("asc");
+    setAlertFilter(null);
+    setQuickFilter(null);
+    setEacMethod("pert");
+    setGroupByDiscipline(false);
+    setCurrentPage(1);
+    if (filterStorageKey) {
+      try { localStorage.removeItem(filterStorageKey); } catch {}
+    }
+    toast.success(isArabic ? "تمت إعادة ضبط الفلاتر" : "Filters reset");
+  };
+
+  // ===== Share link: encode current filter state into URL and copy =====
+  const buildShareUrl = () => {
+    const state = {
+      selectedDisciplines, selectedActivities, disciplineSearch, activitySearch,
+      sortField, sortDirection, alertFilter, quickFilter, eacMethod, groupByDiscipline,
+    };
+    const f = encodeURIComponent(btoa(JSON.stringify(state)));
+    const url = new URL(window.location.href);
+    if (selectedProjectId) url.searchParams.set("projectId", selectedProjectId);
+    url.searchParams.set("f", f);
+    return url.toString();
+  };
+  const copyShareLink = async () => {
+    try {
+      const url = buildShareUrl();
+      await navigator.clipboard.writeText(url);
+      toast.success(isArabic ? "تم نسخ رابط المشاركة" : "Share link copied");
+    } catch (e) {
+      console.error(e);
+      toast.error(isArabic ? "فشل نسخ الرابط" : "Failed to copy link");
+    }
+  };
+
+  // ===== Rename baseline =====
+  const renameBaseline = async (id: string) => {
+    const name = renameDraft.trim();
+    if (!name) { toast.error(isArabic ? "أدخل اسماً" : "Enter a name"); return; }
+    try {
+      const { error } = await supabase.from("cost_control_baselines").update({ name }).eq("id", id);
+      if (error) throw error;
+      setBaselines(prev => prev.map(b => b.id === id ? { ...b, name } : b));
+      if (activeBaseline?.id === id) setActiveBaseline({ ...activeBaseline, name });
+      setRenamingBaselineId(null); setRenameDraft("");
+      toast.success(isArabic ? "تم تغيير الاسم" : "Renamed");
+    } catch (e) { console.error(e); toast.error(isArabic ? "فشل التغيير" : "Rename failed"); }
+  };
+
   const saveThresholds = async () => {
     if (!selectedProjectId) { toast.error(isArabic ? "اختر مشروع" : "Select a project"); return; }
     setIsSavingThresholds(true);
@@ -1349,15 +1521,34 @@ export default function CostControlReportPage() {
       const safeName = projName.replace(/[^\w\u0600-\u06FF\-]+/g, "_").slice(0, 60);
       const sanitizeSheet = (s: string) => s.replace(/[\\\/\?\*\[\]:]/g, " ").slice(0, 28);
 
+      // Apply export scope on top of current filters (visible activities only)
+      let scoped = filteredActivities;
+      if (exportScopeDisciplines.length > 0) scoped = scoped.filter(a => exportScopeDisciplines.includes(a.discipline));
+      if (exportScopeCategories.length > 0) scoped = scoped.filter(a => a.category ? exportScopeCategories.includes(a.category) : false);
+
+      // Recompute totals for the scoped slice
+      const sPV = scoped.reduce((s, a) => s + a.pv, 0);
+      const sEV = scoped.reduce((s, a) => s + a.ev, 0);
+      const sAC = scoped.reduce((s, a) => s + a.ac, 0);
+      const sCV = sEV - sAC, sSV = sEV - sPV;
+      const sCPI = sAC > 0 ? sEV / sAC : 0;
+      const sSPI = sPV > 0 ? sEV / sPV : 0;
+      const sEAC = sCPI > 0 ? sPV / sCPI : sPV;
+      const sETC = sEAC - sAC;
+      const sProgress = sPV > 0 ? (sEV / sPV) * 100 : 0;
+
       // Context / Filters sheet
       addJsonSheet(workbook, [
         { Field: 'Project', Value: projName },
         { Field: 'Project ID', Value: selectedProjectId || '-' },
         { Field: 'Generated', Value: new Date().toISOString() },
         { Field: 'Data Source', Value: useRealData ? 'Database (real)' : 'Sample' },
+        { Field: 'Export Mode', Value: exportMode },
         { Field: 'EAC Method', Value: eacMethod },
         { Field: 'Disciplines Filter', Value: selectedDisciplines.join(", ") || 'All' },
         { Field: 'Activities Filter', Value: selectedActivities.join(", ") || 'All' },
+        { Field: 'Export Scope (Disciplines)', Value: exportScopeDisciplines.join(", ") || 'All visible' },
+        { Field: 'Export Scope (Categories)', Value: exportScopeCategories.join(", ") || 'All visible' },
         { Field: 'Alert Filter', Value: alertFilter || 'None' },
         { Field: 'Quick Filter', Value: quickFilter || 'None' },
         { Field: 'Discipline Search', Value: disciplineSearch || '-' },
@@ -1365,55 +1556,93 @@ export default function CostControlReportPage() {
         { Field: 'Sort', Value: `${sortField} ${sortDirection}` },
         { Field: 'Active Baseline', Value: activeBaseline?.name || 'None' },
         { Field: 'Manual Overrides', Value: Object.keys(overrides).length },
+        { Field: 'Scoped Activities', Value: scoped.length },
         { Field: 'Filtered Activities', Value: filteredActivities.length },
         { Field: 'Total Activities', Value: allActivities.length },
       ], sanitizeSheet('Context'));
 
-      // Summary Sheet (totals reflect filtered + overrides)
-      addJsonSheet(workbook, [
-        { Metric: 'PV (Planned Value)', Value: totals.pv, Formatted: formatValue(totals.pv) },
-        { Metric: 'EV (Earned Value)', Value: totals.ev, Formatted: formatValue(totals.ev) },
-        { Metric: 'AC (Actual Cost)', Value: totals.ac, Formatted: formatValue(totals.ac) },
-        { Metric: 'CV (Cost Variance)', Value: totals.cv, Formatted: formatValue(totals.cv) },
-        { Metric: 'SV (Schedule Variance)', Value: totals.sv, Formatted: formatValue(totals.sv) },
-        { Metric: 'CPI (Cost Performance Index)', Value: totals.cpi.toFixed(2) },
-        { Metric: 'SPI (Schedule Performance Index)', Value: totals.spi.toFixed(2) },
-        { Metric: 'EAC BY PERT', Value: totals.eacByPert, Formatted: formatValue(totals.eacByPert) },
-        { Metric: 'ETC (Estimate to Complete)', Value: totals.etc, Formatted: formatValue(totals.etc) },
-        { Metric: 'TCPI', Value: totals.tcpi.toFixed(2) },
-        { Metric: 'Progress %', Value: totals.progress.toFixed(1) + '%' },
-      ], sanitizeSheet('Summary'));
+      // Summary Sheet (scoped + overrides)
+      if (exportMode === "summary" || exportMode === "full") {
+        addJsonSheet(workbook, [
+          { Metric: 'PV (Planned Value)', Value: sPV, Formatted: formatValue(sPV) },
+          { Metric: 'EV (Earned Value)', Value: sEV, Formatted: formatValue(sEV) },
+          { Metric: 'AC (Actual Cost)', Value: sAC, Formatted: formatValue(sAC) },
+          { Metric: 'CV (Cost Variance)', Value: sCV, Formatted: formatValue(sCV) },
+          { Metric: 'SV (Schedule Variance)', Value: sSV, Formatted: formatValue(sSV) },
+          { Metric: 'CPI', Value: sCPI.toFixed(2) },
+          { Metric: 'SPI', Value: sSPI.toFixed(2) },
+          { Metric: 'EAC', Value: sEAC, Formatted: formatValue(sEAC) },
+          { Metric: 'ETC', Value: sETC, Formatted: formatValue(sETC) },
+          { Metric: 'Progress %', Value: sProgress.toFixed(1) + '%' },
+        ], sanitizeSheet('Summary'));
+      }
 
-      // Activities Sheet (post-overrides + filtered)
-      addJsonSheet(workbook, filteredActivities.map(a => {
-        const ov = overrides[a.sn];
-        const baseline = activeBaseline?.map?.[a.sn];
-        return {
-          'SN': a.sn,
-          'Activity Code': a.activityCode,
-          'Activity': a.activity,
-          'Activity (AR)': a.activityAr,
-          'Discipline': a.discipline,
-          'Progress %': a.progress,
-          'PV': a.pv,
-          'EV': a.ev,
-          'AC': a.ac,
-          'CV': a.cv,
-          'SV': a.sv,
-          'CPI': Number(a.cpi.toFixed(3)),
-          'SPI': Number(a.spi.toFixed(3)),
-          'EAC BY PERT': Math.round(a.eacByPert),
-          'ETC': Math.round(a.etc),
-          'TCPI': Number(a.tcpi.toFixed(3)),
-          'Items Count': a.itemsCount || '-',
-          'Override?': ov ? 'YES' : '',
-          'Override Progress': ov?.progress ?? '',
-          'Override AC': ov?.ac ?? '',
-          'Baseline PV': baseline?.pv ?? '',
-          'Baseline Progress': baseline?.progress ?? '',
-          'Baseline AC': baseline?.ac ?? '',
-        };
-      }), sanitizeSheet('Activities'));
+      // Detailed activities (post-overrides + filtered + scoped)
+      if (exportMode === "detailed" || exportMode === "full") {
+        addJsonSheet(workbook, scoped.map(a => {
+          const ov = overrides[a.sn];
+          const baseline = activeBaseline?.map?.[a.sn];
+          const r = activityResources[a.sn];
+          return {
+            'SN': a.sn,
+            'Activity Code': a.activityCode,
+            'Activity': a.activity,
+            'Activity (AR)': a.activityAr,
+            'Discipline': a.discipline,
+            'Category': a.category || '-',
+            'Progress %': a.progress,
+            'PV': a.pv, 'EV': a.ev, 'AC': a.ac, 'CV': a.cv, 'SV': a.sv,
+            'CPI': Number(a.cpi.toFixed(3)), 'SPI': Number(a.spi.toFixed(3)),
+            'EAC BY PERT': Math.round(a.eacByPert), 'ETC': Math.round(a.etc),
+            'TCPI': Number(a.tcpi.toFixed(3)),
+            'Items Count': a.itemsCount || '-',
+            'Override?': ov ? 'YES' : '',
+            'Override Progress': ov?.progress ?? '',
+            'Override AC': ov?.ac ?? '',
+            'Baseline PV': baseline?.pv ?? '',
+            'Baseline Progress': baseline?.progress ?? '',
+            'Baseline AC': baseline?.ac ?? '',
+            'Resources Total': r ? Math.round(r.total) : '',
+            'Materials': r ? Math.round(r.materials) : '',
+            'Labor': r ? Math.round(r.labor) : '',
+            'Equipment': r ? Math.round(r.equipment) : '',
+          };
+        }), sanitizeSheet('Activities'));
+      }
+
+      // Resources sheet
+      if (exportIncludeResources && useRealData) {
+        addJsonSheet(workbook, scoped.map(a => {
+          const r = activityResources[a.sn] || { materials: 0, labor: 0, equipment: 0, total: 0, count: 0 };
+          return {
+            'SN': a.sn,
+            'Activity Code': a.activityCode,
+            'Activity': a.activity,
+            'Discipline': a.discipline,
+            'Category': a.category || '-',
+            'Resource Lines': r.count,
+            'Materials Cost': Math.round(r.materials),
+            'Labor Cost': Math.round(r.labor),
+            'Equipment Cost': Math.round(r.equipment),
+            'Total Resources Cost': Math.round(r.total),
+          };
+        }), sanitizeSheet('Resources'));
+
+        // Resources totals row
+        const tR = scoped.reduce((acc, a) => {
+          const r = activityResources[a.sn]; if (!r) return acc;
+          acc.materials += r.materials; acc.labor += r.labor; acc.equipment += r.equipment;
+          acc.total += r.total; acc.count += r.count;
+          return acc;
+        }, { materials: 0, labor: 0, equipment: 0, total: 0, count: 0 });
+        addJsonSheet(workbook, [
+          { Metric: 'Total Resource Lines', Value: tR.count },
+          { Metric: 'Total Materials', Value: Math.round(tR.materials), Formatted: formatValue(tR.materials) },
+          { Metric: 'Total Labor', Value: Math.round(tR.labor), Formatted: formatValue(tR.labor) },
+          { Metric: 'Total Equipment', Value: Math.round(tR.equipment), Formatted: formatValue(tR.equipment) },
+          { Metric: 'Total Resources Cost', Value: Math.round(tR.total), Formatted: formatValue(tR.total) },
+        ], sanitizeSheet('Resources_Totals'));
+      }
 
       // Baseline comparison sheet
       if (baselineComparison) {
@@ -1436,7 +1665,7 @@ export default function CostControlReportPage() {
     } finally {
       setIsExporting(false);
     }
-  }, [filteredActivities, allActivities, totals, isArabic, projects, selectedProjectId, useRealData, eacMethod, selectedDisciplines, selectedActivities, alertFilter, quickFilter, disciplineSearch, activitySearch, sortField, sortDirection, activeBaseline, overrides, baselineComparison]);
+  }, [filteredActivities, allActivities, totals, isArabic, projects, selectedProjectId, useRealData, eacMethod, selectedDisciplines, selectedActivities, alertFilter, quickFilter, disciplineSearch, activitySearch, sortField, sortDirection, activeBaseline, overrides, baselineComparison, exportMode, exportScopeDisciplines, exportScopeCategories, exportIncludeResources, activityResources]);
 
   // Filter sidebar lists
   const filteredDisciplineList = disciplineProgress.filter(d =>
@@ -1857,6 +2086,24 @@ export default function CostControlReportPage() {
                   <Plus className="h-3 w-3" />{isArabic ? "حفظ عرض" : "Save view"}
                 </Button>
 
+                {/* Reset Filters */}
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={resetFilters} title={isArabic ? "إعادة ضبط الفلاتر" : "Reset filters"}>
+                  <RotateCcw className="h-3 w-3" />{isArabic ? "إعادة ضبط" : "Reset"}
+                </Button>
+
+                {/* Share Link */}
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={copyShareLink} title={isArabic ? "مشاركة الرابط مع الفلاتر" : "Share link with filters"}>
+                  <Share2 className="h-3 w-3" />{isArabic ? "مشاركة" : "Share"}
+                </Button>
+
+                {/* Resources */}
+                {useRealData && (
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setResourcesDialogOpen(true)}>
+                    <Package className="h-3 w-3" />{isArabic ? "الموارد" : "Resources"}
+                    {totalResources.count > 0 && <Badge variant="secondary" className="h-4 text-[10px] px-1 ml-1">{totalResources.count}</Badge>}
+                  </Button>
+                )}
+
                 {/* Baseline */}
                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setBaselineDialogOpen(true)}>
                   <Bookmark className="h-3 w-3" />{isArabic ? "خط أساس" : "Baseline"}
@@ -1868,6 +2115,11 @@ export default function CostControlReportPage() {
                     <button onClick={clearBaseline} className="hover:text-destructive ml-1"><X className="h-3 w-3" /></button>
                   </Badge>
                 )}
+
+                {/* Export Options */}
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setExportDialogOpen(true)}>
+                  <Settings2 className="h-3 w-3" />{isArabic ? "خيارات التصدير" : "Export options"}
+                </Button>
               </div>
             </CardContent>
           </Card>
