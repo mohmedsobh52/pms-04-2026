@@ -905,6 +905,33 @@ export default function CostControlReportPage() {
     return { pv, ev, ac, cv, sv, cpi, spi, eacByPert, etc, tcpi, progress };
   }, [filteredActivities]);
 
+  // ===== Activity-level resources (from item_pricing_details aggregated by activity.itemIds) =====
+  const activityResources = useMemo(() => {
+    const out: Record<number, ResourceTotals> = {};
+    allActivities.forEach(a => {
+      const acc: ResourceTotals = { materials: 0, labor: 0, equipment: 0, total: 0, count: 0 };
+      (a.itemIds || []).forEach(pid => {
+        const r = resourceMap[pid];
+        if (!r) return;
+        acc.materials += r.materials; acc.labor += r.labor; acc.equipment += r.equipment;
+        acc.total += r.total; acc.count += r.count;
+      });
+      out[a.sn] = acc;
+    });
+    return out;
+  }, [allActivities, resourceMap]);
+
+  const totalResources = useMemo(() => {
+    const acc: ResourceTotals = { materials: 0, labor: 0, equipment: 0, total: 0, count: 0 };
+    filteredActivities.forEach(a => {
+      const r = activityResources[a.sn];
+      if (!r) return;
+      acc.materials += r.materials; acc.labor += r.labor; acc.equipment += r.equipment;
+      acc.total += r.total; acc.count += r.count;
+    });
+    return acc;
+  }, [filteredActivities, activityResources]);
+
   // ===== Baseline comparison vs current =====
   const baselineComparison = useMemo(() => {
     if (!activeBaseline) return null;
