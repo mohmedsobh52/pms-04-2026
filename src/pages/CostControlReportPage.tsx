@@ -2029,6 +2029,24 @@ export default function CostControlReportPage() {
                   <Plus className="h-3 w-3" />{isArabic ? "حفظ عرض" : "Save view"}
                 </Button>
 
+                {/* Reset Filters */}
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={resetFilters} title={isArabic ? "إعادة ضبط الفلاتر" : "Reset filters"}>
+                  <RotateCcw className="h-3 w-3" />{isArabic ? "إعادة ضبط" : "Reset"}
+                </Button>
+
+                {/* Share Link */}
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={copyShareLink} title={isArabic ? "مشاركة الرابط مع الفلاتر" : "Share link with filters"}>
+                  <Share2 className="h-3 w-3" />{isArabic ? "مشاركة" : "Share"}
+                </Button>
+
+                {/* Resources */}
+                {useRealData && (
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setResourcesDialogOpen(true)}>
+                    <Package className="h-3 w-3" />{isArabic ? "الموارد" : "Resources"}
+                    {totalResources.count > 0 && <Badge variant="secondary" className="h-4 text-[10px] px-1 ml-1">{totalResources.count}</Badge>}
+                  </Button>
+                )}
+
                 {/* Baseline */}
                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setBaselineDialogOpen(true)}>
                   <Bookmark className="h-3 w-3" />{isArabic ? "خط أساس" : "Baseline"}
@@ -2040,6 +2058,11 @@ export default function CostControlReportPage() {
                     <button onClick={clearBaseline} className="hover:text-destructive ml-1"><X className="h-3 w-3" /></button>
                   </Badge>
                 )}
+
+                {/* Export Options */}
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setExportDialogOpen(true)}>
+                  <Settings2 className="h-3 w-3" />{isArabic ? "خيارات التصدير" : "Export options"}
+                </Button>
               </div>
             </CardContent>
           </Card>
