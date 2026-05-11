@@ -2609,19 +2609,46 @@ export default function CostControlReportPage() {
               {baselines.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-6">{isArabic ? "لا توجد خطوط أساس محفوظة" : "No baselines saved yet"}</p>
               ) : baselines.map(b => (
-                <div key={b.id} className={`flex items-center gap-2 p-3 border-b last:border-0 ${b.is_active ? "bg-primary/5" : ""}`}>
-                  <Bookmark className={`h-4 w-4 ${b.is_active ? "text-primary fill-primary/30" : "text-muted-foreground"}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{b.name}</p>
-                    <p className="text-[11px] text-muted-foreground">{new Date(b.created_at).toLocaleString()}</p>
-                  </div>
-                  <Button size="sm" variant={activeBaseline?.id === b.id ? "default" : "outline"} onClick={() => activateBaseline(b)}>
-                    {activeBaseline?.id === b.id ? (isArabic ? "مفعّل" : "Active") : (isArabic ? "تفعيل" : "Activate")}
-                  </Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => deleteBaseline(b.id)}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+                 <div key={b.id} className={`flex items-center gap-2 p-3 border-b last:border-0 ${b.is_active ? "bg-primary/5" : ""}`}>
+                   <Bookmark className={`h-4 w-4 shrink-0 ${b.is_active ? "text-primary fill-primary/30" : "text-muted-foreground"}`} />
+                   <div className="flex-1 min-w-0">
+                     {renamingBaselineId === b.id ? (
+                       <div className="flex items-center gap-1">
+                         <Input
+                           autoFocus
+                           value={renameDraft}
+                           onChange={(e) => setRenameDraft(e.target.value)}
+                           onKeyDown={(e) => { if (e.key === "Enter") renameBaseline(b.id); if (e.key === "Escape") { setRenamingBaselineId(null); setRenameDraft(""); } }}
+                           className="h-7 text-xs"
+                         />
+                         <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => renameBaseline(b.id)}>
+                           <Check className="h-4 w-4" />
+                         </Button>
+                         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setRenamingBaselineId(null); setRenameDraft(""); }}>
+                           <X className="h-4 w-4" />
+                         </Button>
+                       </div>
+                     ) : (
+                       <>
+                         <p className="text-sm font-medium truncate">{b.name}</p>
+                         <p className="text-[11px] text-muted-foreground">{new Date(b.created_at).toLocaleString()}</p>
+                       </>
+                     )}
+                   </div>
+                   {renamingBaselineId !== b.id && (
+                     <>
+                       <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setRenamingBaselineId(b.id); setRenameDraft(b.name); }} title={isArabic ? "إعادة تسمية" : "Rename"}>
+                         <Edit className="h-3.5 w-3.5" />
+                       </Button>
+                       <Button size="sm" variant={activeBaseline?.id === b.id ? "default" : "outline"} onClick={() => activateBaseline(b)}>
+                         {activeBaseline?.id === b.id ? (isArabic ? "مفعّل" : "Active") : (isArabic ? "تفعيل" : "Activate")}
+                       </Button>
+                       <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => deleteBaseline(b.id)}>
+                         <X className="h-4 w-4" />
+                       </Button>
+                     </>
+                   )}
+                 </div>
               ))}
             </div>
           </div>
