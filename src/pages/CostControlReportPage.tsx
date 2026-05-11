@@ -1335,7 +1335,7 @@ export default function CostControlReportPage() {
       const map: Record<number, { pv: number; progress: number; ac: number }> = {};
       (b.snapshot?.activities || []).forEach((a: any) => { map[a.sn] = { pv: a.pv, progress: a.progress, ac: a.ac }; });
       setActiveBaseline({ id: b.id, name: b.name, map });
-      toast.success(isArabic ? "تم التفعيل" : "Baseline activated");
+      toast.success((isArabic ? "تم تفعيل خط الأساس: " : "Baseline activated: ") + b.name);
     } catch (e) { console.error(e); toast.error(isArabic ? "فشل التفعيل" : "Activation failed"); }
   };
 
