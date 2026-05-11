@@ -2670,7 +2670,7 @@ export default function CostControlReportPage() {
                     if (!r || r.count === 0) return null;
                     return (
                       <TableRow key={a.sn}>
-                        <TableCell className="text-xs max-w-[280px] truncate" title={a.name}>{a.name}</TableCell>
+                        <TableCell className="text-xs max-w-[280px] truncate" title={isArabic ? a.activityAr : a.activity}>{isArabic ? a.activityAr : a.activity}</TableCell>
                         <TableCell className="text-xs text-right text-blue-600">{r.materials.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
                         <TableCell className="text-xs text-right text-green-600">{r.labor.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
                         <TableCell className="text-xs text-right text-amber-600">{r.equipment.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
