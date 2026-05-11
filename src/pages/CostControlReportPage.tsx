@@ -1342,11 +1342,13 @@ export default function CostControlReportPage() {
   const clearBaseline = () => setActiveBaseline(null);
 
   const deleteBaseline = async (id: string) => {
+    const target = baselines.find(b => b.id === id);
     try {
       await supabase.from("cost_control_baselines").delete().eq("id", id);
       setBaselines(prev => prev.filter(b => b.id !== id));
       if (activeBaseline?.id === id) setActiveBaseline(null);
-    } catch (e) { console.error(e); }
+      toast.success((isArabic ? "تم حذف خط الأساس: " : "Baseline deleted: ") + (target?.name || id));
+    } catch (e) { console.error(e); toast.error(isArabic ? "فشل الحذف" : "Delete failed"); }
   };
 
   // ===== Saved Views =====
