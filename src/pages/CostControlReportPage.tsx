@@ -1251,6 +1251,7 @@ export default function CostControlReportPage() {
     const state = {
       selectedDisciplines, selectedActivities, disciplineSearch, activitySearch,
       sortField, sortDirection, alertFilter, quickFilter, eacMethod, groupByDiscipline,
+      activeBaselineId: activeBaseline?.id ?? null,
     };
     const f = encodeURIComponent(btoa(JSON.stringify(state)));
     const url = new URL(window.location.href);
