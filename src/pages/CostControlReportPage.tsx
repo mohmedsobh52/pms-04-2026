@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
@@ -590,9 +591,11 @@ export default function CostControlReportPage() {
   // Baseline rename inline edit
   const [renamingBaselineId, setRenamingBaselineId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const [pendingDeleteBaseline, setPendingDeleteBaseline] = useState<{ id: string; name: string } | null>(null);
 
   // Track whether URL filter state has been applied (one-shot)
   const urlFiltersAppliedRef = useRef(false);
+  const pendingUrlBaselineIdRef = useRef<string | null>(null);
 
   // Fetch projects on mount
   useEffect(() => {
@@ -703,11 +706,13 @@ export default function CostControlReportPage() {
         });
         if (bls) {
           setBaselines(bls as any);
-          const active = bls.find((b: any) => b.is_active);
-          if (active && active.snapshot && Array.isArray((active.snapshot as any).activities)) {
+          const pendingId = pendingUrlBaselineIdRef.current;
+          const pick = (pendingId && bls.find((b: any) => b.id === pendingId)) || bls.find((b: any) => b.is_active);
+          if (pendingId) pendingUrlBaselineIdRef.current = null;
+          if (pick && (pick as any).snapshot && Array.isArray(((pick as any).snapshot as any).activities)) {
             const map: Record<number, { pv: number; progress: number; ac: number }> = {};
-            (active.snapshot as any).activities.forEach((a: any) => { map[a.sn] = { pv: a.pv, progress: a.progress, ac: a.ac }; });
-            setActiveBaseline({ id: active.id, name: active.name, map });
+            ((pick as any).snapshot as any).activities.forEach((a: any) => { map[a.sn] = { pv: a.pv, progress: a.progress, ac: a.ac }; });
+            setActiveBaseline({ id: (pick as any).id, name: (pick as any).name, map });
           }
         }
         if (vs) setSavedViews(vs as any);
@@ -735,6 +740,7 @@ export default function CostControlReportPage() {
       if (f.quickFilter === null || typeof f.quickFilter === "string") setQuickFilter(f.quickFilter ?? null);
       if (typeof f.eacMethod === "string") setEacMethod(f.eacMethod);
       if (typeof f.groupByDiscipline === "boolean") setGroupByDiscipline(f.groupByDiscipline);
+      if (typeof f.activeBaselineId === "string") pendingUrlBaselineIdRef.current = f.activeBaselineId;
       urlFiltersAppliedRef.current = true;
       toast.success(isArabic ? "تم تحميل الفلاتر من الرابط" : "Filters loaded from link");
     } catch (e) { console.warn("Bad filter URL param", e); }
@@ -1249,6 +1255,7 @@ export default function CostControlReportPage() {
     const state = {
       selectedDisciplines, selectedActivities, disciplineSearch, activitySearch,
       sortField, sortDirection, alertFilter, quickFilter, eacMethod, groupByDiscipline,
+      activeBaselineId: activeBaseline?.id ?? null,
     };
     const f = encodeURIComponent(btoa(JSON.stringify(state)));
     const url = new URL(window.location.href);
@@ -1277,7 +1284,7 @@ export default function CostControlReportPage() {
       setBaselines(prev => prev.map(b => b.id === id ? { ...b, name } : b));
       if (activeBaseline?.id === id) setActiveBaseline({ ...activeBaseline, name });
       setRenamingBaselineId(null); setRenameDraft("");
-      toast.success(isArabic ? "تم تغيير الاسم" : "Renamed");
+      toast.success((isArabic ? "تم تغيير اسم خط الأساس إلى: " : "Baseline renamed to: ") + name);
     } catch (e) { console.error(e); toast.error(isArabic ? "فشل التغيير" : "Rename failed"); }
   };
 
@@ -1333,18 +1340,20 @@ export default function CostControlReportPage() {
       const map: Record<number, { pv: number; progress: number; ac: number }> = {};
       (b.snapshot?.activities || []).forEach((a: any) => { map[a.sn] = { pv: a.pv, progress: a.progress, ac: a.ac }; });
       setActiveBaseline({ id: b.id, name: b.name, map });
-      toast.success(isArabic ? "تم التفعيل" : "Baseline activated");
+      toast.success((isArabic ? "تم تفعيل خط الأساس: " : "Baseline activated: ") + b.name);
     } catch (e) { console.error(e); toast.error(isArabic ? "فشل التفعيل" : "Activation failed"); }
   };
 
   const clearBaseline = () => setActiveBaseline(null);
 
   const deleteBaseline = async (id: string) => {
+    const target = baselines.find(b => b.id === id);
     try {
       await supabase.from("cost_control_baselines").delete().eq("id", id);
       setBaselines(prev => prev.filter(b => b.id !== id));
       if (activeBaseline?.id === id) setActiveBaseline(null);
-    } catch (e) { console.error(e); }
+      toast.success((isArabic ? "تم حذف خط الأساس: " : "Baseline deleted: ") + (target?.name || id));
+    } catch (e) { console.error(e); toast.error(isArabic ? "فشل الحذف" : "Delete failed"); }
   };
 
   // ===== Saved Views =====
@@ -2643,7 +2652,7 @@ export default function CostControlReportPage() {
                        <Button size="sm" variant={activeBaseline?.id === b.id ? "default" : "outline"} onClick={() => activateBaseline(b)}>
                          {activeBaseline?.id === b.id ? (isArabic ? "مفعّل" : "Active") : (isArabic ? "تفعيل" : "Activate")}
                        </Button>
-                       <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => deleteBaseline(b.id)}>
+                       <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => setPendingDeleteBaseline({ id: b.id, name: b.name })}>
                          <X className="h-4 w-4" />
                        </Button>
                      </>
@@ -2654,6 +2663,32 @@ export default function CostControlReportPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Baseline Confirmation */}
+      <AlertDialog open={!!pendingDeleteBaseline} onOpenChange={(o) => { if (!o) setPendingDeleteBaseline(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{isArabic ? "تأكيد حذف خط الأساس" : "Delete Baseline?"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isArabic
+                ? `سيتم حذف خط الأساس "${pendingDeleteBaseline?.name}" نهائيًا. لا يمكن التراجع.`
+                : `Baseline "${pendingDeleteBaseline?.name}" will be permanently deleted. This cannot be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (pendingDeleteBaseline) await deleteBaseline(pendingDeleteBaseline.id);
+                setPendingDeleteBaseline(null);
+              }}
+            >
+              {isArabic ? "حذف" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Resources Manager Dialog */}
       <Dialog open={resourcesDialogOpen} onOpenChange={setResourcesDialogOpen}>
