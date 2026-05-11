@@ -595,6 +595,7 @@ export default function CostControlReportPage() {
 
   // Track whether URL filter state has been applied (one-shot)
   const urlFiltersAppliedRef = useRef(false);
+  const pendingUrlBaselineIdRef = useRef<string | null>(null);
 
   // Fetch projects on mount
   useEffect(() => {
