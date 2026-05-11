@@ -2628,6 +2628,148 @@ export default function CostControlReportPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Resources Manager Dialog */}
+      <Dialog open={resourcesDialogOpen} onOpenChange={setResourcesDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-4 w-4 text-primary" />
+              {isArabic ? "ملخص الموارد المستخدمة" : "Resources Usage Summary"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {/* Aggregated totals */}
+            <div className="grid grid-cols-4 gap-3">
+              {[
+                { label: isArabic ? "مواد" : "Materials", value: totalResources.materials, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/20" },
+                { label: isArabic ? "عمالة" : "Labor", value: totalResources.labor, color: "text-green-600", bg: "bg-green-50 dark:bg-green-950/20" },
+                { label: isArabic ? "معدات" : "Equipment", value: totalResources.equipment, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/20" },
+                { label: isArabic ? "الإجمالي" : "Total", value: totalResources.total, color: "text-primary", bg: "bg-primary/5" },
+              ].map((s, i) => (
+                <div key={i} className={`rounded-lg p-3 border ${s.bg}`}>
+                  <p className="text-[11px] text-muted-foreground">{s.label}</p>
+                  <p className={`text-lg font-bold ${s.color}`}>{s.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                </div>
+              ))}
+            </div>
+            {/* Per-activity breakdown */}
+            <div className="border rounded-lg max-h-[400px] overflow-y-auto">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background z-10">
+                  <TableRow>
+                    <TableHead className="text-xs">{isArabic ? "النشاط" : "Activity"}</TableHead>
+                    <TableHead className="text-xs text-right">{isArabic ? "مواد" : "Materials"}</TableHead>
+                    <TableHead className="text-xs text-right">{isArabic ? "عمالة" : "Labor"}</TableHead>
+                    <TableHead className="text-xs text-right">{isArabic ? "معدات" : "Equipment"}</TableHead>
+                    <TableHead className="text-xs text-right">{isArabic ? "الإجمالي" : "Total"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredActivities.map(a => {
+                    const r = activityResources[a.sn];
+                    if (!r || r.count === 0) return null;
+                    return (
+                      <TableRow key={a.sn}>
+                        <TableCell className="text-xs max-w-[280px] truncate" title={a.name}>{a.name}</TableCell>
+                        <TableCell className="text-xs text-right text-blue-600">{r.materials.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
+                        <TableCell className="text-xs text-right text-green-600">{r.labor.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
+                        <TableCell className="text-xs text-right text-amber-600">{r.equipment.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
+                        <TableCell className="text-xs text-right font-semibold">{r.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {totalResources.count === 0 && (
+                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6 text-sm">
+                      {isArabic ? "لا توجد بيانات موارد لهذه الأنشطة" : "No resource data for these activities"}
+                    </TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResourcesDialogOpen(false)}>{isArabic ? "إغلاق" : "Close"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Export Options Dialog */}
+      <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings2 className="h-4 w-4 text-primary" />
+              {isArabic ? "خيارات تصدير Excel" : "Excel Export Options"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">{isArabic ? "نوع التقرير" : "Report Type"}</Label>
+              <Select value={exportMode} onValueChange={(v: any) => setExportMode(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="summary">{isArabic ? "ملخص فقط (KPIs)" : "Summary only (KPIs)"}</SelectItem>
+                  <SelectItem value="detailed">{isArabic ? "أنشطة مفصّلة" : "Detailed activities"}</SelectItem>
+                  <SelectItem value="full">{isArabic ? "كامل (ملخص + أنشطة + موارد + مقارنة)" : "Full (summary + activities + resources + comparison)"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">{isArabic ? "نطاق Disciplines" : "Disciplines Scope"}</Label>
+              <div className="flex flex-wrap gap-2 p-2 border rounded-md max-h-[120px] overflow-y-auto">
+                {disciplines.map(d => {
+                  const checked = exportScopeDisciplines.includes(d.id);
+                  return (
+                    <label key={d.id} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                      <Checkbox checked={checked} onCheckedChange={(c) => {
+                        setExportScopeDisciplines(prev => c ? [...prev, d.id] : prev.filter(x => x !== d.id));
+                      }} />
+                      {isArabic ? d.labelAr : d.label}
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-muted-foreground">{isArabic ? "اتركها فارغة لتطبيق الفلاتر الحالية فقط" : "Leave empty to use current filters only"}</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">{isArabic ? "نطاق Categories (مفصول بفواصل)" : "Categories Scope (comma-separated)"}</Label>
+              <Input
+                value={exportScopeCategories.join(", ")}
+                onChange={(e) => setExportScopeCategories(e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
+                placeholder={isArabic ? "مثال: concrete, steel" : "e.g. concrete, steel"}
+              />
+            </div>
+
+            <div className="flex items-center gap-2 p-3 border rounded-md bg-muted/30">
+              <Checkbox
+                id="inc-res"
+                checked={exportIncludeResources}
+                onCheckedChange={(c) => setExportIncludeResources(!!c)}
+              />
+              <Label htmlFor="inc-res" className="text-xs cursor-pointer">
+                {isArabic ? "إضافة ورقة الموارد (مواد/عمالة/معدات) للتصدير" : "Include Resources sheet (materials/labor/equipment)"}
+              </Label>
+            </div>
+
+            <div className="rounded-md bg-primary/5 border border-primary/20 p-3 text-xs space-y-1">
+              <p className="font-semibold">{isArabic ? "ملاحظات:" : "Notes:"}</p>
+              <ul className="list-disc list-inside text-muted-foreground space-y-0.5">
+                <li>{isArabic ? "التصدير يطبق الـ Overrides والفلاتر الحالية" : "Export applies current overrides & filters"}</li>
+                <li>{isArabic ? "يتم تضمين مقارنة خط الأساس إن وُجد نشط" : "Baseline comparison included if active baseline exists"}</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportDialogOpen(false)}>{isArabic ? "إلغاء" : "Cancel"}</Button>
+            <Button onClick={() => { setExportDialogOpen(false); handleExportExcel(); }} className="gap-2">
+              <Download className="h-4 w-4" />{isArabic ? "تصدير الآن" : "Export Now"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Save View Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
         <DialogContent>
