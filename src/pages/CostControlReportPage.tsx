@@ -2652,7 +2652,7 @@ export default function CostControlReportPage() {
                        <Button size="sm" variant={activeBaseline?.id === b.id ? "default" : "outline"} onClick={() => activateBaseline(b)}>
                          {activeBaseline?.id === b.id ? (isArabic ? "مفعّل" : "Active") : (isArabic ? "تفعيل" : "Activate")}
                        </Button>
-                       <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => deleteBaseline(b.id)}>
+                       <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => setPendingDeleteBaseline({ id: b.id, name: b.name })}>
                          <X className="h-4 w-4" />
                        </Button>
                      </>
