@@ -591,6 +591,7 @@ export default function CostControlReportPage() {
   // Baseline rename inline edit
   const [renamingBaselineId, setRenamingBaselineId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const [pendingDeleteBaseline, setPendingDeleteBaseline] = useState<{ id: string; name: string } | null>(null);
 
   // Track whether URL filter state has been applied (one-shot)
   const urlFiltersAppliedRef = useRef(false);
