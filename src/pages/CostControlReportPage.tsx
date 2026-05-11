@@ -738,6 +738,7 @@ export default function CostControlReportPage() {
       if (f.quickFilter === null || typeof f.quickFilter === "string") setQuickFilter(f.quickFilter ?? null);
       if (typeof f.eacMethod === "string") setEacMethod(f.eacMethod);
       if (typeof f.groupByDiscipline === "boolean") setGroupByDiscipline(f.groupByDiscipline);
+      if (typeof f.activeBaselineId === "string") pendingUrlBaselineIdRef.current = f.activeBaselineId;
       urlFiltersAppliedRef.current = true;
       toast.success(isArabic ? "تم تحميل الفلاتر من الرابط" : "Filters loaded from link");
     } catch (e) { console.warn("Bad filter URL param", e); }
