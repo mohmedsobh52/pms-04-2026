@@ -706,11 +706,13 @@ export default function CostControlReportPage() {
         });
         if (bls) {
           setBaselines(bls as any);
-          const active = bls.find((b: any) => b.is_active);
-          if (active && active.snapshot && Array.isArray((active.snapshot as any).activities)) {
+          const pendingId = pendingUrlBaselineIdRef.current;
+          const pick = (pendingId && bls.find((b: any) => b.id === pendingId)) || bls.find((b: any) => b.is_active);
+          if (pendingId) pendingUrlBaselineIdRef.current = null;
+          if (pick && (pick as any).snapshot && Array.isArray(((pick as any).snapshot as any).activities)) {
             const map: Record<number, { pv: number; progress: number; ac: number }> = {};
-            (active.snapshot as any).activities.forEach((a: any) => { map[a.sn] = { pv: a.pv, progress: a.progress, ac: a.ac }; });
-            setActiveBaseline({ id: active.id, name: active.name, map });
+            ((pick as any).snapshot as any).activities.forEach((a: any) => { map[a.sn] = { pv: a.pv, progress: a.progress, ac: a.ac }; });
+            setActiveBaseline({ id: (pick as any).id, name: (pick as any).name, map });
           }
         }
         if (vs) setSavedViews(vs as any);
