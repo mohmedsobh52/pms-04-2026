@@ -2664,6 +2664,32 @@ export default function CostControlReportPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Delete Baseline Confirmation */}
+      <AlertDialog open={!!pendingDeleteBaseline} onOpenChange={(o) => { if (!o) setPendingDeleteBaseline(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{isArabic ? "تأكيد حذف خط الأساس" : "Delete Baseline?"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isArabic
+                ? `سيتم حذف خط الأساس "${pendingDeleteBaseline?.name}" نهائيًا. لا يمكن التراجع.`
+                : `Baseline "${pendingDeleteBaseline?.name}" will be permanently deleted. This cannot be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (pendingDeleteBaseline) await deleteBaseline(pendingDeleteBaseline.id);
+                setPendingDeleteBaseline(null);
+              }}
+            >
+              {isArabic ? "حذف" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Resources Manager Dialog */}
       <Dialog open={resourcesDialogOpen} onOpenChange={setResourcesDialogOpen}>
         <DialogContent className="max-w-4xl">
