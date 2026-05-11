@@ -1279,7 +1279,7 @@ export default function CostControlReportPage() {
       setBaselines(prev => prev.map(b => b.id === id ? { ...b, name } : b));
       if (activeBaseline?.id === id) setActiveBaseline({ ...activeBaseline, name });
       setRenamingBaselineId(null); setRenameDraft("");
-      toast.success(isArabic ? "تم تغيير الاسم" : "Renamed");
+      toast.success((isArabic ? "تم تغيير اسم خط الأساس إلى: " : "Baseline renamed to: ") + name);
     } catch (e) { console.error(e); toast.error(isArabic ? "فشل التغيير" : "Rename failed"); }
   };
 
