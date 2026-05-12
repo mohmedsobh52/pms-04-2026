@@ -594,8 +594,16 @@ export default function CostControlReportPage() {
   const [pendingDeleteBaseline, setPendingDeleteBaseline] = useState<{ id: string; name: string } | null>(null);
 
   // Track whether URL filter state has been applied (one-shot)
+  // Parse ?f= synchronously so baseline-id is ready BEFORE the project-data load effect runs.
   const urlFiltersAppliedRef = useRef(false);
-  const pendingUrlBaselineIdRef = useRef<string | null>(null);
+  const pendingUrlBaselineIdRef = useRef<string | null>((() => {
+    try {
+      const f = new URLSearchParams(window.location.search).get("f");
+      if (!f) return null;
+      const obj = JSON.parse(atob(decodeURIComponent(f)));
+      return typeof obj?.activeBaselineId === "string" ? obj.activeBaselineId : null;
+    } catch { return null; }
+  })());
 
   // Fetch projects on mount
   useEffect(() => {
