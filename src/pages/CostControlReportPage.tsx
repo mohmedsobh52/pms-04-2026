@@ -30,6 +30,7 @@ import {
   Share2, RotateCcw, Package, Users, Truck, Settings2
 } from "lucide-react";
 import { exportCostControlPDF } from "@/lib/cost-control-pdf";
+import { ResourceLevellingDialog } from "@/components/cost-control/ResourceLevellingDialog";
 import {
   Chart as ChartJS,
   CategoryScale,
