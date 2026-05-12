@@ -2122,6 +2122,13 @@ export default function CostControlReportPage() {
                   </Button>
                 )}
 
+                {/* Resource Levelling */}
+                {useRealData && (
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setResourceLevellingOpen(true)} title={isArabic ? "تسوية الموارد" : "Resource Levelling"}>
+                    <Activity className="h-3 w-3" />{isArabic ? "تسوية الموارد" : "Levelling"}
+                  </Button>
+                )}
+
                 {/* Baseline */}
                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setBaselineDialogOpen(true)}>
                   <Bookmark className="h-3 w-3" />{isArabic ? "خط أساس" : "Baseline"}
