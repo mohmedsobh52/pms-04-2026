@@ -30,6 +30,7 @@ import {
   Share2, RotateCcw, Package, Users, Truck, Settings2
 } from "lucide-react";
 import { exportCostControlPDF } from "@/lib/cost-control-pdf";
+import { ResourceLevellingDialog } from "@/components/cost-control/ResourceLevellingDialog";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -580,6 +581,7 @@ export default function CostControlReportPage() {
   // Resources (item_pricing_details aggregated per project_item_id)
   const [resourceMap, setResourceMap] = useState<Record<string, ResourceTotals>>({});
   const [resourcesDialogOpen, setResourcesDialogOpen] = useState(false);
+  const [resourceLevellingOpen, setResourceLevellingOpen] = useState(false);
 
   // Export options
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -2121,6 +2123,13 @@ export default function CostControlReportPage() {
                   </Button>
                 )}
 
+                {/* Resource Levelling */}
+                {useRealData && (
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setResourceLevellingOpen(true)} title={isArabic ? "تسوية الموارد" : "Resource Levelling"}>
+                    <Activity className="h-3 w-3" />{isArabic ? "تسوية الموارد" : "Levelling"}
+                  </Button>
+                )}
+
                 {/* Baseline */}
                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setBaselineDialogOpen(true)}>
                   <Bookmark className="h-3 w-3" />{isArabic ? "خط أساس" : "Baseline"}
@@ -2697,6 +2706,15 @@ export default function CostControlReportPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Resource Levelling Dialog */}
+      <ResourceLevellingDialog
+        open={resourceLevellingOpen}
+        onOpenChange={setResourceLevellingOpen}
+        projectId={selectedProjectId}
+        filteredActivities={filteredActivities.map(a => ({ sn: a.sn, activity: a.activity, activityAr: a.activityAr, itemIds: a.itemIds }))}
+        isArabic={isArabic}
+      />
 
       {/* Resources Manager Dialog */}
       <Dialog open={resourcesDialogOpen} onOpenChange={setResourcesDialogOpen}>
