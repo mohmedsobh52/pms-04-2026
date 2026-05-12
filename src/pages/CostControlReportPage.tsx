@@ -2707,6 +2707,15 @@ export default function CostControlReportPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Resource Levelling Dialog */}
+      <ResourceLevellingDialog
+        open={resourceLevellingOpen}
+        onOpenChange={setResourceLevellingOpen}
+        projectId={selectedProjectId}
+        filteredActivities={filteredActivities.map(a => ({ sn: a.sn, activity: a.activity, activityAr: a.activityAr, itemIds: a.itemIds }))}
+        isArabic={isArabic}
+      />
+
       {/* Resources Manager Dialog */}
       <Dialog open={resourcesDialogOpen} onOpenChange={setResourcesDialogOpen}>
         <DialogContent className="max-w-4xl">
