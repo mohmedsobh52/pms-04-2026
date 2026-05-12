@@ -580,6 +580,7 @@ export default function CostControlReportPage() {
   // Resources (item_pricing_details aggregated per project_item_id)
   const [resourceMap, setResourceMap] = useState<Record<string, ResourceTotals>>({});
   const [resourcesDialogOpen, setResourcesDialogOpen] = useState(false);
+  const [resourceLevellingOpen, setResourceLevellingOpen] = useState(false);
 
   // Export options
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
