@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useCallback, createContext, useContext, useEffect } from "react";
 import * as XLSX from "xlsx";
+import { supabase } from "@/integrations/supabase/client";
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
