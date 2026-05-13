@@ -3299,6 +3299,41 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
             style={{flex:1,background:"#f4f5fb",color:"#555",border:"none",borderRadius:9,padding:11,fontWeight:600,cursor:"pointer",fontSize:14}}>إلغاء</button>
         </div>
       </Modal>
+
+      <Modal show={pickerModal} onClose={()=>setPickerModal(false)} title="📂 اختيار مشروع من حسابك" width={620}>
+        <div style={{display:"flex",gap:8,marginBottom:12}}>
+          <input value={pickerSearch} onChange={e=>setPickerSearch(e.target.value)} placeholder="🔍 ابحث باسم المشروع..." style={{flex:1,border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none"}}/>
+          <button onClick={fetchProjects} style={{background:"#f4f5fb",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>🔄 تحديث</button>
+        </div>
+        {projectsErr&&<div style={{background:"#fee2e2",color:"#dc2626",padding:"8px 12px",borderRadius:8,fontSize:12,marginBottom:10}}>{projectsErr}</div>}
+        {projectsLoading?(
+          <div style={{textAlign:"center",padding:30,color:"#888",fontSize:13}}>⏳ جاري تحميل المشاريع...</div>
+        ):(
+          <div style={{maxHeight:380,overflowY:"auto",border:"1px solid #f0f0f0",borderRadius:10}}>
+            {projectsList.filter(p=>!pickerSearch||(p.name||"").toLowerCase().includes(pickerSearch.toLowerCase())).map(p=>(
+              <div key={p.id} onClick={()=>!loadingItems&&loadProjectFromDb(p)} style={{padding:"12px 14px",borderBottom:"1px solid #f5f5f5",cursor:loadingItems?"wait":"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",background:linkedProjectId===p.id?"#eef2ff":"transparent"}}
+                onMouseEnter={e=>{if(linkedProjectId!==p.id)e.currentTarget.style.background="#fafbff";}}
+                onMouseLeave={e=>{if(linkedProjectId!==p.id)e.currentTarget.style.background="transparent";}}>
+                <div style={{minWidth:0,flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:"#1a1a2e",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
+                  <div style={{fontSize:10,color:"#888",marginTop:2}}>{p.file_name||"—"} · آخر تحديث: {new Date(p.updated_at||p.created_at).toLocaleDateString("ar-SA")}</div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+                  {linkedProjectId===p.id&&<span style={{background:"#10b981",color:"#fff",borderRadius:999,padding:"2px 8px",fontSize:9,fontWeight:700}}>✓ نشط</span>}
+                  <span style={{color:"#6366f1",fontSize:18}}>›</span>
+                </div>
+              </div>
+            ))}
+            {!projectsList.length&&!projectsLoading&&(
+              <div style={{textAlign:"center",padding:30,color:"#aaa",fontSize:12}}>لا توجد مشاريع محفوظة في حسابك</div>
+            )}
+          </div>
+        )}
+        {loadingItems&&<div style={{marginTop:10,padding:"8px 12px",background:"#eef2ff",borderRadius:8,fontSize:12,color:"#6366f1",fontWeight:600,textAlign:"center"}}>⏳ جاري تحميل بنود المشروع وتحويلها إلى أنشطة...</div>}
+        <div style={{marginTop:12,padding:"8px 12px",background:"#fffbeb",borderRadius:8,fontSize:11,color:"#92400e",lineHeight:1.6}}>
+          💡 سيتم تجميع بنود المشروع حسب الفئة وتحويلها إلى أنشطة EVM. يمكنك بعدها تعديل التكلفة الفعلية ونسبة الإنجاز يدوياً لكل نشاط.
+        </div>
+      </Modal>
     </div>
     </DarkCtx.Provider>
   );
