@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useCallback, createContext, useContext, useEffect } from "react";
 import * as XLSX from "xlsx";
+import { supabase } from "@/integrations/supabase/client";
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -420,6 +421,75 @@ export default function App(){
     const ts=new Date().toLocaleString("ar-SA");
     setChangelog(p=>[{ts,user:"مدير التكلفة",action,type},...p].slice(0,50));
   };
+
+  // ── Project picker (Supabase) ──
+  const [pickerModal,setPickerModal]=useState(false);
+  const [projectsList,setProjectsList]=useState([]);
+  const [projectsLoading,setProjectsLoading]=useState(false);
+  const [projectsErr,setProjectsErr]=useState("");
+  const [pickerSearch,setPickerSearch]=useState("");
+  const [linkedProjectId,setLinkedProjectId]=useState(null);
+  const [loadingItems,setLoadingItems]=useState(false);
+
+  const guessDisc=(text="")=>{
+    const t=String(text).toLowerCase();
+    if(/(كهرب|إنار|إضاء|كابل|electric|light|cable|panel)/i.test(t))return"ELECTRICAL";
+    if(/(ميكان|تكييف|سباك|مضخ|أنابيب|hvac|mech|pump|pipe|plumb)/i.test(t))return"MECHANICAL";
+    if(/(عمار|تشطيب|دهان|سيرام|بلاط|باب|نواف|حدائق|arch|finish|paint|tile|door|window)/i.test(t))return"ARCHITECTURAL";
+    if(/(مدني|خرسان|حفر|ردم|طرق|جسر|صرف|مياه|civil|concrete|excav|road|bridge|sewer|water)/i.test(t))return"CIVIL";
+    return"GENERAL";
+  };
+
+  const fetchProjects=useCallback(async()=>{
+    setProjectsLoading(true);setProjectsErr("");
+    try{
+      const{data,error}=await supabase.from("saved_projects").select("id,name,file_name,updated_at,created_at").order("updated_at",{ascending:false}).limit(200);
+      if(error)throw error;
+      setProjectsList(data||[]);
+    }catch(e){setProjectsErr(e.message||"فشل تحميل المشاريع");}
+    finally{setProjectsLoading(false);}
+  },[]);
+
+  useEffect(()=>{ if(pickerModal&&!projectsList.length&&!projectsLoading)fetchProjects(); },[pickerModal]);
+
+  const loadProjectFromDb=useCallback(async(p)=>{
+    setLoadingItems(true);
+    try{
+      const{data:items,error}=await supabase.from("project_items").select("id,item_number,description,unit,quantity,unit_price,total_price,category,sort_order").eq("project_id",p.id).order("sort_order");
+      if(error)throw error;
+      // Group items by category → one activity per category
+      const groups={};
+      (items||[]).forEach((it,idx)=>{
+        const cat=(it.category||"عام").toString().trim()||"عام";
+        if(!groups[cat])groups[cat]={cat,items:0,bac:0,disc:guessDisc(cat+" "+(it.description||""))};
+        groups[cat].items+=1;
+        groups[cat].bac+=Number(it.total_price||(Number(it.quantity||0)*Number(it.unit_price||0))||0);
+      });
+      const discCount={};
+      const newActs=Object.values(groups).map((g,i)=>{
+        const d=g.disc; discCount[d]=(discCount[d]||0)+1;
+        const code=d.slice(0,3).toUpperCase()+"-"+String(discCount[d]).padStart(3,"0");
+        return{id:code,nameAr:g.cat,disc:d,items:g.items,bac:Math.round(g.bac),ac:0,pct:0};
+      });
+      if(!newActs.length){
+        // Fallback: each item as activity
+        (items||[]).slice(0,200).forEach((it,i)=>{
+          const d=guessDisc(it.category+" "+(it.description||""));
+          discCount[d]=(discCount[d]||0)+1;
+          newActs.push({id:d.slice(0,3).toUpperCase()+"-"+String(discCount[d]).padStart(3,"0"),nameAr:it.description||it.item_number||"بند",disc:d,items:1,bac:Math.round(Number(it.total_price||0)),ac:0,pct:0});
+        });
+      }
+      setActs(newActs);
+      setProject(prev=>({...prev,name:p.name||prev.name,number:p.file_name||prev.number}));
+      setLinkedProjectId(p.id);
+      setSelDisc(null);setSelAct(null);
+      setPickerModal(false);
+      logChange(`ربط المشروع: ${p.name} (${newActs.length} نشاط)`,"create");
+    }catch(e){
+      setProjectsErr(e.message||"فشل تحميل بنود المشروع");
+    }finally{setLoadingItems(false);}
+  },[]);
+
 
   // ── Computed ──
   const filtered=useMemo(()=>{
@@ -1027,6 +1097,9 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
           </div>
           <button onClick={()=>{setProjBuf(project);setProjModal(true);}} style={{marginTop:8,width:"100%",background:darkMode?"#0f172a":"#f4f5fb",border:`1px solid ${darkMode?"#334155":"#e5e7eb"}`,borderRadius:7,padding:"5px 8px",cursor:"pointer",fontSize:10,color:"#555",textAlign:"left",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>
             🏗 {project.name}
+          </button>
+          <button onClick={()=>setPickerModal(true)} style={{marginTop:6,width:"100%",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",border:"none",borderRadius:7,padding:"6px 8px",cursor:"pointer",fontSize:10,color:"#fff",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+            📂 اختيار مشروع من الحساب {linkedProjectId&&<span style={{background:"rgba(255,255,255,.25)",borderRadius:999,padding:"1px 6px",fontSize:8}}>مرتبط</span>}
           </button>
         </div>
         <div style={{padding:"10px 10px 6px",flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:2}}>
@@ -3224,6 +3297,41 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
           </button>
           <button onClick={()=>{setImportModal(false);setImportText("");setImportPreview([]);setImportErr("");setImportSheets([]);}}
             style={{flex:1,background:"#f4f5fb",color:"#555",border:"none",borderRadius:9,padding:11,fontWeight:600,cursor:"pointer",fontSize:14}}>إلغاء</button>
+        </div>
+      </Modal>
+
+      <Modal show={pickerModal} onClose={()=>setPickerModal(false)} title="📂 اختيار مشروع من حسابك" width={620}>
+        <div style={{display:"flex",gap:8,marginBottom:12}}>
+          <input value={pickerSearch} onChange={e=>setPickerSearch(e.target.value)} placeholder="🔍 ابحث باسم المشروع..." style={{flex:1,border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none"}}/>
+          <button onClick={fetchProjects} style={{background:"#f4f5fb",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>🔄 تحديث</button>
+        </div>
+        {projectsErr&&<div style={{background:"#fee2e2",color:"#dc2626",padding:"8px 12px",borderRadius:8,fontSize:12,marginBottom:10}}>{projectsErr}</div>}
+        {projectsLoading?(
+          <div style={{textAlign:"center",padding:30,color:"#888",fontSize:13}}>⏳ جاري تحميل المشاريع...</div>
+        ):(
+          <div style={{maxHeight:380,overflowY:"auto",border:"1px solid #f0f0f0",borderRadius:10}}>
+            {projectsList.filter(p=>!pickerSearch||(p.name||"").toLowerCase().includes(pickerSearch.toLowerCase())).map(p=>(
+              <div key={p.id} onClick={()=>!loadingItems&&loadProjectFromDb(p)} style={{padding:"12px 14px",borderBottom:"1px solid #f5f5f5",cursor:loadingItems?"wait":"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",background:linkedProjectId===p.id?"#eef2ff":"transparent"}}
+                onMouseEnter={e=>{if(linkedProjectId!==p.id)e.currentTarget.style.background="#fafbff";}}
+                onMouseLeave={e=>{if(linkedProjectId!==p.id)e.currentTarget.style.background="transparent";}}>
+                <div style={{minWidth:0,flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:"#1a1a2e",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
+                  <div style={{fontSize:10,color:"#888",marginTop:2}}>{p.file_name||"—"} · آخر تحديث: {new Date(p.updated_at||p.created_at).toLocaleDateString("ar-SA")}</div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+                  {linkedProjectId===p.id&&<span style={{background:"#10b981",color:"#fff",borderRadius:999,padding:"2px 8px",fontSize:9,fontWeight:700}}>✓ نشط</span>}
+                  <span style={{color:"#6366f1",fontSize:18}}>›</span>
+                </div>
+              </div>
+            ))}
+            {!projectsList.length&&!projectsLoading&&(
+              <div style={{textAlign:"center",padding:30,color:"#aaa",fontSize:12}}>لا توجد مشاريع محفوظة في حسابك</div>
+            )}
+          </div>
+        )}
+        {loadingItems&&<div style={{marginTop:10,padding:"8px 12px",background:"#eef2ff",borderRadius:8,fontSize:12,color:"#6366f1",fontWeight:600,textAlign:"center"}}>⏳ جاري تحميل بنود المشروع وتحويلها إلى أنشطة...</div>}
+        <div style={{marginTop:12,padding:"8px 12px",background:"#fffbeb",borderRadius:8,fontSize:11,color:"#92400e",lineHeight:1.6}}>
+          💡 سيتم تجميع بنود المشروع حسب الفئة وتحويلها إلى أنشطة EVM. يمكنك بعدها تعديل التكلفة الفعلية ونسبة الإنجاز يدوياً لكل نشاط.
         </div>
       </Modal>
     </div>
