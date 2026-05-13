@@ -422,6 +422,75 @@ export default function App(){
     setChangelog(p=>[{ts,user:"مدير التكلفة",action,type},...p].slice(0,50));
   };
 
+  // ── Project picker (Supabase) ──
+  const [pickerModal,setPickerModal]=useState(false);
+  const [projectsList,setProjectsList]=useState([]);
+  const [projectsLoading,setProjectsLoading]=useState(false);
+  const [projectsErr,setProjectsErr]=useState("");
+  const [pickerSearch,setPickerSearch]=useState("");
+  const [linkedProjectId,setLinkedProjectId]=useState(null);
+  const [loadingItems,setLoadingItems]=useState(false);
+
+  const guessDisc=(text="")=>{
+    const t=String(text).toLowerCase();
+    if(/(كهرب|إنار|إضاء|كابل|electric|light|cable|panel)/i.test(t))return"ELECTRICAL";
+    if(/(ميكان|تكييف|سباك|مضخ|أنابيب|hvac|mech|pump|pipe|plumb)/i.test(t))return"MECHANICAL";
+    if(/(عمار|تشطيب|دهان|سيرام|بلاط|باب|نواف|حدائق|arch|finish|paint|tile|door|window)/i.test(t))return"ARCHITECTURAL";
+    if(/(مدني|خرسان|حفر|ردم|طرق|جسر|صرف|مياه|civil|concrete|excav|road|bridge|sewer|water)/i.test(t))return"CIVIL";
+    return"GENERAL";
+  };
+
+  const fetchProjects=useCallback(async()=>{
+    setProjectsLoading(true);setProjectsErr("");
+    try{
+      const{data,error}=await supabase.from("saved_projects").select("id,name,file_name,updated_at,created_at").order("updated_at",{ascending:false}).limit(200);
+      if(error)throw error;
+      setProjectsList(data||[]);
+    }catch(e){setProjectsErr(e.message||"فشل تحميل المشاريع");}
+    finally{setProjectsLoading(false);}
+  },[]);
+
+  useEffect(()=>{ if(pickerModal&&!projectsList.length&&!projectsLoading)fetchProjects(); },[pickerModal]);
+
+  const loadProjectFromDb=useCallback(async(p)=>{
+    setLoadingItems(true);
+    try{
+      const{data:items,error}=await supabase.from("project_items").select("id,item_number,description,unit,quantity,unit_price,total_price,category,sort_order").eq("project_id",p.id).order("sort_order");
+      if(error)throw error;
+      // Group items by category → one activity per category
+      const groups={};
+      (items||[]).forEach((it,idx)=>{
+        const cat=(it.category||"عام").toString().trim()||"عام";
+        if(!groups[cat])groups[cat]={cat,items:0,bac:0,disc:guessDisc(cat+" "+(it.description||""))};
+        groups[cat].items+=1;
+        groups[cat].bac+=Number(it.total_price||(Number(it.quantity||0)*Number(it.unit_price||0))||0);
+      });
+      const discCount={};
+      const newActs=Object.values(groups).map((g,i)=>{
+        const d=g.disc; discCount[d]=(discCount[d]||0)+1;
+        const code=d.slice(0,3).toUpperCase()+"-"+String(discCount[d]).padStart(3,"0");
+        return{id:code,nameAr:g.cat,disc:d,items:g.items,bac:Math.round(g.bac),ac:0,pct:0};
+      });
+      if(!newActs.length){
+        // Fallback: each item as activity
+        (items||[]).slice(0,200).forEach((it,i)=>{
+          const d=guessDisc(it.category+" "+(it.description||""));
+          discCount[d]=(discCount[d]||0)+1;
+          newActs.push({id:d.slice(0,3).toUpperCase()+"-"+String(discCount[d]).padStart(3,"0"),nameAr:it.description||it.item_number||"بند",disc:d,items:1,bac:Math.round(Number(it.total_price||0)),ac:0,pct:0});
+        });
+      }
+      setActs(newActs);
+      setProject(prev=>({...prev,name:p.name||prev.name,number:p.file_name||prev.number}));
+      setLinkedProjectId(p.id);
+      setSelDisc(null);setSelAct(null);
+      setPickerModal(false);
+      logChange(`ربط المشروع: ${p.name} (${newActs.length} نشاط)`,"create");
+    }catch(e){
+      setProjectsErr(e.message||"فشل تحميل بنود المشروع");
+    }finally{setLoadingItems(false);}
+  },[]);
+
+
   // ── Computed ──
   const filtered=useMemo(()=>{
     let r=acts;if(selDisc)r=r.filter(a=>a.disc===selDisc);if(selAct)r=r.filter(a=>a.id===selAct);return r;
