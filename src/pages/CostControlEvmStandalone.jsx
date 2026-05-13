@@ -1098,6 +1098,9 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
           <button onClick={()=>{setProjBuf(project);setProjModal(true);}} style={{marginTop:8,width:"100%",background:darkMode?"#0f172a":"#f4f5fb",border:`1px solid ${darkMode?"#334155":"#e5e7eb"}`,borderRadius:7,padding:"5px 8px",cursor:"pointer",fontSize:10,color:"#555",textAlign:"left",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>
             🏗 {project.name}
           </button>
+          <button onClick={()=>setPickerModal(true)} style={{marginTop:6,width:"100%",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",border:"none",borderRadius:7,padding:"6px 8px",cursor:"pointer",fontSize:10,color:"#fff",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+            📂 اختيار مشروع من الحساب {linkedProjectId&&<span style={{background:"rgba(255,255,255,.25)",borderRadius:999,padding:"1px 6px",fontSize:8}}>مرتبط</span>}
+          </button>
         </div>
         <div style={{padding:"10px 10px 6px",flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:2}}>
           <div style={{fontSize:9,fontWeight:700,color:"#ccc",letterSpacing:.8,marginBottom:5}}>DISCIPLINE</div>
