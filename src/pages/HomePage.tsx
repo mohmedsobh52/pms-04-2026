@@ -43,6 +43,7 @@ const groups: { titleAr: string; titleEn: string; items: Section[] }[] = [
     items: [
       { nameAr: "لوحة المعلومات", nameEn: "Dashboard", descAr: "نظرة عامة على الأداء", descEn: "Performance overview", path: "/dashboard", icon: BarChart3, token: "status-active", countKey: null },
       { nameAr: "مراقبة التكاليف", nameEn: "Cost Control", descAr: "EVM وتحليل الأداء", descEn: "EVM & performance analysis", path: "/cost-control-report", icon: Shield, token: "priority-high", countKey: null },
+      { nameAr: "مراقبة EVM المتقدمة", nameEn: "EVM Advanced", descAr: "شاشة EVM شاملة مستقلة", descEn: "Standalone advanced EVM screen", path: "/cost-control-evm", icon: BarChart3, token: "cat-equipment", countKey: null },
       { nameAr: "التقارير", nameEn: "Reports", descAr: "التقارير والتحليلات", descEn: "Reports & analytics", path: "/projects?tab=reports", icon: FileText, token: "status-completed", countKey: null },
     ],
   },

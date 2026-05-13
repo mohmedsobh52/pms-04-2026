@@ -55,6 +55,7 @@ const NewProjectPage = lazy(() => import("./pages/NewProjectPage"));
 const TenderSummaryPage = lazy(() => import("./pages/TenderSummaryPage"));
 const CompanySettingsPage = lazy(() => import("./pages/CompanySettingsPage"));
 const CostControlReportPage = lazy(() => import("./pages/CostControlReportPage"));
+const CostControlEvmStandalone = lazy(() => import("./pages/CostControlEvmStandalone"));
 const PricingAccuracyPage = lazy(() => import("./pages/PricingAccuracyPage"));
 const PartnerDetailsPage = lazy(() => import("./pages/PartnerDetailsPage"));
 const ProgressCertificatesPage = lazy(() => import("./pages/ProgressCertificatesPage"));
@@ -145,6 +146,7 @@ const App = () => (
                         <Route path="/fast-extraction" element={<Navigate to="/projects?tab=attachments&mode=extraction" replace />} />
                         <Route path="/library" element={<LibraryPage />} />
                         <Route path="/cost-control-report" element={<CostControlReportPage />} />
+                        <Route path="/cost-control-evm" element={<CostControlEvmStandalone />} />
                         <Route path="/projects/:projectId/cost-control" element={<CostControlReportPage />} />
                         <Route path="/pricing-accuracy" element={<PricingAccuracyPage />} />
                         <Route path="/progress-certificates" element={<ProgressCertificatesPage />} />
