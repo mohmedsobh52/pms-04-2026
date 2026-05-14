@@ -1231,9 +1231,10 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
       {/* ═══ SIDEBAR ═══ */}
       <div style={{width:216,background:darkMode?"#1e293b":"#fff",borderRight:`1px solid ${darkMode?"#334155":"#eee"}`,display:"flex",flexDirection:"column",flexShrink:0,overflow:"hidden"}}>
         <div style={{padding:"12px 14px 10px",borderBottom:"1px solid #f0f0f0"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
             <div style={{width:34,height:34,borderRadius:10,background:"linear-gradient(135deg,#1a1a2e,#6366f1)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:900,fontSize:11}}>EVM</div>
-            <div><div style={{fontWeight:800,fontSize:12,lineHeight:1.3}}>Cost Control</div><div style={{fontSize:9,color:"#aaa"}}>EVM Dashboard v2.0</div></div>
+            <div style={{flex:1,minWidth:0}}><div style={{fontWeight:800,fontSize:12,lineHeight:1.3}}>Cost Control</div><div style={{fontSize:9,color:"#aaa"}}>EVM Dashboard v2.0</div></div>
+            <Link to="/" title="الرئيسية" style={{textDecoration:"none",background:darkMode?"#0f172a":"#f4f5fb",border:`1px solid ${darkMode?"#334155":"#e5e7eb"}`,borderRadius:7,padding:"4px 7px",fontSize:11,color:darkMode?"#f1f5f9":"#1a1a2e",lineHeight:1}}>🏠</Link>
           </div>
           <button onClick={()=>{setProjBuf(project);setProjModal(true);}} style={{marginTop:8,width:"100%",background:darkMode?"#0f172a":"#f4f5fb",border:`1px solid ${darkMode?"#334155":"#e5e7eb"}`,borderRadius:7,padding:"5px 8px",cursor:"pointer",fontSize:10,color:"#555",textAlign:"left",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>
             🏗 {project.name}
