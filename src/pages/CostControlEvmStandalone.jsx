@@ -493,6 +493,118 @@ export default function App(){
     }finally{setLoadingItems(false);}
   },[]);
 
+  // ── Sync AC from Progress Certificates ──
+  const [syncingAC,setSyncingAC]=useState(false);
+  const syncACFromCertificates=useCallback(async()=>{
+    if(!linkedProjectId){toast.error("اربط مشروعاً أولاً من زر 📂 اختيار مشروع");return;}
+    setSyncingAC(true);
+    try{
+      const{data,error}=await supabase
+        .from("progress_certificates")
+        .select("net_amount,total_work_done,current_work_done,status")
+        .eq("project_id",linkedProjectId);
+      if(error)throw error;
+      const totalAC=(data||[])
+        .filter(c=>c.status!=="cancelled")
+        .reduce((s,c)=>s+Number(c.total_work_done||c.net_amount||c.current_work_done||0),0);
+      if(!totalAC){toast.warning("لا توجد شهادات تقدم لهذا المشروع");return;}
+      // Distribute AC across activities proportionally to BAC
+      const totalBac=acts.reduce((s,a)=>s+Number(a.bac||0),0);
+      if(!totalBac){toast.error("BAC = 0، تعذّر التوزيع");return;}
+      setActs(prev=>prev.map(a=>({...a,ac:Math.round(totalAC*(Number(a.bac||0)/totalBac))})));
+      toast.success(`تمت مزامنة AC من ${data.length} شهادة تقدم — الإجمالي ${totalAC.toLocaleString()}`);
+      logChange?.(`مزامنة AC من شهادات التقدم: ${totalAC.toLocaleString()}`,"update");
+    }catch(e){toast.error("فشل المزامنة: "+(e.message||""));}
+    finally{setSyncingAC(false);}
+  },[linkedProjectId,acts]);
+
+  // ── DB-backed Scenarios ──
+  const saveScenarioToDb=useCallback(async(name)=>{
+    try{
+      const{data:auth}=await supabase.auth.getUser();
+      if(!auth?.user){toast.error("سجّل الدخول لحفظ السيناريو في السحابة");return;}
+      const snap={acts,risks,issues,resources,milestones,cf,project,scenarios,baseline,threshSPI,threshCPI};
+      const{error}=await supabase.from("evm_scenarios").insert({
+        user_id:auth.user.id,
+        project_id:linkedProjectId,
+        name:name||`سيناريو ${new Date().toLocaleString("ar-EG")}`,
+        snapshot:snap,
+      });
+      if(error)throw error;
+      toast.success("تم حفظ السيناريو في قاعدة البيانات ☁️");
+    }catch(e){toast.error("فشل الحفظ: "+(e.message||""));}
+  },[acts,risks,issues,resources,milestones,cf,project,linkedProjectId]);
+
+  const [dbScenarios,setDbScenarios]=useState([]);
+  const [scenariosModal,setScenariosModal]=useState(false);
+  const fetchDbScenarios=useCallback(async()=>{
+    try{
+      let q=supabase.from("evm_scenarios").select("id,name,created_at,project_id,snapshot").order("created_at",{ascending:false}).limit(50);
+      if(linkedProjectId)q=q.eq("project_id",linkedProjectId);
+      const{data,error}=await q;
+      if(error)throw error;
+      setDbScenarios(data||[]);
+    }catch(e){toast.error("فشل تحميل السيناريوهات: "+(e.message||""));}
+  },[linkedProjectId]);
+
+  const loadScenarioFromDb=useCallback((s)=>{
+    try{
+      const snap=s.snapshot||{};
+      if(snap.acts)setActs(snap.acts);
+      if(snap.risks)setRisks(snap.risks);
+      if(snap.issues)setIssues(snap.issues);
+      if(snap.resources)setResources(snap.resources);
+      if(snap.milestones)setMilestones(snap.milestones);
+      if(snap.cf)setCf(snap.cf);
+      if(snap.project)setProject(snap.project);
+      if(snap.scenarios)setScenarios(snap.scenarios);
+      if(snap.baseline)setBaseline(snap.baseline);
+      if(snap.threshSPI!=null)setThreshSPI(snap.threshSPI);
+      if(snap.threshCPI!=null)setThreshCPI(snap.threshCPI);
+      toast.success(`تم تحميل: ${s.name}`);
+      setScenariosModal(false);
+    }catch(e){toast.error("فشل التحميل: "+(e.message||""));}
+  },[]);
+
+  const deleteScenarioFromDb=useCallback(async(id)=>{
+    if(!confirm("حذف هذا السيناريو نهائياً؟"))return;
+    try{
+      const{error}=await supabase.from("evm_scenarios").delete().eq("id",id);
+      if(error)throw error;
+      setDbScenarios(p=>p.filter(x=>x.id!==id));
+      toast.success("تم الحذف");
+    }catch(e){toast.error("فشل الحذف");}
+  },[]);
+
+  // ── Export PDF ──
+  const exportPDF=useCallback(()=>{
+    try{
+      const doc=new jsPDF({orientation:"landscape",unit:"pt"});
+      doc.setFontSize(16);
+      doc.text("EVM Cost Control Report",40,40);
+      doc.setFontSize(10);
+      doc.text(`Project: ${project.name||"-"}    Date: ${new Date().toISOString().slice(0,10)}`,40,60);
+      autoTable(doc,{
+        startY:80,
+        head:[["KPI","Value"]],
+        body:[
+          ["BAC",fmt(kpi.bac)],["PV",fmt(kpi.pv)],["EV",fmt(kpi.ev)],["AC",fmt(kpi.ac)],
+          ["CV",fmt(kpi.CV)],["SV",fmt(kpi.SV)],["CPI",kpi.CPI.toFixed(2)],["SPI",kpi.SPI.toFixed(2)],
+          ["EAC",fmt(kpi.EAC)],["ETC",fmt(kpi.ETC)],["TCPI",kpi.TCPI.toFixed(2)],["VAC",fmt(kpi.bac-kpi.EAC)],
+        ],
+        styles:{fontSize:9},headStyles:{fillColor:[99,102,241]},
+      });
+      autoTable(doc,{
+        startY:doc.lastAutoTable.finalY+20,
+        head:[["ID","Name","Disc","BAC","AC","%","CPI","SPI"]],
+        body:acts.map(a=>{const k=calcAct(a);return[a.id,a.nameAr,a.disc,fmt(a.bac),fmt(a.ac),(a.pct||0)+"%",k.cpi.toFixed(2),k.spi.toFixed(2)];}),
+        styles:{fontSize:8},headStyles:{fillColor:[16,185,129]},
+      });
+      doc.save(`EVM_Report_${new Date().toISOString().slice(0,10)}.pdf`);
+      toast.success("تم تصدير PDF");
+    }catch(e){toast.error("فشل التصدير: "+(e.message||""));}
+  },[acts,project]);
+
 
   // ── Computed ──
   const filtered=useMemo(()=>{
