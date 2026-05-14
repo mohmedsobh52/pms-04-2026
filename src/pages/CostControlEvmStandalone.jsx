@@ -1,6 +1,9 @@
 import { useState, useMemo, useRef, useCallback, createContext, useContext, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -490,6 +493,118 @@ export default function App(){
     }finally{setLoadingItems(false);}
   },[]);
 
+  // ── Sync AC from Progress Certificates ──
+  const [syncingAC,setSyncingAC]=useState(false);
+  const syncACFromCertificates=useCallback(async()=>{
+    if(!linkedProjectId){toast.error("اربط مشروعاً أولاً من زر 📂 اختيار مشروع");return;}
+    setSyncingAC(true);
+    try{
+      const{data,error}=await supabase
+        .from("progress_certificates")
+        .select("net_amount,total_work_done,current_work_done,status")
+        .eq("project_id",linkedProjectId);
+      if(error)throw error;
+      const totalAC=(data||[])
+        .filter(c=>c.status!=="cancelled")
+        .reduce((s,c)=>s+Number(c.total_work_done||c.net_amount||c.current_work_done||0),0);
+      if(!totalAC){toast.warning("لا توجد شهادات تقدم لهذا المشروع");return;}
+      // Distribute AC across activities proportionally to BAC
+      const totalBac=acts.reduce((s,a)=>s+Number(a.bac||0),0);
+      if(!totalBac){toast.error("BAC = 0، تعذّر التوزيع");return;}
+      setActs(prev=>prev.map(a=>({...a,ac:Math.round(totalAC*(Number(a.bac||0)/totalBac))})));
+      toast.success(`تمت مزامنة AC من ${data.length} شهادة تقدم — الإجمالي ${totalAC.toLocaleString()}`);
+      logChange?.(`مزامنة AC من شهادات التقدم: ${totalAC.toLocaleString()}`,"update");
+    }catch(e){toast.error("فشل المزامنة: "+(e.message||""));}
+    finally{setSyncingAC(false);}
+  },[linkedProjectId,acts]);
+
+  // ── DB-backed Scenarios ──
+  const saveScenarioToDb=useCallback(async(name)=>{
+    try{
+      const{data:auth}=await supabase.auth.getUser();
+      if(!auth?.user){toast.error("سجّل الدخول لحفظ السيناريو في السحابة");return;}
+      const snap={acts,risks,issues,resources,milestones,cf,project,scenarios,baseline,threshSPI,threshCPI};
+      const{error}=await supabase.from("evm_scenarios").insert({
+        user_id:auth.user.id,
+        project_id:linkedProjectId,
+        name:name||`سيناريو ${new Date().toLocaleString("ar-EG")}`,
+        snapshot:snap,
+      });
+      if(error)throw error;
+      toast.success("تم حفظ السيناريو في قاعدة البيانات ☁️");
+    }catch(e){toast.error("فشل الحفظ: "+(e.message||""));}
+  },[acts,risks,issues,resources,milestones,cf,project,linkedProjectId]);
+
+  const [dbScenarios,setDbScenarios]=useState([]);
+  const [scenariosModal,setScenariosModal]=useState(false);
+  const fetchDbScenarios=useCallback(async()=>{
+    try{
+      let q=supabase.from("evm_scenarios").select("id,name,created_at,project_id,snapshot").order("created_at",{ascending:false}).limit(50);
+      if(linkedProjectId)q=q.eq("project_id",linkedProjectId);
+      const{data,error}=await q;
+      if(error)throw error;
+      setDbScenarios(data||[]);
+    }catch(e){toast.error("فشل تحميل السيناريوهات: "+(e.message||""));}
+  },[linkedProjectId]);
+
+  const loadScenarioFromDb=useCallback((s)=>{
+    try{
+      const snap=s.snapshot||{};
+      if(snap.acts)setActs(snap.acts);
+      if(snap.risks)setRisks(snap.risks);
+      if(snap.issues)setIssues(snap.issues);
+      if(snap.resources)setResources(snap.resources);
+      if(snap.milestones)setMilestones(snap.milestones);
+      if(snap.cf)setCf(snap.cf);
+      if(snap.project)setProject(snap.project);
+      if(snap.scenarios)setScenarios(snap.scenarios);
+      if(snap.baseline)setBaseline(snap.baseline);
+      if(snap.threshSPI!=null)setThreshSPI(snap.threshSPI);
+      if(snap.threshCPI!=null)setThreshCPI(snap.threshCPI);
+      toast.success(`تم تحميل: ${s.name}`);
+      setScenariosModal(false);
+    }catch(e){toast.error("فشل التحميل: "+(e.message||""));}
+  },[]);
+
+  const deleteScenarioFromDb=useCallback(async(id)=>{
+    if(!confirm("حذف هذا السيناريو نهائياً؟"))return;
+    try{
+      const{error}=await supabase.from("evm_scenarios").delete().eq("id",id);
+      if(error)throw error;
+      setDbScenarios(p=>p.filter(x=>x.id!==id));
+      toast.success("تم الحذف");
+    }catch(e){toast.error("فشل الحذف");}
+  },[]);
+
+  // ── Export PDF ──
+  const exportPDF=useCallback(()=>{
+    try{
+      const doc=new jsPDF({orientation:"landscape",unit:"pt"});
+      doc.setFontSize(16);
+      doc.text("EVM Cost Control Report",40,40);
+      doc.setFontSize(10);
+      doc.text(`Project: ${project.name||"-"}    Date: ${new Date().toISOString().slice(0,10)}`,40,60);
+      autoTable(doc,{
+        startY:80,
+        head:[["KPI","Value"]],
+        body:[
+          ["BAC",fmt(kpi.bac)],["PV",fmt(kpi.pv)],["EV",fmt(kpi.ev)],["AC",fmt(kpi.ac)],
+          ["CV",fmt(kpi.CV)],["SV",fmt(kpi.SV)],["CPI",kpi.CPI.toFixed(2)],["SPI",kpi.SPI.toFixed(2)],
+          ["EAC",fmt(kpi.EAC)],["ETC",fmt(kpi.ETC)],["TCPI",kpi.TCPI.toFixed(2)],["VAC",fmt(kpi.bac-kpi.EAC)],
+        ],
+        styles:{fontSize:9},headStyles:{fillColor:[99,102,241]},
+      });
+      autoTable(doc,{
+        startY:doc.lastAutoTable.finalY+20,
+        head:[["ID","Name","Disc","BAC","AC","%","CPI","SPI"]],
+        body:acts.map(a=>{const k=calcAct(a);return[a.id,a.nameAr,a.disc,fmt(a.bac),fmt(a.ac),(a.pct||0)+"%",k.cpi.toFixed(2),k.spi.toFixed(2)];}),
+        styles:{fontSize:8},headStyles:{fillColor:[16,185,129]},
+      });
+      doc.save(`EVM_Report_${new Date().toISOString().slice(0,10)}.pdf`);
+      toast.success("تم تصدير PDF");
+    }catch(e){toast.error("فشل التصدير: "+(e.message||""));}
+  },[acts,project]);
+
 
   // ── Computed ──
   const filtered=useMemo(()=>{
@@ -509,6 +624,28 @@ export default function App(){
     if(openHigh.length)a.push({t:"w",msg:`${openHigh.length} مشكلات عالية الأولوية`});
     return a;
   },[kpi,risks,issues,threshSPI,threshCPI]);
+
+  // Auto-toast when CPI/SPI cross critical thresholds (one-shot per breach)
+  const lastBreachRef=useRef({cpi:false,spi:false});
+  useEffect(()=>{
+    if(!kpi||!isFinite(kpi.CPI))return;
+    const cpiBreach=kpi.CPI>0 && kpi.CPI<threshCPI;
+    const spiBreach=kpi.SPI>0 && kpi.SPI<threshSPI;
+    if(cpiBreach && !lastBreachRef.current.cpi){
+      toast.error(`⚠️ تجاوز عتبة CPI: ${kpi.CPI.toFixed(2)} < ${threshCPI}`,{duration:6000});
+    }
+    if(spiBreach && !lastBreachRef.current.spi){
+      toast.error(`⚠️ تجاوز عتبة SPI: ${kpi.SPI.toFixed(2)} < ${threshSPI}`,{duration:6000});
+    }
+    if(!cpiBreach && lastBreachRef.current.cpi){
+      toast.success(`✅ CPI عاد للوضع الآمن (${kpi.CPI.toFixed(2)})`);
+    }
+    if(!spiBreach && lastBreachRef.current.spi){
+      toast.success(`✅ SPI عاد للوضع الآمن (${kpi.SPI.toFixed(2)})`);
+    }
+    lastBreachRef.current={cpi:cpiBreach,spi:spiBreach};
+  },[kpi.CPI,kpi.SPI,threshCPI,threshSPI]);
+
   const trendData=useMemo(()=>filtered.slice(0,24).map(a=>{const{cpi,spi}=calcAct(a);return{id:a.id,cpi:+cpi.toFixed(2),spi:+spi.toFixed(2)};}), [filtered]);
   const varData=useMemo(()=>byDisc.map(d=>({disc:d.disc,SV:+(d.SV/1e6).toFixed(1),CV:+(d.CV/1e6).toFixed(1)})),[byDisc]);
 
@@ -1237,6 +1374,10 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
               <button onClick={()=>setDarkMode(d=>!d)} title="تبديل الوضع" style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 10px",fontWeight:600,cursor:"pointer",fontSize:14}}>{darkMode?"☀️":"🌙"}</button>
               <button onClick={()=>setImportModal(true)} style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>📂 استيراد</button>
               <button onClick={()=>exportExcelFull(acts,kpi,cf,risks,issues,resources,project)} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📥 Excel كامل</button>
+              <button onClick={exportPDF} style={{background:"#dc2626",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📑 PDF</button>
+              <button onClick={syncACFromCertificates} disabled={syncingAC} title="مزامنة AC من شهادات التقدم" style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:syncingAC?"wait":"pointer",fontSize:11,opacity:syncingAC?.6:1}}>{syncingAC?"⏳ مزامنة...":"🔁 مزامنة AC"}</button>
+              <button onClick={()=>{const n=prompt("اسم السيناريو:");if(n)saveScenarioToDb(n);}} title="حفظ السيناريو في السحابة" style={{background:"#8b5cf6",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>☁️ حفظ</button>
+              <button onClick={()=>{setScenariosModal(true);fetchDbScenarios();}} title="تحميل سيناريو محفوظ" style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>📚 السيناريوهات</button>
               <button onClick={()=>setThreshModal(true)} style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>⚙️</button>
               <button onClick={()=>setAddModal(true)} style={{background:"#6366f1",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>+ نشاط</button>
               <button onClick={()=>window.print()} style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>🖨️</button>
@@ -3297,6 +3438,24 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
           </button>
           <button onClick={()=>{setImportModal(false);setImportText("");setImportPreview([]);setImportErr("");setImportSheets([]);}}
             style={{flex:1,background:"#f4f5fb",color:"#555",border:"none",borderRadius:9,padding:11,fontWeight:600,cursor:"pointer",fontSize:14}}>إلغاء</button>
+        </div>
+      </Modal>
+
+      <Modal show={scenariosModal} onClose={()=>setScenariosModal(false)} title="📚 سيناريوهات EVM المحفوظة" width={640}>
+        <div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:480,overflowY:"auto"}}>
+          {dbScenarios.length===0 && <div style={{textAlign:"center",padding:30,color:"#888",fontSize:12}}>لا توجد سيناريوهات محفوظة بعد. استخدم زر «☁️ حفظ» لحفظ السيناريو الحالي.</div>}
+          {dbScenarios.map(s=>(
+            <div key={s.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 12px",border:"1px solid #e5e7eb",borderRadius:8,background:"#fafafa"}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:700,fontSize:12,marginBottom:2}}>{s.name}</div>
+                <div style={{fontSize:10,color:"#888"}}>{new Date(s.created_at).toLocaleString("ar-EG")} • {s.snapshot?.acts?.length||0} نشاط</div>
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>loadScenarioFromDb(s)} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:6,padding:"5px 10px",fontWeight:700,cursor:"pointer",fontSize:11}}>تحميل</button>
+                <button onClick={()=>deleteScenarioFromDb(s.id)} style={{background:"#ef4444",color:"#fff",border:"none",borderRadius:6,padding:"5px 10px",fontWeight:700,cursor:"pointer",fontSize:11}}>حذف</button>
+              </div>
+            </div>
+          ))}
         </div>
       </Modal>
 
