@@ -624,6 +624,28 @@ export default function App(){
     if(openHigh.length)a.push({t:"w",msg:`${openHigh.length} مشكلات عالية الأولوية`});
     return a;
   },[kpi,risks,issues,threshSPI,threshCPI]);
+
+  // Auto-toast when CPI/SPI cross critical thresholds (one-shot per breach)
+  const lastBreachRef=useRef({cpi:false,spi:false});
+  useEffect(()=>{
+    if(!kpi||!isFinite(kpi.CPI))return;
+    const cpiBreach=kpi.CPI>0 && kpi.CPI<threshCPI;
+    const spiBreach=kpi.SPI>0 && kpi.SPI<threshSPI;
+    if(cpiBreach && !lastBreachRef.current.cpi){
+      toast.error(`⚠️ تجاوز عتبة CPI: ${kpi.CPI.toFixed(2)} < ${threshCPI}`,{duration:6000});
+    }
+    if(spiBreach && !lastBreachRef.current.spi){
+      toast.error(`⚠️ تجاوز عتبة SPI: ${kpi.SPI.toFixed(2)} < ${threshSPI}`,{duration:6000});
+    }
+    if(!cpiBreach && lastBreachRef.current.cpi){
+      toast.success(`✅ CPI عاد للوضع الآمن (${kpi.CPI.toFixed(2)})`);
+    }
+    if(!spiBreach && lastBreachRef.current.spi){
+      toast.success(`✅ SPI عاد للوضع الآمن (${kpi.SPI.toFixed(2)})`);
+    }
+    lastBreachRef.current={cpi:cpiBreach,spi:spiBreach};
+  },[kpi.CPI,kpi.SPI,threshCPI,threshSPI]);
+
   const trendData=useMemo(()=>filtered.slice(0,24).map(a=>{const{cpi,spi}=calcAct(a);return{id:a.id,cpi:+cpi.toFixed(2),spi:+spi.toFixed(2)};}), [filtered]);
   const varData=useMemo(()=>byDisc.map(d=>({disc:d.disc,SV:+(d.SV/1e6).toFixed(1),CV:+(d.CV/1e6).toFixed(1)})),[byDisc]);
 
