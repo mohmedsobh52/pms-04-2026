@@ -3441,6 +3441,24 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
         </div>
       </Modal>
 
+      <Modal show={scenariosModal} onClose={()=>setScenariosModal(false)} title="📚 سيناريوهات EVM المحفوظة" width={640}>
+        <div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:480,overflowY:"auto"}}>
+          {dbScenarios.length===0 && <div style={{textAlign:"center",padding:30,color:"#888",fontSize:12}}>لا توجد سيناريوهات محفوظة بعد. استخدم زر «☁️ حفظ» لحفظ السيناريو الحالي.</div>}
+          {dbScenarios.map(s=>(
+            <div key={s.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 12px",border:"1px solid #e5e7eb",borderRadius:8,background:"#fafafa"}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:700,fontSize:12,marginBottom:2}}>{s.name}</div>
+                <div style={{fontSize:10,color:"#888"}}>{new Date(s.created_at).toLocaleString("ar-EG")} • {s.snapshot?.acts?.length||0} نشاط</div>
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>loadScenarioFromDb(s)} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:6,padding:"5px 10px",fontWeight:700,cursor:"pointer",fontSize:11}}>تحميل</button>
+                <button onClick={()=>deleteScenarioFromDb(s.id)} style={{background:"#ef4444",color:"#fff",border:"none",borderRadius:6,padding:"5px 10px",fontWeight:700,cursor:"pointer",fontSize:11}}>حذف</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Modal>
+
       <Modal show={pickerModal} onClose={()=>setPickerModal(false)} title="📂 اختيار مشروع من حسابك" width={620}>
         <div style={{display:"flex",gap:8,marginBottom:12}}>
           <input value={pickerSearch} onChange={e=>setPickerSearch(e.target.value)} placeholder="🔍 ابحث باسم المشروع..." style={{flex:1,border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none"}}/>
