@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useCallback, createContext, useContext, useEffect } from "react";
+import { Link } from "react-router-dom";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -425,6 +426,25 @@ export default function App(){
     setChangelog(p=>[{ts,user:"مدير التكلفة",action,type},...p].slice(0,50));
   };
 
+  // ── Forward-declared state (referenced by callbacks below) ──
+  const [milestones,setMilestones]=useState([
+    {id:"MS-001",title:"انطلاق المشروع",         date:"2025-01-01",done:true, disc:"GENERAL"},
+    {id:"MS-002",title:"اعتماد التصاميم",         date:"2025-02-15",done:true, disc:"CIVIL"},
+    {id:"MS-003",title:"إتمام أعمال الحفر",       date:"2025-05-01",done:false,disc:"CIVIL"},
+    {id:"MS-004",title:"تسليم الأنابيب",          date:"2025-06-30",done:false,disc:"MECHANICAL"},
+    {id:"MS-005",title:"اكتمال الشبكة الكهربائية",date:"2025-09-15",done:false,disc:"ELECTRICAL"},
+    {id:"MS-006",title:"الفحص النهائي",           date:"2025-11-30",done:false,disc:"GENERAL"},
+    {id:"MS-007",title:"التسليم المبدئي",          date:"2025-12-31",done:false,disc:"GENERAL"},
+  ]);
+  const [baseline,setBaseline]=useState(null);
+  const [baselineDate,setBaselineDate]=useState("");
+  const [scenarios,setScenarios]=useState([
+    {id:"S1",name:"السيناريو المتفائل",   spiAdj:1.15, cpiAdj:1.10, color:"#10b981", active:false},
+    {id:"S2",name:"السيناريو الأساسي",   spiAdj:1.00, cpiAdj:1.00, color:"#6366f1", active:true},
+    {id:"S3",name:"السيناريو المتشائم",  spiAdj:0.80, cpiAdj:0.85, color:"#f59e0b", active:false},
+    {id:"S4",name:"سيناريو الأزمة",     spiAdj:0.60, cpiAdj:0.70, color:"#ef4444", active:false},
+  ]);
+
   // ── Project picker (Supabase) ──
   const [pickerModal,setPickerModal]=useState(false);
   const [projectsList,setProjectsList]=useState([]);
@@ -787,16 +807,7 @@ export default function App(){
     return{origDur,forecastDur,slipMonths,origEnd:origEnd.toLocaleDateString("ar-SA"),forecastEnd:forecastEnd.toLocaleDateString("ar-SA")};
   },[kpi,project]);
 
-  // ── Gantt / Milestones ──
-  const [milestones,setMilestones]=useState([
-    {id:"MS-001",title:"انطلاق المشروع",         date:"2025-01-01",done:true, disc:"GENERAL"},
-    {id:"MS-002",title:"اعتماد التصاميم",         date:"2025-02-15",done:true, disc:"CIVIL"},
-    {id:"MS-003",title:"إتمام أعمال الحفر",       date:"2025-05-01",done:false,disc:"CIVIL"},
-    {id:"MS-004",title:"تسليم الأنابيب",          date:"2025-06-30",done:false,disc:"MECHANICAL"},
-    {id:"MS-005",title:"اكتمال الشبكة الكهربائية",date:"2025-09-15",done:false,disc:"ELECTRICAL"},
-    {id:"MS-006",title:"الفحص النهائي",           date:"2025-11-30",done:false,disc:"GENERAL"},
-    {id:"MS-007",title:"التسليم المبدئي",          date:"2025-12-31",done:false,disc:"GENERAL"},
-  ]);
+  // ── Gantt / Milestones (state declared above) ──
 
   // Build Gantt bar data (12 months)
   const ganttData=useMemo(()=>DISCIPLINES.map(d=>{
@@ -813,9 +824,7 @@ export default function App(){
     return{disc:d,bars,avgPct:+avgPct.toFixed(1),color:DC[d]};
   }),[acts]);
 
-  // ── Baseline (snapshot of current BAC/pct) ──
-  const [baseline,setBaseline]=useState(null);
-  const [baselineDate,setBaselineDate]=useState("");
+  // ── Baseline (state declared above) ──
   const captureBaseline=()=>{
     const snap={date:new Date().toLocaleDateString("ar-SA"),acts:acts.map(a=>({id:a.id,bac:a.bac,pct:a.pct,ac:a.ac})),kpi:{...kpi}};
     setBaseline(snap);setBaselineDate(snap.date);
@@ -830,13 +839,7 @@ export default function App(){
     }).filter(d=>d.bacDiff!==0||d.pctDiff!==0||d.acDiff!==0||d.isNew);
   },[acts,baseline]);
 
-  // ── What-If Scenarios ──
-  const [scenarios,setScenarios]=useState([
-    {id:"S1",name:"السيناريو المتفائل",   spiAdj:1.15, cpiAdj:1.10, color:"#10b981", active:false},
-    {id:"S2",name:"السيناريو الأساسي",   spiAdj:1.00, cpiAdj:1.00, color:"#6366f1", active:true},
-    {id:"S3",name:"السيناريو المتشائم",  spiAdj:0.80, cpiAdj:0.85, color:"#f59e0b", active:false},
-    {id:"S4",name:"سيناريو الأزمة",     spiAdj:0.60, cpiAdj:0.70, color:"#ef4444", active:false},
-  ]);
+  // ── What-If Scenarios (state declared above) ──
   const [customScen,setCustomScen]=useState({spiAdj:1.0,cpiAdj:1.0});
 
   const scenarioResults=useMemo(()=>scenarios.map(s=>{
@@ -1228,9 +1231,10 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
       {/* ═══ SIDEBAR ═══ */}
       <div style={{width:216,background:darkMode?"#1e293b":"#fff",borderRight:`1px solid ${darkMode?"#334155":"#eee"}`,display:"flex",flexDirection:"column",flexShrink:0,overflow:"hidden"}}>
         <div style={{padding:"12px 14px 10px",borderBottom:"1px solid #f0f0f0"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
             <div style={{width:34,height:34,borderRadius:10,background:"linear-gradient(135deg,#1a1a2e,#6366f1)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:900,fontSize:11}}>EVM</div>
-            <div><div style={{fontWeight:800,fontSize:12,lineHeight:1.3}}>Cost Control</div><div style={{fontSize:9,color:"#aaa"}}>EVM Dashboard v2.0</div></div>
+            <div style={{flex:1,minWidth:0}}><div style={{fontWeight:800,fontSize:12,lineHeight:1.3}}>Cost Control</div><div style={{fontSize:9,color:"#aaa"}}>EVM Dashboard v2.0</div></div>
+            <Link to="/" title="الرئيسية" style={{textDecoration:"none",background:darkMode?"#0f172a":"#f4f5fb",border:`1px solid ${darkMode?"#334155":"#e5e7eb"}`,borderRadius:7,padding:"4px 7px",fontSize:11,color:darkMode?"#f1f5f9":"#1a1a2e",lineHeight:1}}>🏠</Link>
           </div>
           <button onClick={()=>{setProjBuf(project);setProjModal(true);}} style={{marginTop:8,width:"100%",background:darkMode?"#0f172a":"#f4f5fb",border:`1px solid ${darkMode?"#334155":"#e5e7eb"}`,borderRadius:7,padding:"5px 8px",cursor:"pointer",fontSize:10,color:"#555",textAlign:"left",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>
             🏗 {project.name}
