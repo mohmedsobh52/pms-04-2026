@@ -823,9 +823,7 @@ export default function App(){
     return{disc:d,bars,avgPct:+avgPct.toFixed(1),color:DC[d]};
   }),[acts]);
 
-  // ── Baseline (snapshot of current BAC/pct) ──
-  const [baseline,setBaseline]=useState(null);
-  const [baselineDate,setBaselineDate]=useState("");
+  // ── Baseline (state declared above) ──
   const captureBaseline=()=>{
     const snap={date:new Date().toLocaleDateString("ar-SA"),acts:acts.map(a=>({id:a.id,bac:a.bac,pct:a.pct,ac:a.ac})),kpi:{...kpi}};
     setBaseline(snap);setBaselineDate(snap.date);
