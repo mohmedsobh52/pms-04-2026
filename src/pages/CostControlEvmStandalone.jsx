@@ -838,13 +838,7 @@ export default function App(){
     }).filter(d=>d.bacDiff!==0||d.pctDiff!==0||d.acDiff!==0||d.isNew);
   },[acts,baseline]);
 
-  // ── What-If Scenarios ──
-  const [scenarios,setScenarios]=useState([
-    {id:"S1",name:"السيناريو المتفائل",   spiAdj:1.15, cpiAdj:1.10, color:"#10b981", active:false},
-    {id:"S2",name:"السيناريو الأساسي",   spiAdj:1.00, cpiAdj:1.00, color:"#6366f1", active:true},
-    {id:"S3",name:"السيناريو المتشائم",  spiAdj:0.80, cpiAdj:0.85, color:"#f59e0b", active:false},
-    {id:"S4",name:"سيناريو الأزمة",     spiAdj:0.60, cpiAdj:0.70, color:"#ef4444", active:false},
-  ]);
+  // ── What-If Scenarios (state declared above) ──
   const [customScen,setCustomScen]=useState({spiAdj:1.0,cpiAdj:1.0});
 
   const scenarioResults=useMemo(()=>scenarios.map(s=>{
