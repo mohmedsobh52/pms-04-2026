@@ -806,16 +806,7 @@ export default function App(){
     return{origDur,forecastDur,slipMonths,origEnd:origEnd.toLocaleDateString("ar-SA"),forecastEnd:forecastEnd.toLocaleDateString("ar-SA")};
   },[kpi,project]);
 
-  // ── Gantt / Milestones ──
-  const [milestones,setMilestones]=useState([
-    {id:"MS-001",title:"انطلاق المشروع",         date:"2025-01-01",done:true, disc:"GENERAL"},
-    {id:"MS-002",title:"اعتماد التصاميم",         date:"2025-02-15",done:true, disc:"CIVIL"},
-    {id:"MS-003",title:"إتمام أعمال الحفر",       date:"2025-05-01",done:false,disc:"CIVIL"},
-    {id:"MS-004",title:"تسليم الأنابيب",          date:"2025-06-30",done:false,disc:"MECHANICAL"},
-    {id:"MS-005",title:"اكتمال الشبكة الكهربائية",date:"2025-09-15",done:false,disc:"ELECTRICAL"},
-    {id:"MS-006",title:"الفحص النهائي",           date:"2025-11-30",done:false,disc:"GENERAL"},
-    {id:"MS-007",title:"التسليم المبدئي",          date:"2025-12-31",done:false,disc:"GENERAL"},
-  ]);
+  // ── Gantt / Milestones (state declared above) ──
 
   // Build Gantt bar data (12 months)
   const ganttData=useMemo(()=>DISCIPLINES.map(d=>{
