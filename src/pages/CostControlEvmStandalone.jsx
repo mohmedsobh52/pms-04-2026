@@ -425,6 +425,25 @@ export default function App(){
     setChangelog(p=>[{ts,user:"مدير التكلفة",action,type},...p].slice(0,50));
   };
 
+  // ── Forward-declared state (referenced by callbacks below) ──
+  const [milestones,setMilestones]=useState([
+    {id:"MS-001",title:"انطلاق المشروع",         date:"2025-01-01",done:true, disc:"GENERAL"},
+    {id:"MS-002",title:"اعتماد التصاميم",         date:"2025-02-15",done:true, disc:"CIVIL"},
+    {id:"MS-003",title:"إتمام أعمال الحفر",       date:"2025-05-01",done:false,disc:"CIVIL"},
+    {id:"MS-004",title:"تسليم الأنابيب",          date:"2025-06-30",done:false,disc:"MECHANICAL"},
+    {id:"MS-005",title:"اكتمال الشبكة الكهربائية",date:"2025-09-15",done:false,disc:"ELECTRICAL"},
+    {id:"MS-006",title:"الفحص النهائي",           date:"2025-11-30",done:false,disc:"GENERAL"},
+    {id:"MS-007",title:"التسليم المبدئي",          date:"2025-12-31",done:false,disc:"GENERAL"},
+  ]);
+  const [baseline,setBaseline]=useState(null);
+  const [baselineDate,setBaselineDate]=useState("");
+  const [scenarios,setScenarios]=useState([
+    {id:"S1",name:"السيناريو المتفائل",   spiAdj:1.15, cpiAdj:1.10, color:"#10b981", active:false},
+    {id:"S2",name:"السيناريو الأساسي",   spiAdj:1.00, cpiAdj:1.00, color:"#6366f1", active:true},
+    {id:"S3",name:"السيناريو المتشائم",  spiAdj:0.80, cpiAdj:0.85, color:"#f59e0b", active:false},
+    {id:"S4",name:"سيناريو الأزمة",     spiAdj:0.60, cpiAdj:0.70, color:"#ef4444", active:false},
+  ]);
+
   // ── Project picker (Supabase) ──
   const [pickerModal,setPickerModal]=useState(false);
   const [projectsList,setProjectsList]=useState([]);
