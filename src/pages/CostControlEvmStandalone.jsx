@@ -475,11 +475,46 @@ export default function App(){
 
   useEffect(()=>{ if(pickerModal&&!projectsList.length&&!projectsLoading)fetchProjects(); },[pickerModal]);
   // Auto-open picker on first mount if no project is linked yet
+  // ── Saved-projects KPIs (lazy) + comparison + persistence ──
+  const [savedKpis,setSavedKpis]=useState({});           // {projectId: {bac,ac,prog,cpi,spi,ev,pv,items}}
+  const [savedKpisLoading,setSavedKpisLoading]=useState({});
+  const [compareIds,setCompareIds]=useState([]);          // up to 4
+  const LS_LAST="evm:lastLinkedProjectId";
+
+  const computeProjectKpi=useCallback(async(projectId)=>{
+    if(savedKpis[projectId]||savedKpisLoading[projectId])return;
+    setSavedKpisLoading(s=>({...s,[projectId]:true}));
+    try{
+      const[{data:items},{data:certs}]=await Promise.all([
+        supabase.from("project_items").select("total_price,quantity,unit_price").eq("project_id",projectId),
+        supabase.from("progress_certificates").select("net_amount,total_work_done,current_work_done").eq("project_id",projectId),
+      ]);
+      const bac=(items||[]).reduce((s,i)=>s+Number(i.total_price||(Number(i.quantity||0)*Number(i.unit_price||0))||0),0);
+      const ac=(certs||[]).reduce((s,c)=>s+Number(c.net_amount||c.total_work_done||c.current_work_done||0),0);
+      const prog=bac>0?Math.min(100,(ac/bac)*100):0;
+      const ev=bac*(prog/100);
+      const pv=bac*0.5;
+      const cpi=ac>0?ev/ac:0;
+      const spi=pv>0?ev/pv:0;
+      setSavedKpis(s=>({...s,[projectId]:{bac,ac,ev,pv,prog,cpi,spi,items:(items||[]).length}}));
+    }catch(_){}
+    finally{setSavedKpisLoading(s=>{const n={...s};delete n[projectId];return n;});}
+  },[savedKpis,savedKpisLoading]);
+
+  // Auto-restore last opened project from localStorage; otherwise open picker
   useEffect(()=>{
-    if(!linkedProjectId){
-      const t=setTimeout(()=>{ setPickerModal(true); fetchProjects(); },400);
-      return()=>clearTimeout(t);
-    }
+    if(linkedProjectId)return;
+    const last=typeof window!=="undefined"&&localStorage.getItem(LS_LAST);
+    (async()=>{
+      await fetchProjects();
+      if(last){
+        try{
+          const{data}=await supabase.from("saved_projects").select("id,name,file_name").eq("id",last).maybeSingle();
+          if(data){loadProjectFromDb(data);return;}
+        }catch(_){}
+      }
+      setTimeout(()=>setPickerModal(true),300);
+    })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
 
@@ -503,7 +538,6 @@ export default function App(){
         return{id:code,nameAr:g.cat,disc:d,items:g.items,bac:Math.round(g.bac),ac:0,pct:0};
       });
       if(!newActs.length){
-        // Fallback: each item as activity
         (items||[]).slice(0,200).forEach((it,i)=>{
           const d=guessDisc(it.category+" "+(it.description||""));
           discCount[d]=(discCount[d]||0)+1;
@@ -513,13 +547,28 @@ export default function App(){
       setActs(newActs);
       setProject(prev=>({...prev,name:p.name||prev.name,number:p.file_name||prev.number}));
       setLinkedProjectId(p.id);
+      try{localStorage.setItem(LS_LAST,p.id);}catch(_){}
       setSelDisc(null);setSelAct(null);
       setPickerModal(false);
       logChange(`ربط المشروع: ${p.name} (${newActs.length} نشاط)`,"create");
+      // Invalidate cached KPI so it recomputes on next view
+      setSavedKpis(s=>{const n={...s};delete n[p.id];return n;});
     }catch(e){
       setProjectsErr(e.message||"فشل تحميل بنود المشروع");
     }finally{setLoadingItems(false);}
   },[]);
+
+  // Realtime: refresh activities when BOQ items of the linked project change
+  useEffect(()=>{
+    if(!linkedProjectId)return;
+    const channel=supabase.channel(`evm-items-${linkedProjectId}`)
+      .on("postgres_changes",{event:"*",schema:"public",table:"project_items",filter:`project_id=eq.${linkedProjectId}`},
+        ()=>{ loadProjectFromDb({id:linkedProjectId,name:project?.name,file_name:project?.number}); toast.info("🔄 تم تحديث بنود المشروع تلقائياً"); })
+      .subscribe();
+    return()=>{ supabase.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[linkedProjectId]);
+
 
   // ── Sync AC from Progress Certificates ──
   const [syncingAC,setSyncingAC]=useState(false);
