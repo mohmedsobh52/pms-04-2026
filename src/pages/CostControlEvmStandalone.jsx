@@ -474,6 +474,14 @@ export default function App(){
   },[]);
 
   useEffect(()=>{ if(pickerModal&&!projectsList.length&&!projectsLoading)fetchProjects(); },[pickerModal]);
+  // Auto-open picker on first mount if no project is linked yet
+  useEffect(()=>{
+    if(!linkedProjectId){
+      const t=setTimeout(()=>{ setPickerModal(true); fetchProjects(); },400);
+      return()=>clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
 
   const loadProjectFromDb=useCallback(async(p)=>{
     setLoadingItems(true);
@@ -1232,15 +1240,15 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
       <div style={{width:216,background:darkMode?"#1e293b":"#fff",borderRight:`1px solid ${darkMode?"#334155":"#eee"}`,display:"flex",flexDirection:"column",flexShrink:0,overflow:"hidden"}}>
         <div style={{padding:"12px 14px 10px",borderBottom:"1px solid #f0f0f0"}}>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{width:34,height:34,borderRadius:10,background:"linear-gradient(135deg,#1a1a2e,#6366f1)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:900,fontSize:11}}>EVM</div>
+            <div style={{width:34,height:34,borderRadius:10,background:"var(--gradient-primary)",display:"flex",alignItems:"center",justifyContent:"center",color:"hsl(var(--primary-foreground))",fontWeight:900,fontSize:11,boxShadow:"var(--shadow-glow)"}}>EVM</div>
             <div style={{flex:1,minWidth:0}}><div style={{fontWeight:800,fontSize:12,lineHeight:1.3}}>Cost Control</div><div style={{fontSize:9,color:"#aaa"}}>EVM Dashboard v2.0</div></div>
             <Link to="/" title="الرئيسية" style={{textDecoration:"none",background:darkMode?"#0f172a":"#f4f5fb",border:`1px solid ${darkMode?"#334155":"#e5e7eb"}`,borderRadius:7,padding:"4px 7px",fontSize:11,color:darkMode?"#f1f5f9":"#1a1a2e",lineHeight:1}}>🏠</Link>
           </div>
           <button onClick={()=>{setProjBuf(project);setProjModal(true);}} style={{marginTop:8,width:"100%",background:darkMode?"#0f172a":"#f4f5fb",border:`1px solid ${darkMode?"#334155":"#e5e7eb"}`,borderRadius:7,padding:"5px 8px",cursor:"pointer",fontSize:10,color:"#555",textAlign:"left",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>
             🏗 {project.name}
           </button>
-          <button onClick={()=>setPickerModal(true)} style={{marginTop:6,width:"100%",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",border:"none",borderRadius:7,padding:"6px 8px",cursor:"pointer",fontSize:10,color:"#fff",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
-            📂 اختيار مشروع من الحساب {linkedProjectId&&<span style={{background:"rgba(255,255,255,.25)",borderRadius:999,padding:"1px 6px",fontSize:8}}>مرتبط</span>}
+          <button onClick={()=>{setPickerModal(true);fetchProjects();}} style={{marginTop:6,width:"100%",background:"var(--gradient-primary)",border:"none",borderRadius:7,padding:"7px 8px",cursor:"pointer",fontSize:10,color:"hsl(var(--primary-foreground))",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5,boxShadow:"var(--shadow-md)"}}>
+            📂 اختيار مشروع محفوظ {linkedProjectId&&<span style={{background:"hsla(0,0%,100%,.25)",borderRadius:999,padding:"1px 6px",fontSize:8}}>✓ مرتبط</span>}
           </button>
         </div>
         <div style={{padding:"10px 10px 6px",flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:2}}>
@@ -1298,7 +1306,7 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
       {/* ═══ MAIN ═══ */}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
         {/* Header */}
-        <div style={{background:"linear-gradient(135deg,#0f0c29,#302b63,#24243e)",padding:"12px 20px 0",color:"#fff",flexShrink:0}}>
+        <div style={{background:"var(--gradient-hero)",padding:"12px 20px 0",color:"hsl(var(--primary-foreground))",flexShrink:0,boxShadow:"var(--shadow-md)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
             <div>
               <h1 style={{margin:0,fontSize:17,fontWeight:900,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
@@ -1377,13 +1385,13 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
               </div>
               <button onClick={()=>setDarkMode(d=>!d)} title="تبديل الوضع" style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 10px",fontWeight:600,cursor:"pointer",fontSize:14}}>{darkMode?"☀️":"🌙"}</button>
               <button onClick={()=>setImportModal(true)} style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>📂 استيراد</button>
-              <button onClick={()=>exportExcelFull(acts,kpi,cf,risks,issues,resources,project)} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📥 Excel كامل</button>
-              <button onClick={exportPDF} style={{background:"#dc2626",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📑 PDF</button>
-              <button onClick={syncACFromCertificates} disabled={syncingAC} title="مزامنة AC من شهادات التقدم" style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:syncingAC?"wait":"pointer",fontSize:11,opacity:syncingAC?.6:1}}>{syncingAC?"⏳ مزامنة...":"🔁 مزامنة AC"}</button>
-              <button onClick={()=>{const n=prompt("اسم السيناريو:");if(n)saveScenarioToDb(n);}} title="حفظ السيناريو في السحابة" style={{background:"#8b5cf6",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>☁️ حفظ</button>
-              <button onClick={()=>{setScenariosModal(true);fetchDbScenarios();}} title="تحميل سيناريو محفوظ" style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>📚 السيناريوهات</button>
-              <button onClick={()=>setThreshModal(true)} style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>⚙️</button>
-              <button onClick={()=>setAddModal(true)} style={{background:"#6366f1",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>+ نشاط</button>
+              <button onClick={()=>exportExcelFull(acts,kpi,cf,risks,issues,resources,project)} style={{background:"hsl(var(--success))",color:"hsl(var(--success-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📥 Excel كامل</button>
+              <button onClick={exportPDF} style={{background:"hsl(var(--destructive))",color:"hsl(var(--destructive-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📑 PDF</button>
+              <button onClick={syncACFromCertificates} disabled={syncingAC} title="مزامنة AC من شهادات التقدم" style={{background:"hsl(var(--accent))",color:"hsl(var(--accent-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:syncingAC?"wait":"pointer",fontSize:11,opacity:syncingAC?.6:1}}>{syncingAC?"⏳ مزامنة...":"🔁 مزامنة AC"}</button>
+              <button onClick={()=>{const n=prompt("اسم السيناريو:");if(n)saveScenarioToDb(n);}} title="حفظ السيناريو في السحابة" style={{background:"hsl(var(--qa-purple))",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>☁️ حفظ</button>
+              <button onClick={()=>{setScenariosModal(true);fetchDbScenarios();}} title="تحميل سيناريو محفوظ" style={{background:"hsla(0,0%,100%,.12)",color:"hsl(var(--primary-foreground))",border:"1px solid hsla(0,0%,100%,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>📚 السيناريوهات</button>
+              <button onClick={()=>setThreshModal(true)} style={{background:"hsla(0,0%,100%,.12)",color:"hsl(var(--primary-foreground))",border:"1px solid hsla(0,0%,100%,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>⚙️</button>
+              <button onClick={()=>setAddModal(true)} style={{background:"hsl(var(--primary))",color:"hsl(var(--primary-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>+ نشاط</button>
               <button onClick={()=>window.print()} style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>🖨️</button>
             </div>
           </div>
