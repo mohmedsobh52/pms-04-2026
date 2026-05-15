@@ -1253,6 +1253,7 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
   ]);
 
   const TABS=[
+    {k:"projects",    lbl:"📁 المشاريع المحفوظة"},
     {k:"overview",    lbl:"📊 نظرة عامة"},
     {k:"cashflow",    lbl:"💵 التدفق النقدي"},
     {k:"charts",      lbl:"📈 الرسوم البيانية"},
