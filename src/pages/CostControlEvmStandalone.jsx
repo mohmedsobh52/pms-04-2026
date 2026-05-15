@@ -368,6 +368,137 @@ const exportExcelFull=(acts,kpi,cf,risks,issues,resources,project)=>{
   XLSX.writeFile(wb,`Cost_Control_Full_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
 };
 
+// ═══════════════════════════════ SAVED PROJECTS TAB ═══════════════════════════════
+function ProjectsTab({projectsList,projectsLoading,projectsErr,fetchProjects,linkedProjectId,loadProjectFromDb,loadingItems,savedKpis,savedKpisLoading,computeProjectKpi,compareIds,setCompareIds,darkMode,fmt,sColor}){
+  const [search,setSearch]=useState("");
+  const filtered=useMemo(()=>(projectsList||[]).filter(p=>!search||(p.name||"").toLowerCase().includes(search.toLowerCase())),[projectsList,search]);
+
+  // Lazy-load KPIs for the visible projects
+  useEffect(()=>{
+    filtered.slice(0,30).forEach(p=>{ if(!savedKpis[p.id]&&!savedKpisLoading[p.id])computeProjectKpi(p.id); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[filtered]);
+
+  useEffect(()=>{ if(!projectsList.length)fetchProjects(); /* eslint-disable-next-line */ },[]);
+
+  const toggleCompare=(id)=>setCompareIds(prev=>prev.includes(id)?prev.filter(x=>x!==id):prev.length>=4?prev:[...prev,id]);
+  const compareData=compareIds.map(id=>{
+    const p=projectsList.find(x=>x.id===id); const k=savedKpis[id]||{};
+    return{name:(p?.name||id).slice(0,20),CPI:+(k.cpi||0).toFixed(2),SPI:+(k.spi||0).toFixed(2),BAC:k.bac||0,AC:k.ac||0,EV:k.ev||0,prog:k.prog||0};
+  });
+
+  const cardBg=darkMode?"#1e293b":"#fff";
+  const border=darkMode?"#334155":"#e5e7eb";
+  const txt=darkMode?"#f1f5f9":"#1a1a2e";
+  const sub=darkMode?"#94a3b8":"#888";
+
+  return(
+    <div>
+      <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 ابحث في مشاريعك المحفوظة..."
+          style={{flex:1,minWidth:200,border:`1px solid ${border}`,borderRadius:9,padding:"9px 13px",fontSize:13,outline:"none",background:cardBg,color:txt}}/>
+        <button onClick={fetchProjects} style={{background:"hsl(var(--muted))",color:"hsl(var(--foreground))",border:`1px solid ${border}`,borderRadius:9,padding:"9px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>🔄 تحديث</button>
+        <span style={{fontSize:11,color:sub,fontWeight:600}}>{filtered.length} مشروع</span>
+        {compareIds.length>0&&<button onClick={()=>setCompareIds([])} style={{background:"hsl(var(--destructive))",color:"hsl(var(--destructive-foreground))",border:"none",borderRadius:9,padding:"7px 12px",cursor:"pointer",fontSize:11,fontWeight:700}}>✕ مسح المقارنة ({compareIds.length})</button>}
+      </div>
+
+      {projectsErr&&<div style={{background:"hsl(var(--destructive)/.1)",color:"hsl(var(--destructive))",padding:"10px 14px",borderRadius:9,fontSize:12,marginBottom:12,border:"1px solid hsl(var(--destructive)/.3)"}}>{projectsErr}</div>}
+      {projectsLoading&&<div style={{textAlign:"center",padding:30,color:sub,fontSize:13}}>⏳ جاري تحميل المشاريع...</div>}
+      {!projectsLoading&&!filtered.length&&<div style={{textAlign:"center",padding:40,color:sub,fontSize:13}}>لا توجد مشاريع. ارجع للرئيسية وأنشئ مشروعاً جديداً.</div>}
+
+      {/* Project cards grid */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12,marginBottom:14}}>
+        {filtered.map(p=>{
+          const k=savedKpis[p.id]; const loading=savedKpisLoading[p.id];
+          const isLinked=linkedProjectId===p.id; const inCompare=compareIds.includes(p.id);
+          return(
+            <div key={p.id} style={{background:cardBg,border:`2px solid ${isLinked?"hsl(var(--primary))":border}`,borderRadius:12,padding:14,boxShadow:"var(--shadow-sm)",position:"relative",transition:"all .15s"}}>
+              {isLinked&&<span style={{position:"absolute",top:8,left:8,background:"hsl(var(--success))",color:"hsl(var(--success-foreground))",borderRadius:999,padding:"2px 9px",fontSize:9,fontWeight:800}}>✓ نشط</span>}
+              <div style={{marginBottom:10,paddingRight:isLinked?60:0}}>
+                <div style={{fontSize:13,fontWeight:800,color:txt,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name||"بدون اسم"}</div>
+                <div style={{fontSize:10,color:sub,marginTop:3}}>{p.file_name||"—"} · {new Date(p.updated_at||p.created_at).toLocaleDateString("ar-SA")}</div>
+              </div>
+              {loading?(
+                <div style={{padding:"18px 0",textAlign:"center",color:sub,fontSize:11}}>⏳ حساب المؤشرات...</div>
+              ):k?(
+                <>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:9}}>
+                    <KpiMini lbl="CPI" val={k.cpi>0?k.cpi.toFixed(2):"—"} color={k.cpi>0?sColor(k.cpi):"hsl(var(--muted-foreground))"}/>
+                    <KpiMini lbl="SPI" val={k.spi>0?k.spi.toFixed(2):"—"} color={k.spi>0?sColor(k.spi):"hsl(var(--muted-foreground))"}/>
+                    <KpiMini lbl="إنجاز" val={k.prog.toFixed(0)+"%"} color="hsl(var(--accent))"/>
+                  </div>
+                  <div style={{height:5,background:"hsl(var(--muted))",borderRadius:99,overflow:"hidden",marginBottom:9}}>
+                    <div style={{width:Math.min(100,k.prog)+"%",height:"100%",background:"hsl(var(--accent))"}}/>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:sub,marginBottom:10}}>
+                    <span>BAC: <b style={{color:txt}}>{fmt(k.bac)}</b></span>
+                    <span>AC: <b style={{color:"hsl(var(--warning))"}}>{fmt(k.ac)}</b></span>
+                    <span>{k.items} بند</span>
+                  </div>
+                </>
+              ):(
+                <button onClick={()=>computeProjectKpi(p.id)} style={{width:"100%",padding:"7px",fontSize:10,background:"hsl(var(--muted))",border:"none",borderRadius:7,cursor:"pointer",marginBottom:9,color:txt}}>📊 حساب المؤشرات</button>
+              )}
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>!loadingItems&&loadProjectFromDb(p)} disabled={loadingItems||isLinked}
+                  style={{flex:1,background:isLinked?"hsl(var(--muted))":"var(--gradient-primary)",color:isLinked?"hsl(var(--muted-foreground))":"hsl(var(--primary-foreground))",border:"none",borderRadius:7,padding:"7px",fontWeight:700,cursor:isLinked||loadingItems?"not-allowed":"pointer",fontSize:11}}>
+                  {isLinked?"✓ مرتبط":"🔗 ربط"}
+                </button>
+                <button onClick={()=>toggleCompare(p.id)} title="إضافة للمقارنة"
+                  style={{background:inCompare?"hsl(var(--accent))":"hsl(var(--muted))",color:inCompare?"hsl(var(--accent-foreground))":"hsl(var(--foreground))",border:"none",borderRadius:7,padding:"7px 10px",fontWeight:700,cursor:"pointer",fontSize:11}}>
+                  {inCompare?"✓":"⚖️"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Comparison panel */}
+      {compareIds.length>=2&&(
+        <div style={{background:cardBg,border:`1px solid ${border}`,borderRadius:12,padding:16,boxShadow:"var(--shadow-md)"}}>
+          <h3 style={{margin:"0 0 14px",fontSize:14,fontWeight:800,color:txt}}>⚖️ مقارنة بين {compareIds.length} مشاريع</h3>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+              <thead>
+                <tr style={{background:"hsl(var(--muted))"}}>
+                  <th style={{padding:"9px 10px",textAlign:"right",fontWeight:700,color:txt}}>المشروع</th>
+                  <th style={{padding:"9px 10px",fontWeight:700,color:txt}}>CPI</th>
+                  <th style={{padding:"9px 10px",fontWeight:700,color:txt}}>SPI</th>
+                  <th style={{padding:"9px 10px",fontWeight:700,color:txt}}>الإنجاز</th>
+                  <th style={{padding:"9px 10px",fontWeight:700,color:txt}}>BAC</th>
+                  <th style={{padding:"9px 10px",fontWeight:700,color:txt}}>AC</th>
+                  <th style={{padding:"9px 10px",fontWeight:700,color:txt}}>EV</th>
+                </tr>
+              </thead>
+              <tbody>
+                {compareData.map((d,i)=>(
+                  <tr key={i} style={{borderBottom:`1px solid ${border}`}}>
+                    <td style={{padding:"9px 10px",fontWeight:700,color:txt}}>{d.name}</td>
+                    <td style={{padding:"9px 10px",textAlign:"center",color:sColor(d.CPI),fontWeight:800}}>{d.CPI||"—"}</td>
+                    <td style={{padding:"9px 10px",textAlign:"center",color:sColor(d.SPI),fontWeight:800}}>{d.SPI||"—"}</td>
+                    <td style={{padding:"9px 10px",textAlign:"center",color:txt}}>{d.prog.toFixed(0)}%</td>
+                    <td style={{padding:"9px 10px",textAlign:"center",color:txt}}>{fmt(d.BAC)}</td>
+                    <td style={{padding:"9px 10px",textAlign:"center",color:"hsl(var(--warning))"}}>{fmt(d.AC)}</td>
+                    <td style={{padding:"9px 10px",textAlign:"center",color:"hsl(var(--success))"}}>{fmt(d.EV)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const KpiMini=({lbl,val,color})=>(
+  <div style={{background:"hsl(var(--muted)/.5)",borderRadius:7,padding:"6px 8px",textAlign:"center"}}>
+    <div style={{fontSize:8,color:"hsl(var(--muted-foreground))",fontWeight:700,letterSpacing:.5}}>{lbl}</div>
+    <div style={{fontSize:13,fontWeight:900,color,marginTop:2,fontFamily:"monospace"}}>{val}</div>
+  </div>
+);
+
 // ═══════════════════════════════ APP ═══════════════════════════════
 export default function App(){
   const [acts,setActs]=useState(INIT_ACTS);
