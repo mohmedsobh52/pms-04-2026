@@ -368,6 +368,137 @@ const exportExcelFull=(acts,kpi,cf,risks,issues,resources,project)=>{
   XLSX.writeFile(wb,`Cost_Control_Full_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
 };
 
+// ═══════════════════════════════ SAVED PROJECTS TAB ═══════════════════════════════
+function ProjectsTab({projectsList,projectsLoading,projectsErr,fetchProjects,linkedProjectId,loadProjectFromDb,loadingItems,savedKpis,savedKpisLoading,computeProjectKpi,compareIds,setCompareIds,darkMode,fmt,sColor}){
+  const [search,setSearch]=useState("");
+  const filtered=useMemo(()=>(projectsList||[]).filter(p=>!search||(p.name||"").toLowerCase().includes(search.toLowerCase())),[projectsList,search]);
+
+  // Lazy-load KPIs for the visible projects
+  useEffect(()=>{
+    filtered.slice(0,30).forEach(p=>{ if(!savedKpis[p.id]&&!savedKpisLoading[p.id])computeProjectKpi(p.id); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[filtered]);
+
+  useEffect(()=>{ if(!projectsList.length)fetchProjects(); /* eslint-disable-next-line */ },[]);
+
+  const toggleCompare=(id)=>setCompareIds(prev=>prev.includes(id)?prev.filter(x=>x!==id):prev.length>=4?prev:[...prev,id]);
+  const compareData=compareIds.map(id=>{
+    const p=projectsList.find(x=>x.id===id); const k=savedKpis[id]||{};
+    return{name:(p?.name||id).slice(0,20),CPI:+(k.cpi||0).toFixed(2),SPI:+(k.spi||0).toFixed(2),BAC:k.bac||0,AC:k.ac||0,EV:k.ev||0,prog:k.prog||0};
+  });
+
+  const cardBg=darkMode?"#1e293b":"#fff";
+  const border=darkMode?"#334155":"#e5e7eb";
+  const txt=darkMode?"#f1f5f9":"#1a1a2e";
+  const sub=darkMode?"#94a3b8":"#888";
+
+  return(
+    <div>
+      <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 ابحث في مشاريعك المحفوظة..."
+          style={{flex:1,minWidth:200,border:`1px solid ${border}`,borderRadius:9,padding:"9px 13px",fontSize:13,outline:"none",background:cardBg,color:txt}}/>
+        <button onClick={fetchProjects} style={{background:"hsl(var(--muted))",color:"hsl(var(--foreground))",border:`1px solid ${border}`,borderRadius:9,padding:"9px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>🔄 تحديث</button>
+        <span style={{fontSize:11,color:sub,fontWeight:600}}>{filtered.length} مشروع</span>
+        {compareIds.length>0&&<button onClick={()=>setCompareIds([])} style={{background:"hsl(var(--destructive))",color:"hsl(var(--destructive-foreground))",border:"none",borderRadius:9,padding:"7px 12px",cursor:"pointer",fontSize:11,fontWeight:700}}>✕ مسح المقارنة ({compareIds.length})</button>}
+      </div>
+
+      {projectsErr&&<div style={{background:"hsl(var(--destructive)/.1)",color:"hsl(var(--destructive))",padding:"10px 14px",borderRadius:9,fontSize:12,marginBottom:12,border:"1px solid hsl(var(--destructive)/.3)"}}>{projectsErr}</div>}
+      {projectsLoading&&<div style={{textAlign:"center",padding:30,color:sub,fontSize:13}}>⏳ جاري تحميل المشاريع...</div>}
+      {!projectsLoading&&!filtered.length&&<div style={{textAlign:"center",padding:40,color:sub,fontSize:13}}>لا توجد مشاريع. ارجع للرئيسية وأنشئ مشروعاً جديداً.</div>}
+
+      {/* Project cards grid */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12,marginBottom:14}}>
+        {filtered.map(p=>{
+          const k=savedKpis[p.id]; const loading=savedKpisLoading[p.id];
+          const isLinked=linkedProjectId===p.id; const inCompare=compareIds.includes(p.id);
+          return(
+            <div key={p.id} style={{background:cardBg,border:`2px solid ${isLinked?"hsl(var(--primary))":border}`,borderRadius:12,padding:14,boxShadow:"var(--shadow-sm)",position:"relative",transition:"all .15s"}}>
+              {isLinked&&<span style={{position:"absolute",top:8,left:8,background:"hsl(var(--success))",color:"hsl(var(--success-foreground))",borderRadius:999,padding:"2px 9px",fontSize:9,fontWeight:800}}>✓ نشط</span>}
+              <div style={{marginBottom:10,paddingRight:isLinked?60:0}}>
+                <div style={{fontSize:13,fontWeight:800,color:txt,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name||"بدون اسم"}</div>
+                <div style={{fontSize:10,color:sub,marginTop:3}}>{p.file_name||"—"} · {new Date(p.updated_at||p.created_at).toLocaleDateString("ar-SA")}</div>
+              </div>
+              {loading?(
+                <div style={{padding:"18px 0",textAlign:"center",color:sub,fontSize:11}}>⏳ حساب المؤشرات...</div>
+              ):k?(
+                <>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:9}}>
+                    <KpiMini lbl="CPI" val={k.cpi>0?k.cpi.toFixed(2):"—"} color={k.cpi>0?sColor(k.cpi):"hsl(var(--muted-foreground))"}/>
+                    <KpiMini lbl="SPI" val={k.spi>0?k.spi.toFixed(2):"—"} color={k.spi>0?sColor(k.spi):"hsl(var(--muted-foreground))"}/>
+                    <KpiMini lbl="إنجاز" val={k.prog.toFixed(0)+"%"} color="hsl(var(--accent))"/>
+                  </div>
+                  <div style={{height:5,background:"hsl(var(--muted))",borderRadius:99,overflow:"hidden",marginBottom:9}}>
+                    <div style={{width:Math.min(100,k.prog)+"%",height:"100%",background:"hsl(var(--accent))"}}/>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:sub,marginBottom:10}}>
+                    <span>BAC: <b style={{color:txt}}>{fmt(k.bac)}</b></span>
+                    <span>AC: <b style={{color:"hsl(var(--warning))"}}>{fmt(k.ac)}</b></span>
+                    <span>{k.items} بند</span>
+                  </div>
+                </>
+              ):(
+                <button onClick={()=>computeProjectKpi(p.id)} style={{width:"100%",padding:"7px",fontSize:10,background:"hsl(var(--muted))",border:"none",borderRadius:7,cursor:"pointer",marginBottom:9,color:txt}}>📊 حساب المؤشرات</button>
+              )}
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>!loadingItems&&loadProjectFromDb(p)} disabled={loadingItems||isLinked}
+                  style={{flex:1,background:isLinked?"hsl(var(--muted))":"var(--gradient-primary)",color:isLinked?"hsl(var(--muted-foreground))":"hsl(var(--primary-foreground))",border:"none",borderRadius:7,padding:"7px",fontWeight:700,cursor:isLinked||loadingItems?"not-allowed":"pointer",fontSize:11}}>
+                  {isLinked?"✓ مرتبط":"🔗 ربط"}
+                </button>
+                <button onClick={()=>toggleCompare(p.id)} title="إضافة للمقارنة"
+                  style={{background:inCompare?"hsl(var(--accent))":"hsl(var(--muted))",color:inCompare?"hsl(var(--accent-foreground))":"hsl(var(--foreground))",border:"none",borderRadius:7,padding:"7px 10px",fontWeight:700,cursor:"pointer",fontSize:11}}>
+                  {inCompare?"✓":"⚖️"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Comparison panel */}
+      {compareIds.length>=2&&(
+        <div style={{background:cardBg,border:`1px solid ${border}`,borderRadius:12,padding:16,boxShadow:"var(--shadow-md)"}}>
+          <h3 style={{margin:"0 0 14px",fontSize:14,fontWeight:800,color:txt}}>⚖️ مقارنة بين {compareIds.length} مشاريع</h3>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+              <thead>
+                <tr style={{background:"hsl(var(--muted))"}}>
+                  <th style={{padding:"9px 10px",textAlign:"right",fontWeight:700,color:txt}}>المشروع</th>
+                  <th style={{padding:"9px 10px",fontWeight:700,color:txt}}>CPI</th>
+                  <th style={{padding:"9px 10px",fontWeight:700,color:txt}}>SPI</th>
+                  <th style={{padding:"9px 10px",fontWeight:700,color:txt}}>الإنجاز</th>
+                  <th style={{padding:"9px 10px",fontWeight:700,color:txt}}>BAC</th>
+                  <th style={{padding:"9px 10px",fontWeight:700,color:txt}}>AC</th>
+                  <th style={{padding:"9px 10px",fontWeight:700,color:txt}}>EV</th>
+                </tr>
+              </thead>
+              <tbody>
+                {compareData.map((d,i)=>(
+                  <tr key={i} style={{borderBottom:`1px solid ${border}`}}>
+                    <td style={{padding:"9px 10px",fontWeight:700,color:txt}}>{d.name}</td>
+                    <td style={{padding:"9px 10px",textAlign:"center",color:sColor(d.CPI),fontWeight:800}}>{d.CPI||"—"}</td>
+                    <td style={{padding:"9px 10px",textAlign:"center",color:sColor(d.SPI),fontWeight:800}}>{d.SPI||"—"}</td>
+                    <td style={{padding:"9px 10px",textAlign:"center",color:txt}}>{d.prog.toFixed(0)}%</td>
+                    <td style={{padding:"9px 10px",textAlign:"center",color:txt}}>{fmt(d.BAC)}</td>
+                    <td style={{padding:"9px 10px",textAlign:"center",color:"hsl(var(--warning))"}}>{fmt(d.AC)}</td>
+                    <td style={{padding:"9px 10px",textAlign:"center",color:"hsl(var(--success))"}}>{fmt(d.EV)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const KpiMini=({lbl,val,color})=>(
+  <div style={{background:"hsl(var(--muted)/.5)",borderRadius:7,padding:"6px 8px",textAlign:"center"}}>
+    <div style={{fontSize:8,color:"hsl(var(--muted-foreground))",fontWeight:700,letterSpacing:.5}}>{lbl}</div>
+    <div style={{fontSize:13,fontWeight:900,color,marginTop:2,fontFamily:"monospace"}}>{val}</div>
+  </div>
+);
+
 // ═══════════════════════════════ APP ═══════════════════════════════
 export default function App(){
   const [acts,setActs]=useState(INIT_ACTS);
@@ -475,11 +606,46 @@ export default function App(){
 
   useEffect(()=>{ if(pickerModal&&!projectsList.length&&!projectsLoading)fetchProjects(); },[pickerModal]);
   // Auto-open picker on first mount if no project is linked yet
+  // ── Saved-projects KPIs (lazy) + comparison + persistence ──
+  const [savedKpis,setSavedKpis]=useState({});           // {projectId: {bac,ac,prog,cpi,spi,ev,pv,items}}
+  const [savedKpisLoading,setSavedKpisLoading]=useState({});
+  const [compareIds,setCompareIds]=useState([]);          // up to 4
+  const LS_LAST="evm:lastLinkedProjectId";
+
+  const computeProjectKpi=useCallback(async(projectId)=>{
+    if(savedKpis[projectId]||savedKpisLoading[projectId])return;
+    setSavedKpisLoading(s=>({...s,[projectId]:true}));
+    try{
+      const[{data:items},{data:certs}]=await Promise.all([
+        supabase.from("project_items").select("total_price,quantity,unit_price").eq("project_id",projectId),
+        supabase.from("progress_certificates").select("net_amount,total_work_done,current_work_done").eq("project_id",projectId),
+      ]);
+      const bac=(items||[]).reduce((s,i)=>s+Number(i.total_price||(Number(i.quantity||0)*Number(i.unit_price||0))||0),0);
+      const ac=(certs||[]).reduce((s,c)=>s+Number(c.net_amount||c.total_work_done||c.current_work_done||0),0);
+      const prog=bac>0?Math.min(100,(ac/bac)*100):0;
+      const ev=bac*(prog/100);
+      const pv=bac*0.5;
+      const cpi=ac>0?ev/ac:0;
+      const spi=pv>0?ev/pv:0;
+      setSavedKpis(s=>({...s,[projectId]:{bac,ac,ev,pv,prog,cpi,spi,items:(items||[]).length}}));
+    }catch(_){}
+    finally{setSavedKpisLoading(s=>{const n={...s};delete n[projectId];return n;});}
+  },[savedKpis,savedKpisLoading]);
+
+  // Auto-restore last opened project from localStorage; otherwise open picker
   useEffect(()=>{
-    if(!linkedProjectId){
-      const t=setTimeout(()=>{ setPickerModal(true); fetchProjects(); },400);
-      return()=>clearTimeout(t);
-    }
+    if(linkedProjectId)return;
+    const last=typeof window!=="undefined"&&localStorage.getItem(LS_LAST);
+    (async()=>{
+      await fetchProjects();
+      if(last){
+        try{
+          const{data}=await supabase.from("saved_projects").select("id,name,file_name").eq("id",last).maybeSingle();
+          if(data){loadProjectFromDb(data);return;}
+        }catch(_){}
+      }
+      setTimeout(()=>setPickerModal(true),300);
+    })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
 
@@ -503,7 +669,6 @@ export default function App(){
         return{id:code,nameAr:g.cat,disc:d,items:g.items,bac:Math.round(g.bac),ac:0,pct:0};
       });
       if(!newActs.length){
-        // Fallback: each item as activity
         (items||[]).slice(0,200).forEach((it,i)=>{
           const d=guessDisc(it.category+" "+(it.description||""));
           discCount[d]=(discCount[d]||0)+1;
@@ -513,13 +678,28 @@ export default function App(){
       setActs(newActs);
       setProject(prev=>({...prev,name:p.name||prev.name,number:p.file_name||prev.number}));
       setLinkedProjectId(p.id);
+      try{localStorage.setItem(LS_LAST,p.id);}catch(_){}
       setSelDisc(null);setSelAct(null);
       setPickerModal(false);
       logChange(`ربط المشروع: ${p.name} (${newActs.length} نشاط)`,"create");
+      // Invalidate cached KPI so it recomputes on next view
+      setSavedKpis(s=>{const n={...s};delete n[p.id];return n;});
     }catch(e){
       setProjectsErr(e.message||"فشل تحميل بنود المشروع");
     }finally{setLoadingItems(false);}
   },[]);
+
+  // Realtime: refresh activities when BOQ items of the linked project change
+  useEffect(()=>{
+    if(!linkedProjectId)return;
+    const channel=supabase.channel(`evm-items-${linkedProjectId}`)
+      .on("postgres_changes",{event:"*",schema:"public",table:"project_items",filter:`project_id=eq.${linkedProjectId}`},
+        ()=>{ loadProjectFromDb({id:linkedProjectId,name:project?.name,file_name:project?.number}); toast.info("🔄 تم تحديث بنود المشروع تلقائياً"); })
+      .subscribe();
+    return()=>{ supabase.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[linkedProjectId]);
+
 
   // ── Sync AC from Progress Certificates ──
   const [syncingAC,setSyncingAC]=useState(false);
@@ -1204,6 +1384,7 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
   ]);
 
   const TABS=[
+    {k:"projects",    lbl:"📁 المشاريع المحفوظة"},
     {k:"overview",    lbl:"📊 نظرة عامة"},
     {k:"cashflow",    lbl:"💵 التدفق النقدي"},
     {k:"charts",      lbl:"📈 الرسوم البيانية"},
@@ -1272,6 +1453,31 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
               </div>
             );
           })}
+
+          {/* Saved-projects quick switcher */}
+          {projectsList.length>0&&(
+            <>
+              <div style={{fontSize:9,fontWeight:700,color:"#ccc",letterSpacing:.8,margin:"12px 2px 5px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <span>📁 المشاريع</span>
+                <span onClick={()=>setTab("projects")} style={{cursor:"pointer",background:"hsl(var(--primary))",color:"hsl(var(--primary-foreground))",borderRadius:999,padding:"1px 7px",fontSize:8,fontWeight:700}}>عرض الكل</span>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:2,maxHeight:140,overflowY:"auto"}}>
+                {projectsList.slice(0,6).map(p=>{
+                  const isLinked=linkedProjectId===p.id;
+                  return(
+                    <div key={p.id} onClick={()=>!loadingItems&&!isLinked&&loadProjectFromDb(p)} title={p.name}
+                      style={{padding:"5px 7px",borderRadius:6,cursor:isLinked?"default":"pointer",background:isLinked?"hsl(var(--primary)/.1)":"transparent",border:isLinked?"1px solid hsl(var(--primary)/.3)":"1px solid transparent",display:"flex",alignItems:"center",gap:5}}>
+                      <span style={{fontSize:11}}>{isLinked?"📂":"📁"}</span>
+                      <div style={{minWidth:0,flex:1}}>
+                        <div style={{fontSize:9,fontWeight:isLinked?700:500,color:isLinked?"hsl(var(--primary))":"#555",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name||"بدون اسم"}</div>
+                      </div>
+                      {isLinked&&<span style={{width:5,height:5,borderRadius:"50%",background:"hsl(var(--success))"}}/>}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
           <div style={{fontSize:9,fontWeight:700,color:"#ccc",letterSpacing:.8,margin:"10px 2px 5px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <span>ACTIVITIES</span><span style={{background:"#1a1a2e",color:"#fff",borderRadius:999,padding:"1px 6px",fontSize:9}}>{acts.length}</span>
           </div>
@@ -1483,6 +1689,25 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
               </Card>
             </div>
           </>)}
+
+          {/* ═══ SAVED PROJECTS ═══ */}
+          {tab==="projects"&&(<ProjectsTab
+            projectsList={projectsList}
+            projectsLoading={projectsLoading}
+            projectsErr={projectsErr}
+            fetchProjects={fetchProjects}
+            linkedProjectId={linkedProjectId}
+            loadProjectFromDb={loadProjectFromDb}
+            loadingItems={loadingItems}
+            savedKpis={savedKpis}
+            savedKpisLoading={savedKpisLoading}
+            computeProjectKpi={computeProjectKpi}
+            compareIds={compareIds}
+            setCompareIds={setCompareIds}
+            darkMode={darkMode}
+            fmt={fmt}
+            sColor={sColor}
+          />)}
 
           {/* ═══ CASHFLOW ═══ */}
           {tab==="cashflow"&&(<>
