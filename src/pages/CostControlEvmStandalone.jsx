@@ -1534,6 +1534,25 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
             </div>
           </>)}
 
+          {/* ═══ SAVED PROJECTS ═══ */}
+          {tab==="projects"&&(<ProjectsTab
+            projectsList={projectsList}
+            projectsLoading={projectsLoading}
+            projectsErr={projectsErr}
+            fetchProjects={fetchProjects}
+            linkedProjectId={linkedProjectId}
+            loadProjectFromDb={loadProjectFromDb}
+            loadingItems={loadingItems}
+            savedKpis={savedKpis}
+            savedKpisLoading={savedKpisLoading}
+            computeProjectKpi={computeProjectKpi}
+            compareIds={compareIds}
+            setCompareIds={setCompareIds}
+            darkMode={darkMode}
+            fmt={fmt}
+            sColor={sColor}
+          />)}
+
           {/* ═══ CASHFLOW ═══ */}
           {tab==="cashflow"&&(<>
             <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:11,marginBottom:12}}>
