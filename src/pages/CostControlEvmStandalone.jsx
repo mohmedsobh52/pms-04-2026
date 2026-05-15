@@ -1453,6 +1453,31 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
               </div>
             );
           })}
+
+          {/* Saved-projects quick switcher */}
+          {projectsList.length>0&&(
+            <>
+              <div style={{fontSize:9,fontWeight:700,color:"#ccc",letterSpacing:.8,margin:"12px 2px 5px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <span>📁 المشاريع</span>
+                <span onClick={()=>setTab("projects")} style={{cursor:"pointer",background:"hsl(var(--primary))",color:"hsl(var(--primary-foreground))",borderRadius:999,padding:"1px 7px",fontSize:8,fontWeight:700}}>عرض الكل</span>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:2,maxHeight:140,overflowY:"auto"}}>
+                {projectsList.slice(0,6).map(p=>{
+                  const isLinked=linkedProjectId===p.id;
+                  return(
+                    <div key={p.id} onClick={()=>!loadingItems&&!isLinked&&loadProjectFromDb(p)} title={p.name}
+                      style={{padding:"5px 7px",borderRadius:6,cursor:isLinked?"default":"pointer",background:isLinked?"hsl(var(--primary)/.1)":"transparent",border:isLinked?"1px solid hsl(var(--primary)/.3)":"1px solid transparent",display:"flex",alignItems:"center",gap:5}}>
+                      <span style={{fontSize:11}}>{isLinked?"📂":"📁"}</span>
+                      <div style={{minWidth:0,flex:1}}>
+                        <div style={{fontSize:9,fontWeight:isLinked?700:500,color:isLinked?"hsl(var(--primary))":"#555",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name||"بدون اسم"}</div>
+                      </div>
+                      {isLinked&&<span style={{width:5,height:5,borderRadius:"50%",background:"hsl(var(--success))"}}/>}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
           <div style={{fontSize:9,fontWeight:700,color:"#ccc",letterSpacing:.8,margin:"10px 2px 5px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <span>ACTIVITIES</span><span style={{background:"#1a1a2e",color:"#fff",borderRadius:999,padding:"1px 6px",fontSize:9}}>{acts.length}</span>
           </div>
