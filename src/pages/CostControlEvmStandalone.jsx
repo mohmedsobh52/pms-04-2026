@@ -201,14 +201,28 @@ const useDark = () => useContext(DarkCtx);
 const Kpi=({l,v,c,ic,sub,sc})=>{
   const dm=useDark();
   return(
-    <div style={{background:dm?"#1e293b":"#fff",borderRadius:13,padding:"14px 16px",border:`1px solid ${dm?"#334155":"#f0f0f0"}`,boxShadow:"0 2px 12px rgba(0,0,0,.05)",position:"relative",overflow:"hidden"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
-        <span style={{fontSize:9,fontWeight:600,color:dm?"#94a3b8":"#999",letterSpacing:.7}}>{l}</span>
-        {ic&&<div style={{width:28,height:28,borderRadius:"50%",background:c+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13}}>{ic}</div>}
+    <div
+      className="evm-kpi-card"
+      style={{
+        background:dm?"linear-gradient(145deg,#1e293b 0%,#172033 100%)":"linear-gradient(145deg,#ffffff 0%,#fafbff 100%)",
+        borderRadius:14,padding:"15px 17px",
+        border:`1px solid ${dm?"#334155":"#eef0f7"}`,
+        boxShadow:dm?"0 4px 18px rgba(0,0,0,.35)":"0 4px 18px rgba(99,102,241,.07)",
+        position:"relative",overflow:"hidden",
+        transition:"transform .18s ease, box-shadow .18s ease",
+      }}
+      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=dm?"0 8px 22px rgba(0,0,0,.45)":"0 10px 24px rgba(99,102,241,.14)";}}
+      onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow=dm?"0 4px 18px rgba(0,0,0,.35)":"0 4px 18px rgba(99,102,241,.07)";}}
+    >
+      {/* subtle glow */}
+      <div style={{position:"absolute",top:-30,right:-30,width:90,height:90,borderRadius:"50%",background:`radial-gradient(circle, ${c}33 0%, transparent 70%)`,pointerEvents:"none"}}/>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7,position:"relative"}}>
+        <span style={{fontSize:9,fontWeight:700,color:dm?"#94a3b8":"#888",letterSpacing:.8,textTransform:"uppercase"}}>{l}</span>
+        {ic&&<div style={{width:30,height:30,borderRadius:9,background:`linear-gradient(135deg, ${c}22, ${c}44)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,boxShadow:`inset 0 0 0 1px ${c}33`}}>{ic}</div>}
       </div>
-      <div style={{fontSize:22,fontWeight:900,fontFamily:"monospace",color:dm?"#f1f5f9":"#1a1a2e"}}>{v}</div>
-      {sub&&<div style={{fontSize:10,marginTop:3,color:sc||"#888"}}>{sub}</div>}
-      <div style={{position:"absolute",bottom:0,left:0,right:0,height:3,background:c}}/>
+      <div style={{fontSize:23,fontWeight:900,fontFamily:"monospace",color:dm?"#f1f5f9":"#0f172a",letterSpacing:-.5,position:"relative"}}>{v}</div>
+      {sub&&<div style={{fontSize:10,marginTop:3,color:sc||(dm?"#94a3b8":"#888"),fontWeight:600,position:"relative"}}>{sub}</div>}
+      <div style={{position:"absolute",bottom:0,left:0,right:0,height:3,background:`linear-gradient(90deg, ${c}, ${c}88)`}}/>
     </div>
   );
 };
