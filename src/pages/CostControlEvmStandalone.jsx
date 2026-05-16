@@ -385,7 +385,23 @@ const exportExcelFull=(acts,kpi,cf,risks,issues,resources,project)=>{
 // ═══════════════════════════════ SAVED PROJECTS TAB ═══════════════════════════════
 function ProjectsTab({projectsList,projectsLoading,projectsErr,fetchProjects,linkedProjectId,loadProjectFromDb,loadingItems,savedKpis,savedKpisLoading,computeProjectKpi,compareIds,setCompareIds,darkMode,fmt,sColor}){
   const [search,setSearch]=useState("");
-  const filtered=useMemo(()=>(projectsList||[]).filter(p=>!search||(p.name||"").toLowerCase().includes(search.toLowerCase())),[projectsList,search]);
+  const [statusFilter,setStatusFilter]=useState("all"); // all|favorites|archived
+  const [favorites,setFavorites]=useState(()=>{ try{return JSON.parse(localStorage.getItem("evm:favorites")||"[]");}catch{return[];} });
+  const [archived,setArchived]=useState(()=>{ try{return JSON.parse(localStorage.getItem("evm:archived")||"[]");}catch{return[];} });
+
+  const persistFav=(arr)=>{setFavorites(arr);try{localStorage.setItem("evm:favorites",JSON.stringify(arr));}catch{}};
+  const persistArc=(arr)=>{setArchived(arr);try{localStorage.setItem("evm:archived",JSON.stringify(arr));}catch{}};
+  const toggleFav=(id)=>{ const next=favorites.includes(id)?favorites.filter(x=>x!==id):[...favorites,id]; persistFav(next); toast.success(favorites.includes(id)?"أُزيل من المفضلة":"⭐ أُضيف للمفضلة"); };
+  const toggleArc=(id)=>{ const next=archived.includes(id)?archived.filter(x=>x!==id):[...archived,id]; persistArc(next); toast.info(archived.includes(id)?"تم استعادة المشروع":"📦 تم أرشفة المشروع"); };
+
+  const filtered=useMemo(()=>{
+    let arr=(projectsList||[]).filter(p=>!search||(p.name||"").toLowerCase().includes(search.toLowerCase()));
+    if(statusFilter==="favorites")arr=arr.filter(p=>favorites.includes(p.id));
+    else if(statusFilter==="archived")arr=arr.filter(p=>archived.includes(p.id));
+    else arr=arr.filter(p=>!archived.includes(p.id));
+    // favorites first
+    return arr.slice().sort((a,b)=>(favorites.includes(b.id)?1:0)-(favorites.includes(a.id)?1:0));
+  },[projectsList,search,statusFilter,favorites,archived]);
 
   // Lazy-load KPIs for the visible projects
   useEffect(()=>{
@@ -398,7 +414,7 @@ function ProjectsTab({projectsList,projectsLoading,projectsErr,fetchProjects,lin
   const toggleCompare=(id)=>setCompareIds(prev=>prev.includes(id)?prev.filter(x=>x!==id):prev.length>=4?prev:[...prev,id]);
   const compareData=compareIds.map(id=>{
     const p=projectsList.find(x=>x.id===id); const k=savedKpis[id]||{};
-    return{name:(p?.name||id).slice(0,20),CPI:+(k.cpi||0).toFixed(2),SPI:+(k.spi||0).toFixed(2),BAC:k.bac||0,AC:k.ac||0,EV:k.ev||0,prog:k.prog||0};
+    return{id,name:(p?.name||id).slice(0,18),CPI:+(k.cpi||0).toFixed(2),SPI:+(k.spi||0).toFixed(2),BAC:k.bac||0,AC:k.ac||0,EV:k.ev||0,prog:+(k.prog||0).toFixed(1)};
   });
 
   const cardBg=darkMode?"#1e293b":"#fff";
@@ -406,9 +422,16 @@ function ProjectsTab({projectsList,projectsLoading,projectsErr,fetchProjects,lin
   const txt=darkMode?"#f1f5f9":"#1a1a2e";
   const sub=darkMode?"#94a3b8":"#888";
 
+  const FilterChip=({val,label,count})=>(
+    <button onClick={()=>setStatusFilter(val)}
+      style={{background:statusFilter===val?"hsl(var(--primary))":"hsl(var(--muted))",color:statusFilter===val?"hsl(var(--primary-foreground))":txt,border:"none",borderRadius:999,padding:"6px 12px",cursor:"pointer",fontSize:11,fontWeight:700}}>
+      {label} {count!=null&&<span style={{opacity:.75}}>({count})</span>}
+    </button>
+  );
+
   return(
     <div>
-      <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:8,marginBottom:10,alignItems:"center",flexWrap:"wrap"}}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 ابحث في مشاريعك المحفوظة..."
           style={{flex:1,minWidth:200,border:`1px solid ${border}`,borderRadius:9,padding:"9px 13px",fontSize:13,outline:"none",background:cardBg,color:txt}}/>
         <button onClick={fetchProjects} style={{background:"hsl(var(--muted))",color:"hsl(var(--foreground))",border:`1px solid ${border}`,borderRadius:9,padding:"9px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>🔄 تحديث</button>
@@ -416,19 +439,36 @@ function ProjectsTab({projectsList,projectsLoading,projectsErr,fetchProjects,lin
         {compareIds.length>0&&<button onClick={()=>setCompareIds([])} style={{background:"hsl(var(--destructive))",color:"hsl(var(--destructive-foreground))",border:"none",borderRadius:9,padding:"7px 12px",cursor:"pointer",fontSize:11,fontWeight:700}}>✕ مسح المقارنة ({compareIds.length})</button>}
       </div>
 
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+        <FilterChip val="all" label="الكل" count={(projectsList||[]).filter(p=>!archived.includes(p.id)).length}/>
+        <FilterChip val="favorites" label="⭐ المفضلة" count={favorites.length}/>
+        <FilterChip val="archived" label="📦 الأرشيف" count={archived.length}/>
+      </div>
+
       {projectsErr&&<div style={{background:"hsl(var(--destructive)/.1)",color:"hsl(var(--destructive))",padding:"10px 14px",borderRadius:9,fontSize:12,marginBottom:12,border:"1px solid hsl(var(--destructive)/.3)"}}>{projectsErr}</div>}
       {projectsLoading&&<div style={{textAlign:"center",padding:30,color:sub,fontSize:13}}>⏳ جاري تحميل المشاريع...</div>}
-      {!projectsLoading&&!filtered.length&&<div style={{textAlign:"center",padding:40,color:sub,fontSize:13}}>لا توجد مشاريع. ارجع للرئيسية وأنشئ مشروعاً جديداً.</div>}
+      {!projectsLoading&&!filtered.length&&<div style={{textAlign:"center",padding:40,color:sub,fontSize:13}}>لا توجد مشاريع في هذا التصنيف.</div>}
 
       {/* Project cards grid */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12,marginBottom:14}}>
         {filtered.map(p=>{
           const k=savedKpis[p.id]; const loading=savedKpisLoading[p.id];
           const isLinked=linkedProjectId===p.id; const inCompare=compareIds.includes(p.id);
+          const isFav=favorites.includes(p.id); const isArc=archived.includes(p.id);
           return(
-            <div key={p.id} style={{background:cardBg,border:`2px solid ${isLinked?"hsl(var(--primary))":border}`,borderRadius:12,padding:14,boxShadow:"var(--shadow-sm)",position:"relative",transition:"all .15s"}}>
-              {isLinked&&<span style={{position:"absolute",top:8,left:8,background:"hsl(var(--success))",color:"hsl(var(--success-foreground))",borderRadius:999,padding:"2px 9px",fontSize:9,fontWeight:800}}>✓ نشط</span>}
-              <div style={{marginBottom:10,paddingRight:isLinked?60:0}}>
+            <div key={p.id} style={{background:cardBg,border:`2px solid ${isLinked?"hsl(var(--primary))":border}`,borderRadius:12,padding:14,boxShadow:"0 2px 10px rgba(0,0,0,.04)",position:"relative",transition:"transform .15s, box-shadow .15s",opacity:isArc?.75:1}}
+              onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 22px rgba(0,0,0,.08)";}}
+              onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="0 2px 10px rgba(0,0,0,.04)";}}>
+              <div style={{position:"absolute",top:8,left:8,display:"flex",gap:5,alignItems:"center"}}>
+                {isLinked&&<span style={{background:"hsl(var(--success))",color:"hsl(var(--success-foreground))",borderRadius:999,padding:"2px 9px",fontSize:9,fontWeight:800}}>✓ نشط</span>}
+              </div>
+              <div style={{position:"absolute",top:6,right:6,display:"flex",gap:2}}>
+                <button onClick={()=>toggleFav(p.id)} title={isFav?"إزالة من المفضلة":"إضافة للمفضلة"}
+                  style={{background:"transparent",border:"none",cursor:"pointer",fontSize:15,padding:"2px 5px",color:isFav?"#fbbf24":sub}}>{isFav?"⭐":"☆"}</button>
+                <button onClick={()=>toggleArc(p.id)} title={isArc?"استعادة":"أرشفة"}
+                  style={{background:"transparent",border:"none",cursor:"pointer",fontSize:13,padding:"2px 5px",color:isArc?"hsl(var(--accent))":sub}}>{isArc?"↩️":"📦"}</button>
+              </div>
+              <div style={{marginBottom:10,paddingTop:isLinked?12:0,paddingRight:isFav?0:0,paddingLeft:50}}>
                 <div style={{fontSize:13,fontWeight:800,color:txt,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name||"بدون اسم"}</div>
                 <div style={{fontSize:10,color:sub,marginTop:3}}>{p.file_name||"—"} · {new Date(p.updated_at||p.created_at).toLocaleDateString("ar-SA")}</div>
               </div>
@@ -442,7 +482,7 @@ function ProjectsTab({projectsList,projectsLoading,projectsErr,fetchProjects,lin
                     <KpiMini lbl="إنجاز" val={k.prog.toFixed(0)+"%"} color="hsl(var(--accent))"/>
                   </div>
                   <div style={{height:5,background:"hsl(var(--muted))",borderRadius:99,overflow:"hidden",marginBottom:9}}>
-                    <div style={{width:Math.min(100,k.prog)+"%",height:"100%",background:"hsl(var(--accent))"}}/>
+                    <div style={{width:Math.min(100,k.prog)+"%",height:"100%",background:"linear-gradient(90deg,hsl(var(--accent)),hsl(var(--primary)))"}}/>
                   </div>
                   <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:sub,marginBottom:10}}>
                     <span>BAC: <b style={{color:txt}}>{fmt(k.bac)}</b></span>
@@ -470,8 +510,32 @@ function ProjectsTab({projectsList,projectsLoading,projectsErr,fetchProjects,lin
 
       {/* Comparison panel */}
       {compareIds.length>=2&&(
-        <div style={{background:cardBg,border:`1px solid ${border}`,borderRadius:12,padding:16,boxShadow:"var(--shadow-md)"}}>
+        <div style={{background:cardBg,border:`1px solid ${border}`,borderRadius:12,padding:16,boxShadow:"0 4px 14px rgba(0,0,0,.06)"}}>
           <h3 style={{margin:"0 0 14px",fontSize:14,fontWeight:800,color:txt}}>⚖️ مقارنة بين {compareIds.length} مشاريع</h3>
+
+          {/* Comparison bar chart */}
+          <div style={{height:240,marginBottom:18,background:darkMode?"#0f172a":"#fafbfc",borderRadius:10,padding:"12px 8px",border:`1px solid ${border}`}}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={compareData} margin={{top:10,right:14,left:0,bottom:6}}>
+                <defs>
+                  <linearGradient id="gCPI" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.95}/><stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.55}/></linearGradient>
+                  <linearGradient id="gSPI" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity={0.95}/><stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity={0.55}/></linearGradient>
+                  <linearGradient id="gPRG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="hsl(var(--success))" stopOpacity={0.95}/><stop offset="100%" stopColor="hsl(var(--success))" stopOpacity={0.55}/></linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke={border}/>
+                <XAxis dataKey="name" tick={{fontSize:10,fill:sub}}/>
+                <YAxis yAxisId="l" tick={{fontSize:10,fill:sub}}/>
+                <YAxis yAxisId="r" orientation="right" tick={{fontSize:10,fill:sub}} domain={[0,100]}/>
+                <Tooltip contentStyle={{background:darkMode?"rgba(15,23,42,.95)":"rgba(255,255,255,.96)",border:`1px solid ${border}`,borderRadius:8,fontSize:12,color:txt,backdropFilter:"blur(8px)"}}/>
+                <Legend wrapperStyle={{fontSize:11}}/>
+                <ReferenceLine yAxisId="l" y={1} stroke="hsl(var(--destructive))" strokeDasharray="4 4" label={{value:"الهدف 1.0",fontSize:10,fill:sub}}/>
+                <Bar yAxisId="l" dataKey="CPI" fill="url(#gCPI)" radius={[6,6,0,0]} maxBarSize={36}/>
+                <Bar yAxisId="l" dataKey="SPI" fill="url(#gSPI)" radius={[6,6,0,0]} maxBarSize={36}/>
+                <Bar yAxisId="r" dataKey="prog" name="الإنجاز %" fill="url(#gPRG)" radius={[6,6,0,0]} maxBarSize={36}/>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
               <thead>
