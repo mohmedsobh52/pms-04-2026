@@ -614,7 +614,7 @@ export default function App(){
   const [threshCPI,setThreshCPI]=useState(0.9);
   const [threshModal,setThreshModal]=useState(false);
   const [projModal,setProjModal]=useState(false);
-  const [project,setProject]=useState({name:"مشروع البنية التحتية — جامعة تبوك",number:"NWC-TAB-2024-P1",client:"شركة المياه الوطنية",contractor:"الإمتياز الوطنية للمقاولات",startDate:"2025-01-01",duration:"24",currency:"SAR"});
+  const [project,setProject]=useState(()=>recomputeProjectDates({name:"مشروع البنية التحتية — جامعة تبوك",number:"NWC-TAB-2024-P1",client:"شركة المياه الوطنية",contractor:"الإمتياز الوطنية للمقاولات",startDate:"2025-01-01",endDate:"",duration:"24",currency:"SAR",lockedField:"endDate"}));
   const [projBuf,setProjBuf]=useState(project);
   const [riskModal,setRiskModal]=useState(false);
   const [newRisk,setNewRisk]=useState({id:"",title:"",category:"تكلفة",prob:2,impact:2,mitigation:"",status:"مفتوح",owner:"",cost:0});
