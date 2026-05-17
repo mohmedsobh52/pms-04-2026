@@ -954,6 +954,31 @@ export default function App(){
     lastBreachRef.current={cpi:cpiBreach,spi:spiBreach};
   },[kpi.CPI,kpi.SPI,threshCPI,threshSPI]);
 
+  // Timeline / SPI-from-dates
+  const timeMetrics=useMemo(()=>{
+    const s=parseIso(project.startDate), e=parseIso(project.endDate);
+    if(!s||!e||e<=s) return {elapsedPct:0,timeProg:0,overdue:false,daysLeft:0,spiTime:0,valid:false};
+    const now=new Date();
+    const total=e-s, done=Math.min(total,Math.max(0,now-s));
+    const elapsedPct=(done/total)*100;
+    const timeProg=done/total;
+    const overdue=now>e;
+    const daysLeft=Math.round((e-now)/(1000*60*60*24));
+    const actProg=(kpi.prog||0)/100;
+    const spiTime=timeProg>0?actProg/timeProg:0;
+    return {elapsedPct,timeProg,overdue,daysLeft,spiTime,valid:true};
+  },[project.startDate,project.endDate,kpi.prog]);
+
+  // One-shot overdue toast
+  const overdueShownRef=useRef(false);
+  useEffect(()=>{
+    if(timeMetrics.overdue && !overdueShownRef.current){
+      toast.error(`⛔ تجاوز تاريخ النهاية بـ ${Math.abs(timeMetrics.daysLeft)} يوم`,{duration:7000});
+      overdueShownRef.current=true;
+    }
+    if(!timeMetrics.overdue) overdueShownRef.current=false;
+  },[timeMetrics.overdue,timeMetrics.daysLeft]);
+
   const trendData=useMemo(()=>filtered.slice(0,24).map(a=>{const{cpi,spi}=calcAct(a);return{id:a.id,cpi:+cpi.toFixed(2),spi:+spi.toFixed(2)};}), [filtered]);
   const varData=useMemo(()=>byDisc.map(d=>({disc:d.disc,SV:+(d.SV/1e6).toFixed(1),CV:+(d.CV/1e6).toFixed(1)})),[byDisc]);
 
