@@ -432,6 +432,12 @@ function ProjectsTab({projectsList,projectsLoading,projectsErr,fetchProjects,lin
   return(
     <div>
       <div style={{display:"flex",gap:8,marginBottom:10,alignItems:"center",flexWrap:"wrap"}}>
+        <select value={linkedProjectId||""} onChange={e=>{const id=e.target.value;const p=(projectsList||[]).find(x=>x.id===id);if(p&&!loadingItems)loadProjectFromDb(p);}}
+          title="قائمة منسدلة بالمشاريع المحفوظة"
+          style={{minWidth:220,border:`1px solid ${border}`,borderRadius:9,padding:"9px 12px",fontSize:13,outline:"none",background:cardBg,color:txt,fontWeight:600,cursor:"pointer"}}>
+          <option value="">📂 اختر مشروعاً من القائمة...</option>
+          {(projectsList||[]).map(p=><option key={p.id} value={p.id}>{p.name||"بدون اسم"}{linkedProjectId===p.id?" ✓":""}</option>)}
+        </select>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 ابحث في مشاريعك المحفوظة..."
           style={{flex:1,minWidth:200,border:`1px solid ${border}`,borderRadius:9,padding:"9px 13px",fontSize:13,outline:"none",background:cardBg,color:txt}}/>
         <button onClick={fetchProjects} style={{background:"hsl(var(--muted))",color:"hsl(var(--foreground))",border:`1px solid ${border}`,borderRadius:9,padding:"9px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>🔄 تحديث</button>
@@ -577,6 +583,20 @@ const KpiMini=({lbl,val,color})=>(
   </div>
 );
 
+// ── Project date helpers ──
+const toIso=(d)=>d?d.toISOString().slice(0,10):"";
+const parseIso=(s)=>{ if(!s)return null; const d=new Date(s); return isNaN(d)?null:d; };
+const addMonths=(d,n)=>{ const x=new Date(d); x.setMonth(x.getMonth()+Math.round(Number(n)||0)); return x; };
+const monthsBetween=(a,b)=>{ if(!a||!b)return 0; return ((b.getFullYear()-a.getFullYear())*12)+(b.getMonth()-a.getMonth())+((b.getDate()-a.getDate())/30); };
+const recomputeProjectDates=(buf)=>{
+  const s=parseIso(buf.startDate), e=parseIso(buf.endDate), dur=Number(buf.duration);
+  const lock=buf.lockedField||"endDate";
+  if(lock==="endDate" && s && dur>0) return {...buf,endDate:toIso(addMonths(s,dur))};
+  if(lock==="duration" && s && e) return {...buf,duration:String(Math.max(1,Math.round(monthsBetween(s,e))))};
+  if(lock==="startDate" && e && dur>0) return {...buf,startDate:toIso(addMonths(e,-dur))};
+  return buf;
+};
+
 // ═══════════════════════════════ APP ═══════════════════════════════
 export default function App(){
   const [acts,setActs]=useState(INIT_ACTS);
@@ -600,7 +620,7 @@ export default function App(){
   const [threshCPI,setThreshCPI]=useState(0.9);
   const [threshModal,setThreshModal]=useState(false);
   const [projModal,setProjModal]=useState(false);
-  const [project,setProject]=useState({name:"مشروع البنية التحتية — جامعة تبوك",number:"NWC-TAB-2024-P1",client:"شركة المياه الوطنية",contractor:"الإمتياز الوطنية للمقاولات",startDate:"2025-01-01",duration:"24",currency:"SAR"});
+  const [project,setProject]=useState(()=>recomputeProjectDates({name:"مشروع البنية التحتية — جامعة تبوك",number:"NWC-TAB-2024-P1",client:"شركة المياه الوطنية",contractor:"الإمتياز الوطنية للمقاولات",startDate:"2025-01-01",endDate:"",duration:"24",currency:"SAR",lockedField:"endDate"}));
   const [projBuf,setProjBuf]=useState(project);
   const [riskModal,setRiskModal]=useState(false);
   const [newRisk,setNewRisk]=useState({id:"",title:"",category:"تكلفة",prob:2,impact:2,mitigation:"",status:"مفتوح",owner:"",cost:0});
@@ -754,7 +774,9 @@ export default function App(){
         });
       }
       setActs(newActs);
-      setProject(prev=>({...prev,name:p.name||prev.name,number:p.file_name||prev.number}));
+      let savedMeta={};
+      try{ const raw=localStorage.getItem(`evm:projectMeta:${p.id}`); if(raw)savedMeta=JSON.parse(raw)||{}; }catch(_){}
+      setProject(prev=>recomputeProjectDates({...prev,...savedMeta,name:p.name||prev.name,number:p.file_name||prev.number}));
       setLinkedProjectId(p.id);
       try{localStorage.setItem(LS_LAST,p.id);}catch(_){}
       setSelDisc(null);setSelAct(null);
@@ -777,6 +799,12 @@ export default function App(){
     return()=>{ supabase.removeChannel(channel); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[linkedProjectId]);
+
+  // Persist project meta (dates, duration, currency) per linked project
+  useEffect(()=>{
+    if(!linkedProjectId)return;
+    try{ localStorage.setItem(`evm:projectMeta:${linkedProjectId}`, JSON.stringify({startDate:project.startDate,endDate:project.endDate,duration:project.duration,lockedField:project.lockedField,currency:project.currency,client:project.client,contractor:project.contractor})); }catch(_){}
+  },[project.startDate,project.endDate,project.duration,project.lockedField,project.currency,project.client,project.contractor,linkedProjectId]);
 
 
   // ── Sync AC from Progress Certificates ──
@@ -931,6 +959,31 @@ export default function App(){
     }
     lastBreachRef.current={cpi:cpiBreach,spi:spiBreach};
   },[kpi.CPI,kpi.SPI,threshCPI,threshSPI]);
+
+  // Timeline / SPI-from-dates
+  const timeMetrics=useMemo(()=>{
+    const s=parseIso(project.startDate), e=parseIso(project.endDate);
+    if(!s||!e||e<=s) return {elapsedPct:0,timeProg:0,overdue:false,daysLeft:0,spiTime:0,valid:false};
+    const now=new Date();
+    const total=e-s, done=Math.min(total,Math.max(0,now-s));
+    const elapsedPct=(done/total)*100;
+    const timeProg=done/total;
+    const overdue=now>e;
+    const daysLeft=Math.round((e-now)/(1000*60*60*24));
+    const actProg=(kpi.prog||0)/100;
+    const spiTime=timeProg>0?actProg/timeProg:0;
+    return {elapsedPct,timeProg,overdue,daysLeft,spiTime,valid:true};
+  },[project.startDate,project.endDate,kpi.prog]);
+
+  // One-shot overdue toast
+  const overdueShownRef=useRef(false);
+  useEffect(()=>{
+    if(timeMetrics.overdue && !overdueShownRef.current){
+      toast.error(`⛔ تجاوز تاريخ النهاية بـ ${Math.abs(timeMetrics.daysLeft)} يوم`,{duration:7000});
+      overdueShownRef.current=true;
+    }
+    if(!timeMetrics.overdue) overdueShownRef.current=false;
+  },[timeMetrics.overdue,timeMetrics.daysLeft]);
 
   const trendData=useMemo(()=>filtered.slice(0,24).map(a=>{const{cpi,spi}=calcAct(a);return{id:a.id,cpi:+cpi.toFixed(2),spi:+spi.toFixed(2)};}), [filtered]);
   const varData=useMemo(()=>byDisc.map(d=>({disc:d.disc,SV:+(d.SV/1e6).toFixed(1),CV:+(d.CV/1e6).toFixed(1)})),[byDisc]);
@@ -1599,6 +1652,14 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
                 {alerts.filter(a=>a.t==="c").length>0&&<span style={{background:"#ef4444",borderRadius:999,padding:"2px 10px",fontSize:10,fontWeight:700}}>⚠ {alerts.length} تنبيه</span>}
               </h1>
               <p style={{margin:"3px 0 0",fontSize:10,opacity:.6}}>{project.name} · {project.number} · {project.client}</p>
+              {projectsList.length>0&&(
+                <select value={linkedProjectId||""} onChange={e=>{const id=e.target.value;const p=projectsList.find(x=>x.id===id);if(p)loadProjectFromDb(p);}}
+                  title="تبديل سريع للمشروع المرتبط"
+                  style={{marginTop:6,background:"rgba(255,255,255,.14)",color:"#fff",border:"1px solid rgba(255,255,255,.3)",borderRadius:7,padding:"4px 10px",fontSize:11,fontWeight:600,outline:"none",maxWidth:320,cursor:"pointer"}}>
+                  <option value="" style={{color:"#1a1a2e"}}>📂 اختر مشروعاً محفوظاً...</option>
+                  {projectsList.map(p=><option key={p.id} value={p.id} style={{color:"#1a1a2e"}}>{p.name||"بدون اسم"}</option>)}
+                </select>
+              )}
             </div>
             <div style={{display:"flex",gap:6,flexShrink:0,flexWrap:"wrap"}}>
               {/* Global search */}
@@ -1690,6 +1751,23 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
         {alerts.length>0&&(
           <div style={{background:darkMode?"#1c1107":"#fff7ed",borderBottom:`1px solid ${darkMode?"#7c2d12":"#fed7aa"}`,padding:"6px 20px",display:"flex",gap:14,flexWrap:"wrap",flexShrink:0}}>
             {alerts.map((a,i)=><span key={i} style={{fontSize:11,fontWeight:600,color:a.t==="c"?"#dc2626":"#b45309",display:"flex",alignItems:"center",gap:3}}>{a.t==="c"?"🔴":"🟡"} {a.msg}</span>)}
+          </div>
+        )}
+        {timeMetrics.valid&&(
+          <div style={{background:timeMetrics.overdue?"hsl(var(--destructive)/.08)":(darkMode?"#0f172a":"hsl(var(--card))"),borderBottom:`1px solid ${timeMetrics.overdue?"hsl(var(--destructive)/.3)":"hsl(var(--border))"}`,padding:"8px 20px",flexShrink:0}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,fontSize:11,fontWeight:700,color:darkMode?"#cbd5e1":"hsl(var(--foreground))",gap:12,flexWrap:"wrap"}}>
+              <span>⏱ الجدول الزمني: <b>{project.startDate}</b> → <b>{project.endDate}</b> · {project.duration} شهر</span>
+              <span style={{display:"flex",gap:14,alignItems:"center",flexWrap:"wrap"}}>
+                <span>الوقت المنقضي: <b style={{color:"hsl(var(--primary))"}}>{timeMetrics.elapsedPct.toFixed(1)}%</b></span>
+                <span>الإنجاز الفعلي: <b style={{color:"hsl(var(--success))"}}>{kpi.prog.toFixed(1)}%</b></span>
+                <span title="SPI محسوب من نسبة الإنجاز ÷ نسبة الوقت المنقضي">SPI زمني: <b style={{color:sColor(timeMetrics.spiTime)}}>{timeMetrics.spiTime>0?timeMetrics.spiTime.toFixed(2):"—"}</b></span>
+                <span style={{color:timeMetrics.overdue?"hsl(var(--destructive))":timeMetrics.daysLeft<30?"hsl(var(--accent))":"hsl(var(--muted-foreground))",fontWeight:800}}>{timeMetrics.overdue?`⛔ متأخر ${Math.abs(timeMetrics.daysLeft)} يوم`:`📅 متبقي ${timeMetrics.daysLeft} يوم`}</span>
+              </span>
+            </div>
+            <div style={{height:9,background:darkMode?"#1e293b":"hsl(var(--muted))",borderRadius:99,overflow:"hidden",position:"relative"}}>
+              <div style={{width:Math.min(100,kpi.prog)+"%",height:"100%",background:"linear-gradient(90deg,hsl(var(--success)),hsl(var(--primary)))",position:"absolute",left:0,top:0,transition:"width .3s"}}/>
+              <div style={{position:"absolute",left:`calc(${Math.min(100,timeMetrics.elapsedPct)}% - 1px)`,top:-2,width:2,height:13,background:"hsl(var(--destructive))"}} title={`الموقع الزمني الحالي (${timeMetrics.elapsedPct.toFixed(1)}%)`}/>
+            </div>
           </div>
         )}
         <div style={{flex:1,overflowY:"auto",padding:"16px 20px",background:darkMode?"#0f172a":"#f4f5fb"}}>
@@ -3609,9 +3687,29 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
 
       <Modal show={projModal} onClose={()=>setProjModal(false)} title="🏗 إعدادات المشروع" width={500}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          {[{l:"اسم المشروع",k:"name"},{l:"رقم العقد",k:"number"},{l:"الجهة المالكة",k:"client"},{l:"المقاول",k:"contractor"},{l:"تاريخ البداية",k:"startDate",t:"date"},{l:"المدة (شهر)",k:"duration",t:"number"}].map(({l,k,t="text"})=>(
-            <Field key={k} label={l} type={t} value={projBuf[k]} onChange={e=>setProjBuf({...projBuf,[k]:e.target.value})}/>
+          {[{l:"اسم المشروع",k:"name"},{l:"رقم العقد",k:"number"},{l:"الجهة المالكة",k:"client"},{l:"المقاول",k:"contractor"}].map(({l,k})=>(
+            <Field key={k} label={l} value={projBuf[k]||""} onChange={e=>setProjBuf({...projBuf,[k]:e.target.value})}/>
           ))}
+          <div style={{gridColumn:"1/-1",background:darkMode?"hsl(var(--muted))":"hsl(var(--muted)/.5)",border:"1px solid hsl(var(--border))",borderRadius:10,padding:12}}>
+            <div style={{fontSize:11,fontWeight:700,color:"hsl(var(--foreground))",marginBottom:8}}>📅 التواريخ والمدة — اضغط 🔒 على الحقل الذي تريد حسابه تلقائياً من الحقلين الآخرين</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+              {[{l:"تاريخ البداية",k:"startDate",ph:"yyyy-MM-dd"},{l:"تاريخ النهاية",k:"endDate",ph:"yyyy-MM-dd"},{l:"المدة (شهر)",k:"duration",ph:"24",t:"number"}].map(({l,k,ph,t="text"})=>{
+                const locked=(projBuf.lockedField||"endDate")===k;
+                return(
+                  <div key={k}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3,gap:4}}>
+                      <span style={{fontSize:10,fontWeight:600,color:"hsl(var(--muted-foreground))"}}>{l}</span>
+                      <button type="button" onClick={()=>setProjBuf(b=>recomputeProjectDates({...b,lockedField:k}))} title="اقفل ليُحسب تلقائياً"
+                        style={{background:locked?"hsl(var(--primary))":"transparent",color:locked?"hsl(var(--primary-foreground))":"hsl(var(--muted-foreground))",border:`1px solid ${locked?"hsl(var(--primary))":"hsl(var(--border))"}`,borderRadius:6,padding:"1px 6px",fontSize:9,cursor:"pointer",fontWeight:700}}>{locked?"🔒 محسوب":"🔓"}</button>
+                    </div>
+                    <input value={projBuf[k]||""} placeholder={ph} type={t} disabled={locked}
+                      onChange={e=>setProjBuf(b=>recomputeProjectDates({...b,[k]:e.target.value}))}
+                      style={{width:"100%",border:"1px solid hsl(var(--border))",borderRadius:7,padding:"7px 10px",fontSize:12,outline:"none",background:locked?"hsl(var(--muted))":"hsl(var(--background))",color:"hsl(var(--foreground))",boxSizing:"border-box",opacity:locked?.7:1}}/>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
           <div><div style={{fontSize:11,fontWeight:600,color:"#555",marginBottom:4}}>العملة</div><select value={projBuf.currency} onChange={e=>setProjBuf({...projBuf,currency:e.target.value})} style={{width:"100%",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none"}}>{["SAR","USD","EUR","GBP"].map(c=><option key={c}>{c}</option>)}</select></div>
         </div>
         <div style={{display:"flex",gap:10,marginTop:18}}><button onClick={()=>{setProject(projBuf);setProjModal(false);}} style={{flex:1,background:"#6366f1",color:"#fff",border:"none",borderRadius:9,padding:11,fontWeight:700,cursor:"pointer",fontSize:14}}>✓ حفظ</button><button onClick={()=>setProjModal(false)} style={{flex:1,background:"#f4f5fb",color:"#555",border:"none",borderRadius:9,padding:11,fontWeight:600,cursor:"pointer",fontSize:14}}>إلغاء</button></div>
