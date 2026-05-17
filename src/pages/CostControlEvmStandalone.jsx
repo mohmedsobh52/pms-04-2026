@@ -3656,9 +3656,29 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
 
       <Modal show={projModal} onClose={()=>setProjModal(false)} title="🏗 إعدادات المشروع" width={500}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          {[{l:"اسم المشروع",k:"name"},{l:"رقم العقد",k:"number"},{l:"الجهة المالكة",k:"client"},{l:"المقاول",k:"contractor"},{l:"تاريخ البداية",k:"startDate",t:"date"},{l:"المدة (شهر)",k:"duration",t:"number"}].map(({l,k,t="text"})=>(
-            <Field key={k} label={l} type={t} value={projBuf[k]} onChange={e=>setProjBuf({...projBuf,[k]:e.target.value})}/>
+          {[{l:"اسم المشروع",k:"name"},{l:"رقم العقد",k:"number"},{l:"الجهة المالكة",k:"client"},{l:"المقاول",k:"contractor"}].map(({l,k})=>(
+            <Field key={k} label={l} value={projBuf[k]||""} onChange={e=>setProjBuf({...projBuf,[k]:e.target.value})}/>
           ))}
+          <div style={{gridColumn:"1/-1",background:darkMode?"hsl(var(--muted))":"hsl(var(--muted)/.5)",border:"1px solid hsl(var(--border))",borderRadius:10,padding:12}}>
+            <div style={{fontSize:11,fontWeight:700,color:"hsl(var(--foreground))",marginBottom:8}}>📅 التواريخ والمدة — اضغط 🔒 على الحقل الذي تريد حسابه تلقائياً من الحقلين الآخرين</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+              {[{l:"تاريخ البداية",k:"startDate",ph:"yyyy-MM-dd"},{l:"تاريخ النهاية",k:"endDate",ph:"yyyy-MM-dd"},{l:"المدة (شهر)",k:"duration",ph:"24",t:"number"}].map(({l,k,ph,t="text"})=>{
+                const locked=(projBuf.lockedField||"endDate")===k;
+                return(
+                  <div key={k}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3,gap:4}}>
+                      <span style={{fontSize:10,fontWeight:600,color:"hsl(var(--muted-foreground))"}}>{l}</span>
+                      <button type="button" onClick={()=>setProjBuf(b=>recomputeProjectDates({...b,lockedField:k}))} title="اقفل ليُحسب تلقائياً"
+                        style={{background:locked?"hsl(var(--primary))":"transparent",color:locked?"hsl(var(--primary-foreground))":"hsl(var(--muted-foreground))",border:`1px solid ${locked?"hsl(var(--primary))":"hsl(var(--border))"}`,borderRadius:6,padding:"1px 6px",fontSize:9,cursor:"pointer",fontWeight:700}}>{locked?"🔒 محسوب":"🔓"}</button>
+                    </div>
+                    <input value={projBuf[k]||""} placeholder={ph} type={t} disabled={locked}
+                      onChange={e=>setProjBuf(b=>recomputeProjectDates({...b,[k]:e.target.value}))}
+                      style={{width:"100%",border:"1px solid hsl(var(--border))",borderRadius:7,padding:"7px 10px",fontSize:12,outline:"none",background:locked?"hsl(var(--muted))":"hsl(var(--background))",color:"hsl(var(--foreground))",boxSizing:"border-box",opacity:locked?.7:1}}/>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
           <div><div style={{fontSize:11,fontWeight:600,color:"#555",marginBottom:4}}>العملة</div><select value={projBuf.currency} onChange={e=>setProjBuf({...projBuf,currency:e.target.value})} style={{width:"100%",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none"}}>{["SAR","USD","EUR","GBP"].map(c=><option key={c}>{c}</option>)}</select></div>
         </div>
         <div style={{display:"flex",gap:10,marginTop:18}}><button onClick={()=>{setProject(projBuf);setProjModal(false);}} style={{flex:1,background:"#6366f1",color:"#fff",border:"none",borderRadius:9,padding:11,fontWeight:700,cursor:"pointer",fontSize:14}}>✓ حفظ</button><button onClick={()=>setProjModal(false)} style={{flex:1,background:"#f4f5fb",color:"#555",border:"none",borderRadius:9,padding:11,fontWeight:600,cursor:"pointer",fontSize:14}}>إلغاء</button></div>
