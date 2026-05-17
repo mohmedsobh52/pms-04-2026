@@ -1646,6 +1646,14 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
                 {alerts.filter(a=>a.t==="c").length>0&&<span style={{background:"#ef4444",borderRadius:999,padding:"2px 10px",fontSize:10,fontWeight:700}}>⚠ {alerts.length} تنبيه</span>}
               </h1>
               <p style={{margin:"3px 0 0",fontSize:10,opacity:.6}}>{project.name} · {project.number} · {project.client}</p>
+              {projectsList.length>0&&(
+                <select value={linkedProjectId||""} onChange={e=>{const id=e.target.value;const p=projectsList.find(x=>x.id===id);if(p)loadProjectFromDb(p);}}
+                  title="تبديل سريع للمشروع المرتبط"
+                  style={{marginTop:6,background:"rgba(255,255,255,.14)",color:"#fff",border:"1px solid rgba(255,255,255,.3)",borderRadius:7,padding:"4px 10px",fontSize:11,fontWeight:600,outline:"none",maxWidth:320,cursor:"pointer"}}>
+                  <option value="" style={{color:"#1a1a2e"}}>📂 اختر مشروعاً محفوظاً...</option>
+                  {projectsList.map(p=><option key={p.id} value={p.id} style={{color:"#1a1a2e"}}>{p.name||"بدون اسم"}</option>)}
+                </select>
+              )}
             </div>
             <div style={{display:"flex",gap:6,flexShrink:0,flexWrap:"wrap"}}>
               {/* Global search */}
