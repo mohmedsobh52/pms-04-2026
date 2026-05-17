@@ -1747,6 +1747,23 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
             {alerts.map((a,i)=><span key={i} style={{fontSize:11,fontWeight:600,color:a.t==="c"?"#dc2626":"#b45309",display:"flex",alignItems:"center",gap:3}}>{a.t==="c"?"🔴":"🟡"} {a.msg}</span>)}
           </div>
         )}
+        {timeMetrics.valid&&(
+          <div style={{background:timeMetrics.overdue?"hsl(var(--destructive)/.08)":(darkMode?"#0f172a":"hsl(var(--card))"),borderBottom:`1px solid ${timeMetrics.overdue?"hsl(var(--destructive)/.3)":"hsl(var(--border))"}`,padding:"8px 20px",flexShrink:0}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,fontSize:11,fontWeight:700,color:darkMode?"#cbd5e1":"hsl(var(--foreground))",gap:12,flexWrap:"wrap"}}>
+              <span>⏱ الجدول الزمني: <b>{project.startDate}</b> → <b>{project.endDate}</b> · {project.duration} شهر</span>
+              <span style={{display:"flex",gap:14,alignItems:"center",flexWrap:"wrap"}}>
+                <span>الوقت المنقضي: <b style={{color:"hsl(var(--primary))"}}>{timeMetrics.elapsedPct.toFixed(1)}%</b></span>
+                <span>الإنجاز الفعلي: <b style={{color:"hsl(var(--success))"}}>{kpi.prog.toFixed(1)}%</b></span>
+                <span title="SPI محسوب من نسبة الإنجاز ÷ نسبة الوقت المنقضي">SPI زمني: <b style={{color:sColor(timeMetrics.spiTime)}}>{timeMetrics.spiTime>0?timeMetrics.spiTime.toFixed(2):"—"}</b></span>
+                <span style={{color:timeMetrics.overdue?"hsl(var(--destructive))":timeMetrics.daysLeft<30?"hsl(var(--accent))":"hsl(var(--muted-foreground))",fontWeight:800}}>{timeMetrics.overdue?`⛔ متأخر ${Math.abs(timeMetrics.daysLeft)} يوم`:`📅 متبقي ${timeMetrics.daysLeft} يوم`}</span>
+              </span>
+            </div>
+            <div style={{height:9,background:darkMode?"#1e293b":"hsl(var(--muted))",borderRadius:99,overflow:"hidden",position:"relative"}}>
+              <div style={{width:Math.min(100,kpi.prog)+"%",height:"100%",background:"linear-gradient(90deg,hsl(var(--success)),hsl(var(--primary)))",position:"absolute",left:0,top:0,transition:"width .3s"}}/>
+              <div style={{position:"absolute",left:`calc(${Math.min(100,timeMetrics.elapsedPct)}% - 1px)`,top:-2,width:2,height:13,background:"hsl(var(--destructive))"}} title={`الموقع الزمني الحالي (${timeMetrics.elapsedPct.toFixed(1)}%)`}/>
+            </div>
+          </div>
+        )}
         <div style={{flex:1,overflowY:"auto",padding:"16px 20px",background:darkMode?"#0f172a":"#f4f5fb"}}>
 
           {/* ═══ OVERVIEW ═══ */}
