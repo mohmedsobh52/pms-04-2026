@@ -432,6 +432,12 @@ function ProjectsTab({projectsList,projectsLoading,projectsErr,fetchProjects,lin
   return(
     <div>
       <div style={{display:"flex",gap:8,marginBottom:10,alignItems:"center",flexWrap:"wrap"}}>
+        <select value={linkedProjectId||""} onChange={e=>{const id=e.target.value;const p=(projectsList||[]).find(x=>x.id===id);if(p&&!loadingItems)loadProjectFromDb(p);}}
+          title="قائمة منسدلة بالمشاريع المحفوظة"
+          style={{minWidth:220,border:`1px solid ${border}`,borderRadius:9,padding:"9px 12px",fontSize:13,outline:"none",background:cardBg,color:txt,fontWeight:600,cursor:"pointer"}}>
+          <option value="">📂 اختر مشروعاً من القائمة...</option>
+          {(projectsList||[]).map(p=><option key={p.id} value={p.id}>{p.name||"بدون اسم"}{linkedProjectId===p.id?" ✓":""}</option>)}
+        </select>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 ابحث في مشاريعك المحفوظة..."
           style={{flex:1,minWidth:200,border:`1px solid ${border}`,borderRadius:9,padding:"9px 13px",fontSize:13,outline:"none",background:cardBg,color:txt}}/>
         <button onClick={fetchProjects} style={{background:"hsl(var(--muted))",color:"hsl(var(--foreground))",border:`1px solid ${border}`,borderRadius:9,padding:"9px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>🔄 تحديث</button>
