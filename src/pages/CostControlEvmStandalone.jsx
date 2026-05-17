@@ -794,6 +794,12 @@ export default function App(){
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[linkedProjectId]);
 
+  // Persist project meta (dates, duration, currency) per linked project
+  useEffect(()=>{
+    if(!linkedProjectId)return;
+    try{ localStorage.setItem(`evm:projectMeta:${linkedProjectId}`, JSON.stringify({startDate:project.startDate,endDate:project.endDate,duration:project.duration,lockedField:project.lockedField,currency:project.currency,client:project.client,contractor:project.contractor})); }catch(_){}
+  },[project.startDate,project.endDate,project.duration,project.lockedField,project.currency,project.client,project.contractor,linkedProjectId]);
+
 
   // ── Sync AC from Progress Certificates ──
   const [syncingAC,setSyncingAC]=useState(false);
