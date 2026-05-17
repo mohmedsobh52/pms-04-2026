@@ -577,6 +577,20 @@ const KpiMini=({lbl,val,color})=>(
   </div>
 );
 
+// ── Project date helpers ──
+const toIso=(d)=>d?d.toISOString().slice(0,10):"";
+const parseIso=(s)=>{ if(!s)return null; const d=new Date(s); return isNaN(d)?null:d; };
+const addMonths=(d,n)=>{ const x=new Date(d); x.setMonth(x.getMonth()+Math.round(Number(n)||0)); return x; };
+const monthsBetween=(a,b)=>{ if(!a||!b)return 0; return ((b.getFullYear()-a.getFullYear())*12)+(b.getMonth()-a.getMonth())+((b.getDate()-a.getDate())/30); };
+const recomputeProjectDates=(buf)=>{
+  const s=parseIso(buf.startDate), e=parseIso(buf.endDate), dur=Number(buf.duration);
+  const lock=buf.lockedField||"endDate";
+  if(lock==="endDate" && s && dur>0) return {...buf,endDate:toIso(addMonths(s,dur))};
+  if(lock==="duration" && s && e) return {...buf,duration:String(Math.max(1,Math.round(monthsBetween(s,e))))};
+  if(lock==="startDate" && e && dur>0) return {...buf,startDate:toIso(addMonths(e,-dur))};
+  return buf;
+};
+
 // ═══════════════════════════════ APP ═══════════════════════════════
 export default function App(){
   const [acts,setActs]=useState(INIT_ACTS);
