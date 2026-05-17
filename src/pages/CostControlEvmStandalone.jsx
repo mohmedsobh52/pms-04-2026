@@ -768,7 +768,9 @@ export default function App(){
         });
       }
       setActs(newActs);
-      setProject(prev=>({...prev,name:p.name||prev.name,number:p.file_name||prev.number}));
+      let savedMeta={};
+      try{ const raw=localStorage.getItem(`evm:projectMeta:${p.id}`); if(raw)savedMeta=JSON.parse(raw)||{}; }catch(_){}
+      setProject(prev=>recomputeProjectDates({...prev,...savedMeta,name:p.name||prev.name,number:p.file_name||prev.number}));
       setLinkedProjectId(p.id);
       try{localStorage.setItem(LS_LAST,p.id);}catch(_){}
       setSelDisc(null);setSelAct(null);
