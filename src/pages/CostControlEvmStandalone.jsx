@@ -2003,6 +2003,7 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
                           <td style={{padding:"6px 10px",textAlign:"right",fontFamily:"monospace",color:diff>=0?"#10b981":"#ef4444",fontWeight:700}}>{diff.toFixed(1)}</td>
                           <td style={{padding:"6px 10px",textAlign:"center"}}>
                             {c.isForecast?<span style={{fontSize:10,color:"#bbb"}}>متوقع</span>
+                              :outOfWindow?<span style={{fontSize:10,color:"hsl(var(--destructive))",fontWeight:700}}>🔒 خارج النطاق</span>
                               :isEd
                                 ?<div style={{display:"flex",gap:3,justifyContent:"center"}}><button onClick={()=>saveCF(c.id)} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontWeight:700,fontSize:10}}>✓</button><button onClick={()=>{setCfEditId(null);setCfErrs({});}} style={{background:darkMode?"#334155":"#f0f0f5",border:"none",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontSize:10}}>✕</button></div>
                                 :<button onClick={()=>{setCfEditId(c.id);setCfBuf({pvM:c.pvM,acM:c.acM,evM:c.evM});setCfErrs({});}} style={{background:"#eef2ff",border:"none",borderRadius:5,padding:"3px 7px",cursor:"pointer",fontSize:11,color:"#6366f1"}}>✏️</button>
