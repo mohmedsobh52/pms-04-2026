@@ -1957,10 +1957,26 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
                 </ResponsiveContainer>
               </Card>
             </div>
+            <Card style={{padding:0,overflow:"hidden",marginBottom:12}}>
+              <div style={{padding:"10px 16px",background:"linear-gradient(135deg,hsl(var(--primary)/.08),hsl(var(--accent)/.08))",borderBottom:`1px solid hsl(var(--border))`,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+                <div style={{fontSize:11,color:darkMode?"#cbd5e1":"#475569",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                  <span>📅 <b>{project.startDate||"غير محدد"}</b> → <b>{project.endDate||"—"}</b></span>
+                  <span style={{color:"hsl(var(--muted-foreground))"}}>·</span>
+                  <span>المدة: <b>{project.duration||"—"} شهر</b></span>
+                  <span style={{color:"hsl(var(--muted-foreground))"}}>·</span>
+                  <span>BAC: <b>{fmtM((kpi.bac||0)/1e6)}</b></span>
+                </div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  <button onClick={()=>regenerateCashFlowFromDates({distributePV:true})} style={{background:"linear-gradient(135deg,hsl(var(--primary)),hsl(var(--accent)))",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>🔄 توليد الأشهر + توزيع PV</button>
+                  <button onClick={()=>regenerateCashFlowFromDates({distributePV:false})} style={{background:darkMode?"#334155":"#f3f4f6",color:darkMode?"#f1f5f9":"#1a1a2e",border:`1px solid ${darkMode?"#475569":"#e5e7eb"}`,borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>📆 توليد الأشهر فقط</button>
+                  <button onClick={()=>{if(!window.confirm("سيتم تصفير AC و EV. متابعة؟"))return;regenerateCashFlowFromDates({distributePV:true,resetActuals:true});}} style={{background:"hsl(var(--destructive)/.1)",color:"hsl(var(--destructive))",border:"1px solid hsl(var(--destructive)/.3)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>🗑 تصفير وتوليد جديد</button>
+                </div>
+              </div>
+            </Card>
             <Card style={{padding:0,overflow:"hidden"}}>
               <div style={{padding:"12px 18px",borderBottom:`1px solid ${darkMode?"#334155":"#f0f0f0"}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <H3 style={{margin:0}}>💵 جدول التدفق النقدي الشهري — قابل للتعديل</H3>
-                <div style={{display:"flex",gap:8}}><span style={{background:"#eef2ff",color:"#6366f1",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:600}}>🔵 فعلي</span><span style={{background:"#f5f3ff",color:"#8b5cf6",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:600}}>🟣 متوقع</span></div>
+                <H3 style={{margin:0}}>💵 جدول التدفق النقدي الشهري — قابل للتعديل ضمن نطاق المشروع</H3>
+                <div style={{display:"flex",gap:8}}><span style={{background:"#eef2ff",color:"#6366f1",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:600}}>🔵 فعلي</span><span style={{background:"#f5f3ff",color:"#8b5cf6",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:600}}>🟣 متوقع</span><span style={{background:"hsl(var(--destructive)/.1)",color:"hsl(var(--destructive))",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:600}}>🔒 خارج النطاق</span></div>
               </div>
               <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
