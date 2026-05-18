@@ -3247,15 +3247,21 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
           {tab==="narrative"&&(
             <div style={{maxWidth:820,margin:"0 auto"}}>
               <Card style={{marginBottom:14}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16,gap:10,flexWrap:"wrap"}}>
                   <div>
-                    <H3 style={{margin:"0 0 4px"}}>📝 التقرير السردي المُولَّد بالذكاء الاصطناعي</H3>
-                    <div style={{fontSize:11,color:"#888"}}>تحليل احترافي بالعربية يُولَّد تلقائياً بناءً على مؤشرات الأداء الحالية</div>
+                    <H3 style={{margin:"0 0 4px"}}>📝 التقرير السردي</H3>
+                    <div style={{fontSize:11,color:"#888"}}>تحليل احترافي بالعربية بناءً على مؤشرات الأداء الحالية — يدوي سريع أو بالذكاء الاصطناعي</div>
                   </div>
-                  <button onClick={generateNarrative} disabled={narrativeLoading}
-                    style={{background:narrativeLoading?"#ccc":"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontWeight:700,cursor:narrativeLoading?"not-allowed":"pointer",fontSize:12,display:"flex",alignItems:"center",gap:6,whiteSpace:"nowrap"}}>
-                    {narrativeLoading?"⏳ جاري التوليد...":"✨ توليد التقرير"}
-                  </button>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    <button onClick={generateLocalNarrative} disabled={narrativeLoading}
+                      style={{background:"hsl(var(--success)/.12)",color:"hsl(var(--success))",border:"1px solid hsl(var(--success)/.35)",borderRadius:9,padding:"10px 16px",fontWeight:700,cursor:"pointer",fontSize:12,whiteSpace:"nowrap"}}>
+                      ⚡ توليد سريع (بدون AI)
+                    </button>
+                    <button onClick={generateNarrative} disabled={narrativeLoading}
+                      style={{background:narrativeLoading?"#ccc":"linear-gradient(135deg,hsl(var(--primary)),hsl(var(--accent)))",color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontWeight:700,cursor:narrativeLoading?"not-allowed":"pointer",fontSize:12,display:"flex",alignItems:"center",gap:6,whiteSpace:"nowrap"}}>
+                      {narrativeLoading?"⏳ جاري التوليد...":"✨ توليد بالذكاء الاصطناعي"}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Quick stats strip */}
