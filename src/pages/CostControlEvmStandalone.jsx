@@ -1983,11 +1983,11 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
                   <thead><tr style={{background:darkMode?"#1e2d3d":"#f8f9fc"}}>{["#","الشهر","التاريخ","PV (M)","AC (M)","EV (M)","PV تراكمي","AC تراكمي","EV تراكمي","فرق PV-AC","إجراء"].map(h=><th key={h} style={{padding:"9px 11px",textAlign:"center",fontWeight:700,color:darkMode?"#94a3b8":"#555",borderBottom:`1px solid ${darkMode?"#334155":"#eee"}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
                   <tbody>
                     {cfCum.map((c,idx)=>{
-                      const isEd=cfEditId===c.id;const diff=c.pvM-c.acM;
+                      const isEd=cfEditId===c.id;const diff=c.pvM-c.acM;const outOfWindow=cfRowOutOfWindow(c);
                       return(
-                        <tr key={c.id} style={{borderBottom:"1px solid #f5f5f5",background:c.isForecast?"#f5f3ff":idx%2===0?"#fff":"#fafbfc"}}>
+                        <tr key={c.id} style={{borderBottom:"1px solid #f5f5f5",background:outOfWindow?"hsl(var(--destructive)/.05)":c.isForecast?"#f5f3ff":idx%2===0?"#fff":"#fafbfc",opacity:outOfWindow?.55:1}}>
                           <td style={{padding:"6px 10px",textAlign:"center",color:darkMode?"#1e293b":"#ccc",fontSize:10}}>{idx+1}</td>
-                          <td style={{padding:"6px 10px",textAlign:"center",fontFamily:"monospace",fontWeight:700,color:c.isForecast?"#8b5cf6":"#1a1a2e"}}>{c.month}</td>
+                          <td style={{padding:"6px 10px",textAlign:"center",fontFamily:"monospace",fontWeight:700,color:outOfWindow?"hsl(var(--destructive))":c.isForecast?"#8b5cf6":"#1a1a2e"}}>{c.month}{outOfWindow&&" 🔒"}</td>
                           <td style={{padding:"6px 10px",textAlign:"center",fontSize:10,color:"#888"}}>{c.label}</td>
                           {["pvM","acM","evM"].map(k=>(
                             <td key={k} style={{padding:"6px 10px",textAlign:"right"}}>
