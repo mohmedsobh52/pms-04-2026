@@ -1215,16 +1215,37 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
 
 اكتب فقط النص السردي بدون ترقيم أو عناوين، وبأسلوب متدفق احترافي.`;
     try{
-      const res=await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:prompt}]})
-      });
-      const data=await res.json();
-      if(data.error)throw new Error(data.error.message);
-      const txt=data.content?.find(c=>c.type==="text")?.text||"";
+      const { data, error } = await supabase.functions.invoke("generate-evm-narrative", { body: { prompt } });
+      if(error) throw new Error(error.message || "فشل الاتصال");
+      if(data?.error) throw new Error(data.error);
+      const txt = data?.text || "";
+      if(!txt) throw new Error("تقرير فارغ من الخدمة");
       setNarrativeText(txt);
-    }catch(e){setNarrativeError("فشل توليد التقرير: "+e.message);}
+      toast.success("✨ تم توليد التقرير السردي");
+    }catch(e){
+      setNarrativeError("فشل توليد التقرير: "+e.message);
+      toast.error("⚠️ "+e.message);
+    }
     finally{setNarrativeLoading(false);}
+  };
+
+  // ── Local narrative generator (بدون AI) ──
+  const generateLocalNarrative=()=>{
+    const status = kpi.CPI>=1 && kpi.SPI>=1 ? "أداء ممتاز" : kpi.CPI>=0.95 && kpi.SPI>=0.95 ? "أداء جيد" : kpi.CPI>=0.9 || kpi.SPI>=0.9 ? "أداء يحتاج إلى متابعة" : "أداء حرج يستدعي تدخلاً فورياً";
+    const txt = `يعرض هذا التقرير الوضع الراهن لمشروع «${project.name}» (عقد رقم ${project.number}) المُنفَّذ لصالح ${project.client} بواسطة ${project.contractor}. الميزانية المعتمدة عند الإتمام (BAC) تبلغ ${fmt(kpi.bac)} ريال، وتاريخ بدء التنفيذ ${project.startDate||"غير محدد"} على أن ينتهي في ${project.endDate||"غير محدد"} بمدة إجمالية ${project.duration||"-"} شهراً.
+
+على صعيد الأداء العام، حقق المشروع نسبة إنجاز فعلية بلغت ${kpi.prog.toFixed(1)}%، وبلغت القيمة المكتسبة (EV) ${fmt(kpi.ev)} ريال مقابل قيمة مخططة (PV) قدرها ${fmt(kpi.pv)} ريال، وتكلفة فعلية (AC) قدرها ${fmt(kpi.ac)} ريال. وعليه فإن مؤشر أداء التكلفة (CPI) بلغ ${kpi.CPI.toFixed(2)} ومؤشر أداء الجدول (SPI) ${kpi.SPI.toFixed(2)}، ما يعكس ${status}.
+
+من ناحية الانحرافات، سجّل المشروع انحراف تكلفة (CV) قدره ${fmt(kpi.CV)} ريال وانحراف جدول (SV) قدره ${fmt(kpi.SV)} ريال. ${kpi.CV<0?`يُشير ذلك إلى تجاوز مالي يتطلب مراجعة بنود الصرف الأعلى من المتوقع.`:`يدل ذلك على ضبط جيد للتكاليف ضمن الميزانية.`} ${kpi.SV<0?`كما يوجد تأخر في الإنجاز مقارنةً بالخطة، ويُتوقع انزياح زمني قدره ${durationForecast.slipMonths} شهراً.`:`ويسير الجدول الزمني وفق الخطة.`}
+
+استناداً إلى الأداء الحالي، يُقدَّر إجمالي تكلفة الإتمام (EAC) بمبلغ ${fmt(kpi.EAC)} ريال، ${kpi.EAC>kpi.bac?`أي بتجاوز قدره ${fmt(kpi.EAC-kpi.bac)} ريال عن الميزانية المعتمدة`:`أي ضمن حدود الميزانية المعتمدة بهامش وفر قدره ${fmt(kpi.bac-kpi.EAC)} ريال`}. ويُظهر مؤشر الكفاءة المستهدفة (TCPI) قيمة ${kpi.TCPI.toFixed(2)}، ${kpi.TCPI<=1?`وهي قيمة قابلة للتحقيق.`:kpi.TCPI<=1.1?`وهي تتطلب رفع كفاءة الأداء.`:`وهي صعبة المنال وتستدعي مراجعة شاملة للنطاق والموارد.`}
+
+${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنبيه(ات) نشطة تشمل: ${alerts.slice(0,3).map(a=>a.msg).join("، ")}.`:`لا توجد تنبيهات حرجة في الوقت الراهن.`} ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").length?`كما يوجد ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").length} مخاطر عالية مفتوحة تتطلب خطط استجابة فورية.`:""}
+
+توصي إدارة المشروع بـ: (1) المتابعة المستمرة للأنشطة ذات الانحراف العالي، (2) تفعيل خطط معالجة المخاطر الحرجة، (3) ${kpi.CPI<1?`إعادة تقييم بنود التكلفة المتجاوزة`:`الحفاظ على نمط الضبط المالي الحالي`}، (4) ${kpi.SPI<1?`تسريع وتيرة التنفيذ في الأنشطة المتأخرة`:`الإبقاء على وتيرة الإنجاز`}.`;
+    setNarrativeText(txt);
+    setNarrativeError("");
+    toast.success("📝 تم توليد التقرير محلياً");
   };
 
   const cfWithForecast=useMemo(()=>{
