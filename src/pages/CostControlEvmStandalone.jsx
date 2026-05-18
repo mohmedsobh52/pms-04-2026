@@ -1824,6 +1824,26 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
             </div>
           </div>
         )}
+        {/* ═══ Quick Nav Strip — ربط مع باقي الشاشات ═══ */}
+        <div style={{background:darkMode?"#0b1220":"hsl(var(--card))",borderBottom:`1px solid hsl(var(--border))`,padding:"6px 16px",display:"flex",gap:6,overflowX:"auto",alignItems:"center",flexShrink:0}}>
+          <span style={{fontSize:10,color:"hsl(var(--muted-foreground))",fontWeight:700,whiteSpace:"nowrap",marginInlineEnd:4}}>🔗 تنقّل:</span>
+          {[
+            {to:"/projects",lbl:"📁 المشاريع",t:"المشاريع المحفوظة"},
+            {to:linkedProjectId?`/projects/${linkedProjectId}`:"/projects",lbl:"📊 تفاصيل المشروع",t:"تفاصيل المشروع المرتبط"},
+            {to:"/items",lbl:"📋 BOQ",t:"بنود الأعمال"},
+            {to:linkedProjectId?`/projects/${linkedProjectId}/pricing`:"/projects",lbl:"💰 التسعير",t:"شاشة التسعير"},
+            {to:"/progress-certificates",lbl:"📜 الشهادات",t:"شهادات الإنجاز"},
+            {to:"/procurement",lbl:"🛒 المشتريات",t:"المشتريات"},
+            {to:"/subcontractors",lbl:"🤝 المقاولون",t:"المقاولون من الباطن"},
+            {to:"/risk",lbl:"⚠️ المخاطر",t:"إدارة المخاطر"},
+            {to:"/resources-dashboard",lbl:"👷 الموارد",t:"لوحة الموارد"},
+            {to:"/calendar",lbl:"📅 التقويم",t:"تقويم المشاريع"},
+            {to:"/cost-control-report",lbl:"📑 تقرير التحكم",t:"تقرير التحكم في التكلفة"},
+            {to:"/reports",lbl:"🖨 التقارير",t:"التقارير"},
+          ].map(({to,lbl,t})=>(
+            <Link key={lbl} to={to} title={t} style={{background:darkMode?"#172033":"hsl(var(--muted)/.5)",color:"hsl(var(--foreground))",border:`1px solid hsl(var(--border))`,borderRadius:6,padding:"4px 10px",fontSize:10,fontWeight:600,whiteSpace:"nowrap",textDecoration:"none"}}>{lbl}</Link>
+          ))}
+        </div>
         <div style={{flex:1,overflowY:"auto",padding:"16px 20px",background:darkMode?"#0f172a":"#f4f5fb"}}>
 
           {/* ═══ OVERVIEW ═══ */}
