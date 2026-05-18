@@ -1215,17 +1215,71 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
 
 اكتب فقط النص السردي بدون ترقيم أو عناوين، وبأسلوب متدفق احترافي.`;
     try{
-      const res=await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:prompt}]})
-      });
-      const data=await res.json();
-      if(data.error)throw new Error(data.error.message);
-      const txt=data.content?.find(c=>c.type==="text")?.text||"";
+      const { data, error } = await supabase.functions.invoke("generate-evm-narrative", { body: { prompt } });
+      if(error) throw new Error(error.message || "فشل الاتصال");
+      if(data?.error) throw new Error(data.error);
+      const txt = data?.text || "";
+      if(!txt) throw new Error("تقرير فارغ من الخدمة");
       setNarrativeText(txt);
-    }catch(e){setNarrativeError("فشل توليد التقرير: "+e.message);}
+      toast.success("✨ تم توليد التقرير السردي");
+    }catch(e){
+      setNarrativeError("فشل توليد التقرير: "+e.message);
+      toast.error("⚠️ "+e.message);
+    }
     finally{setNarrativeLoading(false);}
   };
+
+  // ── Local narrative generator (بدون AI) ──
+  const generateLocalNarrative=()=>{
+    const status = kpi.CPI>=1 && kpi.SPI>=1 ? "أداء ممتاز" : kpi.CPI>=0.95 && kpi.SPI>=0.95 ? "أداء جيد" : kpi.CPI>=0.9 || kpi.SPI>=0.9 ? "أداء يحتاج إلى متابعة" : "أداء حرج يستدعي تدخلاً فورياً";
+    const txt = `يعرض هذا التقرير الوضع الراهن لمشروع «${project.name}» (عقد رقم ${project.number}) المُنفَّذ لصالح ${project.client} بواسطة ${project.contractor}. الميزانية المعتمدة عند الإتمام (BAC) تبلغ ${fmt(kpi.bac)} ريال، وتاريخ بدء التنفيذ ${project.startDate||"غير محدد"} على أن ينتهي في ${project.endDate||"غير محدد"} بمدة إجمالية ${project.duration||"-"} شهراً.
+
+على صعيد الأداء العام، حقق المشروع نسبة إنجاز فعلية بلغت ${kpi.prog.toFixed(1)}%، وبلغت القيمة المكتسبة (EV) ${fmt(kpi.ev)} ريال مقابل قيمة مخططة (PV) قدرها ${fmt(kpi.pv)} ريال، وتكلفة فعلية (AC) قدرها ${fmt(kpi.ac)} ريال. وعليه فإن مؤشر أداء التكلفة (CPI) بلغ ${kpi.CPI.toFixed(2)} ومؤشر أداء الجدول (SPI) ${kpi.SPI.toFixed(2)}، ما يعكس ${status}.
+
+من ناحية الانحرافات، سجّل المشروع انحراف تكلفة (CV) قدره ${fmt(kpi.CV)} ريال وانحراف جدول (SV) قدره ${fmt(kpi.SV)} ريال. ${kpi.CV<0?`يُشير ذلك إلى تجاوز مالي يتطلب مراجعة بنود الصرف الأعلى من المتوقع.`:`يدل ذلك على ضبط جيد للتكاليف ضمن الميزانية.`} ${kpi.SV<0?`كما يوجد تأخر في الإنجاز مقارنةً بالخطة، ويُتوقع انزياح زمني قدره ${durationForecast.slipMonths} شهراً.`:`ويسير الجدول الزمني وفق الخطة.`}
+
+استناداً إلى الأداء الحالي، يُقدَّر إجمالي تكلفة الإتمام (EAC) بمبلغ ${fmt(kpi.EAC)} ريال، ${kpi.EAC>kpi.bac?`أي بتجاوز قدره ${fmt(kpi.EAC-kpi.bac)} ريال عن الميزانية المعتمدة`:`أي ضمن حدود الميزانية المعتمدة بهامش وفر قدره ${fmt(kpi.bac-kpi.EAC)} ريال`}. ويُظهر مؤشر الكفاءة المستهدفة (TCPI) قيمة ${kpi.TCPI.toFixed(2)}، ${kpi.TCPI<=1?`وهي قيمة قابلة للتحقيق.`:kpi.TCPI<=1.1?`وهي تتطلب رفع كفاءة الأداء.`:`وهي صعبة المنال وتستدعي مراجعة شاملة للنطاق والموارد.`}
+
+${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنبيه(ات) نشطة تشمل: ${alerts.slice(0,3).map(a=>a.msg).join("، ")}.`:`لا توجد تنبيهات حرجة في الوقت الراهن.`} ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").length?`كما يوجد ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").length} مخاطر عالية مفتوحة تتطلب خطط استجابة فورية.`:""}
+
+توصي إدارة المشروع بـ: (1) المتابعة المستمرة للأنشطة ذات الانحراف العالي، (2) تفعيل خطط معالجة المخاطر الحرجة، (3) ${kpi.CPI<1?`إعادة تقييم بنود التكلفة المتجاوزة`:`الحفاظ على نمط الضبط المالي الحالي`}، (4) ${kpi.SPI<1?`تسريع وتيرة التنفيذ في الأنشطة المتأخرة`:`الإبقاء على وتيرة الإنجاز`}.`;
+    setNarrativeText(txt);
+    setNarrativeError("");
+    toast.success("📝 تم توليد التقرير محلياً");
+  };
+
+  // ── Regenerate CF rows from project dates ──
+  const regenerateCashFlowFromDates=useCallback((opts={})=>{
+    const start=parseIso(project.startDate); const dur=Math.max(1,Math.min(120,Number(project.duration)||12));
+    if(!start){toast.error("⚠️ حدّد تاريخ بداية المشروع أولاً");return;}
+    const bacM=(kpi.bac||0)/1e6;
+    const evenPV=bacM>0?+(bacM/dur).toFixed(2):0;
+    const newRows=Array.from({length:dur},(_,i)=>{
+      const d=new Date(start);d.setMonth(d.getMonth()+i);
+      const monthLbl=`${MN[d.getMonth()]} ${d.getFullYear()}`;
+      const existing=cf.find(c=>c.month===`M${i+1}`);
+      return{
+        id:i,
+        month:`M${i+1}`,
+        label:monthLbl,
+        pvM: opts.distributePV ? evenPV : (existing?.pvM ?? evenPV),
+        acM: opts.resetActuals ? 0 : (existing?.acM ?? 0),
+        evM: opts.resetActuals ? 0 : (existing?.evM ?? 0),
+        isForecast:false,
+      };
+    });
+    setCf(newRows);
+    toast.success(`✅ تم توليد ${dur} شهراً من ${project.startDate}`);
+    logChange(`إعادة توليد التدفق النقدي (${dur} شهر) من تواريخ المشروع`,"edit");
+  },[project.startDate,project.duration,kpi.bac,cf]);
+
+  // Lock-out check: returns true if a CF row is outside the project window
+  const cfRowOutOfWindow=useCallback((row)=>{
+    const start=parseIso(project.startDate); const dur=Number(project.duration)||0;
+    if(!start||!dur||row.isForecast)return false;
+    const idx=Number(String(row.month).replace(/^M/,""))-1;
+    return idx<0||idx>=dur;
+  },[project.startDate,project.duration]);
 
   const cfWithForecast=useMemo(()=>{
     const etcM=kpi.ETC/1e6,totalEV=cf.reduce((s,c)=>s+c.evM,0),remEV=Math.max(0,kpi.bac/1e6-totalEV);
@@ -1770,6 +1824,26 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
             </div>
           </div>
         )}
+        {/* ═══ Quick Nav Strip — ربط مع باقي الشاشات ═══ */}
+        <div style={{background:darkMode?"#0b1220":"hsl(var(--card))",borderBottom:`1px solid hsl(var(--border))`,padding:"6px 16px",display:"flex",gap:6,overflowX:"auto",alignItems:"center",flexShrink:0}}>
+          <span style={{fontSize:10,color:"hsl(var(--muted-foreground))",fontWeight:700,whiteSpace:"nowrap",marginInlineEnd:4}}>🔗 تنقّل:</span>
+          {[
+            {to:"/projects",lbl:"📁 المشاريع",t:"المشاريع المحفوظة"},
+            {to:linkedProjectId?`/projects/${linkedProjectId}`:"/projects",lbl:"📊 تفاصيل المشروع",t:"تفاصيل المشروع المرتبط"},
+            {to:"/items",lbl:"📋 BOQ",t:"بنود الأعمال"},
+            {to:linkedProjectId?`/projects/${linkedProjectId}/pricing`:"/projects",lbl:"💰 التسعير",t:"شاشة التسعير"},
+            {to:"/progress-certificates",lbl:"📜 الشهادات",t:"شهادات الإنجاز"},
+            {to:"/procurement",lbl:"🛒 المشتريات",t:"المشتريات"},
+            {to:"/subcontractors",lbl:"🤝 المقاولون",t:"المقاولون من الباطن"},
+            {to:"/risk",lbl:"⚠️ المخاطر",t:"إدارة المخاطر"},
+            {to:"/resources-dashboard",lbl:"👷 الموارد",t:"لوحة الموارد"},
+            {to:"/calendar",lbl:"📅 التقويم",t:"تقويم المشاريع"},
+            {to:"/cost-control-report",lbl:"📑 تقرير التحكم",t:"تقرير التحكم في التكلفة"},
+            {to:"/reports",lbl:"🖨 التقارير",t:"التقارير"},
+          ].map(({to,lbl,t})=>(
+            <Link key={lbl} to={to} title={t} style={{background:darkMode?"#172033":"hsl(var(--muted)/.5)",color:"hsl(var(--foreground))",border:`1px solid hsl(var(--border))`,borderRadius:6,padding:"4px 10px",fontSize:10,fontWeight:600,whiteSpace:"nowrap",textDecoration:"none"}}>{lbl}</Link>
+          ))}
+        </div>
         <div style={{flex:1,overflowY:"auto",padding:"16px 20px",background:darkMode?"#0f172a":"#f4f5fb"}}>
 
           {/* ═══ OVERVIEW ═══ */}
@@ -1903,21 +1977,37 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
                 </ResponsiveContainer>
               </Card>
             </div>
+            <Card style={{padding:0,overflow:"hidden",marginBottom:12}}>
+              <div style={{padding:"10px 16px",background:"linear-gradient(135deg,hsl(var(--primary)/.08),hsl(var(--accent)/.08))",borderBottom:`1px solid hsl(var(--border))`,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+                <div style={{fontSize:11,color:darkMode?"#cbd5e1":"#475569",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                  <span>📅 <b>{project.startDate||"غير محدد"}</b> → <b>{project.endDate||"—"}</b></span>
+                  <span style={{color:"hsl(var(--muted-foreground))"}}>·</span>
+                  <span>المدة: <b>{project.duration||"—"} شهر</b></span>
+                  <span style={{color:"hsl(var(--muted-foreground))"}}>·</span>
+                  <span>BAC: <b>{fmtM((kpi.bac||0)/1e6)}</b></span>
+                </div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  <button onClick={()=>regenerateCashFlowFromDates({distributePV:true})} style={{background:"linear-gradient(135deg,hsl(var(--primary)),hsl(var(--accent)))",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>🔄 توليد الأشهر + توزيع PV</button>
+                  <button onClick={()=>regenerateCashFlowFromDates({distributePV:false})} style={{background:darkMode?"#334155":"#f3f4f6",color:darkMode?"#f1f5f9":"#1a1a2e",border:`1px solid ${darkMode?"#475569":"#e5e7eb"}`,borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>📆 توليد الأشهر فقط</button>
+                  <button onClick={()=>{if(!window.confirm("سيتم تصفير AC و EV. متابعة؟"))return;regenerateCashFlowFromDates({distributePV:true,resetActuals:true});}} style={{background:"hsl(var(--destructive)/.1)",color:"hsl(var(--destructive))",border:"1px solid hsl(var(--destructive)/.3)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>🗑 تصفير وتوليد جديد</button>
+                </div>
+              </div>
+            </Card>
             <Card style={{padding:0,overflow:"hidden"}}>
               <div style={{padding:"12px 18px",borderBottom:`1px solid ${darkMode?"#334155":"#f0f0f0"}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <H3 style={{margin:0}}>💵 جدول التدفق النقدي الشهري — قابل للتعديل</H3>
-                <div style={{display:"flex",gap:8}}><span style={{background:"#eef2ff",color:"#6366f1",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:600}}>🔵 فعلي</span><span style={{background:"#f5f3ff",color:"#8b5cf6",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:600}}>🟣 متوقع</span></div>
+                <H3 style={{margin:0}}>💵 جدول التدفق النقدي الشهري — قابل للتعديل ضمن نطاق المشروع</H3>
+                <div style={{display:"flex",gap:8}}><span style={{background:"#eef2ff",color:"#6366f1",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:600}}>🔵 فعلي</span><span style={{background:"#f5f3ff",color:"#8b5cf6",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:600}}>🟣 متوقع</span><span style={{background:"hsl(var(--destructive)/.1)",color:"hsl(var(--destructive))",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:600}}>🔒 خارج النطاق</span></div>
               </div>
               <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
                   <thead><tr style={{background:darkMode?"#1e2d3d":"#f8f9fc"}}>{["#","الشهر","التاريخ","PV (M)","AC (M)","EV (M)","PV تراكمي","AC تراكمي","EV تراكمي","فرق PV-AC","إجراء"].map(h=><th key={h} style={{padding:"9px 11px",textAlign:"center",fontWeight:700,color:darkMode?"#94a3b8":"#555",borderBottom:`1px solid ${darkMode?"#334155":"#eee"}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
                   <tbody>
                     {cfCum.map((c,idx)=>{
-                      const isEd=cfEditId===c.id;const diff=c.pvM-c.acM;
+                      const isEd=cfEditId===c.id;const diff=c.pvM-c.acM;const outOfWindow=cfRowOutOfWindow(c);
                       return(
-                        <tr key={c.id} style={{borderBottom:"1px solid #f5f5f5",background:c.isForecast?"#f5f3ff":idx%2===0?"#fff":"#fafbfc"}}>
+                        <tr key={c.id} style={{borderBottom:"1px solid #f5f5f5",background:outOfWindow?"hsl(var(--destructive)/.05)":c.isForecast?"#f5f3ff":idx%2===0?"#fff":"#fafbfc",opacity:outOfWindow?.55:1}}>
                           <td style={{padding:"6px 10px",textAlign:"center",color:darkMode?"#1e293b":"#ccc",fontSize:10}}>{idx+1}</td>
-                          <td style={{padding:"6px 10px",textAlign:"center",fontFamily:"monospace",fontWeight:700,color:c.isForecast?"#8b5cf6":"#1a1a2e"}}>{c.month}</td>
+                          <td style={{padding:"6px 10px",textAlign:"center",fontFamily:"monospace",fontWeight:700,color:outOfWindow?"hsl(var(--destructive))":c.isForecast?"#8b5cf6":"#1a1a2e"}}>{c.month}{outOfWindow&&" 🔒"}</td>
                           <td style={{padding:"6px 10px",textAlign:"center",fontSize:10,color:"#888"}}>{c.label}</td>
                           {["pvM","acM","evM"].map(k=>(
                             <td key={k} style={{padding:"6px 10px",textAlign:"right"}}>
@@ -1933,6 +2023,7 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
                           <td style={{padding:"6px 10px",textAlign:"right",fontFamily:"monospace",color:diff>=0?"#10b981":"#ef4444",fontWeight:700}}>{diff.toFixed(1)}</td>
                           <td style={{padding:"6px 10px",textAlign:"center"}}>
                             {c.isForecast?<span style={{fontSize:10,color:"#bbb"}}>متوقع</span>
+                              :outOfWindow?<span style={{fontSize:10,color:"hsl(var(--destructive))",fontWeight:700}}>🔒 خارج النطاق</span>
                               :isEd
                                 ?<div style={{display:"flex",gap:3,justifyContent:"center"}}><button onClick={()=>saveCF(c.id)} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontWeight:700,fontSize:10}}>✓</button><button onClick={()=>{setCfEditId(null);setCfErrs({});}} style={{background:darkMode?"#334155":"#f0f0f5",border:"none",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontSize:10}}>✕</button></div>
                                 :<button onClick={()=>{setCfEditId(c.id);setCfBuf({pvM:c.pvM,acM:c.acM,evM:c.evM});setCfErrs({});}} style={{background:"#eef2ff",border:"none",borderRadius:5,padding:"3px 7px",cursor:"pointer",fontSize:11,color:"#6366f1"}}>✏️</button>
@@ -3176,15 +3267,21 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
           {tab==="narrative"&&(
             <div style={{maxWidth:820,margin:"0 auto"}}>
               <Card style={{marginBottom:14}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16,gap:10,flexWrap:"wrap"}}>
                   <div>
-                    <H3 style={{margin:"0 0 4px"}}>📝 التقرير السردي المُولَّد بالذكاء الاصطناعي</H3>
-                    <div style={{fontSize:11,color:"#888"}}>تحليل احترافي بالعربية يُولَّد تلقائياً بناءً على مؤشرات الأداء الحالية</div>
+                    <H3 style={{margin:"0 0 4px"}}>📝 التقرير السردي</H3>
+                    <div style={{fontSize:11,color:"#888"}}>تحليل احترافي بالعربية بناءً على مؤشرات الأداء الحالية — يدوي سريع أو بالذكاء الاصطناعي</div>
                   </div>
-                  <button onClick={generateNarrative} disabled={narrativeLoading}
-                    style={{background:narrativeLoading?"#ccc":"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontWeight:700,cursor:narrativeLoading?"not-allowed":"pointer",fontSize:12,display:"flex",alignItems:"center",gap:6,whiteSpace:"nowrap"}}>
-                    {narrativeLoading?"⏳ جاري التوليد...":"✨ توليد التقرير"}
-                  </button>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    <button onClick={generateLocalNarrative} disabled={narrativeLoading}
+                      style={{background:"hsl(var(--success)/.12)",color:"hsl(var(--success))",border:"1px solid hsl(var(--success)/.35)",borderRadius:9,padding:"10px 16px",fontWeight:700,cursor:"pointer",fontSize:12,whiteSpace:"nowrap"}}>
+                      ⚡ توليد سريع (بدون AI)
+                    </button>
+                    <button onClick={generateNarrative} disabled={narrativeLoading}
+                      style={{background:narrativeLoading?"#ccc":"linear-gradient(135deg,hsl(var(--primary)),hsl(var(--accent)))",color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontWeight:700,cursor:narrativeLoading?"not-allowed":"pointer",fontSize:12,display:"flex",alignItems:"center",gap:6,whiteSpace:"nowrap"}}>
+                      {narrativeLoading?"⏳ جاري التوليد...":"✨ توليد بالذكاء الاصطناعي"}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Quick stats strip */}
