@@ -1248,6 +1248,39 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
     toast.success("📝 تم توليد التقرير محلياً");
   };
 
+  // ── Regenerate CF rows from project dates ──
+  const regenerateCashFlowFromDates=useCallback((opts={})=>{
+    const start=parseIso(project.startDate); const dur=Math.max(1,Math.min(120,Number(project.duration)||12));
+    if(!start){toast.error("⚠️ حدّد تاريخ بداية المشروع أولاً");return;}
+    const bacM=(kpi.bac||0)/1e6;
+    const evenPV=bacM>0?+(bacM/dur).toFixed(2):0;
+    const newRows=Array.from({length:dur},(_,i)=>{
+      const d=new Date(start);d.setMonth(d.getMonth()+i);
+      const monthLbl=`${MN[d.getMonth()]} ${d.getFullYear()}`;
+      const existing=cf.find(c=>c.month===`M${i+1}`);
+      return{
+        id:i,
+        month:`M${i+1}`,
+        label:monthLbl,
+        pvM: opts.distributePV ? evenPV : (existing?.pvM ?? evenPV),
+        acM: opts.resetActuals ? 0 : (existing?.acM ?? 0),
+        evM: opts.resetActuals ? 0 : (existing?.evM ?? 0),
+        isForecast:false,
+      };
+    });
+    setCf(newRows);
+    toast.success(`✅ تم توليد ${dur} شهراً من ${project.startDate}`);
+    logChange(`إعادة توليد التدفق النقدي (${dur} شهر) من تواريخ المشروع`,"edit");
+  },[project.startDate,project.duration,kpi.bac,cf]);
+
+  // Lock-out check: returns true if a CF row is outside the project window
+  const cfRowOutOfWindow=useCallback((row)=>{
+    const start=parseIso(project.startDate); const dur=Number(project.duration)||0;
+    if(!start||!dur||row.isForecast)return false;
+    const idx=Number(String(row.month).replace(/^M/,""))-1;
+    return idx<0||idx>=dur;
+  },[project.startDate,project.duration]);
+
   const cfWithForecast=useMemo(()=>{
     const etcM=kpi.ETC/1e6,totalEV=cf.reduce((s,c)=>s+c.evM,0),remEV=Math.max(0,kpi.bac/1e6-totalEV);
     const forecast=Array.from({length:6},(_,i)=>({id:100+i,month:`F${i+1}`,label:MN[(12+i)%12]+" 2026",pvM:0,acM:etcM>0?+(etcM/6).toFixed(1):0,evM:remEV>0?+(remEV/6).toFixed(1):0,isForecast:true}));
