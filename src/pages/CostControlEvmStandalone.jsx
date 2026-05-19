@@ -3530,10 +3530,14 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
                       {narrativeText}
                     </div>
                     {/* Action buttons */}
-                    <div style={{display:"flex",gap:10,marginTop:20,paddingTop:16,borderTop:"1px solid #f0f0f0"}}>
+                    <div style={{display:"flex",gap:10,marginTop:20,paddingTop:16,borderTop:"1px solid #f0f0f0",flexWrap:"wrap"}}>
                       <button onClick={generateNarrative}
                         style={{background:"#6366f1",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontWeight:700,cursor:"pointer",fontSize:12}}>
                         🔄 إعادة التوليد
+                      </button>
+                      <button onClick={exportNarrativePDF}
+                        style={{background:"linear-gradient(135deg,#dc2626,#b91c1c)",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontWeight:700,cursor:"pointer",fontSize:12}}>
+                        📄 تصدير PDF
                       </button>
                       <button onClick={()=>{const el=document.createElement("a");el.href="data:text/plain;charset=utf-8,"+encodeURIComponent(narrativeText);el.download="narrative_report.txt";el.click();}}
                         style={{background:"#10b981",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontWeight:700,cursor:"pointer",fontSize:12}}>
@@ -3543,8 +3547,39 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
                   </div>
                 )}
               </Card>
+
+              {/* Generation history panel */}
+              <Card>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,gap:8,flexWrap:"wrap"}}>
+                  <H3 style={{margin:0}}>🕘 سجل التوليدات ({genHistory.length})</H3>
+                  <div style={{display:"flex",gap:6}}>
+                    <button onClick={()=>setShowHistory(s=>!s)} style={{background:"hsl(var(--primary)/.1)",color:"hsl(var(--primary))",border:"1px solid hsl(var(--primary)/.3)",borderRadius:7,padding:"5px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>{showHistory?"إخفاء":"عرض"}</button>
+                    {genHistory.length>0&&<button onClick={()=>{if(window.confirm("مسح كل السجل؟")){setGenHistory([]);try{localStorage.removeItem("evm:genHistory");}catch{}toast.success("تم المسح");}}} style={{background:"hsl(var(--destructive)/.1)",color:"hsl(var(--destructive))",border:"1px solid hsl(var(--destructive)/.3)",borderRadius:7,padding:"5px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>🗑 مسح</button>}
+                  </div>
+                </div>
+                {showHistory && (genHistory.length===0
+                  ? <div style={{textAlign:"center",padding:"20px",color:"#bbb",fontSize:12}}>لا توجد عمليات توليد بعد</div>
+                  : <div style={{maxHeight:300,overflowY:"auto"}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                        <thead><tr style={{background:"hsl(var(--muted))",position:"sticky",top:0}}>{["التاريخ","النوع","الوضع","الحالة","التفاصيل"].map(h=><th key={h} style={{padding:"6px 8px",textAlign:"right",fontWeight:700,fontSize:10,borderBottom:"1px solid hsl(var(--border))"}}>{h}</th>)}</tr></thead>
+                        <tbody>{genHistory.map(h=>(
+                          <tr key={h.id} style={{borderBottom:"1px solid hsl(var(--border)/.5)"}}>
+                            <td style={{padding:"6px 8px",fontFamily:"monospace",fontSize:10,color:"#666"}}>{new Date(h.ts).toLocaleString("ar-SA")}</td>
+                            <td style={{padding:"6px 8px"}}>{h.kind==="cashflow"?"💰 تدفق نقدي":"📝 تقرير سردي"}</td>
+                            <td style={{padding:"6px 8px",fontSize:10,color:"#888"}}>{h.mode||(h.opts?.distributePV?"+PV":"عادي")}</td>
+                            <td style={{padding:"6px 8px"}}>{h.status==="success"
+                              ?<span style={{background:"hsl(var(--success)/.15)",color:"hsl(var(--success))",padding:"2px 8px",borderRadius:5,fontSize:10,fontWeight:700}}>✓ نجح</span>
+                              :<span style={{background:"hsl(var(--destructive)/.15)",color:"hsl(var(--destructive))",padding:"2px 8px",borderRadius:5,fontSize:10,fontWeight:700}}>✕ فشل</span>}</td>
+                            <td style={{padding:"6px 8px",fontSize:10,color:"#666",maxWidth:280,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={h.message}>{h.message}</td>
+                          </tr>
+                        ))}</tbody>
+                      </table>
+                    </div>
+                )}
+              </Card>
             </div>
           )}
+
 
           {tab==="report"&&(
             <div style={{maxWidth:900,margin:"0 auto"}}>
