@@ -1267,10 +1267,41 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
     toast.success("📝 تم توليد التقرير محلياً");
   };
 
+  // ── Validate project dates ↔ cash flow consistency ──
+  const validateProjectDates=useCallback(()=>{
+    const errs=[];
+    const s=parseIso(project.startDate),e=parseIso(project.endDate);
+    const dur=Number(project.duration)||0;
+    if(!s)errs.push("تاريخ بداية المشروع غير محدد");
+    if(!e)errs.push("تاريخ نهاية المشروع غير محدد");
+    if(s&&e&&e<=s)errs.push("تاريخ النهاية يجب أن يكون بعد البداية");
+    if(dur<=0)errs.push("مدة المشروع غير صالحة");
+    if(s&&e&&dur>0){
+      const calc=Math.round(monthsBetween(s,e));
+      if(Math.abs(calc-dur)>1)errs.push(`عدم تطابق: المدة ${dur} شهر بينما الفرق بين التواريخ ${calc} شهر`);
+    }
+    if(s&&dur>0){
+      const outside=cf.filter(c=>!c.isForecast).map(c=>Number(String(c.month).replace(/^M/,""))-1).filter(i=>i<0||i>=dur).length;
+      if(outside>0)errs.push(`${outside} صف(وف) في التدفق النقدي خارج نطاق المشروع — أعد التوليد`);
+    }
+    return errs;
+  },[project.startDate,project.endDate,project.duration,cf]);
+
   // ── Regenerate CF rows from project dates ──
   const regenerateCashFlowFromDates=useCallback((opts={})=>{
     const start=parseIso(project.startDate); const dur=Math.max(1,Math.min(120,Number(project.duration)||12));
-    if(!start){toast.error("⚠️ حدّد تاريخ بداية المشروع أولاً");return;}
+    if(!start){
+      toast.error("⚠️ حدّد تاريخ بداية المشروع أولاً");
+      pushHistory({kind:"cashflow",status:"failure",message:"تاريخ البداية غير محدد",opts});
+      return;
+    }
+    // Auto-consistency check (warn but allow if user confirms)
+    const errs=validateProjectDates();
+    const blocking=errs.filter(m=>!m.includes("في التدفق النقدي خارج نطاق")); // out-of-window is what we're fixing
+    if(blocking.length){
+      const ok=window.confirm("⚠️ تنبيهات تناسق:\n• "+blocking.join("\n• ")+"\n\nمتابعة التوليد؟");
+      if(!ok){pushHistory({kind:"cashflow",status:"failure",message:"ألغى المستخدم بسبب: "+blocking.join("; "),opts});return;}
+    }
     const bacM=(kpi.bac||0)/1e6;
     const evenPV=bacM>0?+(bacM/dur).toFixed(2):0;
     const newRows=Array.from({length:dur},(_,i)=>{
@@ -1290,7 +1321,8 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
     setCf(newRows);
     toast.success(`✅ تم توليد ${dur} شهراً من ${project.startDate}`);
     logChange(`إعادة توليد التدفق النقدي (${dur} شهر) من تواريخ المشروع`,"edit");
-  },[project.startDate,project.duration,kpi.bac,cf]);
+    pushHistory({kind:"cashflow",status:"success",message:`توليد ${dur} شهر${opts.distributePV?" + توزيع PV":""}${opts.resetActuals?" (تصفير)":""}`,opts});
+  },[project.startDate,project.duration,kpi.bac,cf,validateProjectDates,pushHistory]);
 
   // Lock-out check: returns true if a CF row is outside the project window
   const cfRowOutOfWindow=useCallback((row)=>{
@@ -1302,14 +1334,51 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
 
   const cfWithForecast=useMemo(()=>{
     const etcM=kpi.ETC/1e6,totalEV=cf.reduce((s,c)=>s+c.evM,0),remEV=Math.max(0,kpi.bac/1e6-totalEV);
-    const forecast=Array.from({length:6},(_,i)=>({id:100+i,month:`F${i+1}`,label:MN[(12+i)%12]+" 2026",pvM:0,acM:etcM>0?+(etcM/6).toFixed(1):0,evM:remEV>0?+(remEV/6).toFixed(1):0,isForecast:true}));
+    const N=Math.max(1,Math.min(24,Number(forecastSettings.months)||6));
+    const g=(Number(forecastSettings.growthPct)||0)/100;
+    const baseAC=etcM>0?etcM/N:0;
+    const baseEV=remEV>0?remEV/N:0;
+    // Use last actual month label to continue dates if possible
+    const startDate=parseIso(project.startDate);
+    const lastIdx=cf.length;
+    const forecast=Array.from({length:N},(_,i)=>{
+      let label;
+      if(startDate){const d=new Date(startDate);d.setMonth(d.getMonth()+lastIdx+i);label=`${MN[d.getMonth()]} ${d.getFullYear()}`;}
+      else label=MN[(12+i)%12]+" 2026";
+      const factor=Math.pow(1+g,i);
+      return{id:1000+i,month:`F${i+1}`,label,pvM:0,acM:+(baseAC*factor).toFixed(2),evM:+(baseEV*factor).toFixed(2),isForecast:true};
+    });
     return[...cf,...forecast];
-  },[cf,kpi]);
+  },[cf,kpi,forecastSettings,project.startDate]);
   const cfCum=useMemo(()=>{let pvC=0,acC=0,evC=0;return cfWithForecast.map(c=>{pvC+=c.pvM;acC+=c.acM;evC+=c.evM;return{...c,pvCum:+pvC.toFixed(1),acCum:+acC.toFixed(1),evCum:+evC.toFixed(1)};});},[cfWithForecast]);
   const cfStats=useMemo(()=>{
     const a=cf.filter(c=>!c.isForecast);
     return{tPV:a.reduce((s,c)=>s+c.pvM,0),tAC:a.reduce((s,c)=>s+c.acM,0),tEV:a.reduce((s,c)=>s+c.evM,0),fAC:cfWithForecast.filter(c=>c.isForecast).reduce((s,c)=>s+c.acM,0)};
   },[cf,cfWithForecast]);
+
+  // Forecast deficit detection (cumulative AC exceeding cumulative PV by threshold)
+  const forecastDeficit=useMemo(()=>{
+    const thr=Number(forecastSettings.deficitThresholdM)||0;
+    const fc=cfCum.filter(c=>c.isForecast);
+    for(const r of fc){const gap=r.acCum-r.pvCum;if(gap>thr&&thr>=0&&fc.length){return{month:r.month,label:r.label,gap:+gap.toFixed(2)};}}
+    return null;
+  },[cfCum,forecastSettings.deficitThresholdM]);
+  const deficitShownRef=useRef("");
+  useEffect(()=>{
+    if(forecastDeficit && deficitShownRef.current!==forecastDeficit.month){
+      toast.warning(`⚠️ عجز نقدي متوقع في ${forecastDeficit.label} بفجوة ${forecastDeficit.gap}M`,{duration:6000});
+      deficitShownRef.current=forecastDeficit.month;
+    }
+  },[forecastDeficit]);
+  // End-date approaching alert
+  const endingSoonRef=useRef(false);
+  useEffect(()=>{
+    if(timeMetrics.valid && !timeMetrics.overdue && timeMetrics.daysLeft<=30 && timeMetrics.daysLeft>0 && !endingSoonRef.current){
+      toast.warning(`⏰ تاريخ نهاية المشروع بعد ${timeMetrics.daysLeft} يوم فقط`,{duration:6000});
+      endingSoonRef.current=true;
+    }
+    if(timeMetrics.daysLeft>30)endingSoonRef.current=false;
+  },[timeMetrics.daysLeft,timeMetrics.overdue,timeMetrics.valid]);
 
   // Risk matrix data
   const riskMatrix=useMemo(()=>risks.map(r=>({...r,score:r.prob*r.impact,x:r.prob,y:r.impact,z:200})),[risks]);
