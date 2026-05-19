@@ -645,6 +645,25 @@ export default function App(){
   const [narrativeText,setNarrativeText]=useState("");
   const [narrativeLoading,setNarrativeLoading]=useState(false);
   const [narrativeError,setNarrativeError]=useState("");
+  // Forecast settings (growth + horizon + deficit threshold)
+  const [forecastSettings,setForecastSettings]=useState(()=>{
+    try{const s=localStorage.getItem("evm:forecastSettings");if(s)return JSON.parse(s);}catch{}
+    return{months:6,growthPct:0,deficitThresholdM:0};
+  });
+  useEffect(()=>{try{localStorage.setItem("evm:forecastSettings",JSON.stringify(forecastSettings));}catch{}},[forecastSettings]);
+  // Generation history (cashflow + narrative)
+  const [genHistory,setGenHistory]=useState(()=>{
+    try{const s=localStorage.getItem("evm:genHistory");if(s)return JSON.parse(s);}catch{}
+    return[];
+  });
+  const pushHistory=useCallback((entry)=>{
+    setGenHistory(prev=>{
+      const next=[{id:Date.now()+":"+Math.random().toString(36).slice(2,6),ts:new Date().toISOString(),...entry},...prev].slice(0,50);
+      try{localStorage.setItem("evm:genHistory",JSON.stringify(next));}catch{}
+      return next;
+    });
+  },[]);
+  const [showHistory,setShowHistory]=useState(false);
   // UI extras
   const [darkMode,setDarkMode]=useState(false);
   const [changelog,setChangelog]=useState([
