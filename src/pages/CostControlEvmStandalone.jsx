@@ -2103,8 +2103,52 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
               <Kpi l="إجمالي الصرف الفعلي AC"  v={fmtM(cfStats.tAC)}  c="#f59e0b" ic="💸"/>
               <Kpi l="إجمالي المكتسب EV"       v={fmtM(cfStats.tEV)}  c="#10b981" ic="✅"/>
               <Kpi l="فرق التدفق PV-AC"         v={fmtM(cfStats.tPV-cfStats.tAC)} c={cfStats.tPV-cfStats.tAC>=0?"#10b981":"#ef4444"} ic="⚖️" sub={cfStats.tPV-cfStats.tAC>=0?"وفر في الصرف":"تجاوز في الصرف"}/>
-              <Kpi l="الصرف المتوقع 6 أشهر"    v={fmtM(cfStats.fAC)}  c="#8b5cf6" ic="🔮"/>
+              <Kpi l={`الصرف المتوقع ${forecastSettings.months} أشهر`}    v={fmtM(cfStats.fAC)}  c="#8b5cf6" ic="🔮"/>
             </div>
+            {/* Forecast settings + validation banner */}
+            <Card style={{marginBottom:12}}>
+              <div style={{display:"flex",gap:14,alignItems:"flex-end",flexWrap:"wrap"}}>
+                <div style={{flex:"0 0 auto"}}>
+                  <div style={{fontSize:10,color:"hsl(var(--muted-foreground))",marginBottom:4,fontWeight:700}}>🔮 إعدادات التنبؤ بالتدفق النقدي</div>
+                  <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+                    <label style={{fontSize:11,display:"flex",flexDirection:"column",gap:2}}>
+                      <span style={{color:"hsl(var(--muted-foreground))"}}>فترة التوقع (شهر)</span>
+                      <input type="number" min={1} max={24} value={forecastSettings.months}
+                        onChange={e=>setForecastSettings(p=>({...p,months:Math.max(1,Math.min(24,Number(e.target.value)||1))}))}
+                        style={{width:80,border:"1px solid hsl(var(--border))",borderRadius:6,padding:"5px 8px",fontSize:12,fontFamily:"monospace"}}/>
+                    </label>
+                    <label style={{fontSize:11,display:"flex",flexDirection:"column",gap:2}}>
+                      <span style={{color:"hsl(var(--muted-foreground))"}}>نمو شهري للصرف %</span>
+                      <input type="number" step="0.5" value={forecastSettings.growthPct}
+                        onChange={e=>setForecastSettings(p=>({...p,growthPct:Number(e.target.value)||0}))}
+                        style={{width:80,border:"1px solid hsl(var(--border))",borderRadius:6,padding:"5px 8px",fontSize:12,fontFamily:"monospace"}}/>
+                    </label>
+                    <label style={{fontSize:11,display:"flex",flexDirection:"column",gap:2}}>
+                      <span style={{color:"hsl(var(--muted-foreground))"}}>حد العجز (M)</span>
+                      <input type="number" step="1" value={forecastSettings.deficitThresholdM}
+                        onChange={e=>setForecastSettings(p=>({...p,deficitThresholdM:Number(e.target.value)||0}))}
+                        style={{width:80,border:"1px solid hsl(var(--border))",borderRadius:6,padding:"5px 8px",fontSize:12,fontFamily:"monospace"}}/>
+                    </label>
+                  </div>
+                </div>
+                <div style={{flex:1,minWidth:260}}>
+                  {(()=>{const errs=validateProjectDates();return errs.length?(
+                    <div style={{background:"hsl(var(--destructive)/.08)",border:"1px solid hsl(var(--destructive)/.3)",borderRadius:8,padding:"8px 12px",fontSize:11,color:"hsl(var(--destructive))"}}>
+                      <div style={{fontWeight:800,marginBottom:4}}>⚠️ تنبيهات تناسق التواريخ:</div>
+                      <ul style={{margin:0,paddingInlineStart:18}}>{errs.map((m,i)=><li key={i}>{m}</li>)}</ul>
+                    </div>
+                  ):(
+                    <div style={{background:"hsl(var(--success)/.08)",border:"1px solid hsl(var(--success)/.3)",borderRadius:8,padding:"8px 12px",fontSize:11,color:"hsl(var(--success))",fontWeight:600}}>✅ تواريخ المشروع والتدفق النقدي متناسقة</div>
+                  );})()}
+                  {forecastDeficit&&(
+                    <div style={{marginTop:6,background:"hsl(var(--accent)/.1)",border:"1px solid hsl(var(--accent)/.35)",borderRadius:8,padding:"8px 12px",fontSize:11,color:"hsl(var(--accent-foreground,var(--accent)))",fontWeight:700}}>
+                      ⚠️ عجز نقدي متوقع في {forecastDeficit.label} — الفجوة {forecastDeficit.gap}M
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
+
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
               <Card>
                 <H3>📊 التدفق النقدي الشهري (مليون ريال)</H3>
