@@ -1241,17 +1241,20 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
       if(!txt) throw new Error("تقرير فارغ من الخدمة");
       setNarrativeText(txt);
       toast.success("✨ تم توليد التقرير السردي");
+      pushHistory({kind:"narrative",mode:"ai",status:"success",message:`AI (${txt.length} حرف)`});
     }catch(e){
       setNarrativeError("فشل توليد التقرير: "+e.message);
       toast.error("⚠️ "+e.message);
+      pushHistory({kind:"narrative",mode:"ai",status:"failure",message:e.message});
     }
     finally{setNarrativeLoading(false);}
   };
 
   // ── Local narrative generator (بدون AI) ──
   const generateLocalNarrative=()=>{
-    const status = kpi.CPI>=1 && kpi.SPI>=1 ? "أداء ممتاز" : kpi.CPI>=0.95 && kpi.SPI>=0.95 ? "أداء جيد" : kpi.CPI>=0.9 || kpi.SPI>=0.9 ? "أداء يحتاج إلى متابعة" : "أداء حرج يستدعي تدخلاً فورياً";
-    const txt = `يعرض هذا التقرير الوضع الراهن لمشروع «${project.name}» (عقد رقم ${project.number}) المُنفَّذ لصالح ${project.client} بواسطة ${project.contractor}. الميزانية المعتمدة عند الإتمام (BAC) تبلغ ${fmt(kpi.bac)} ريال، وتاريخ بدء التنفيذ ${project.startDate||"غير محدد"} على أن ينتهي في ${project.endDate||"غير محدد"} بمدة إجمالية ${project.duration||"-"} شهراً.
+    try{
+      const status = kpi.CPI>=1 && kpi.SPI>=1 ? "أداء ممتاز" : kpi.CPI>=0.95 && kpi.SPI>=0.95 ? "أداء جيد" : kpi.CPI>=0.9 || kpi.SPI>=0.9 ? "أداء يحتاج إلى متابعة" : "أداء حرج يستدعي تدخلاً فورياً";
+      const txt = `يعرض هذا التقرير الوضع الراهن لمشروع «${project.name}» (عقد رقم ${project.number}) المُنفَّذ لصالح ${project.client} بواسطة ${project.contractor}. الميزانية المعتمدة عند الإتمام (BAC) تبلغ ${fmt(kpi.bac)} ريال، وتاريخ بدء التنفيذ ${project.startDate||"غير محدد"} على أن ينتهي في ${project.endDate||"غير محدد"} بمدة إجمالية ${project.duration||"-"} شهراً.
 
 على صعيد الأداء العام، حقق المشروع نسبة إنجاز فعلية بلغت ${kpi.prog.toFixed(1)}%، وبلغت القيمة المكتسبة (EV) ${fmt(kpi.ev)} ريال مقابل قيمة مخططة (PV) قدرها ${fmt(kpi.pv)} ريال، وتكلفة فعلية (AC) قدرها ${fmt(kpi.ac)} ريال. وعليه فإن مؤشر أداء التكلفة (CPI) بلغ ${kpi.CPI.toFixed(2)} ومؤشر أداء الجدول (SPI) ${kpi.SPI.toFixed(2)}، ما يعكس ${status}.
 
@@ -1262,9 +1265,75 @@ ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").map(r=>`${r.title
 ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنبيه(ات) نشطة تشمل: ${alerts.slice(0,3).map(a=>a.msg).join("، ")}.`:`لا توجد تنبيهات حرجة في الوقت الراهن.`} ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").length?`كما يوجد ${risks.filter(r=>r.prob*r.impact>=9&&r.status==="مفتوح").length} مخاطر عالية مفتوحة تتطلب خطط استجابة فورية.`:""}
 
 توصي إدارة المشروع بـ: (1) المتابعة المستمرة للأنشطة ذات الانحراف العالي، (2) تفعيل خطط معالجة المخاطر الحرجة، (3) ${kpi.CPI<1?`إعادة تقييم بنود التكلفة المتجاوزة`:`الحفاظ على نمط الضبط المالي الحالي`}، (4) ${kpi.SPI<1?`تسريع وتيرة التنفيذ في الأنشطة المتأخرة`:`الإبقاء على وتيرة الإنجاز`}.`;
-    setNarrativeText(txt);
-    setNarrativeError("");
-    toast.success("📝 تم توليد التقرير محلياً");
+      setNarrativeText(txt);
+      setNarrativeError("");
+      toast.success("📝 تم توليد التقرير محلياً");
+      pushHistory({kind:"narrative",mode:"local",status:"success",message:`Local (${txt.length} حرف)`});
+    }catch(e){
+      pushHistory({kind:"narrative",mode:"local",status:"failure",message:e.message||"خطأ غير معروف"});
+      toast.error("⚠️ فشل التوليد المحلي");
+    }
+  };
+
+  // ── Export narrative report to PDF (with KPIs table) ──
+  const exportNarrativePDF=()=>{
+    if(!narrativeText){toast.error("لا يوجد تقرير لتصديره — قم بتوليده أولاً");return;}
+    try{
+      const doc=new jsPDF({orientation:"p",unit:"mm",format:"a4"});
+      const pw=doc.internal.pageSize.getWidth();
+      // Header band
+      doc.setFillColor(26,26,46);doc.rect(0,0,pw,28,"F");
+      doc.setTextColor(255,255,255);doc.setFontSize(16);doc.text("EVM Narrative Report",pw/2,12,{align:"center"});
+      doc.setFontSize(10);doc.text(`${project.name} — ${project.number}`,pw/2,20,{align:"center"});
+      doc.setFontSize(8);doc.text(new Date().toLocaleString("en-GB"),pw/2,25,{align:"center"});
+      // KPI table
+      autoTable(doc,{
+        startY:34,
+        head:[["Metric","Value","Metric","Value"]],
+        body:[
+          ["BAC",fmt(kpi.bac),"EAC",fmt(kpi.EAC)],
+          ["PV",fmt(kpi.pv),"ETC",fmt(kpi.ETC)],
+          ["EV",fmt(kpi.ev),"VAC",fmt(kpi.bac-kpi.EAC)],
+          ["AC",fmt(kpi.ac),"TCPI",kpi.TCPI.toFixed(3)],
+          ["SPI",kpi.SPI.toFixed(3),"CPI",kpi.CPI.toFixed(3)],
+          ["SV",fmt(kpi.SV),"CV",fmt(kpi.CV)],
+          ["Progress",kpi.prog.toFixed(1)+"%","Slip (mo)",String(durationForecast.slipMonths)],
+        ],
+        styles:{fontSize:9,halign:"center"},
+        headStyles:{fillColor:[99,102,241],textColor:255,fontStyle:"bold"},
+        margin:{left:10,right:10},
+      });
+      // Cash-flow forecast mini table
+      const fc=cfCum.filter(c=>c.isForecast).slice(0,12);
+      if(fc.length){
+        autoTable(doc,{
+          startY:(doc.lastAutoTable?.finalY||60)+4,
+          head:[["Forecast Month","AC (M)","EV (M)","AC Cum","Gap"]],
+          body:fc.map(r=>[r.label,r.acM.toFixed(2),r.evM.toFixed(2),r.acCum.toFixed(1),(r.acCum-r.pvCum).toFixed(2)]),
+          styles:{fontSize:8,halign:"center"},
+          headStyles:{fillColor:[139,92,246],textColor:255},
+          margin:{left:10,right:10},
+        });
+      }
+      // Narrative body
+      let y=(doc.lastAutoTable?.finalY||80)+8;
+      doc.setTextColor(40,40,40);doc.setFontSize(11);doc.text("Narrative (Arabic):",10,y);y+=6;
+      doc.setFontSize(9);
+      const lines=doc.splitTextToSize(narrativeText,pw-20);
+      lines.forEach(ln=>{
+        if(y>280){doc.addPage();y=15;}
+        doc.text(ln,pw-10,y,{align:"right"});y+=5;
+      });
+      // Footer
+      const pages=doc.getNumberOfPages();
+      for(let i=1;i<=pages;i++){doc.setPage(i);doc.setFontSize(8);doc.setTextColor(150);doc.text(`Page ${i}/${pages}`,pw/2,290,{align:"center"});}
+      doc.save(`narrative_${project.number||"report"}_${new Date().toISOString().slice(0,10)}.pdf`);
+      toast.success("📄 تم تصدير التقرير PDF");
+      pushHistory({kind:"narrative",mode:"pdf",status:"success",message:"تصدير PDF"});
+    }catch(e){
+      toast.error("فشل التصدير: "+e.message);
+      pushHistory({kind:"narrative",mode:"pdf",status:"failure",message:e.message});
+    }
   };
 
   // ── Validate project dates ↔ cash flow consistency ──
