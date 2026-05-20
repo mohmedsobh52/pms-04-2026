@@ -1,5 +1,5 @@
-/* Google Fonts: only the weights actually used → smaller download */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cairo:wght@400;500;600;700&display=swap');
+/* Google Fonts — Emerald Prestige typography: Sora (display) + Manrope (body) + Cairo (Arabic) */
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Manrope:wght@300;400;500;600;700&family=Cairo:wght@400;500;600;700;800&display=swap');
 @import './components/ui/dialog-custom.css';
 
 @tailwind base;
@@ -17,180 +17,189 @@
 
 @layer base {
   :root {
-    --background: 214 32% 97%;
-    --foreground: 222 47% 11%;
+    /* ════════ Emerald Prestige Palette (HSL) ════════
+       #064e3b deep emerald → 163 86% 16%
+       #0d7a5f emerald      → 166 81% 26%
+       #c9a84c gold accent  →  44 52% 54%
+       #f5f0e0 cream surface→  45 45% 92%               */
+
+    --background: 45 45% 96%;
+    --foreground: 163 40% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 163 40% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 163 40% 12%;
 
-    --primary: 220 70% 40%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 163 86% 16%;
+    --primary-foreground: 45 45% 96%;
 
-    --secondary: 215 16% 47%;
+    --secondary: 166 81% 26%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 214 20% 94%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 45 30% 92%;
+    --muted-foreground: 163 20% 35%;
 
-    --accent: 199 89% 48%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 44 52% 54%;
+    --accent-foreground: 163 86% 12%;
 
-    --success: 142 71% 45%;
+    --success: 166 81% 26%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --warning: 44 70% 48%;
+    --warning-foreground: 163 86% 12%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 72% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 20% 88%;
-    --input: 214 20% 88%;
-    --ring: 220 70% 40%;
+    --border: 163 20% 86%;
+    --input: 163 20% 86%;
+    --ring: 163 86% 16%;
 
-    --radius: 0.75rem;
+    --radius: 0.625rem;
 
-    --workflow-bg: 214 32% 96%;
+    --workflow-bg: 45 45% 95%;
     --workflow-node: 0 0% 100%;
-    --workflow-line: 214 20% 75%;
-    --workflow-primary: 220 70% 40%;
-    --workflow-secondary: 199 89% 48%;
-    --workflow-success: 142 71% 45%;
-    --workflow-info: 199 89% 48%;
+    --workflow-line: 163 20% 78%;
+    --workflow-primary: 163 86% 16%;
+    --workflow-secondary: 166 81% 26%;
+    --workflow-success: 166 81% 36%;
+    --workflow-info: 44 52% 54%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(220 70% 40%) 0%, hsl(199 89% 48%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(199 89% 48%) 0%, hsl(186 100% 42%) 100%);
-    --gradient-surface: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(214 32% 97%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(222 47% 11%) 0%, hsl(220 70% 25%) 100%);
-    --gradient-bg: linear-gradient(180deg, hsl(214 50% 98%) 0%, hsl(0 0% 100%) 50%, hsl(214 50% 98%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(163 86% 16%) 0%, hsl(166 81% 26%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(44 52% 54%) 0%, hsl(44 70% 64%) 100%);
+    --gradient-surface: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(45 45% 96%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(163 86% 10%) 0%, hsl(163 86% 20%) 100%);
+    --gradient-bg: linear-gradient(180deg, hsl(45 45% 97%) 0%, hsl(0 0% 100%) 50%, hsl(45 45% 95%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(44 52% 54%) 0%, hsl(44 60% 44%) 100%);
 
-    --shadow-sm: 0 1px 2px hsl(222 47% 11% / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(222 47% 11% / 0.08), 0 2px 4px -2px hsl(222 47% 11% / 0.06);
-    --shadow-lg: 0 10px 15px -3px hsl(222 47% 11% / 0.08), 0 4px 6px -4px hsl(222 47% 11% / 0.06);
-    --shadow-xl: 0 20px 25px -5px hsl(222 47% 11% / 0.1), 0 8px 10px -6px hsl(222 47% 11% / 0.08);
-    --shadow-glow: 0 0 30px hsl(220 70% 40% / 0.2);
-    --shadow-glow-accent: 0 0 30px hsl(199 89% 48% / 0.2);
+    --shadow-sm: 0 1px 2px hsl(163 40% 12% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(163 40% 12% / 0.08), 0 2px 4px -2px hsl(163 40% 12% / 0.06);
+    --shadow-lg: 0 10px 15px -3px hsl(163 40% 12% / 0.1), 0 4px 6px -4px hsl(163 40% 12% / 0.06);
+    --shadow-xl: 0 20px 25px -5px hsl(163 40% 12% / 0.12), 0 8px 10px -6px hsl(163 40% 12% / 0.08);
+    --shadow-glow: 0 0 30px hsl(163 86% 20% / 0.25);
+    --shadow-glow-accent: 0 0 30px hsl(44 52% 54% / 0.3);
 
-    --sidebar-background: 0 0% 99%;
-    --sidebar-foreground: 222 47% 20%;
-    --sidebar-primary: 220 70% 40%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 214 32% 95%;
-    --sidebar-accent-foreground: 222 47% 11%;
-    --sidebar-border: 214 20% 91%;
-    --sidebar-ring: 220 70% 40%;
+    --sidebar-background: 163 86% 16%;
+    --sidebar-foreground: 45 45% 92%;
+    --sidebar-primary: 44 52% 54%;
+    --sidebar-primary-foreground: 163 86% 12%;
+    --sidebar-accent: 163 60% 22%;
+    --sidebar-accent-foreground: 45 45% 96%;
+    --sidebar-border: 163 50% 25%;
+    --sidebar-ring: 44 52% 54%;
 
-    /* Quick Action Card Colors */
-    --qa-blue: 220 70% 40%;
-    --qa-orange: 25 95% 53%;
-    --qa-teal: 173 80% 40%;
-    --qa-green: 142 71% 45%;
+    /* Quick Action Card Colors — re-tuned to palette */
+    --qa-blue: 166 81% 26%;
+    --qa-orange: 44 70% 48%;
+    --qa-teal: 173 60% 32%;
+    --qa-green: 166 81% 36%;
 
     /* Unified Status Colors */
-    --status-active: 142 71% 45%;
-    --status-pending: 38 92% 50%;
-    --status-completed: 220 70% 40%;
-    --status-overdue: 0 84% 60%;
-    --status-draft: 215 16% 55%;
-    --status-cancelled: 0 0% 60%;
+    --status-active: 166 81% 36%;
+    --status-pending: 44 70% 48%;
+    --status-completed: 163 86% 16%;
+    --status-overdue: 0 72% 50%;
+    --status-draft: 163 15% 50%;
+    --status-cancelled: 0 0% 55%;
 
     /* Priority Colors */
-    --priority-high: 0 84% 60%;
-    --priority-medium: 38 92% 50%;
-    --priority-low: 142 71% 45%;
+    --priority-high: 0 72% 50%;
+    --priority-medium: 44 70% 48%;
+    --priority-low: 166 81% 36%;
 
     /* Category (Resource) Colors */
-    --cat-material: 142 71% 45%;
-    --cat-labor: 220 70% 50%;
-    --cat-equipment: 25 95% 53%;
-    --cat-subcontractor: 280 70% 55%;
-    --cat-other: 215 16% 55%;
-    --qa-purple: 262 83% 58%;
-    --qa-amber: 38 92% 50%;
-    --qa-indigo: 239 84% 67%;
-    --qa-rose: 350 89% 60%;
-    --qa-red: 0 72% 51%;
+    --cat-material: 166 81% 36%;
+    --cat-labor: 163 86% 20%;
+    --cat-equipment: 44 52% 54%;
+    --cat-subcontractor: 200 60% 35%;
+    --cat-other: 163 15% 50%;
+    --qa-purple: 200 60% 35%;
+    --qa-amber: 44 70% 48%;
+    --qa-indigo: 163 86% 16%;
+    --qa-rose: 0 72% 50%;
+    --qa-red: 0 72% 50%;
 
     /* Lifecycle Phase Colors */
-    --phase-initiation: 186 100% 50%;
-    --phase-analysis: 217 91% 60%;
-    --phase-pricing: 142 71% 45%;
-    --phase-contracting: 25 95% 53%;
-    --phase-execution: 262 83% 58%;
-    --phase-monitoring: 350 89% 60%;
+    --phase-initiation: 173 60% 42%;
+    --phase-analysis: 163 86% 20%;
+    --phase-pricing: 166 81% 36%;
+    --phase-contracting: 44 70% 48%;
+    --phase-execution: 44 52% 54%;
+    --phase-monitoring: 0 72% 50%;
   }
 
+
   .dark {
-    --background: 222 47% 8%;
-    --foreground: 214 32% 95%;
+    /* Emerald Prestige — Dark variant */
+    --background: 163 40% 8%;
+    --foreground: 45 45% 92%;
 
-    --card: 222 47% 12%;
-    --card-foreground: 214 32% 95%;
+    --card: 163 40% 12%;
+    --card-foreground: 45 45% 92%;
 
-    --popover: 222 47% 10%;
-    --popover-foreground: 214 32% 95%;
+    --popover: 163 40% 10%;
+    --popover-foreground: 45 45% 92%;
 
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 44 52% 54%;
+    --primary-foreground: 163 86% 12%;
 
-    --secondary: 215 20% 35%;
-    --secondary-foreground: 214 32% 95%;
+    --secondary: 166 60% 35%;
+    --secondary-foreground: 45 45% 92%;
 
-    --muted: 222 30% 18%;
-    --muted-foreground: 215 16% 55%;
+    --muted: 163 30% 18%;
+    --muted-foreground: 45 25% 65%;
 
-    --accent: 199 89% 48%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 44 52% 54%;
+    --accent-foreground: 163 86% 12%;
 
-    --success: 142 71% 45%;
+    --success: 166 70% 45%;
     --success-foreground: 0 0% 100%;
 
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 30% 22%;
-    --input: 222 30% 22%;
-    --ring: 217 91% 60%;
+    --border: 163 30% 22%;
+    --input: 163 30% 22%;
+    --ring: 44 52% 54%;
 
-    --workflow-bg: 222 47% 10%;
-    --workflow-node: 222 47% 15%;
-    --workflow-line: 215 20% 35%;
+    --workflow-bg: 163 40% 10%;
+    --workflow-node: 163 40% 15%;
+    --workflow-line: 163 25% 30%;
 
-    --gradient-surface: linear-gradient(180deg, hsl(222 47% 12%) 0%, hsl(222 47% 8%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(222 47% 5%) 0%, hsl(220 50% 12%) 100%);
-    --gradient-bg: linear-gradient(180deg, hsl(222 47% 6%) 0%, hsl(222 47% 10%) 50%, hsl(222 47% 6%) 100%);
+    --gradient-surface: linear-gradient(180deg, hsl(163 40% 12%) 0%, hsl(163 40% 8%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(163 86% 5%) 0%, hsl(163 50% 14%) 100%);
+    --gradient-bg: linear-gradient(180deg, hsl(163 40% 6%) 0%, hsl(163 40% 10%) 50%, hsl(163 40% 6%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(44 52% 54%) 0%, hsl(44 60% 44%) 100%);
 
-    --sidebar-background: 222 47% 10%;
-    --sidebar-foreground: 214 32% 95%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 30% 18%;
-    --sidebar-accent-foreground: 214 32% 95%;
-    --sidebar-border: 222 30% 22%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-background: 163 50% 10%;
+    --sidebar-foreground: 45 45% 92%;
+    --sidebar-primary: 44 52% 54%;
+    --sidebar-primary-foreground: 163 86% 12%;
+    --sidebar-accent: 163 40% 18%;
+    --sidebar-accent-foreground: 45 45% 92%;
+    --sidebar-border: 163 30% 22%;
+    --sidebar-ring: 44 52% 54%;
 
-    /* Quick Action Card Colors - Dark Mode */
-    --qa-blue: 217 91% 60%;
-    --qa-orange: 25 95% 58%;
-    --qa-teal: 173 80% 45%;
-    --qa-green: 142 71% 50%;
-    --qa-purple: 262 83% 63%;
-    --qa-amber: 38 92% 55%;
-    --qa-indigo: 239 84% 72%;
-    --qa-rose: 350 89% 65%;
-    --qa-red: 0 72% 56%;
+    --qa-blue: 166 70% 40%;
+    --qa-orange: 44 70% 55%;
+    --qa-teal: 173 60% 45%;
+    --qa-green: 166 70% 45%;
+    --qa-purple: 200 60% 50%;
+    --qa-amber: 44 70% 55%;
+    --qa-indigo: 163 70% 30%;
+    --qa-rose: 0 70% 55%;
+    --qa-red: 0 70% 55%;
 
-    /* Lifecycle Phase Colors - Dark Mode */
-    --phase-initiation: 186 100% 55%;
-    --phase-analysis: 217 91% 65%;
-    --phase-pricing: 142 71% 50%;
-    --phase-contracting: 25 95% 58%;
-    --phase-execution: 262 83% 63%;
-    --phase-monitoring: 350 89% 65%;
+    --phase-initiation: 173 60% 52%;
+    --phase-analysis: 163 70% 40%;
+    --phase-pricing: 166 70% 45%;
+    --phase-contracting: 44 70% 55%;
+    --phase-execution: 44 52% 54%;
+    --phase-monitoring: 0 70% 55%;
   }
+
 }
 
 @layer base {
@@ -200,25 +209,27 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Manrope', 'Inter', system-ui, sans-serif;
     min-height: 100vh;
     position: relative;
   }
 
   [dir="rtl"] body,
   [lang="ar"] body {
-    font-family: 'Cairo', system-ui, sans-serif;
+    font-family: 'Cairo', 'Manrope', system-ui, sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Inter', system-ui, sans-serif;
-    font-weight: 600;
+    font-family: 'Sora', 'Manrope', system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.01em;
   }
 
   [dir="rtl"] h1, [dir="rtl"] h2, [dir="rtl"] h3, [dir="rtl"] h4, [dir="rtl"] h5, [dir="rtl"] h6,
   [lang="ar"] h1, [lang="ar"] h2, [lang="ar"] h3, [lang="ar"] h4, [lang="ar"] h5, [lang="ar"] h6 {
-    font-family: 'Cairo', system-ui, sans-serif;
+    font-family: 'Cairo', 'Sora', system-ui, sans-serif;
   }
+
 }
 
 @layer components {
