@@ -786,6 +786,25 @@ export default function App(){
   ]);
   const [baseline,setBaseline]=useState(null);
   const [baselineDate,setBaselineDate]=useState("");
+  // Multi-snapshot baselines
+  const [baselines,setBaselines]=useState(()=>{
+    try{const s=localStorage.getItem("evm:baselines");if(s)return JSON.parse(s);}catch{}
+    return[];
+  });
+  useEffect(()=>{try{localStorage.setItem("evm:baselines",JSON.stringify(baselines));}catch{}},[baselines]);
+  const [activeBaselineId,setActiveBaselineId]=useState(null);
+  const [newBaselineName,setNewBaselineName]=useState("");
+  // Interactive Gantt
+  const [ganttZoom,setGanttZoom]=useState("month"); // month | quarter | week
+  const [ganttActivity,setGanttActivity]=useState(null);
+  const [ganttFilter,setGanttFilter]=useState("ALL");
+  // Monte Carlo
+  const [mcSettings,setMcSettings]=useState(()=>{
+    try{const s=localStorage.getItem("evm:mcSettings");if(s)return JSON.parse(s);}catch{}
+    return{iterations:1000,cpiStd:0.08,spiStd:0.08,confidence:80};
+  });
+  useEffect(()=>{try{localStorage.setItem("evm:mcSettings",JSON.stringify(mcSettings));}catch{}},[mcSettings]);
+  const [mcResult,setMcResult]=useState(null);
   const [scenarios,setScenarios]=useState([
     {id:"S1",name:"السيناريو المتفائل",   spiAdj:1.15, cpiAdj:1.10, color:"#10b981", active:false},
     {id:"S2",name:"السيناريو الأساسي",   spiAdj:1.00, cpiAdj:1.00, color:"#6366f1", active:true},
@@ -1272,19 +1291,152 @@ export default function App(){
   }),[acts]);
 
   // ── Baseline (state declared above) ──
-  const captureBaseline=()=>{
-    const snap={date:new Date().toLocaleDateString("ar-SA"),acts:acts.map(a=>({id:a.id,bac:a.bac,pct:a.pct,ac:a.ac})),kpi:{...kpi}};
-    setBaseline(snap);setBaselineDate(snap.date);
-    logChange(`تم حفظ خط القاعدة بتاريخ ${snap.date}`,"create");
+  const captureBaseline=(name)=>{
+    const date=new Date().toLocaleDateString("ar-SA");
+    const snap={date,acts:acts.map(a=>({id:a.id,bac:a.bac,pct:a.pct,ac:a.ac,nameAr:a.nameAr,disc:a.disc})),kpi:{...kpi}};
+    setBaseline(snap);setBaselineDate(date);
+    // Push to multi-snapshot list
+    const id=`BL-${Date.now()}`;
+    const label=name||newBaselineName||`Snapshot ${baselines.length+1}`;
+    const entry={id,label,date,createdAt:new Date().toISOString(),...snap};
+    setBaselines(p=>[entry,...p].slice(0,20));
+    setActiveBaselineId(id);
+    setNewBaselineName("");
+    logChange(`تم حفظ خط القاعدة «${label}» بتاريخ ${date}`,"create");
+    toast.success(`📸 تم حفظ Snapshot: ${label}`);
+  };
+  const deleteBaselineSnapshot=(id)=>{
+    setBaselines(p=>p.filter(b=>b.id!==id));
+    if(activeBaselineId===id)setActiveBaselineId(null);
   };
   const baselineDiff=useMemo(()=>{
-    if(!baseline)return[];
+    const src=activeBaselineId?baselines.find(b=>b.id===activeBaselineId):baseline;
+    if(!src)return[];
     return acts.map(a=>{
-      const b=baseline.acts.find(x=>x.id===a.id);
+      const b=src.acts.find(x=>x.id===a.id);
       if(!b)return{id:a.id,nameAr:a.nameAr,disc:a.disc,bacDiff:a.bac,pctDiff:a.pct,acDiff:a.ac,isNew:true};
       return{id:a.id,nameAr:a.nameAr,disc:a.disc,bacDiff:a.bac-b.bac,pctDiff:a.pct-b.pct,acDiff:a.ac-b.ac,isNew:false};
     }).filter(d=>d.bacDiff!==0||d.pctDiff!==0||d.acDiff!==0||d.isNew);
-  },[acts,baseline]);
+  },[acts,baseline,baselines,activeBaselineId]);
+
+  // Compare matrix: each snapshot vs current Actual
+  const baselinesCompare=useMemo(()=>{
+    return baselines.map(b=>{
+      const bk=b.kpi||{};
+      return{
+        id:b.id,label:b.label,date:b.date,
+        bacDiff:(kpi.bac||0)-(bk.bac||0),
+        eacDiff:(kpi.EAC||0)-(bk.EAC||0),
+        acDiff:(kpi.ac||0)-(bk.ac||0),
+        progDiff:(kpi.prog||0)-(bk.prog||0),
+        spiDiff:(kpi.SPI||0)-(bk.SPI||0),
+        cpiDiff:(kpi.CPI||0)-(bk.CPI||0),
+        // Time deviation (months) — derived from SPI shift relative to original duration
+        timeDiff:(()=>{
+          const dur=Number(project.duration)||0;
+          const spiNow=kpi.SPI>0?kpi.SPI:1;
+          const spiThen=bk.SPI>0?bk.SPI:1;
+          return +((dur/spiNow)-(dur/spiThen)).toFixed(2);
+        })(),
+      };
+    });
+  },[baselines,kpi,project.duration]);
+
+  // ── Interactive Gantt (activity-level) ──
+  const ganttActivities=useMemo(()=>{
+    const projStart=parseIso(project.startDate)||new Date("2025-01-01");
+    const dur=Math.max(1,Number(project.duration)||12);
+    const projEnd=new Date(projStart);projEnd.setMonth(projEnd.getMonth()+dur);
+    const totalMs=projEnd-projStart;
+    const list=(ganttFilter==="ALL"?acts:acts.filter(a=>a.disc===ganttFilter));
+    return list.map((a,idx)=>{
+      let s=parseIso(a._startDate);
+      let e=parseIso(a._endDate);
+      if(!s||!e){
+        // Distribute evenly across project window when no XER dates
+        const seg=totalMs/Math.max(1,list.length);
+        s=new Date(projStart.getTime()+idx*seg);
+        e=new Date(projStart.getTime()+(idx+1)*seg);
+      }
+      const startPct=Math.max(0,Math.min(100,((s-projStart)/totalMs)*100));
+      const endPct=Math.max(0,Math.min(100,((e-projStart)/totalMs)*100));
+      const widthPct=Math.max(0.5,endPct-startPct);
+      const progressPct=widthPct*(a.pct/100);
+      const {ev,ac,cpi,spi,eac,etc}=calcAct(a);
+      return{...a,_s:s,_e:e,startPct,widthPct,progressPct,ev,ac,cpi,spi,eac,etc,vac:a.bac-eac};
+    });
+  },[acts,ganttFilter,project.startDate,project.duration]);
+
+  // Build column ticks for the timeline header based on zoom
+  const ganttTicks=useMemo(()=>{
+    const projStart=parseIso(project.startDate)||new Date("2025-01-01");
+    const dur=Math.max(1,Number(project.duration)||12);
+    const step=ganttZoom==="quarter"?3:ganttZoom==="week"?0.25:1; // months
+    const count=Math.ceil(dur/step);
+    return Array.from({length:count},(_,i)=>{
+      const d=new Date(projStart);d.setMonth(d.getMonth()+Math.round(i*step));
+      const label=ganttZoom==="quarter"?`Q${Math.floor(d.getMonth()/3)+1} ${d.getFullYear()}`:
+                  ganttZoom==="week"?`${d.getDate()}/${d.getMonth()+1}`:
+                  `${MN[d.getMonth()].slice(0,3)} ${String(d.getFullYear()).slice(2)}`;
+      return label;
+    });
+  },[ganttZoom,project.startDate,project.duration]);
+
+  // ── Monte Carlo simulation for EAC/ETC distribution ──
+  const runMonteCarlo=useCallback(()=>{
+    const N=Math.max(100,Math.min(20000,Number(mcSettings.iterations)||1000));
+    const cpiMu=kpi.CPI>0?kpi.CPI:1;
+    const spiMu=kpi.SPI>0?kpi.SPI:1;
+    const cpiSd=Math.max(0.001,Number(mcSettings.cpiStd)||0.08);
+    const spiSd=Math.max(0.001,Number(mcSettings.spiStd)||0.08);
+    const bac=kpi.bac||0;
+    const ac=kpi.ac||0;
+    const ev=kpi.ev||0;
+    const eacs=[];const etcs=[];const durs=[];
+    const baseDur=Math.max(1,Number(project.duration)||12);
+    // Box-Muller normal sampler
+    const norm=()=>{let u=0,v=0;while(u===0)u=Math.random();while(v===0)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
+    for(let i=0;i<N;i++){
+      const cpi=Math.max(0.2,cpiMu+norm()*cpiSd);
+      const spi=Math.max(0.2,spiMu+norm()*spiSd);
+      const eac=ac+((bac-ev)/(cpi*Math.max(0.3,spi)));
+      const etc=Math.max(0,eac-ac);
+      const dur=baseDur/spi;
+      eacs.push(eac);etcs.push(etc);durs.push(dur);
+    }
+    const pct=(arr,p)=>{const a=[...arr].sort((x,y)=>x-y);return a[Math.floor((p/100)*(a.length-1))];};
+    const mean=arr=>arr.reduce((s,x)=>s+x,0)/arr.length;
+    const c=Number(mcSettings.confidence)||80;
+    const lo=(100-c)/2,hi=100-lo;
+    // Histogram bins for EAC
+    const min=Math.min(...eacs),max=Math.max(...eacs);
+    const bins=20;
+    const bw=(max-min)/bins||1;
+    const hist=Array.from({length:bins},(_,i)=>{
+      const lo2=min+i*bw,hi2=lo2+bw;
+      const cnt=eacs.filter(x=>x>=lo2&&x<hi2).length;
+      return{range:`${(lo2/1e6).toFixed(1)}M`,count:cnt,pct:+(cnt/N*100).toFixed(1)};
+    });
+    // Deficit probability vs threshold (M)
+    const thr=(Number(forecastSettings.deficitThresholdM)||0)*1e6;
+    const overBudget=eacs.filter(x=>x>bac).length;
+    const overDeficit=thr>0?eacs.filter(x=>(x-bac)>thr).length:0;
+    setMcResult({
+      iterations:N,
+      eac:{mean:mean(eacs),p10:pct(eacs,10),p50:pct(eacs,50),p90:pct(eacs,90),pLo:pct(eacs,lo),pHi:pct(eacs,hi),min,max},
+      etc:{mean:mean(etcs),p10:pct(etcs,10),p50:pct(etcs,50),p90:pct(etcs,90),pLo:pct(etcs,lo),pHi:pct(etcs,hi)},
+      dur:{mean:mean(durs),p10:pct(durs,10),p50:pct(durs,50),p90:pct(durs,90)},
+      hist,
+      probOverBudget:+(overBudget/N*100).toFixed(1),
+      probDeficit:+(overDeficit/N*100).toFixed(1),
+      confidence:c,
+      bac,
+    });
+    toast.success(`🎲 Monte Carlo: ${N} محاكاة`);
+  },[mcSettings,kpi,project.duration,forecastSettings.deficitThresholdM]);
+
+
+
 
   // ── What-If Scenarios (state declared above) ──
   const [customScen,setCustomScen]=useState({spiAdj:1.0,cpiAdj:1.0});
@@ -1381,6 +1533,68 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
     }catch(e){
       pushHistory({kind:"narrative",mode:"local",status:"failure",message:e.message||"خطأ غير معروف"});
       toast.error("⚠️ فشل التوليد المحلي");
+    }
+  };
+
+  // ── Auto-narrative from active alerts (root-cause + actions) ──
+  const generateNarrativeFromAlerts=()=>{
+    try{
+      if(!alerts.length){
+        toast.info("لا توجد تنبيهات نشطة لتلخيصها");
+        return;
+      }
+      const causes=[];const actions=[];
+      if(kpi.SPI<threshSPI){
+        causes.push(`• تأخر جدولي: SPI=${kpi.SPI.toFixed(2)} أقل من العتبة ${threshSPI}. الأنشطة الأبطأ أداءً: ${[...acts].sort((a,b)=>a.pct-b.pct).slice(0,3).map(a=>a.nameAr).join("، ")}.`);
+        actions.push(`• تسريع الأنشطة الحرجة عبر إعادة توزيع الموارد أو زيادة المناوبات، ومراجعة المسار الحرج (Critical Path) في XER المستورد.`);
+      }
+      if(kpi.CPI<threshCPI){
+        const worst=[...acts].map(a=>{const{cpi}=calcAct(a);return{...a,cpi};}).filter(a=>a.cpi>0&&a.cpi<0.9).sort((a,b)=>a.cpi-b.cpi).slice(0,3);
+        causes.push(`• تجاوز تكلفة: CPI=${kpi.CPI.toFixed(2)}. الأنشطة الأكثر تجاوزاً: ${worst.map(a=>`${a.nameAr} (CPI=${a.cpi.toFixed(2)})`).join("، ")||"—"}.`);
+        actions.push(`• مراجعة عقود الموردين، تحليل أسباب الانحراف لكل نشاط، وتطبيق Variance at Completion على البنود الأعلى صرفاً.`);
+      }
+      if(kpi.EAC>kpi.bac){
+        const over=kpi.EAC-kpi.bac;
+        causes.push(`• EAC=${fmt(kpi.EAC)} يتجاوز الميزانية BAC=${fmt(kpi.bac)} بمقدار ${fmt(over)}.`);
+        actions.push(`• تفعيل خطة استرداد التكلفة (Cost Recovery Plan)، إعادة هندسة القيمة (Value Engineering) في البنود غير الحرجة، وطلب أوامر تغيير للنطاق الإضافي.`);
+      }
+      if(kpi.TCPI>1.1){
+        causes.push(`• TCPI=${kpi.TCPI.toFixed(2)} — تتطلب الميزانية المتبقية كفاءة أعلى من المعتاد.`);
+        actions.push(`• مراجعة الـ baseline أو طلب إعادة تقدير رسمية (Re-baselining)، وتعزيز ضوابط الالتزام بالميزانية.`);
+      }
+      const critRisks=risks.filter(r=>r.prob*r.impact>=16&&r.status==="مفتوح");
+      if(critRisks.length){
+        causes.push(`• ${critRisks.length} مخاطر حرجة مفتوحة: ${critRisks.slice(0,3).map(r=>r.title).join("، ")}.`);
+        actions.push(`• تخصيص مالك لكل مخاطرة، تفعيل خطط الاستجابة (Mitigation Plans)، ورصد مخصصات احتياطية (Contingency Reserve).`);
+      }
+      const openHigh=issues.filter(x=>x.priority==="عالية"&&x.status!=="مغلق");
+      if(openHigh.length){
+        causes.push(`• ${openHigh.length} مشكلات عالية الأولوية لم تُغلق بعد.`);
+        actions.push(`• عقد جلسة Issue Triage أسبوعية، وتصعيد ما يتجاوز المدة المسموحة للحل.`);
+      }
+      const txt=`📌 تقرير سردي تلقائي مبني على التنبيهات النشطة — ${new Date().toLocaleDateString("ar-SA")}
+
+يرصد النظام حالياً ${alerts.length} تنبيه(ات) نشطة على مشروع «${project.name}». فيما يلي ملخص الأسباب الجذرية المحتملة والإجراءات الموصى بها:
+
+🔎 الأسباب الجذرية المحتملة:
+${causes.join("\n")||"• لا توجد أسباب حرجة محددة."}
+
+🛠 الإجراءات المقترحة:
+${actions.join("\n")||"• الإبقاء على ضوابط المتابعة الحالية."}
+
+📊 المؤشرات المحورية:
+• SPI=${kpi.SPI.toFixed(2)} · CPI=${kpi.CPI.toFixed(2)} · TCPI=${kpi.TCPI.toFixed(2)}
+• EAC=${fmt(kpi.EAC)} · ETC=${fmt(kpi.ETC)} · VAC=${fmt(kpi.bac-kpi.EAC)}
+• الإنجاز=${kpi.prog.toFixed(1)}% · الانزياح الزمني المتوقع=${durationForecast.slipMonths} شهر
+
+⏱ التوصية للإدارة: مراجعة فورية للأنشطة المتأثرة في الاجتماع الأسبوعي القادم، وتحديث خطة الاسترداد خلال 5 أيام عمل.`;
+      setNarrativeText(txt);
+      setNarrativeError("");
+      toast.success("🤖 تم توليد تقرير سردي مرتبط بالتنبيهات");
+      pushHistory({kind:"narrative",mode:"alerts",status:"success",message:`Alerts→Narrative (${alerts.length} تنبيه)`});
+    }catch(e){
+      toast.error("⚠️ فشل توليد التقرير من التنبيهات");
+      pushHistory({kind:"narrative",mode:"alerts",status:"failure",message:e.message||"خطأ"});
     }
   };
 
@@ -2697,7 +2911,100 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
                 </table>
               </div>
             </Card>
+
+            {/* ═══ Monte Carlo Simulation ═══ */}
+            <Card style={{marginTop:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
+                <H3 style={{margin:0}}>🎲 محاكاة مونت كارلو — توزيع احتمالي لـ EAC / ETC</H3>
+                <button onClick={runMonteCarlo} style={{background:"linear-gradient(135deg,#8b5cf6,#6366f1)",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontWeight:700,cursor:"pointer",fontSize:12}}>
+                  ▶ تشغيل المحاكاة
+                </button>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14,padding:"10px 12px",background:darkMode?"#0f172a":"#f8f9fc",borderRadius:8,border:"1px solid #f0f0f0"}}>
+                <label style={{display:"flex",flexDirection:"column",gap:3,fontSize:10,color:"#888",fontWeight:600}}>
+                  عدد المحاكاة
+                  <input type="number" min={100} max={20000} step={100} value={mcSettings.iterations}
+                    onChange={e=>setMcSettings(p=>({...p,iterations:Number(e.target.value)||1000}))}
+                    style={{padding:"6px 9px",borderRadius:6,border:"1px solid #e5e7eb",fontFamily:"monospace",fontSize:12}}/>
+                </label>
+                <label style={{display:"flex",flexDirection:"column",gap:3,fontSize:10,color:"#888",fontWeight:600}}>
+                  انحراف معياري CPI (σ)
+                  <input type="number" step={0.01} min={0.01} max={0.5} value={mcSettings.cpiStd}
+                    onChange={e=>setMcSettings(p=>({...p,cpiStd:Number(e.target.value)||0.08}))}
+                    style={{padding:"6px 9px",borderRadius:6,border:"1px solid #e5e7eb",fontFamily:"monospace",fontSize:12}}/>
+                </label>
+                <label style={{display:"flex",flexDirection:"column",gap:3,fontSize:10,color:"#888",fontWeight:600}}>
+                  انحراف معياري SPI (σ)
+                  <input type="number" step={0.01} min={0.01} max={0.5} value={mcSettings.spiStd}
+                    onChange={e=>setMcSettings(p=>({...p,spiStd:Number(e.target.value)||0.08}))}
+                    style={{padding:"6px 9px",borderRadius:6,border:"1px solid #e5e7eb",fontFamily:"monospace",fontSize:12}}/>
+                </label>
+                <label style={{display:"flex",flexDirection:"column",gap:3,fontSize:10,color:"#888",fontWeight:600}}>
+                  مستوى الثقة %
+                  <input type="number" min={50} max={99} step={1} value={mcSettings.confidence}
+                    onChange={e=>setMcSettings(p=>({...p,confidence:Number(e.target.value)||80}))}
+                    style={{padding:"6px 9px",borderRadius:6,border:"1px solid #e5e7eb",fontFamily:"monospace",fontSize:12}}/>
+                </label>
+              </div>
+
+              {!mcResult?(
+                <div style={{textAlign:"center",padding:"30px 20px",color:"#bbb"}}>
+                  <div style={{fontSize:36,marginBottom:8}}>🎲</div>
+                  <div style={{fontSize:13,fontWeight:700,color:"#888"}}>اضغط "تشغيل المحاكاة" لإطلاق {mcSettings.iterations} محاكاة</div>
+                  <div style={{fontSize:11,color:"#bbb",marginTop:6}}>سيتم توليد توزيع احتمالي لـ EAC و ETC والمدة المتوقعة</div>
+                </div>
+              ):(
+                <>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:12}}>
+                    <Kpi l={`EAC P50 (متوسط)`} v={fmt(mcResult.eac.p50)} c="#6366f1" sub={`متوسط: ${fmt(mcResult.eac.mean)}`}/>
+                    <Kpi l={`EAC P10 (متفائل)`} v={fmt(mcResult.eac.p10)} c="#10b981" sub="أفضل سيناريو"/>
+                    <Kpi l={`EAC P90 (متشائم)`} v={fmt(mcResult.eac.p90)} c="#ef4444" sub="أسوأ سيناريو"/>
+                    <Kpi l={`احتمال تجاوز الميزانية`} v={mcResult.probOverBudget+"%"} c={mcResult.probOverBudget>50?"#ef4444":mcResult.probOverBudget>20?"#f59e0b":"#10b981"} sub={`من ${mcResult.iterations} محاكاة`}/>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:12,marginBottom:12}}>
+                    <Card>
+                      <H3>📊 توزيع EAC (Histogram)</H3>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <BarChart data={mcResult.hist}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5"/>
+                          <XAxis dataKey="range" tick={{fontSize:8}} angle={-30} textAnchor="end" height={48}/>
+                          <YAxis tick={{fontSize:9}}/>
+                          <Tooltip content={<CTip/>}/>
+                          <ReferenceLine x={`${(mcResult.bac/1e6).toFixed(1)}M`} stroke="#ef4444" strokeDasharray="5 3" label={{value:"BAC",position:"top",fontSize:9,fill:"#ef4444"}}/>
+                          <Bar dataKey="count" name="عدد المحاكاة" radius={[3,3,0,0]}>
+                            {mcResult.hist.map((d,i)=><Cell key={i} fill={parseFloat(d.range)*1e6>mcResult.bac?"#ef4444":"#10b981"}/>)}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Card>
+                    <Card>
+                      <H3>📋 ملخص احتمالي (ثقة {mcResult.confidence}%)</H3>
+                      {[
+                        {l:"EAC P10",v:fmt(mcResult.eac.p10),c:"#10b981"},
+                        {l:"EAC P50",v:fmt(mcResult.eac.p50),c:"#6366f1"},
+                        {l:"EAC P90",v:fmt(mcResult.eac.p90),c:"#ef4444"},
+                        {l:`نطاق ثقة ${mcResult.confidence}%`,v:`${fmt(mcResult.eac.pLo)} → ${fmt(mcResult.eac.pHi)}`,c:"#8b5cf6"},
+                        {l:"ETC P50",v:fmt(mcResult.etc.p50),c:"#0ea5e9"},
+                        {l:"ETC P90",v:fmt(mcResult.etc.p90),c:"#f59e0b"},
+                        {l:"مدة P50 (شهر)",v:mcResult.dur.p50.toFixed(1),c:"#6366f1"},
+                        {l:"مدة P90 (شهر)",v:mcResult.dur.p90.toFixed(1),c:"#ef4444"},
+                        {l:"احتمال تجاوز عتبة العجز",v:mcResult.probDeficit+"%",c:mcResult.probDeficit>30?"#ef4444":"#10b981"},
+                      ].map(({l,v,c})=>(
+                        <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",borderRadius:6,marginBottom:3,background:darkMode?"#1e2d3d":"#f8f9fc",border:"1px solid #f0f0f0"}}>
+                          <span style={{fontSize:10,color:"#555"}}>{l}</span>
+                          <span style={{fontFamily:"monospace",fontWeight:800,fontSize:11,color:c}}>{v}</span>
+                        </div>
+                      ))}
+                    </Card>
+                  </div>
+                  <div style={{fontSize:10,color:"#888",padding:"8px 12px",background:darkMode?"#0f172a":"#f8f9fc",borderRadius:7,border:"1px dashed #e5e7eb"}}>
+                    💡 يستخدم النظام توزيع طبيعي (Box-Muller) حول قيمتي CPI/SPI الحاليتين بانحراف معياري قابل للضبط. كلما زادت قيمة σ، زاد عدم اليقين.
+                  </div>
+                </>
+              )}
+            </Card>
           </>)}
+
 
           {/* ═══ RESOURCE LEVELLING ═══ */}
           {tab==="levelling"&&(<>
@@ -3240,7 +3547,111 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
 
           {/* ═══ GANTT & MILESTONES ═══ */}
           {tab==="gantt"&&(<>
+            {/* ═══ Interactive Activity Gantt ═══ */}
+            <Card style={{marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
+                <H3 style={{margin:0}}>📊 جانت تفاعلي للأنشطة ({ganttActivities.length} نشاط)</H3>
+                <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                  <select value={ganttFilter} onChange={e=>setGanttFilter(e.target.value)}
+                    style={{padding:"6px 10px",borderRadius:6,border:"1px solid #e5e7eb",fontSize:11,fontWeight:600}}>
+                    <option value="ALL">كل التخصصات</option>
+                    {DISCIPLINES.map(d=><option key={d} value={d}>{d}</option>)}
+                  </select>
+                  <div style={{display:"flex",gap:2,background:"#f1f5f9",borderRadius:7,padding:3}}>
+                    {[["week","أسبوع"],["month","شهر"],["quarter","ربع"]].map(([k,l])=>(
+                      <button key={k} onClick={()=>setGanttZoom(k)}
+                        style={{background:ganttZoom===k?"#6366f1":"transparent",color:ganttZoom===k?"#fff":"#555",border:"none",borderRadius:5,padding:"5px 10px",cursor:"pointer",fontSize:10,fontWeight:700}}>
+                        🔍 {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {/* Header ticks */}
+              <div style={{display:"grid",gridTemplateColumns:`180px 1fr`,gap:4,marginBottom:6}}>
+                <div style={{fontSize:9,color:"#888",fontWeight:700}}>النشاط</div>
+                <div style={{display:"grid",gridTemplateColumns:`repeat(${ganttTicks.length},1fr)`,gap:1}}>
+                  {ganttTicks.map((t,i)=><div key={i} style={{textAlign:"center",fontSize:8,fontWeight:600,color:"#aaa",padding:"2px 0",borderRight:"1px dashed #eee"}}>{t}</div>)}
+                </div>
+              </div>
+              {/* Activity rows */}
+              <div style={{maxHeight:480,overflowY:"auto",border:"1px solid #f0f0f0",borderRadius:6}}>
+                {ganttActivities.length===0?(
+                  <div style={{padding:30,textAlign:"center",color:"#bbb",fontSize:12}}>لا توجد أنشطة</div>
+                ):ganttActivities.map((a,i)=>{
+                  const isSel=ganttActivity?.id===a.id;
+                  const c=DC[a.disc]||"#6366f1";
+                  const statusColor=a.cpi>=1?"#10b981":a.cpi>=0.9?"#f59e0b":"#ef4444";
+                  return(
+                    <div key={a.id} onClick={()=>setGanttActivity(isSel?null:a)}
+                      style={{display:"grid",gridTemplateColumns:`180px 1fr`,gap:4,alignItems:"center",padding:"5px 6px",borderBottom:"1px solid #f5f5f5",cursor:"pointer",background:isSel?(darkMode?"#1e3a5f":"#eef2ff"):(i%2===0?(darkMode?"#0f172a":"#fff"):(darkMode?"#1e293b":"#fafbfc")),transition:"background .15s"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
+                        <div style={{width:6,height:18,borderRadius:2,background:c,flexShrink:0}}/>
+                        <div style={{minWidth:0,flex:1}}>
+                          <div style={{fontSize:10,fontWeight:700,direction:"rtl",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nameAr}</div>
+                          <div style={{fontSize:8,color:"#aaa",fontFamily:"monospace"}}>{a.id} · {a.pct}%</div>
+                        </div>
+                      </div>
+                      <div style={{position:"relative",height:22,background:"#f8f9fc",borderRadius:3,overflow:"hidden"}}>
+                        {/* Grid lines */}
+                        {ganttTicks.map((_,ti)=>(
+                          <div key={ti} style={{position:"absolute",left:`${(ti/ganttTicks.length)*100}%`,top:0,bottom:0,width:1,background:"#eef2ff"}}/>
+                        ))}
+                        {/* Plan bar */}
+                        <div style={{position:"absolute",top:3,height:7,left:`${a.startPct}%`,width:`${a.widthPct}%`,background:c+"50",borderRadius:3,border:`1px solid ${c}`}}/>
+                        {/* Actual progress */}
+                        <div style={{position:"absolute",bottom:3,height:7,left:`${a.startPct}%`,width:`${a.progressPct}%`,background:statusColor,borderRadius:3,boxShadow:`0 1px 3px ${statusColor}40`}}/>
+                        {/* Today marker */}
+                        {(()=>{const ps=parseIso(project.startDate);const dur=Number(project.duration)||12;if(!ps)return null;const now=new Date();const pe=new Date(ps);pe.setMonth(pe.getMonth()+dur);const todayPct=Math.max(0,Math.min(100,((now-ps)/(pe-ps))*100));return<div style={{position:"absolute",left:`${todayPct}%`,top:0,bottom:0,width:2,background:"#ef4444",zIndex:2}}/>;})()}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Legend */}
+              <div style={{marginTop:8,padding:"6px 12px",background:darkMode?"#0f172a":"#f8f9fc",borderRadius:7,fontSize:10,color:"#888",display:"flex",gap:14,flexWrap:"wrap"}}>
+                <span style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:14,height:5,background:"#6366f150",border:"1px solid #6366f1",borderRadius:2}}/> مخطط</span>
+                <span style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:14,height:5,background:"#10b981",borderRadius:2}}/> فعلي (جيد)</span>
+                <span style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:14,height:5,background:"#f59e0b",borderRadius:2}}/> تحذير</span>
+                <span style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:14,height:5,background:"#ef4444",borderRadius:2}}/> حرج</span>
+                <span style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:3,height:12,background:"#ef4444"}}/> اليوم</span>
+                <span style={{marginLeft:"auto",color:"#bbb"}}>💡 اضغط أي نشاط لعرض التفاصيل</span>
+              </div>
+              {/* Activity details panel */}
+              {ganttActivity&&(
+                <div style={{marginTop:12,padding:"12px 14px",background:darkMode?"#1e293b":"linear-gradient(135deg,#f5f3ff,#eef2ff)",borderRadius:9,border:`2px solid ${DC[ganttActivity.disc]||"#6366f1"}`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:800,direction:"rtl"}}>{ganttActivity.nameAr}</div>
+                      <div style={{fontSize:10,color:"#888",fontFamily:"monospace",marginTop:2}}>{ganttActivity.id} · {ganttActivity.disc}</div>
+                    </div>
+                    <button onClick={()=>setGanttActivity(null)} style={{background:"#fee2e2",color:"#ef4444",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>✕</button>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8,fontSize:10}}>
+                    {[
+                      {l:"تاريخ البدء",v:ganttActivity._s.toLocaleDateString("ar-SA"),c:"#6366f1"},
+                      {l:"تاريخ الانتهاء",v:ganttActivity._e.toLocaleDateString("ar-SA"),c:"#8b5cf6"},
+                      {l:"الإنجاز",v:ganttActivity.pct+"%",c:"#10b981"},
+                      {l:"BAC",v:fmt(ganttActivity.bac),c:"#6366f1"},
+                      {l:"AC",v:fmt(ganttActivity.ac),c:"#f59e0b"},
+                      {l:"EV",v:fmt(ganttActivity.ev),c:"#10b981"},
+                      {l:"CPI",v:ganttActivity.cpi>0?ganttActivity.cpi.toFixed(2):"—",c:ganttActivity.cpi>=1?"#10b981":ganttActivity.cpi>=0.9?"#f59e0b":"#ef4444"},
+                      {l:"SPI",v:ganttActivity.spi>0?ganttActivity.spi.toFixed(2):"—",c:ganttActivity.spi>=1?"#10b981":ganttActivity.spi>=0.9?"#f59e0b":"#ef4444"},
+                      {l:"EAC",v:fmt(ganttActivity.eac),c:ganttActivity.eac>ganttActivity.bac?"#ef4444":"#10b981"},
+                      {l:"VAC",v:fmt(ganttActivity.vac),c:ganttActivity.vac>=0?"#10b981":"#ef4444"},
+                    ].map(({l,v,c})=>(
+                      <div key={l} style={{padding:"6px 8px",background:darkMode?"#0f172a":"#fff",borderRadius:6,border:"1px solid #e5e7eb"}}>
+                        <div style={{fontSize:8,color:"#888",marginBottom:2}}>{l}</div>
+                        <div style={{fontSize:11,fontWeight:800,color:c,fontFamily:"monospace"}}>{v}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Card>
+
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+
               {/* Gantt chart */}
               <Card style={{gridColumn:"1/-1"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
@@ -3342,21 +3753,52 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
           {/* ═══ BASELINE ═══ */}
           {tab==="baseline"&&(
             <div style={{maxWidth:900,margin:"0 auto"}}>
-              {/* Capture baseline */}
+              {/* Capture baseline + Multi-snapshot list */}
               <Card style={{marginBottom:14}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
                   <div>
-                    <H3 style={{margin:"0 0 4px"}}>📐 خط القاعدة — Performance Baseline</H3>
+                    <H3 style={{margin:"0 0 4px"}}>📐 خط القاعدة — Multi-Snapshot Baselines ({baselines.length})</H3>
                     <div style={{fontSize:11,color:"#888"}}>
                       {baseline?`آخر خط قاعدة: ${baselineDate} · ${baseline.acts.length} نشاط`:"لم يتم تسجيل خط قاعدة بعد"}
                     </div>
                   </div>
-                  <div style={{display:"flex",gap:8}}>
-                    <button onClick={captureBaseline} style={{background:"#6366f1",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontWeight:700,cursor:"pointer",fontSize:12}}>📸 حفظ خط القاعدة الحالي</button>
-                    {baseline&&<button onClick={()=>setBaseline(null)} style={{background:"#fee2e2",color:"#ef4444",border:"none",borderRadius:8,padding:"9px 14px",fontWeight:600,cursor:"pointer",fontSize:12}}>🗑 حذف</button>}
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    <input value={newBaselineName} onChange={e=>setNewBaselineName(e.target.value)} placeholder="اسم الـ Snapshot..."
+                      style={{padding:"8px 12px",borderRadius:8,border:"1px solid #e5e7eb",fontSize:12,minWidth:160}}/>
+                    <button onClick={()=>captureBaseline()} style={{background:"#6366f1",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontWeight:700,cursor:"pointer",fontSize:12}}>📸 حفظ Snapshot جديد</button>
                   </div>
                 </div>
+                {/* Snapshots strip */}
+                {baselines.length>0&&(
+                  <div style={{display:"flex",gap:8,overflowX:"auto",padding:"6px 2px",borderTop:"1px dashed #eee",paddingTop:10}}>
+                    {baselines.map(b=>{
+                      const isActive=activeBaselineId===b.id;
+                      const cmp=baselinesCompare.find(c=>c.id===b.id)||{};
+                      return(
+                        <div key={b.id} onClick={()=>setActiveBaselineId(isActive?null:b.id)}
+                          style={{minWidth:200,padding:"10px 12px",borderRadius:9,border:`2px solid ${isActive?"#6366f1":"#e5e7eb"}`,background:isActive?"#eef2ff":(darkMode?"#0f172a":"#fff"),cursor:"pointer",flexShrink:0,position:"relative"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                            <div style={{fontWeight:800,fontSize:12,color:"#6366f1"}}>{b.label}</div>
+                            <button onClick={e=>{e.stopPropagation();deleteBaselineSnapshot(b.id);}} style={{background:"transparent",border:"none",color:"#ef4444",cursor:"pointer",fontSize:12}}>🗑</button>
+                          </div>
+                          <div style={{fontSize:9,color:"#888",marginBottom:6}}>{b.date}</div>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,fontSize:9}}>
+                            <div>Δ EAC: <b style={{color:cmp.eacDiff>0?"#ef4444":"#10b981"}}>{cmp.eacDiff>0?"+":""}{fmt(cmp.eacDiff||0)}</b></div>
+                            <div>Δ AC: <b style={{color:cmp.acDiff>0?"#ef4444":"#10b981"}}>{cmp.acDiff>0?"+":""}{fmt(cmp.acDiff||0)}</b></div>
+                            <div>Δ SPI: <b style={{color:cmp.spiDiff>=0?"#10b981":"#ef4444"}}>{cmp.spiDiff>=0?"+":""}{(cmp.spiDiff||0).toFixed(2)}</b></div>
+                            <div>Δ CPI: <b style={{color:cmp.cpiDiff>=0?"#10b981":"#ef4444"}}>{cmp.cpiDiff>=0?"+":""}{(cmp.cpiDiff||0).toFixed(2)}</b></div>
+                            <div>Δ الإنجاز: <b style={{color:cmp.progDiff>=0?"#10b981":"#ef4444"}}>{cmp.progDiff>=0?"+":""}{(cmp.progDiff||0).toFixed(1)}%</b></div>
+                            <div>Δ المدة: <b style={{color:cmp.timeDiff>0?"#ef4444":"#10b981"}}>{cmp.timeDiff>0?"+":""}{cmp.timeDiff} شهر</b></div>
+                          </div>
+                          {isActive&&<div style={{position:"absolute",top:-8,right:8,background:"#6366f1",color:"#fff",fontSize:8,fontWeight:800,padding:"2px 7px",borderRadius:4}}>نشط</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </Card>
+
+
 
               {baseline?(
                 <>
@@ -3737,6 +4179,10 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
                     <div style={{fontSize:11,color:"#888"}}>تحليل احترافي بالعربية بناءً على مؤشرات الأداء الحالية — يدوي سريع أو بالذكاء الاصطناعي</div>
                   </div>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    <button onClick={generateNarrativeFromAlerts} disabled={narrativeLoading}
+                      style={{background:alerts.length?"linear-gradient(135deg,#f59e0b,#ef4444)":"#e5e7eb",color:alerts.length?"#fff":"#888",border:"none",borderRadius:9,padding:"10px 16px",fontWeight:700,cursor:alerts.length?"pointer":"not-allowed",fontSize:12,whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:6}}>
+                      🤖 توليد من التنبيهات {alerts.length>0&&<span style={{background:"rgba(255,255,255,.25)",borderRadius:999,padding:"1px 7px",fontSize:10}}>{alerts.length}</span>}
+                    </button>
                     <button onClick={generateLocalNarrative} disabled={narrativeLoading}
                       style={{background:"hsl(var(--success)/.12)",color:"hsl(var(--success))",border:"1px solid hsl(var(--success)/.35)",borderRadius:9,padding:"10px 16px",fontWeight:700,cursor:"pointer",fontSize:12,whiteSpace:"nowrap"}}>
                       ⚡ توليد سريع (بدون AI)
