@@ -1773,7 +1773,20 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
       .evm-density-comfortable .evm-kpi-card{padding:18px 20px !important;}
       .evm-density-comfortable table th,.evm-density-comfortable table td{padding:11px 14px !important;}
       [dir="rtl"] .evm-kpi-card > div[style*="top:6px"]{left:auto !important;right:8px !important;}
+      /* Sticky table headers inside scrollable cards */
+      .evm-density-compact table thead th,.evm-density-comfortable table thead th{position:sticky;top:0;z-index:5;background:hsl(var(--card));box-shadow:inset 0 -1px 0 hsl(var(--border));}
+      /* Print mode — hide chrome, expand content */
+      @media print{
+        body{background:#fff !important;}
+        .evm-no-print,.evm-no-print *{display:none !important;}
+        .evm-density-compact,.evm-density-comfortable{height:auto !important;overflow:visible !important;}
+        .evm-kpi-card{break-inside:avoid;box-shadow:none !important;border:1px solid #ccc !important;}
+        table{page-break-inside:auto;}
+        tr{page-break-inside:avoid;page-break-after:auto;}
+        thead{display:table-header-group;}
+      }
     `}</style>
+
     <div dir="rtl" className={`evm-density-${density}`} style={{display:"flex",height:"100vh",fontFamily:"'Manrope','Cairo','Segoe UI',sans-serif",background:darkMode?"#0f172a":"hsl(var(--background))",color:darkMode?"#f1f5f9":"hsl(var(--foreground))",fontSize:13,overflow:"hidden"}}>
 
 
