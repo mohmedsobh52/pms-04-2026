@@ -512,10 +512,16 @@ function ProjectsTab({projectsList,projectsLoading,projectsErr,fetchProjects,lin
         {compareIds.length>0&&<button onClick={()=>setCompareIds([])} style={{background:"hsl(var(--destructive))",color:"hsl(var(--destructive-foreground))",border:"none",borderRadius:9,padding:"7px 12px",cursor:"pointer",fontSize:11,fontWeight:700}}>✕ مسح المقارنة ({compareIds.length})</button>}
       </div>
 
-      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
         <FilterChip val="all" label="الكل" count={(projectsList||[]).filter(p=>!archived.includes(p.id)).length}/>
         <FilterChip val="favorites" label="⭐ المفضلة" count={favorites.length}/>
         <FilterChip val="archived" label="📦 الأرشيف" count={archived.length}/>
+        <span style={{width:1,height:22,background:border,margin:"0 4px"}}/>
+        <span style={{fontSize:11,color:sub,fontWeight:700}}>📅 من:</span>
+        <input type="text" placeholder="yyyy-MM-dd" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={{border:`1px solid ${border}`,borderRadius:7,padding:"5px 9px",fontSize:11,outline:"none",background:cardBg,color:txt,width:120,fontFamily:"monospace"}}/>
+        <span style={{fontSize:11,color:sub,fontWeight:700}}>إلى:</span>
+        <input type="text" placeholder="yyyy-MM-dd" value={dateTo} onChange={e=>setDateTo(e.target.value)} style={{border:`1px solid ${border}`,borderRadius:7,padding:"5px 9px",fontSize:11,outline:"none",background:cardBg,color:txt,width:120,fontFamily:"monospace"}}/>
+        {(dateFrom||dateTo)&&<button onClick={()=>{setDateFrom("");setDateTo("");}} style={{background:"hsl(var(--muted))",color:txt,border:`1px solid ${border}`,borderRadius:7,padding:"4px 9px",cursor:"pointer",fontSize:10,fontWeight:600}}>✕ مسح التاريخ</button>}
       </div>
 
       {projectsErr&&<div style={{background:"hsl(var(--destructive)/.1)",color:"hsl(var(--destructive))",padding:"10px 14px",borderRadius:9,fontSize:12,marginBottom:12,border:"1px solid hsl(var(--destructive)/.3)"}}>{projectsErr}</div>}
