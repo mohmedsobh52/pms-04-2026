@@ -622,6 +622,8 @@ export default function App(){
   const [threshSPI,setThreshSPI]=useState(0.9);
   const [threshCPI,setThreshCPI]=useState(0.9);
   const [threshModal,setThreshModal]=useState(false);
+  const [kpiDrill,setKpiDrill]=useState(null); // null | "PV" | "EV" | "AC" | "EAC" | "ETC" | "CPI" | "SPI" | "TCPI" | "PROG"
+
   const [projModal,setProjModal]=useState(false);
   const [project,setProject]=useState(()=>recomputeProjectDates({name:"مشروع البنية التحتية — جامعة تبوك",number:"NWC-TAB-2024-P1",client:"شركة المياه الوطنية",contractor:"الإمتياز الوطنية للمقاولات",startDate:"2025-01-01",endDate:"",duration:"24",currency:"SAR",lockedField:"endDate"}));
   const [projBuf,setProjBuf]=useState(project);
