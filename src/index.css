@@ -209,25 +209,27 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Manrope', 'Inter', system-ui, sans-serif;
     min-height: 100vh;
     position: relative;
   }
 
   [dir="rtl"] body,
   [lang="ar"] body {
-    font-family: 'Cairo', system-ui, sans-serif;
+    font-family: 'Cairo', 'Manrope', system-ui, sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Inter', system-ui, sans-serif;
-    font-weight: 600;
+    font-family: 'Sora', 'Manrope', system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.01em;
   }
 
   [dir="rtl"] h1, [dir="rtl"] h2, [dir="rtl"] h3, [dir="rtl"] h4, [dir="rtl"] h5, [dir="rtl"] h6,
   [lang="ar"] h1, [lang="ar"] h2, [lang="ar"] h3, [lang="ar"] h4, [lang="ar"] h5, [lang="ar"] h6 {
-    font-family: 'Cairo', system-ui, sans-serif;
+    font-family: 'Cairo', 'Sora', system-ui, sans-serif;
   }
+
 }
 
 @layer components {
