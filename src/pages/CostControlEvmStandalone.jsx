@@ -749,7 +749,7 @@ export default function App(){
     finally{setSavedKpisLoading(s=>{const n={...s};delete n[projectId];return n;});}
   },[savedKpis,savedKpisLoading]);
 
-  // Auto-restore last opened project from localStorage; otherwise open picker
+  // Auto-restore last opened project from localStorage; picker stays integrated in the header (no auto-popup)
   useEffect(()=>{
     if(linkedProjectId)return;
     const last=typeof window!=="undefined"&&localStorage.getItem(LS_LAST);
@@ -761,7 +761,7 @@ export default function App(){
           if(data){loadProjectFromDb(data);return;}
         }catch(_){}
       }
-      setTimeout(()=>setPickerModal(true),300);
+      // Do NOT auto-open picker modal — user can open it from the header/sidebar button
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
