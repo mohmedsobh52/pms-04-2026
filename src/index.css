@@ -1,5 +1,5 @@
-/* Google Fonts: only the weights actually used → smaller download */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cairo:wght@400;500;600;700&display=swap');
+/* Google Fonts — Emerald Prestige typography: Sora (display) + Manrope (body) + Cairo (Arabic) */
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Manrope:wght@300;400;500;600;700&family=Cairo:wght@400;500;600;700;800&display=swap');
 @import './components/ui/dialog-custom.css';
 
 @tailwind base;
