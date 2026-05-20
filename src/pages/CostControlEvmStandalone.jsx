@@ -2096,18 +2096,40 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
 
               <button onClick={()=>setDarkMode(d=>!d)} title="تبديل الوضع" style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 10px",fontWeight:600,cursor:"pointer",fontSize:14}}>{darkMode?"☀️":"🌙"}</button>
 
-              <button onClick={()=>setImportModal(true)} style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>📂 استيراد</button>
-              <button onClick={()=>exportExcelFull(acts,kpi,cf,risks,issues,resources,project)} style={{background:"hsl(var(--success))",color:"hsl(var(--success-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📥 Excel كامل</button>
-              <button onClick={()=>{exportCSV(acts,kpi,project);toast.success("تم تصدير CSV");}} title="تصدير CSV للبيانات الحالية" style={{background:"hsl(var(--success)/.85)",color:"hsl(var(--success-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📄 CSV</button>
-              <button onClick={exportPDF} style={{background:"hsl(var(--destructive))",color:"hsl(var(--destructive-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📑 PDF</button>
-              <button onClick={syncACFromCertificates} disabled={syncingAC} title="مزامنة AC من شهادات التقدم" style={{background:"hsl(var(--accent))",color:"hsl(var(--accent-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:syncingAC?"wait":"pointer",fontSize:11,opacity:syncingAC?.6:1}}>{syncingAC?"⏳ مزامنة...":"🔁 مزامنة AC"}</button>
-              <button onClick={()=>{setAutoSyncAC(v=>{const nv=!v;toast.info(nv?"✅ تفعيل المزامنة التلقائية كل 5 دقائق":"⏸ إيقاف المزامنة التلقائية");return nv;});}} title="مزامنة AC تلقائياً كل 5 دقائق" style={{background:autoSyncAC?"hsl(var(--success))":"rgba(255,255,255,.1)",color:"#fff",border:`1px solid ${autoSyncAC?"hsl(var(--success))":"rgba(255,255,255,.25)"}`,borderRadius:7,padding:"6px 10px",fontWeight:700,cursor:"pointer",fontSize:11,display:"inline-flex",alignItems:"center",gap:4}}>{autoSyncAC?"🟢":"⚪"} Auto{syncingAC&&autoSyncAC?<span style={{display:"inline-block",width:6,height:6,borderRadius:99,background:"#fff",animation:"pulse 1.5s infinite"}}/>:null}</button>
+              {/* ── Import (highlighted for schedule import) ── */}
+              <button onClick={()=>setImportModal(true)} title="استيراد BOQ / جدول زمني Primavera (XER) / Excel / PDF / CSV" style={{background:"rgba(255,255,255,.15)",color:"#fff",border:"1px solid rgba(255,255,255,.3)",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📂 استيراد</button>
 
-              <button onClick={()=>{const n=prompt("اسم السيناريو:");if(n)saveScenarioToDb(n);}} title="حفظ السيناريو في السحابة" style={{background:"hsl(var(--qa-purple))",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>☁️ حفظ</button>
-              <button onClick={()=>{setScenariosModal(true);fetchDbScenarios();}} title="تحميل سيناريو محفوظ" style={{background:"hsla(0,0%,100%,.12)",color:"hsl(var(--primary-foreground))",border:"1px solid hsla(0,0%,100%,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>📚 السيناريوهات</button>
-              <button onClick={()=>setThreshModal(true)} style={{background:"hsla(0,0%,100%,.12)",color:"hsl(var(--primary-foreground))",border:"1px solid hsla(0,0%,100%,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>⚙️</button>
+              {/* ── Export dropdown ── */}
+              <details style={{position:"relative"}}>
+                <summary style={{listStyle:"none",background:"hsl(var(--success))",color:"hsl(var(--success-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11,userSelect:"none"}}>📥 تصدير ▾</summary>
+                <div style={{position:"absolute",top:"calc(100% + 4px)",insetInlineEnd:0,background:darkMode?"#1e293b":"#fff",border:`1px solid ${darkMode?"#334155":"#e5e7eb"}`,borderRadius:8,boxShadow:"0 12px 30px rgba(0,0,0,.18)",minWidth:170,zIndex:100,padding:5,display:"flex",flexDirection:"column",gap:2}}>
+                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;exportExcelFull(acts,kpi,cf,risks,issues,resources,project);}} style={{background:"transparent",border:"none",textAlign:"start",padding:"7px 11px",borderRadius:6,cursor:"pointer",fontSize:12,color:darkMode?"#f1f5f9":"#1a1a2e",fontWeight:600}}>📊 Excel كامل</button>
+                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;exportCSV(acts,kpi,project);toast.success("تم تصدير CSV");}} style={{background:"transparent",border:"none",textAlign:"start",padding:"7px 11px",borderRadius:6,cursor:"pointer",fontSize:12,color:darkMode?"#f1f5f9":"#1a1a2e",fontWeight:600}}>📄 CSV (البيانات الحالية)</button>
+                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;exportPDF();}} style={{background:"transparent",border:"none",textAlign:"start",padding:"7px 11px",borderRadius:6,cursor:"pointer",fontSize:12,color:darkMode?"#f1f5f9":"#1a1a2e",fontWeight:600}}>📑 PDF</button>
+                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;window.print();}} style={{background:"transparent",border:"none",textAlign:"start",padding:"7px 11px",borderRadius:6,cursor:"pointer",fontSize:12,color:darkMode?"#f1f5f9":"#1a1a2e",fontWeight:600}}>🖨️ طباعة</button>
+                </div>
+              </details>
+
+              {/* ── AC Sync dropdown ── */}
+              <details style={{position:"relative"}}>
+                <summary style={{listStyle:"none",background:autoSyncAC?"hsl(var(--success))":"hsl(var(--accent))",color:autoSyncAC?"hsl(var(--success-foreground))":"hsl(var(--accent-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:syncingAC?"wait":"pointer",fontSize:11,userSelect:"none",opacity:syncingAC?.7:1,display:"inline-flex",alignItems:"center",gap:5}}>{syncingAC?"⏳":autoSyncAC?"🟢":"🔁"} AC {autoSyncAC?"Auto":""} ▾</summary>
+                <div style={{position:"absolute",top:"calc(100% + 4px)",insetInlineEnd:0,background:darkMode?"#1e293b":"#fff",border:`1px solid ${darkMode?"#334155":"#e5e7eb"}`,borderRadius:8,boxShadow:"0 12px 30px rgba(0,0,0,.18)",minWidth:200,zIndex:100,padding:5,display:"flex",flexDirection:"column",gap:2}}>
+                  <button disabled={syncingAC} onClick={(e)=>{e.currentTarget.closest("details").open=false;syncACFromCertificates();}} style={{background:"transparent",border:"none",textAlign:"start",padding:"7px 11px",borderRadius:6,cursor:syncingAC?"wait":"pointer",fontSize:12,color:darkMode?"#f1f5f9":"#1a1a2e",fontWeight:600,opacity:syncingAC?.6:1}}>{syncingAC?"⏳ جاري المزامنة...":"🔁 مزامنة الآن"}</button>
+                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;setAutoSyncAC(v=>{const nv=!v;toast.info(nv?"✅ تفعيل المزامنة التلقائية كل 5 دقائق":"⏸ إيقاف المزامنة التلقائية");return nv;});}} style={{background:"transparent",border:"none",textAlign:"start",padding:"7px 11px",borderRadius:6,cursor:"pointer",fontSize:12,color:darkMode?"#f1f5f9":"#1a1a2e",fontWeight:600}}>{autoSyncAC?"⏸ إيقاف Auto-Sync":"🟢 تفعيل Auto-Sync (5د)"}</button>
+                </div>
+              </details>
+
+              {/* ── Scenarios dropdown ── */}
+              <details style={{position:"relative"}}>
+                <summary style={{listStyle:"none",background:"hsla(0,0%,100%,.12)",color:"#fff",border:"1px solid hsla(0,0%,100%,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11,userSelect:"none"}}>📚 سيناريوهات ▾</summary>
+                <div style={{position:"absolute",top:"calc(100% + 4px)",insetInlineEnd:0,background:darkMode?"#1e293b":"#fff",border:`1px solid ${darkMode?"#334155":"#e5e7eb"}`,borderRadius:8,boxShadow:"0 12px 30px rgba(0,0,0,.18)",minWidth:180,zIndex:100,padding:5,display:"flex",flexDirection:"column",gap:2}}>
+                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;const n=prompt("اسم السيناريو:");if(n)saveScenarioToDb(n);}} style={{background:"transparent",border:"none",textAlign:"start",padding:"7px 11px",borderRadius:6,cursor:"pointer",fontSize:12,color:darkMode?"#f1f5f9":"#1a1a2e",fontWeight:600}}>☁️ حفظ السيناريو</button>
+                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;setScenariosModal(true);fetchDbScenarios();}} style={{background:"transparent",border:"none",textAlign:"start",padding:"7px 11px",borderRadius:6,cursor:"pointer",fontSize:12,color:darkMode?"#f1f5f9":"#1a1a2e",fontWeight:600}}>📂 تحميل سيناريو</button>
+                </div>
+              </details>
+
+              <button onClick={()=>setThreshModal(true)} title="إعدادات الحدود" style={{background:"hsla(0,0%,100%,.12)",color:"hsl(var(--primary-foreground))",border:"1px solid hsla(0,0%,100%,.25)",borderRadius:7,padding:"6px 10px",fontWeight:600,cursor:"pointer",fontSize:11}}>⚙️</button>
               <button onClick={()=>setAddModal(true)} style={{background:"hsl(var(--primary))",color:"hsl(var(--primary-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>+ نشاط</button>
-              <button onClick={()=>window.print()} style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>🖨️</button>
             </div>
           </div>
           <div style={{display:"flex",gap:2,flexWrap:"nowrap",overflowX:"auto"}}>
