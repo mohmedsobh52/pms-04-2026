@@ -4394,10 +4394,10 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
 
       <Modal show={importModal} onClose={()=>{setImportModal(false);setImportText("");setImportPreview([]);setImportErr("");setImportSheets([]);}} title="📂 استيراد أنشطة من ملف" width={560}>
         {/* Format tabs */}
-        <div style={{display:"flex",gap:6,marginBottom:14}}>
-          {[["csv","📄 CSV","#6366f1"],["excel","📊 Excel","#10b981"],["pdf","📑 PDF","#f59e0b"]].map(([v,l,c])=>(
+        <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+          {[["csv","📄 CSV","#6366f1"],["excel","📊 Excel","#10b981"],["pdf","📑 PDF","#f59e0b"],["xer","🗓️ XER (Primavera P6)","#8b5cf6"]].map(([v,l,c])=>(
             <button key={v} onClick={()=>{setImportType(v);setImportErr("");setImportPreview([]);setImportText("");setImportSheets([]);}}
-              style={{flex:1,background:importType===v?c+"20":"#f8f9fc",color:importType===v?c:"#666",border:`2px solid ${importType===v?c:"#e5e7eb"}`,borderRadius:8,padding:"8px",cursor:"pointer",fontWeight:importType===v?700:400,fontSize:12}}>
+              style={{flex:"1 1 120px",background:importType===v?c+"20":"#f8f9fc",color:importType===v?c:"#666",border:`2px solid ${importType===v?c:"#e5e7eb"}`,borderRadius:8,padding:"8px",cursor:"pointer",fontWeight:importType===v?700:400,fontSize:12}}>
               {l}
             </button>
           ))}
