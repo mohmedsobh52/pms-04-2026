@@ -198,23 +198,24 @@ const Field=({label,value,onChange,type="text",error,min,max,step,placeholder,re
 const DarkCtx = createContext(false);
 const useDark = () => useContext(DarkCtx);
 
-const Kpi=({l,v,c,ic,sub,sc})=>{
+const Kpi=({l,v,c,ic,sub,sc,onClick,active})=>{
   const dm=useDark();
   return(
     <div
       className="evm-kpi-card"
+      onClick={onClick}
       style={{
         background:dm?"linear-gradient(145deg,#1e293b 0%,#172033 100%)":"linear-gradient(145deg,#ffffff 0%,#fafbff 100%)",
         borderRadius:14,padding:"15px 17px",
-        border:`1px solid ${dm?"#334155":"#eef0f7"}`,
-        boxShadow:dm?"0 4px 18px rgba(0,0,0,.35)":"0 4px 18px rgba(99,102,241,.07)",
+        border:`1px solid ${active?c:(dm?"#334155":"#eef0f7")}`,
+        boxShadow:active?`0 0 0 2px ${c}55, 0 8px 22px ${c}33`:(dm?"0 4px 18px rgba(0,0,0,.35)":"0 4px 18px rgba(99,102,241,.07)"),
         position:"relative",overflow:"hidden",
         transition:"transform .18s ease, box-shadow .18s ease",
+        cursor:onClick?"pointer":"default",
       }}
-      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=dm?"0 8px 22px rgba(0,0,0,.45)":"0 10px 24px rgba(99,102,241,.14)";}}
-      onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow=dm?"0 4px 18px rgba(0,0,0,.35)":"0 4px 18px rgba(99,102,241,.07)";}}
+      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";if(!active)e.currentTarget.style.boxShadow=dm?"0 8px 22px rgba(0,0,0,.45)":"0 10px 24px rgba(99,102,241,.14)";}}
+      onMouseLeave={e=>{e.currentTarget.style.transform="";if(!active)e.currentTarget.style.boxShadow=dm?"0 4px 18px rgba(0,0,0,.35)":"0 4px 18px rgba(99,102,241,.07)";}}
     >
-      {/* subtle glow */}
       <div style={{position:"absolute",top:-30,right:-30,width:90,height:90,borderRadius:"50%",background:`radial-gradient(circle, ${c}33 0%, transparent 70%)`,pointerEvents:"none"}}/>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7,position:"relative"}}>
         <span style={{fontSize:9,fontWeight:700,color:dm?"#94a3b8":"#888",letterSpacing:.8,textTransform:"uppercase"}}>{l}</span>
@@ -222,10 +223,12 @@ const Kpi=({l,v,c,ic,sub,sc})=>{
       </div>
       <div style={{fontSize:23,fontWeight:900,fontFamily:"monospace",color:dm?"#f1f5f9":"#0f172a",letterSpacing:-.5,position:"relative"}}>{v}</div>
       {sub&&<div style={{fontSize:10,marginTop:3,color:sc||(dm?"#94a3b8":"#888"),fontWeight:600,position:"relative"}}>{sub}</div>}
+      {onClick&&<div style={{position:"absolute",top:6,left:8,fontSize:9,color:dm?"#64748b":"#94a3b8",fontWeight:700,letterSpacing:.5}}>{active?"▼":"▸"}</div>}
       <div style={{position:"absolute",bottom:0,left:0,right:0,height:3,background:`linear-gradient(90deg, ${c}, ${c}88)`}}/>
     </div>
   );
 };
+
 const Card=({children,style={}})=>{
   const dm=useDark();
   return <div style={{background:dm?"#1e293b":"#fff",borderRadius:13,padding:18,border:`1px solid ${dm?"#334155":"#f0f0f0"}`,boxShadow:"0 2px 12px rgba(0,0,0,.05)",...style}}>{children}</div>;
@@ -619,6 +622,8 @@ export default function App(){
   const [threshSPI,setThreshSPI]=useState(0.9);
   const [threshCPI,setThreshCPI]=useState(0.9);
   const [threshModal,setThreshModal]=useState(false);
+  const [kpiDrill,setKpiDrill]=useState(null); // null | "PV" | "EV" | "AC" | "EAC" | "ETC" | "CPI" | "SPI" | "TCPI" | "PROG"
+
   const [projModal,setProjModal]=useState(false);
   const [project,setProject]=useState(()=>recomputeProjectDates({name:"مشروع البنية التحتية — جامعة تبوك",number:"NWC-TAB-2024-P1",client:"شركة المياه الوطنية",contractor:"الإمتياز الوطنية للمقاولات",startDate:"2025-01-01",endDate:"",duration:"24",currency:"SAR",lockedField:"endDate"}));
   const [projBuf,setProjBuf]=useState(project);
@@ -2008,29 +2013,75 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
           {/* ═══ OVERVIEW ═══ */}
           {tab==="overview"&&(<>
             <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:11,marginBottom:12}}>
-              <Kpi l="PV — القيمة المخططة"  v={fmt(kpi.pv)}  ic="🎯" c="#6366f1"/>
-              <Kpi l="EV — القيمة المكتسبة" v={fmt(kpi.ev)}  ic="📈" c="#10b981"/>
-              <Kpi l="AC — التكلفة الفعلية"  v={fmt(kpi.ac)}  ic="💰" c="#f59e0b"/>
-              <Kpi l="EAC — تقدير الإتمام"  v={fmt(kpi.EAC)} ic="🔮" c={kpi.EAC>kpi.bac?"#ef4444":"#8b5cf6"} sub={kpi.EAC>kpi.bac?`▲ ${fmt(kpi.EAC-kpi.bac)} تجاوز`:"✓ ضمن الميزانية"} sc={kpi.EAC>kpi.bac?"#ef4444":"#10b981"}/>
-              <Kpi l="ETC — تكلفة الإتمام"  v={fmt(kpi.ETC)} ic="📌" c="#ec4899"/>
+
+              <Kpi l="PV — القيمة المخططة"  v={fmt(kpi.pv)}  ic="🎯" c="#6366f1" onClick={()=>setKpiDrill(d=>d==="PV"?null:"PV")}  active={kpiDrill==="PV"}/>
+              <Kpi l="EV — القيمة المكتسبة" v={fmt(kpi.ev)}  ic="📈" c="#10b981" onClick={()=>setKpiDrill(d=>d==="EV"?null:"EV")}  active={kpiDrill==="EV"}/>
+              <Kpi l="AC — التكلفة الفعلية"  v={fmt(kpi.ac)}  ic="💰" c="#f59e0b" onClick={()=>setKpiDrill(d=>d==="AC"?null:"AC")}  active={kpiDrill==="AC"}/>
+              <Kpi l="EAC — تقدير الإتمام"  v={fmt(kpi.EAC)} ic="🔮" c={kpi.EAC>kpi.bac?"#ef4444":"#8b5cf6"} sub={kpi.EAC>kpi.bac?`▲ ${fmt(kpi.EAC-kpi.bac)} تجاوز`:"✓ ضمن الميزانية"} sc={kpi.EAC>kpi.bac?"#ef4444":"#10b981"} onClick={()=>setKpiDrill(d=>d==="EAC"?null:"EAC")} active={kpiDrill==="EAC"}/>
+              <Kpi l="ETC — تكلفة الإتمام"  v={fmt(kpi.ETC)} ic="📌" c="#ec4899" onClick={()=>setKpiDrill(d=>d==="ETC"?null:"ETC")} active={kpiDrill==="ETC"}/>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:11,marginBottom:12}}>
-              {[{l:"SPI — أداء الجدول الزمني",v:kpi.SPI,note:`SV = ${fmt(kpi.SV)}`,nt:kpi.SPI>=1?"في الموعد ✓":"متأخر ⚠"},
-                {l:"PROGRESS — نسبة الإنجاز",prog:true,note:`BAC = ${fmt(kpi.bac)}`},
-                {l:"CPI — أداء التكلفة",v:kpi.CPI,note:`CV = ${fmt(kpi.CV)}`,nt:kpi.CPI>=1?"ضمن التكلفة ✓":"تجاوز ⚠"},
-                {l:"TCPI — الأداء المستهدف",v:kpi.TCPI,inv:true,note:"",nt:kpi.TCPI<=1?"قابل ✓":kpi.TCPI<=1.1?"يحتاج تحسين ⚠":"صعب ⛔"},
-              ].map(({l,v,prog,note,nt,inv})=>(
-                <Card key={l} style={{padding:"14px 16px"}}>
-                  <div style={{fontSize:9,fontWeight:700,color:"#999",letterSpacing:.7,marginBottom:9}}>{l}</div>
+              {[{l:"SPI — أداء الجدول الزمني",k:"SPI",v:kpi.SPI,note:`SV = ${fmt(kpi.SV)}`,nt:kpi.SPI>=1?"في الموعد ✓":"متأخر ⚠"},
+                {l:"PROGRESS — نسبة الإنجاز",k:"PROG",prog:true,note:`BAC = ${fmt(kpi.bac)}`},
+                {l:"CPI — أداء التكلفة",k:"CPI",v:kpi.CPI,note:`CV = ${fmt(kpi.CV)}`,nt:kpi.CPI>=1?"ضمن التكلفة ✓":"تجاوز ⚠"},
+                {l:"TCPI — الأداء المستهدف",k:"TCPI",v:kpi.TCPI,inv:true,note:"",nt:kpi.TCPI<=1?"قابل ✓":kpi.TCPI<=1.1?"يحتاج تحسين ⚠":"صعب ⛔"},
+              ].map(({l,k,v,prog,note,nt,inv})=>(
+                <Card key={l} style={{padding:"14px 16px",cursor:"pointer",border:kpiDrill===k?"2px solid hsl(var(--primary))":undefined,boxShadow:kpiDrill===k?"0 8px 22px hsl(var(--primary)/.25)":undefined}}>
+                  <div onClick={()=>setKpiDrill(d=>d===k?null:k)}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:9}}>
+                    <span style={{fontSize:9,fontWeight:700,color:"#999",letterSpacing:.7}}>{l}</span>
+                    <span style={{fontSize:9,color:"hsl(var(--muted-foreground))",fontWeight:700}}>{kpiDrill===k?"▼":"▸"}</span>
+                  </div>
                   {prog
                     ?<span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",background:"#f0f9ff",color:"#0ea5e9",borderRadius:999,padding:"5px 18px",fontSize:22,fontWeight:900,border:"2px solid #bae6fd",fontFamily:"monospace"}}>{kpi.prog.toFixed(1)}%</span>
                     :<IdxBadge v={v}/>}
                   {note&&<div style={{marginTop:7,fontSize:10,color:darkMode?"#64748b":"#888"}}>{note}</div>}
                   {nt&&<div style={{marginTop:2,fontSize:10,color:"#666"}}>{nt}</div>}
                   <div style={{marginTop:8}}><PBar pct={prog?kpi.prog:Math.min((+v||0)*100,100)} color={prog?"#0ea5e9":sColor(inv?2-(+v||0):+v||0)} h={5}/></div>
+                  </div>
                 </Card>
               ))}
             </div>
+            {kpiDrill&&(
+              <Card style={{marginBottom:12,border:"2px solid hsl(var(--primary)/.4)",background:"hsl(var(--primary)/.04)"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                  <H3 style={{margin:0,color:"hsl(var(--primary))"}}>🔍 Drill-down: {kpiDrill}</H3>
+                  <button onClick={()=>setKpiDrill(null)} style={{background:"hsl(var(--muted))",border:"1px solid hsl(var(--border))",borderRadius:6,padding:"3px 10px",fontSize:11,cursor:"pointer",color:"hsl(var(--foreground))"}}>✕ إغلاق</button>
+                </div>
+                {(()=>{
+                  const explain={
+                    PV:{title:"Planned Value — القيمة المخططة",desc:"الجزء من الميزانية الذي كان مخططاً إنجازه حتى تاريخه. يُحسب من خط الأساس الزمني.",rows:[["PV",fmt(kpi.pv)],["BAC",fmt(kpi.bac)],["نسبة المخطط من BAC",kpi.bac>0?((kpi.pv/kpi.bac)*100).toFixed(1)+"%":"—"]]},
+                    EV:{title:"Earned Value — القيمة المكتسبة",desc:"القيمة المالية للعمل الفعلي المُنجز حتى تاريخه = نسبة الإنجاز × BAC.",rows:[["EV",fmt(kpi.ev)],["نسبة الإنجاز",kpi.prog.toFixed(1)+"%"],["BAC",fmt(kpi.bac)],["SV (EV-PV)",fmt(kpi.SV)]]},
+                    AC:{title:"Actual Cost — التكلفة الفعلية",desc:"إجمالي التكاليف الفعلية المصروفة على العمل المُنجز.",rows:[["AC",fmt(kpi.ac)],["EV",fmt(kpi.ev)],["CV (EV-AC)",fmt(kpi.CV)],["CPI (EV/AC)",kpi.CPI.toFixed(3)]]},
+                    EAC:{title:"Estimate At Completion — تقدير الإتمام",desc:"التقدير المحدّث لإجمالي تكلفة المشروع عند الانتهاء بناءً على CPI الحالي. EAC = BAC ÷ CPI",rows:[["EAC (CPI)",fmt(kpi.EAC)],["EAC (PERT)",fmt(kpi.EAC_pert)],["BAC",fmt(kpi.bac)],["VAC (BAC-EAC)",fmt(kpi.bac-kpi.EAC)],["الحالة",kpi.EAC>kpi.bac?"⚠ تجاوز الميزانية":"✓ ضمن الميزانية"]]},
+                    ETC:{title:"Estimate To Complete — تكلفة الإتمام",desc:"المبلغ المتبقي المتوقع إنفاقه لإتمام الأعمال = EAC − AC.",rows:[["ETC",fmt(kpi.ETC)],["AC",fmt(kpi.ac)],["EAC",fmt(kpi.EAC)],["متبقي من BAC",fmt(Math.max(0,kpi.bac-kpi.ac))]]},
+                    CPI:{title:"Cost Performance Index — مؤشر أداء التكلفة",desc:"كفاءة استخدام الميزانية = EV ÷ AC. القيمة ≥ 1 جيدة.",rows:[["CPI",kpi.CPI.toFixed(3)],["EV",fmt(kpi.ev)],["AC",fmt(kpi.ac)],["CV",fmt(kpi.CV)],["العتبة المعتمدة",threshCPI.toFixed(2)],["الحالة",kpi.CPI>=threshCPI?"✓ ضمن العتبة":"⚠ تحت العتبة"]]},
+                    SPI:{title:"Schedule Performance Index — مؤشر أداء الجدول",desc:"كفاءة الالتزام بالجدول = EV ÷ PV. القيمة ≥ 1 جيدة.",rows:[["SPI",kpi.SPI.toFixed(3)],["EV",fmt(kpi.ev)],["PV",fmt(kpi.pv)],["SV",fmt(kpi.SV)],["العتبة المعتمدة",threshSPI.toFixed(2)],["الحالة",kpi.SPI>=threshSPI?"✓ ضمن العتبة":"⚠ تحت العتبة"]]},
+                    TCPI:{title:"To-Complete Performance Index — الأداء المستهدف",desc:"الكفاءة المطلوبة في الأعمال المتبقية لإنهاء المشروع ضمن BAC.",rows:[["TCPI",kpi.TCPI.toFixed(3)],["BAC-EV",fmt(kpi.bac-kpi.ev)],["BAC-AC",fmt(kpi.bac-kpi.ac)],["التقييم",kpi.TCPI<=1?"قابل للتحقيق":kpi.TCPI<=1.1?"يحتاج تحسين":"صعب المنال"]]},
+                    PROG:{title:"Overall Progress — نسبة الإنجاز الإجمالية",desc:"المتوسط المرجّح لنسب إنجاز جميع الأنشطة.",rows:[["نسبة الإنجاز",kpi.prog.toFixed(2)+"%"],["BAC",fmt(kpi.bac)],["EV",fmt(kpi.ev)],["عدد الأنشطة",acts.length],["التخصصات",byDisc.length]]},
+                  }[kpiDrill];
+                  if(!explain)return null;
+                  return(
+                    <>
+                      <div style={{fontSize:13,fontWeight:700,marginBottom:4,color:"hsl(var(--foreground))"}}>{explain.title}</div>
+                      <div style={{fontSize:11,color:"hsl(var(--muted-foreground))",marginBottom:12,lineHeight:1.6}}>{explain.desc}</div>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:8}}>
+                        {explain.rows.map(([k,v])=>(
+                          <div key={k} style={{background:"hsl(var(--card))",border:"1px solid hsl(var(--border))",borderRadius:8,padding:"8px 10px"}}>
+                            <div style={{fontSize:9,color:"hsl(var(--muted-foreground))",fontWeight:700,marginBottom:3,letterSpacing:.5}}>{k}</div>
+                            <div style={{fontSize:13,fontWeight:800,fontFamily:"monospace",color:"hsl(var(--foreground))"}}>{v}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{marginTop:12,paddingTop:10,borderTop:"1px dashed hsl(var(--border))",fontSize:10,color:"hsl(var(--muted-foreground))"}}>
+                        💡 اضغط على نفس البطاقة مرة أخرى لإغلاق هذا العرض، أو على بطاقة أخرى للتنقل بين المؤشرات.
+                      </div>
+                    </>
+                  );
+                })()}
+              </Card>
+            )}
+
             <Card style={{marginBottom:12}}>
               <H3>📊 ملخص التخصصات</H3>
               <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10}}>
