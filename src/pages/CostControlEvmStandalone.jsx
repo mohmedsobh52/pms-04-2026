@@ -321,6 +321,62 @@ const exportExcel=(acts,kpi,cf,risks,issues,project)=>{
   XLSX.writeFile(wb,`Cost_Control_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
 };
 
+// ── CSV Export (current filtered activities + KPI snapshot) ──
+const exportCSV=(acts,kpi,project)=>{
+  const esc=v=>{const s=String(v??"");return /[",\n;]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;};
+  const rows=[
+    ["# Cost Control EVM — CSV Export"],
+    ["Project",project?.name||""],
+    ["Generated",new Date().toISOString()],
+    [],
+    ["KPI","Value"],
+    ["BAC",kpi.bac],["PV",kpi.pv],["EV",kpi.ev],["AC",kpi.ac],
+    ["SV",kpi.SV],["CV",kpi.CV],
+    ["SPI",kpi.SPI?.toFixed?.(3)??kpi.SPI],["CPI",kpi.CPI?.toFixed?.(3)??kpi.CPI],
+    ["EAC",kpi.EAC],["ETC",kpi.ETC],["TCPI",kpi.TCPI?.toFixed?.(3)??kpi.TCPI],
+    ["VAC",kpi.bac-kpi.EAC],["Progress%",+(kpi.prog?.toFixed?.(1)??kpi.prog)],
+    [],
+    ["#","ID","Name","Discipline","Items","BAC","AC","EV","PV","Progress%","CPI","SPI","EAC","ETC","VAC","Status"],
+  ];
+  acts.forEach((a,i)=>{
+    const{pv,ev,cpi,spi,eac,etc}=calcAct(a);
+    rows.push([i+1,a.id,a.nameAr,a.disc,a.items,a.bac,a.ac,+ev.toFixed(0),+pv.toFixed(0),a.pct,+cpi.toFixed(3),+spi.toFixed(3),+eac.toFixed(0),+etc.toFixed(0),+(a.bac-eac).toFixed(0),cpi>=1?"OK":cpi>=0.9?"Warn":"Crit"]);
+  });
+  const csv="\uFEFF"+rows.map(r=>r.map(esc).join(",")).join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download=`evm_export_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+};
+
+// ── XER Parser (Primavera P6) — extracts TASK section into activities ──
+const parseXERText=text=>{
+  const lines=text.split(/\r?\n/);
+  let curTable=null,headers=[],rows=[];
+  for(const line of lines){
+    const parts=line.split("\t");
+    if(parts[0]==="%T"){curTable=parts[1];headers=[];}
+    else if(parts[0]==="%F"&&curTable==="TASK"){headers=parts.slice(1);}
+    else if(parts[0]==="%R"&&curTable==="TASK"){
+      const o={};headers.forEach((h,i)=>o[h]=parts[i+1]);
+      rows.push(o);
+    }
+  }
+  return rows.map((t,idx)=>{
+    const bac=+t.target_cost||+t.target_work_qty||0;
+    const ac=+t.act_total_cost||+t.act_work_qty||0;
+    const pct=Math.min(100,Math.max(0,+t.phys_complete_pct||+t.act_pct_complete||0));
+    return{
+      id:t.task_code||`TASK-${idx+1}`,
+      nameAr:t.task_name||`Activity ${idx+1}`,
+      disc:"GENERAL",
+      items:1,
+      bac,ac,pct,
+    };
+  }).filter(r=>r.bac>0||r.ac>0);
+};
+
 // Full export including resources
 const exportExcelFull=(acts,kpi,cf,risks,issues,resources,project)=>{
   const wb=XLSX.utils.book_new();
@@ -675,7 +731,10 @@ export default function App(){
   },[]);
   const [showHistory,setShowHistory]=useState(false);
   // UI extras
-  const [darkMode,setDarkMode]=useState(false);
+  const [darkMode,setDarkMode]=useState(()=>localStorage.getItem("evm_darkMode")==="1");
+  useEffect(()=>{try{localStorage.setItem("evm_darkMode",darkMode?"1":"0");}catch{}},[darkMode]);
+  const [autoSyncAC,setAutoSyncAC]=useState(()=>localStorage.getItem("evm_autoSyncAC")==="1");
+  useEffect(()=>{try{localStorage.setItem("evm_autoSyncAC",autoSyncAC?"1":"0");}catch{}},[autoSyncAC]);
   const [changelog,setChangelog]=useState([
     {ts:"2025-01-15 09:00",user:"النظام",action:"إنشاء المشروع وتحميل البيانات الأولية",type:"create"},
   ]);
@@ -860,6 +919,15 @@ export default function App(){
     }catch(e){toast.error("فشل المزامنة: "+(e.message||""));}
     finally{setSyncingAC(false);}
   },[linkedProjectId,acts]);
+
+  // ── Auto-sync AC every 5 minutes when enabled ──
+  useEffect(()=>{
+    if(!autoSyncAC||!linkedProjectId)return;
+    const id=setInterval(()=>{syncACFromCertificates();},5*60*1000);
+    return()=>clearInterval(id);
+  },[autoSyncAC,linkedProjectId,syncACFromCertificates]);
+
+
 
   // ── DB-backed Scenarios ──
   const saveScenarioToDb=useCallback(async(name)=>{
@@ -1656,8 +1724,20 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
     }else if(ext==="pdf"){
       setImportType("pdf");setImportText("");lastExcelFile.current=null;
       parsePDFFile(file);
+    }else if(ext==="xer"){
+      setImportType("csv");lastExcelFile.current=null;
+      const r=new FileReader();
+      r.onload=ev=>{
+        try{
+          const rows=parseXERText(ev.target.result);
+          if(!rows.length){setImportErr("لم يتم العثور على أنشطة (TASK) في ملف XER");return;}
+          setImportPreview(rows);setImportErr(`✅ تم استيراد ${rows.length} نشاط من Primavera XER`);
+          toast.success(`تم قراءة ${rows.length} نشاط من XER`);
+        }catch(err){setImportErr("خطأ في قراءة XER: "+err.message);}
+      };
+      r.readAsText(file,"utf-8");
     }else{
-      setImportErr("صيغة غير مدعومة. الصيغ المقبولة: CSV, Excel (.xlsx/.xls), PDF");
+      setImportErr("صيغة غير مدعومة. الصيغ المقبولة: CSV, Excel (.xlsx/.xls), PDF, XER (Primavera P6)");
     }
     e.target.value="";
   };
@@ -1981,8 +2061,11 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
 
               <button onClick={()=>setImportModal(true)} style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>📂 استيراد</button>
               <button onClick={()=>exportExcelFull(acts,kpi,cf,risks,issues,resources,project)} style={{background:"hsl(var(--success))",color:"hsl(var(--success-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📥 Excel كامل</button>
+              <button onClick={()=>{exportCSV(acts,kpi,project);toast.success("تم تصدير CSV");}} title="تصدير CSV للبيانات الحالية" style={{background:"hsl(var(--success)/.85)",color:"hsl(var(--success-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📄 CSV</button>
               <button onClick={exportPDF} style={{background:"hsl(var(--destructive))",color:"hsl(var(--destructive-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📑 PDF</button>
               <button onClick={syncACFromCertificates} disabled={syncingAC} title="مزامنة AC من شهادات التقدم" style={{background:"hsl(var(--accent))",color:"hsl(var(--accent-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:syncingAC?"wait":"pointer",fontSize:11,opacity:syncingAC?.6:1}}>{syncingAC?"⏳ مزامنة...":"🔁 مزامنة AC"}</button>
+              <button onClick={()=>{setAutoSyncAC(v=>{const nv=!v;toast.info(nv?"✅ تفعيل المزامنة التلقائية كل 5 دقائق":"⏸ إيقاف المزامنة التلقائية");return nv;});}} title="مزامنة AC تلقائياً كل 5 دقائق" style={{background:autoSyncAC?"hsl(var(--success))":"rgba(255,255,255,.1)",color:"#fff",border:`1px solid ${autoSyncAC?"hsl(var(--success))":"rgba(255,255,255,.25)"}`,borderRadius:7,padding:"6px 10px",fontWeight:700,cursor:"pointer",fontSize:11,display:"inline-flex",alignItems:"center",gap:4}}>{autoSyncAC?"🟢":"⚪"} Auto{syncingAC&&autoSyncAC?<span style={{display:"inline-block",width:6,height:6,borderRadius:99,background:"#fff",animation:"pulse 1.5s infinite"}}/>:null}</button>
+
               <button onClick={()=>{const n=prompt("اسم السيناريو:");if(n)saveScenarioToDb(n);}} title="حفظ السيناريو في السحابة" style={{background:"hsl(var(--qa-purple))",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>☁️ حفظ</button>
               <button onClick={()=>{setScenariosModal(true);fetchDbScenarios();}} title="تحميل سيناريو محفوظ" style={{background:"hsla(0,0%,100%,.12)",color:"hsl(var(--primary-foreground))",border:"1px solid hsla(0,0%,100%,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>📚 السيناريوهات</button>
               <button onClick={()=>setThreshModal(true)} style={{background:"hsla(0,0%,100%,.12)",color:"hsl(var(--primary-foreground))",border:"1px solid hsla(0,0%,100%,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>⚙️</button>
@@ -4274,10 +4357,10 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
           onDrop={e=>{e.preventDefault();e.currentTarget.style.background="#fafafa";e.currentTarget.style.borderColor="#e5e7eb";const f=e.dataTransfer.files[0];if(f)handleFileUpload({target:{files:[f],value:""}});}}
           onClick={()=>fileRef.current?.click()}
           style={{border:"2px dashed #e5e7eb",borderRadius:10,padding:"22px 16px",textAlign:"center",marginBottom:12,cursor:"pointer",background:"#fafafa",transition:"all .2s"}}>
-          <input ref={fileRef} type="file" accept=".csv,.txt,.xlsx,.xls,.pdf" onChange={handleFileUpload} style={{display:"none"}}/>
+          <input ref={fileRef} type="file" accept=".csv,.txt,.xlsx,.xls,.pdf,.xer" onChange={handleFileUpload} style={{display:"none"}}/>
           <div style={{fontSize:30,marginBottom:6}}>{importType==="csv"?"📄":importType==="excel"?"📊":"📑"}</div>
           <div style={{fontSize:12,fontWeight:700,color:"#555"}}>اسحب الملف هنا أو اضغط للاختيار</div>
-          <div style={{fontSize:10,color:"#bbb",marginTop:3}}>{importType==="csv"?"CSV, TXT":importType==="excel"?"XLSX, XLS":"PDF"}</div>
+          <div style={{fontSize:10,color:"#bbb",marginTop:3}}>CSV · XLSX · XLS · PDF · XER (Primavera P6)</div>
         </div>
 
         {/* Excel sheet selector */}
