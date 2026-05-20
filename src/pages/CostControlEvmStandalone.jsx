@@ -4091,7 +4091,29 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
         <div style={{display:"flex",gap:10,marginTop:16}}><button onClick={addIssue} style={{flex:1,background:"#f59e0b",color:"#fff",border:"none",borderRadius:9,padding:11,fontWeight:700,cursor:"pointer",fontSize:14}}>✓ إضافة المشكلة</button><button onClick={()=>setIssueModal(false)} style={{flex:1,background:"#f4f5fb",color:"#555",border:"none",borderRadius:9,padding:11,fontWeight:600,cursor:"pointer",fontSize:14}}>إلغاء</button></div>
       </Modal>
 
+      <Modal show={shortcutsModal} onClose={()=>setShortcutsModal(false)} title="⌨️ اختصارات لوحة المفاتيح" width={460}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:12}}>
+          {[
+            ["Ctrl + K","البحث العام / Command Palette"],
+            ["Ctrl + S","حفظ السيناريو الحالي"],
+            ["Ctrl + P","طباعة التقرير"],
+            ["Esc","إغلاق النوافذ المنبثقة"],
+            ["?","عرض هذه القائمة"],
+            ["انقر على KPI","فتح Drill-down التفصيلي"],
+            ["⊟ / ⊞","تبديل كثافة العرض"],
+            ["🌙 / ☀️","تبديل الوضع الليلي"],
+          ].map(([k,d])=>(
+            <div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"hsl(var(--muted))",border:"1px solid hsl(var(--border))",borderRadius:8}}>
+              <span style={{color:"hsl(var(--muted-foreground))",fontSize:11}}>{d}</span>
+              <kbd style={{background:"hsl(var(--background))",border:"1px solid hsl(var(--border))",borderRadius:5,padding:"2px 8px",fontFamily:"monospace",fontSize:11,fontWeight:700,color:"hsl(var(--primary))"}}>{k}</kbd>
+            </div>
+          ))}
+        </div>
+        <button onClick={()=>setShortcutsModal(false)} style={{marginTop:16,width:"100%",background:"hsl(var(--primary))",color:"hsl(var(--primary-foreground))",border:"none",borderRadius:9,padding:11,fontWeight:700,cursor:"pointer",fontSize:13}}>✓ فهمت</button>
+      </Modal>
+
       <Modal show={threshModal} onClose={()=>setThreshModal(false)} title="⚙️ إعدادات الحدود التحذيرية" width={420}>
+
         <div style={{display:"flex",flexDirection:"column",gap:18}}>
           {[{label:"حد SPI",state:threshSPI,set:setThreshSPI},{label:"حد CPI",state:threshCPI,set:setThreshCPI}].map(({label,state,set})=>(
             <div key={label}><div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{fontSize:12,fontWeight:600,color:"#555"}}>{label} (تنبيه إذا أقل من)</span><span style={{fontFamily:"monospace",fontWeight:900,color:"#6366f1",fontSize:16}}>{state.toFixed(2)}</span></div>
