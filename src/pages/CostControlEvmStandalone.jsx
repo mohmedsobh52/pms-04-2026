@@ -1947,7 +1947,9 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
                   </div>
                 )}
               </div>
+              <button onClick={()=>setDensity(d=>d==="compact"?"comfortable":"compact")} title={density==="compact"?"تبديل إلى وضع مريح":"تبديل إلى وضع مضغوط"} style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 10px",fontWeight:700,cursor:"pointer",fontSize:11}}>{density==="compact"?"⊟ مضغوط":"⊞ مريح"}</button>
               <button onClick={()=>setDarkMode(d=>!d)} title="تبديل الوضع" style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 10px",fontWeight:600,cursor:"pointer",fontSize:14}}>{darkMode?"☀️":"🌙"}</button>
+
               <button onClick={()=>setImportModal(true)} style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>📂 استيراد</button>
               <button onClick={()=>exportExcelFull(acts,kpi,cf,risks,issues,resources,project)} style={{background:"hsl(var(--success))",color:"hsl(var(--success-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📥 Excel كامل</button>
               <button onClick={exportPDF} style={{background:"hsl(var(--destructive))",color:"hsl(var(--destructive-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📑 PDF</button>
