@@ -353,17 +353,26 @@ const exportCSV=(acts,kpi,project)=>{
 // ── XER Parser (Primavera P6) — extracts TASK section into activities ──
 const parseXERText=text=>{
   const lines=text.split(/\r?\n/);
-  let curTable=null,headers=[],rows=[];
+  const tables={};
+  let curTable=null,headers=[];
   for(const line of lines){
     const parts=line.split("\t");
-    if(parts[0]==="%T"){curTable=parts[1];headers=[];}
-    else if(parts[0]==="%F"&&curTable==="TASK"){headers=parts.slice(1);}
-    else if(parts[0]==="%R"&&curTable==="TASK"){
+    if(parts[0]==="%T"){curTable=parts[1];headers=[];tables[curTable]=tables[curTable]||[];}
+    else if(parts[0]==="%F"){headers=parts.slice(1);}
+    else if(parts[0]==="%R"&&curTable){
       const o={};headers.forEach((h,i)=>o[h]=parts[i+1]);
-      rows.push(o);
+      tables[curTable].push(o);
     }
   }
-  return rows.map((t,idx)=>{
+  const taskRows=tables.TASK||[];
+  const projRow=(tables.PROJECT||[])[0]||{};
+  const toIso=v=>{if(!v)return"";const m=String(v).match(/(\d{4})-(\d{1,2})-(\d{1,2})/);return m?`${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}`:"";};
+  const dates=taskRows.flatMap(t=>[t.target_start_date,t.target_end_date,t.act_start_date,t.act_end_date,t.early_start_date,t.early_end_date]).map(toIso).filter(Boolean).sort();
+  const schedule={
+    start:toIso(projRow.plan_start_date)||dates[0]||"",
+    end:toIso(projRow.plan_end_date)||toIso(projRow.scd_end_date)||dates[dates.length-1]||"",
+  };
+  const activities=taskRows.map((t,idx)=>{
     const bac=+t.target_cost||+t.target_work_qty||0;
     const ac=+t.act_total_cost||+t.act_work_qty||0;
     const pct=Math.min(100,Math.max(0,+t.phys_complete_pct||+t.act_pct_complete||0));
@@ -373,9 +382,13 @@ const parseXERText=text=>{
       disc:"GENERAL",
       items:1,
       bac,ac,pct,
+      _startDate:toIso(t.target_start_date||t.early_start_date),
+      _endDate:toIso(t.target_end_date||t.early_end_date),
     };
-  }).filter(r=>r.bac>0||r.ac>0);
+  }).filter(r=>r.bac>0||r.ac>0||r.id);
+  return{activities,schedule,_meta:{taskCount:taskRows.length,projectName:projRow.proj_short_name||""}};
 };
+
 
 // Full export including resources
 const exportExcelFull=(acts,kpi,cf,risks,issues,resources,project)=>{
