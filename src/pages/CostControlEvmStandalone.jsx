@@ -624,6 +624,8 @@ export default function App(){
   const [threshModal,setThreshModal]=useState(false);
   const [kpiDrill,setKpiDrill]=useState(null); // null | "PV" | "EV" | "AC" | "EAC" | "ETC" | "CPI" | "SPI" | "TCPI" | "PROG"
   const [density,setDensity]=useState(()=>localStorage.getItem("evm_density")||"compact"); // "compact" | "comfortable"
+  const [shortcutsModal,setShortcutsModal]=useState(false);
+
   useEffect(()=>{localStorage.setItem("evm_density",density);},[density]);
 
 
