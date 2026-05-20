@@ -132,73 +132,74 @@
 
 
   .dark {
-    --background: 222 47% 8%;
-    --foreground: 214 32% 95%;
+    /* Emerald Prestige — Dark variant */
+    --background: 163 40% 8%;
+    --foreground: 45 45% 92%;
 
-    --card: 222 47% 12%;
-    --card-foreground: 214 32% 95%;
+    --card: 163 40% 12%;
+    --card-foreground: 45 45% 92%;
 
-    --popover: 222 47% 10%;
-    --popover-foreground: 214 32% 95%;
+    --popover: 163 40% 10%;
+    --popover-foreground: 45 45% 92%;
 
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 44 52% 54%;
+    --primary-foreground: 163 86% 12%;
 
-    --secondary: 215 20% 35%;
-    --secondary-foreground: 214 32% 95%;
+    --secondary: 166 60% 35%;
+    --secondary-foreground: 45 45% 92%;
 
-    --muted: 222 30% 18%;
-    --muted-foreground: 215 16% 55%;
+    --muted: 163 30% 18%;
+    --muted-foreground: 45 25% 65%;
 
-    --accent: 199 89% 48%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 44 52% 54%;
+    --accent-foreground: 163 86% 12%;
 
-    --success: 142 71% 45%;
+    --success: 166 70% 45%;
     --success-foreground: 0 0% 100%;
 
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 30% 22%;
-    --input: 222 30% 22%;
-    --ring: 217 91% 60%;
+    --border: 163 30% 22%;
+    --input: 163 30% 22%;
+    --ring: 44 52% 54%;
 
-    --workflow-bg: 222 47% 10%;
-    --workflow-node: 222 47% 15%;
-    --workflow-line: 215 20% 35%;
+    --workflow-bg: 163 40% 10%;
+    --workflow-node: 163 40% 15%;
+    --workflow-line: 163 25% 30%;
 
-    --gradient-surface: linear-gradient(180deg, hsl(222 47% 12%) 0%, hsl(222 47% 8%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(222 47% 5%) 0%, hsl(220 50% 12%) 100%);
-    --gradient-bg: linear-gradient(180deg, hsl(222 47% 6%) 0%, hsl(222 47% 10%) 50%, hsl(222 47% 6%) 100%);
+    --gradient-surface: linear-gradient(180deg, hsl(163 40% 12%) 0%, hsl(163 40% 8%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(163 86% 5%) 0%, hsl(163 50% 14%) 100%);
+    --gradient-bg: linear-gradient(180deg, hsl(163 40% 6%) 0%, hsl(163 40% 10%) 50%, hsl(163 40% 6%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(44 52% 54%) 0%, hsl(44 60% 44%) 100%);
 
-    --sidebar-background: 222 47% 10%;
-    --sidebar-foreground: 214 32% 95%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 30% 18%;
-    --sidebar-accent-foreground: 214 32% 95%;
-    --sidebar-border: 222 30% 22%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-background: 163 50% 10%;
+    --sidebar-foreground: 45 45% 92%;
+    --sidebar-primary: 44 52% 54%;
+    --sidebar-primary-foreground: 163 86% 12%;
+    --sidebar-accent: 163 40% 18%;
+    --sidebar-accent-foreground: 45 45% 92%;
+    --sidebar-border: 163 30% 22%;
+    --sidebar-ring: 44 52% 54%;
 
-    /* Quick Action Card Colors - Dark Mode */
-    --qa-blue: 217 91% 60%;
-    --qa-orange: 25 95% 58%;
-    --qa-teal: 173 80% 45%;
-    --qa-green: 142 71% 50%;
-    --qa-purple: 262 83% 63%;
-    --qa-amber: 38 92% 55%;
-    --qa-indigo: 239 84% 72%;
-    --qa-rose: 350 89% 65%;
-    --qa-red: 0 72% 56%;
+    --qa-blue: 166 70% 40%;
+    --qa-orange: 44 70% 55%;
+    --qa-teal: 173 60% 45%;
+    --qa-green: 166 70% 45%;
+    --qa-purple: 200 60% 50%;
+    --qa-amber: 44 70% 55%;
+    --qa-indigo: 163 70% 30%;
+    --qa-rose: 0 70% 55%;
+    --qa-red: 0 70% 55%;
 
-    /* Lifecycle Phase Colors - Dark Mode */
-    --phase-initiation: 186 100% 55%;
-    --phase-analysis: 217 91% 65%;
-    --phase-pricing: 142 71% 50%;
-    --phase-contracting: 25 95% 58%;
-    --phase-execution: 262 83% 63%;
-    --phase-monitoring: 350 89% 65%;
+    --phase-initiation: 173 60% 52%;
+    --phase-analysis: 163 70% 40%;
+    --phase-pricing: 166 70% 45%;
+    --phase-contracting: 44 70% 55%;
+    --phase-execution: 44 52% 54%;
+    --phase-monitoring: 0 70% 55%;
   }
+
 }
 
 @layer base {
