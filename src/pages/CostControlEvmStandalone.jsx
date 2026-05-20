@@ -443,10 +443,17 @@ const exportExcelFull=(acts,kpi,cf,risks,issues,resources,project)=>{
 
 // ═══════════════════════════════ SAVED PROJECTS TAB ═══════════════════════════════
 function ProjectsTab({projectsList,projectsLoading,projectsErr,fetchProjects,linkedProjectId,loadProjectFromDb,loadingItems,savedKpis,savedKpisLoading,computeProjectKpi,compareIds,setCompareIds,darkMode,fmt,sColor}){
-  const [search,setSearch]=useState("");
-  const [statusFilter,setStatusFilter]=useState("all"); // all|favorites|archived
+  const [search,setSearch]=useState(()=>localStorage.getItem("evm:projSearch")||"");
+  const [statusFilter,setStatusFilter]=useState(()=>localStorage.getItem("evm:projStatus")||"all"); // all|favorites|archived
+  const [dateFrom,setDateFrom]=useState(()=>localStorage.getItem("evm:projDateFrom")||"");
+  const [dateTo,setDateTo]=useState(()=>localStorage.getItem("evm:projDateTo")||"");
   const [favorites,setFavorites]=useState(()=>{ try{return JSON.parse(localStorage.getItem("evm:favorites")||"[]");}catch{return[];} });
   const [archived,setArchived]=useState(()=>{ try{return JSON.parse(localStorage.getItem("evm:archived")||"[]");}catch{return[];} });
+
+  useEffect(()=>{try{localStorage.setItem("evm:projSearch",search);}catch{}},[search]);
+  useEffect(()=>{try{localStorage.setItem("evm:projStatus",statusFilter);}catch{}},[statusFilter]);
+  useEffect(()=>{try{localStorage.setItem("evm:projDateFrom",dateFrom);}catch{}},[dateFrom]);
+  useEffect(()=>{try{localStorage.setItem("evm:projDateTo",dateTo);}catch{}},[dateTo]);
 
   const persistFav=(arr)=>{setFavorites(arr);try{localStorage.setItem("evm:favorites",JSON.stringify(arr));}catch{}};
   const persistArc=(arr)=>{setArchived(arr);try{localStorage.setItem("evm:archived",JSON.stringify(arr));}catch{}};
@@ -458,9 +465,10 @@ function ProjectsTab({projectsList,projectsLoading,projectsErr,fetchProjects,lin
     if(statusFilter==="favorites")arr=arr.filter(p=>favorites.includes(p.id));
     else if(statusFilter==="archived")arr=arr.filter(p=>archived.includes(p.id));
     else arr=arr.filter(p=>!archived.includes(p.id));
-    // favorites first
+    if(dateFrom){const f=new Date(dateFrom).getTime();arr=arr.filter(p=>{const t=new Date(p.updated_at||p.created_at||0).getTime();return t>=f;});}
+    if(dateTo){const t=new Date(dateTo).getTime()+86400000;arr=arr.filter(p=>{const x=new Date(p.updated_at||p.created_at||0).getTime();return x<=t;});}
     return arr.slice().sort((a,b)=>(favorites.includes(b.id)?1:0)-(favorites.includes(a.id)?1:0));
-  },[projectsList,search,statusFilter,favorites,archived]);
+  },[projectsList,search,statusFilter,favorites,archived,dateFrom,dateTo]);
 
   // Lazy-load KPIs for the visible projects
   useEffect(()=>{
@@ -504,10 +512,16 @@ function ProjectsTab({projectsList,projectsLoading,projectsErr,fetchProjects,lin
         {compareIds.length>0&&<button onClick={()=>setCompareIds([])} style={{background:"hsl(var(--destructive))",color:"hsl(var(--destructive-foreground))",border:"none",borderRadius:9,padding:"7px 12px",cursor:"pointer",fontSize:11,fontWeight:700}}>✕ مسح المقارنة ({compareIds.length})</button>}
       </div>
 
-      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
         <FilterChip val="all" label="الكل" count={(projectsList||[]).filter(p=>!archived.includes(p.id)).length}/>
         <FilterChip val="favorites" label="⭐ المفضلة" count={favorites.length}/>
         <FilterChip val="archived" label="📦 الأرشيف" count={archived.length}/>
+        <span style={{width:1,height:22,background:border,margin:"0 4px"}}/>
+        <span style={{fontSize:11,color:sub,fontWeight:700}}>📅 من:</span>
+        <input type="text" placeholder="yyyy-MM-dd" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={{border:`1px solid ${border}`,borderRadius:7,padding:"5px 9px",fontSize:11,outline:"none",background:cardBg,color:txt,width:120,fontFamily:"monospace"}}/>
+        <span style={{fontSize:11,color:sub,fontWeight:700}}>إلى:</span>
+        <input type="text" placeholder="yyyy-MM-dd" value={dateTo} onChange={e=>setDateTo(e.target.value)} style={{border:`1px solid ${border}`,borderRadius:7,padding:"5px 9px",fontSize:11,outline:"none",background:cardBg,color:txt,width:120,fontFamily:"monospace"}}/>
+        {(dateFrom||dateTo)&&<button onClick={()=>{setDateFrom("");setDateTo("");}} style={{background:"hsl(var(--muted))",color:txt,border:`1px solid ${border}`,borderRadius:7,padding:"4px 9px",cursor:"pointer",fontSize:10,fontWeight:600}}>✕ مسح التاريخ</button>}
       </div>
 
       {projectsErr&&<div style={{background:"hsl(var(--destructive)/.1)",color:"hsl(var(--destructive))",padding:"10px 14px",borderRadius:9,fontSize:12,marginBottom:12,border:"1px solid hsl(var(--destructive)/.3)"}}>{projectsErr}</div>}
@@ -681,6 +695,10 @@ export default function App(){
   const [kpiDrill,setKpiDrill]=useState(null); // null | "PV" | "EV" | "AC" | "EAC" | "ETC" | "CPI" | "SPI" | "TCPI" | "PROG"
   const [density,setDensity]=useState(()=>localStorage.getItem("evm_density")||"compact"); // "compact" | "comfortable"
   const [shortcutsModal,setShortcutsModal]=useState(false);
+  const [kpiSearch,setKpiSearch]=useState(()=>localStorage.getItem("evm_kpiSearch")||"");
+  const [kpiStatus,setKpiStatus]=useState(()=>localStorage.getItem("evm_kpiStatus")||"all"); // all|healthy|warn|crit
+  useEffect(()=>{try{localStorage.setItem("evm_kpiSearch",kpiSearch);}catch{}},[kpiSearch]);
+  useEffect(()=>{try{localStorage.setItem("evm_kpiStatus",kpiStatus);}catch{}},[kpiStatus]);
 
   useEffect(()=>{localStorage.setItem("evm_density",density);},[density]);
 
@@ -2129,20 +2147,46 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
 
           {/* ═══ OVERVIEW ═══ */}
           {tab==="overview"&&(<>
+            {/* ── Quick KPI search/filter bar ── */}
+            <div style={{display:"flex",gap:8,marginBottom:10,alignItems:"center",flexWrap:"wrap",background:darkMode?"#1e293b":"hsl(var(--card))",border:`1px solid hsl(var(--border))`,borderRadius:9,padding:"7px 11px"}}>
+              <span style={{fontSize:11,fontWeight:700,color:darkMode?"#94a3b8":"hsl(var(--muted-foreground))"}}>🔍 فلترة KPIs:</span>
+              <input value={kpiSearch} onChange={e=>setKpiSearch(e.target.value)} placeholder="ابحث: PV, EV, AC, CPI, SPI..." style={{flex:"0 1 240px",border:`1px solid hsl(var(--border))`,borderRadius:7,padding:"5px 10px",fontSize:11,outline:"none",background:darkMode?"#0f172a":"#fff",color:darkMode?"#f1f5f9":"#1a1a2e"}}/>
+              {[["all","الكل"],["healthy","✓ صحي"],["warn","⚠ تحذير"],["crit","🔴 حرج"]].map(([v,lbl])=>(
+                <button key={v} onClick={()=>setKpiStatus(v)} style={{background:kpiStatus===v?"hsl(var(--primary))":"hsl(var(--muted))",color:kpiStatus===v?"hsl(var(--primary-foreground))":"hsl(var(--foreground))",border:"none",borderRadius:999,padding:"4px 11px",cursor:"pointer",fontSize:10,fontWeight:700}}>{lbl}</button>
+              ))}
+              {(kpiSearch||kpiStatus!=="all")&&<button onClick={()=>{setKpiSearch("");setKpiStatus("all");}} style={{background:"transparent",border:"none",color:"hsl(var(--destructive))",fontSize:10,cursor:"pointer",fontWeight:700}}>✕ مسح</button>}
+            </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:11,marginBottom:12}}>
-
-              <Kpi l="PV — القيمة المخططة"  v={fmt(kpi.pv)}  ic="🎯" c="#6366f1" onClick={()=>setKpiDrill(d=>d==="PV"?null:"PV")}  active={kpiDrill==="PV"}/>
-              <Kpi l="EV — القيمة المكتسبة" v={fmt(kpi.ev)}  ic="📈" c="#10b981" onClick={()=>setKpiDrill(d=>d==="EV"?null:"EV")}  active={kpiDrill==="EV"}/>
-              <Kpi l="AC — التكلفة الفعلية"  v={fmt(kpi.ac)}  ic="💰" c="#f59e0b" onClick={()=>setKpiDrill(d=>d==="AC"?null:"AC")}  active={kpiDrill==="AC"}/>
-              <Kpi l="EAC — تقدير الإتمام"  v={fmt(kpi.EAC)} ic="🔮" c={kpi.EAC>kpi.bac?"#ef4444":"#8b5cf6"} sub={kpi.EAC>kpi.bac?`▲ ${fmt(kpi.EAC-kpi.bac)} تجاوز`:"✓ ضمن الميزانية"} sc={kpi.EAC>kpi.bac?"#ef4444":"#10b981"} onClick={()=>setKpiDrill(d=>d==="EAC"?null:"EAC")} active={kpiDrill==="EAC"}/>
-              <Kpi l="ETC — تكلفة الإتمام"  v={fmt(kpi.ETC)} ic="📌" c="#ec4899" onClick={()=>setKpiDrill(d=>d==="ETC"?null:"ETC")} active={kpiDrill==="ETC"}/>
+              {(()=>{
+                const q=kpiSearch.toLowerCase().trim();
+                const matches=(label,statusKey)=>{
+                  if(q&&!label.toLowerCase().includes(q))return false;
+                  if(kpiStatus==="all")return true;
+                  return statusKey===kpiStatus;
+                };
+                const eacStatus=kpi.EAC>kpi.bac?"crit":"healthy";
+                const cards=[
+                  {l:"PV — القيمة المخططة",k:"PV",v:fmt(kpi.pv),ic:"🎯",c:"#6366f1",st:"healthy"},
+                  {l:"EV — القيمة المكتسبة",k:"EV",v:fmt(kpi.ev),ic:"📈",c:"#10b981",st:"healthy"},
+                  {l:"AC — التكلفة الفعلية",k:"AC",v:fmt(kpi.ac),ic:"💰",c:"#f59e0b",st:kpi.ac>kpi.ev?"warn":"healthy"},
+                  {l:"EAC — تقدير الإتمام",k:"EAC",v:fmt(kpi.EAC),ic:"🔮",c:kpi.EAC>kpi.bac?"#ef4444":"#8b5cf6",sub:kpi.EAC>kpi.bac?`▲ ${fmt(kpi.EAC-kpi.bac)} تجاوز`:"✓ ضمن الميزانية",sc:kpi.EAC>kpi.bac?"#ef4444":"#10b981",st:eacStatus},
+                  {l:"ETC — تكلفة الإتمام",k:"ETC",v:fmt(kpi.ETC),ic:"📌",c:"#ec4899",st:"healthy"},
+                ].filter(c=>matches(c.l,c.st));
+                if(!cards.length)return <div style={{gridColumn:"1/-1",textAlign:"center",padding:18,color:"hsl(var(--muted-foreground))",fontSize:11}}>لا توجد بطاقات تطابق الفلتر</div>;
+                return cards.map(c=><Kpi key={c.k} l={c.l} v={c.v} ic={c.ic} c={c.c} sub={c.sub} sc={c.sc} onClick={()=>setKpiDrill(d=>d===c.k?null:c.k)} active={kpiDrill===c.k}/>);
+              })()}
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:11,marginBottom:12}}>
-              {[{l:"SPI — أداء الجدول الزمني",k:"SPI",v:kpi.SPI,note:`SV = ${fmt(kpi.SV)}`,nt:kpi.SPI>=1?"في الموعد ✓":"متأخر ⚠"},
-                {l:"PROGRESS — نسبة الإنجاز",k:"PROG",prog:true,note:`BAC = ${fmt(kpi.bac)}`},
-                {l:"CPI — أداء التكلفة",k:"CPI",v:kpi.CPI,note:`CV = ${fmt(kpi.CV)}`,nt:kpi.CPI>=1?"ضمن التكلفة ✓":"تجاوز ⚠"},
-                {l:"TCPI — الأداء المستهدف",k:"TCPI",v:kpi.TCPI,inv:true,note:"",nt:kpi.TCPI<=1?"قابل ✓":kpi.TCPI<=1.1?"يحتاج تحسين ⚠":"صعب ⛔"},
-              ].map(({l,k,v,prog,note,nt,inv})=>(
+              {[{l:"SPI — أداء الجدول الزمني",k:"SPI",v:kpi.SPI,note:`SV = ${fmt(kpi.SV)}`,nt:kpi.SPI>=1?"في الموعد ✓":"متأخر ⚠",st:kpi.SPI>=1?"healthy":kpi.SPI>=0.9?"warn":"crit"},
+                {l:"PROGRESS — نسبة الإنجاز",k:"PROG",prog:true,note:`BAC = ${fmt(kpi.bac)}`,st:"healthy"},
+                {l:"CPI — أداء التكلفة",k:"CPI",v:kpi.CPI,note:`CV = ${fmt(kpi.CV)}`,nt:kpi.CPI>=1?"ضمن التكلفة ✓":"تجاوز ⚠",st:kpi.CPI>=1?"healthy":kpi.CPI>=0.9?"warn":"crit"},
+                {l:"TCPI — الأداء المستهدف",k:"TCPI",v:kpi.TCPI,inv:true,note:"",nt:kpi.TCPI<=1?"قابل ✓":kpi.TCPI<=1.1?"يحتاج تحسين ⚠":"صعب ⛔",st:kpi.TCPI<=1?"healthy":kpi.TCPI<=1.1?"warn":"crit"},
+              ].filter(c=>{
+                const q=kpiSearch.toLowerCase().trim();
+                if(q&&!c.l.toLowerCase().includes(q))return false;
+                if(kpiStatus==="all")return true;
+                return c.st===kpiStatus;
+              }).map(({l,k,v,prog,note,nt,inv})=>(
                 <Card key={l} style={{padding:"14px 16px",cursor:"pointer",border:kpiDrill===k?"2px solid hsl(var(--primary))":undefined,boxShadow:kpiDrill===k?"0 8px 22px hsl(var(--primary)/.25)":undefined}}>
                   <div onClick={()=>setKpiDrill(d=>d===k?null:k)}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:9}}>
