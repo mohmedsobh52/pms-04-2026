@@ -920,6 +920,15 @@ export default function App(){
     finally{setSyncingAC(false);}
   },[linkedProjectId,acts]);
 
+  // ── Auto-sync AC every 5 minutes when enabled ──
+  useEffect(()=>{
+    if(!autoSyncAC||!linkedProjectId)return;
+    const id=setInterval(()=>{syncACFromCertificates();},5*60*1000);
+    return()=>clearInterval(id);
+  },[autoSyncAC,linkedProjectId,syncACFromCertificates]);
+
+
+
   // ── DB-backed Scenarios ──
   const saveScenarioToDb=useCallback(async(name)=>{
     try{
