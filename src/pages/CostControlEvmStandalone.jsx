@@ -4020,11 +4020,41 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
         <button onClick={()=>setThreshModal(false)} style={{marginTop:20,width:"100%",background:"#6366f1",color:"#fff",border:"none",borderRadius:9,padding:11,fontWeight:700,cursor:"pointer",fontSize:14}}>✓ حفظ</button>
       </Modal>
 
-      <Modal show={projModal} onClose={()=>setProjModal(false)} title="🏗 إعدادات المشروع" width={500}>
+      <Modal show={projModal} onClose={()=>setProjModal(false)} title="🏗 إعدادات المشروع" width={560}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          {[{l:"اسم المشروع",k:"name"},{l:"رقم العقد",k:"number"},{l:"الجهة المالكة",k:"client"},{l:"المقاول",k:"contractor"}].map(({l,k})=>(
+          {/* Project Name — dropdown from saved projects + free text */}
+          <div style={{gridColumn:"1/-1"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+              <span style={{fontSize:11,fontWeight:700,color:"hsl(var(--foreground))"}}>اسم المشروع</span>
+              <span style={{fontSize:9,color:"hsl(var(--muted-foreground))"}}>اختر من المحفوظات أو اكتب اسماً جديداً</span>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <select value={projectsList.find(p=>p.name===projBuf.name)?.id||""}
+                onChange={e=>{const p=projectsList.find(x=>x.id===e.target.value);if(p){setProjBuf(b=>({...b,name:p.name||b.name,number:p.file_name||b.number}));if(loadProjectFromDb)loadProjectFromDb(p);}}}
+                style={{width:180,border:"1px solid hsl(var(--border))",borderRadius:8,padding:"8px 10px",fontSize:12,outline:"none",background:"hsl(var(--background))",color:"hsl(var(--foreground))",cursor:"pointer"}}>
+                <option value="">📂 المحفوظات...</option>
+                {(projectsList||[]).map(p=><option key={p.id} value={p.id}>{p.name||"بدون اسم"}</option>)}
+              </select>
+              <input list="proj-name-list" value={projBuf.name||""} onChange={e=>setProjBuf({...projBuf,name:e.target.value})}
+                placeholder="اسم المشروع"
+                style={{flex:1,border:"1px solid hsl(var(--border))",borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",background:"hsl(var(--background))",color:"hsl(var(--foreground))"}}/>
+              <datalist id="proj-name-list">{(projectsList||[]).map(p=><option key={p.id} value={p.name||""}/>)}</datalist>
+            </div>
+          </div>
+          {[{l:"رقم العقد",k:"number"},{l:"الجهة المالكة",k:"client"},{l:"المقاول",k:"contractor"},{l:"مدير المشروع",k:"manager"},{l:"الموقع",k:"location"}].map(({l,k})=>(
             <Field key={k} label={l} value={projBuf[k]||""} onChange={e=>setProjBuf({...projBuf,[k]:e.target.value})}/>
           ))}
+          {/* Status */}
+          <div>
+            <div style={{fontSize:11,fontWeight:600,color:"hsl(var(--muted-foreground))",marginBottom:4}}>حالة المشروع</div>
+            <select value={projBuf.status||"active"} onChange={e=>setProjBuf({...projBuf,status:e.target.value})}
+              style={{width:"100%",border:"1px solid hsl(var(--border))",borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",background:"hsl(var(--background))",color:"hsl(var(--foreground))",cursor:"pointer"}}>
+              <option value="active">🟢 نشط</option>
+              <option value="hold">🟡 متوقف مؤقتاً</option>
+              <option value="completed">✅ مكتمل</option>
+              <option value="cancelled">⛔ ملغي</option>
+            </select>
+          </div>
           <div style={{gridColumn:"1/-1",background:darkMode?"hsl(var(--muted))":"hsl(var(--muted)/.5)",border:"1px solid hsl(var(--border))",borderRadius:10,padding:12}}>
             <div style={{fontSize:11,fontWeight:700,color:"hsl(var(--foreground))",marginBottom:8}}>📅 التواريخ والمدة — اضغط 🔒 على الحقل الذي تريد حسابه تلقائياً من الحقلين الآخرين</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
@@ -4045,10 +4075,39 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
               })}
             </div>
           </div>
-          <div><div style={{fontSize:11,fontWeight:600,color:"#555",marginBottom:4}}>العملة</div><select value={projBuf.currency} onChange={e=>setProjBuf({...projBuf,currency:e.target.value})} style={{width:"100%",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none"}}>{["SAR","USD","EUR","GBP"].map(c=><option key={c}>{c}</option>)}</select></div>
+          {/* Financial row */}
+          <div>
+            <div style={{fontSize:11,fontWeight:600,color:"hsl(var(--muted-foreground))",marginBottom:4}}>قيمة العقد</div>
+            <input type="number" value={projBuf.contractValue||""} onChange={e=>setProjBuf({...projBuf,contractValue:e.target.value})} placeholder="0"
+              style={{width:"100%",border:"1px solid hsl(var(--border))",borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",background:"hsl(var(--background))",color:"hsl(var(--foreground))"}}/>
+          </div>
+          <div>
+            <div style={{fontSize:11,fontWeight:600,color:"hsl(var(--muted-foreground))",marginBottom:4}}>ضريبة القيمة المضافة (%)</div>
+            <input type="number" value={projBuf.vat??15} onChange={e=>setProjBuf({...projBuf,vat:e.target.value})} placeholder="15"
+              style={{width:"100%",border:"1px solid hsl(var(--border))",borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",background:"hsl(var(--background))",color:"hsl(var(--foreground))"}}/>
+          </div>
+          <div>
+            <div style={{fontSize:11,fontWeight:600,color:"hsl(var(--muted-foreground))",marginBottom:4}}>العملة</div>
+            <select value={projBuf.currency} onChange={e=>setProjBuf({...projBuf,currency:e.target.value})}
+              style={{width:"100%",border:"1px solid hsl(var(--border))",borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",background:"hsl(var(--background))",color:"hsl(var(--foreground))",cursor:"pointer"}}>
+              {["SAR","USD","EUR","GBP","AED","EGP","KWD"].map(c=><option key={c}>{c}</option>)}
+            </select>
+          </div>
+          {/* Notes */}
+          <div style={{gridColumn:"1/-1"}}>
+            <div style={{fontSize:11,fontWeight:600,color:"hsl(var(--muted-foreground))",marginBottom:4}}>ملاحظات / وصف</div>
+            <textarea value={projBuf.notes||""} onChange={e=>setProjBuf({...projBuf,notes:e.target.value})} rows={2} placeholder="ملاحظات حول نطاق المشروع، الأطراف، البنود الخاصة..."
+              style={{width:"100%",border:"1px solid hsl(var(--border))",borderRadius:8,padding:"8px 12px",fontSize:12,outline:"none",background:"hsl(var(--background))",color:"hsl(var(--foreground))",resize:"vertical",fontFamily:"inherit"}}/>
+          </div>
         </div>
-        <div style={{display:"flex",gap:10,marginTop:18}}><button onClick={()=>{setProject(projBuf);setProjModal(false);}} style={{flex:1,background:"#6366f1",color:"#fff",border:"none",borderRadius:9,padding:11,fontWeight:700,cursor:"pointer",fontSize:14}}>✓ حفظ</button><button onClick={()=>setProjModal(false)} style={{flex:1,background:"#f4f5fb",color:"#555",border:"none",borderRadius:9,padding:11,fontWeight:600,cursor:"pointer",fontSize:14}}>إلغاء</button></div>
+        <div style={{display:"flex",gap:10,marginTop:18}}>
+          <button onClick={()=>{setProject(projBuf);setProjModal(false);toast.success("تم حفظ إعدادات المشروع");}}
+            style={{flex:1,background:"hsl(var(--primary))",color:"hsl(var(--primary-foreground))",border:"none",borderRadius:9,padding:11,fontWeight:700,cursor:"pointer",fontSize:14}}>✓ حفظ</button>
+          <button onClick={()=>setProjModal(false)}
+            style={{flex:1,background:"hsl(var(--muted))",color:"hsl(var(--foreground))",border:"1px solid hsl(var(--border))",borderRadius:9,padding:11,fontWeight:600,cursor:"pointer",fontSize:14}}>إلغاء</button>
+        </div>
       </Modal>
+
 
       <Modal show={importModal} onClose={()=>{setImportModal(false);setImportText("");setImportPreview([]);setImportErr("");setImportSheets([]);}} title="📂 استيراد أنشطة من ملف" width={560}>
         {/* Format tabs */}
