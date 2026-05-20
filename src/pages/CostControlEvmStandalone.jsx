@@ -624,6 +624,8 @@ export default function App(){
   const [threshModal,setThreshModal]=useState(false);
   const [kpiDrill,setKpiDrill]=useState(null); // null | "PV" | "EV" | "AC" | "EAC" | "ETC" | "CPI" | "SPI" | "TCPI" | "PROG"
   const [density,setDensity]=useState(()=>localStorage.getItem("evm_density")||"compact"); // "compact" | "comfortable"
+  const [shortcutsModal,setShortcutsModal]=useState(false);
+
   useEffect(()=>{localStorage.setItem("evm_density",density);},[density]);
 
 
@@ -1711,7 +1713,9 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
         if(e.key==="p"){e.preventDefault();window.print();}
         if(e.key==="e"){e.preventDefault();exportExcelFull(acts,kpi,cf,risks,issues,resources,project);}
       }
-      if(e.key==="Escape"){setShowGlobalSearch(false);setShowNotif(false);}
+      if(e.key==="Escape"){setShowGlobalSearch(false);setShowNotif(false);setShortcutsModal(false);setKpiDrill(null);}
+      if(e.key==="?"&&!e.ctrlKey&&!e.metaKey&&!["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName)){e.preventDefault();setShortcutsModal(p=>!p);}
+
     };
     window.addEventListener("keydown",handler);
     return()=>window.removeEventListener("keydown",handler);
@@ -1773,7 +1777,20 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
       .evm-density-comfortable .evm-kpi-card{padding:18px 20px !important;}
       .evm-density-comfortable table th,.evm-density-comfortable table td{padding:11px 14px !important;}
       [dir="rtl"] .evm-kpi-card > div[style*="top:6px"]{left:auto !important;right:8px !important;}
+      /* Sticky table headers inside scrollable cards */
+      .evm-density-compact table thead th,.evm-density-comfortable table thead th{position:sticky;top:0;z-index:5;background:hsl(var(--card));box-shadow:inset 0 -1px 0 hsl(var(--border));}
+      /* Print mode — hide chrome, expand content */
+      @media print{
+        body{background:#fff !important;}
+        .evm-no-print,.evm-no-print *{display:none !important;}
+        .evm-density-compact,.evm-density-comfortable{height:auto !important;overflow:visible !important;}
+        .evm-kpi-card{break-inside:avoid;box-shadow:none !important;border:1px solid #ccc !important;}
+        table{page-break-inside:auto;}
+        tr{page-break-inside:avoid;page-break-after:auto;}
+        thead{display:table-header-group;}
+      }
     `}</style>
+
     <div dir="rtl" className={`evm-density-${density}`} style={{display:"flex",height:"100vh",fontFamily:"'Manrope','Cairo','Segoe UI',sans-serif",background:darkMode?"#0f172a":"hsl(var(--background))",color:darkMode?"#f1f5f9":"hsl(var(--foreground))",fontSize:13,overflow:"hidden"}}>
 
 
@@ -1958,6 +1975,8 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
                 )}
               </div>
               <button onClick={()=>setDensity(d=>d==="compact"?"comfortable":"compact")} title={density==="compact"?"تبديل إلى وضع مريح":"تبديل إلى وضع مضغوط"} style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 10px",fontWeight:700,cursor:"pointer",fontSize:11}}>{density==="compact"?"⊟ مضغوط":"⊞ مريح"}</button>
+              <button onClick={()=>setShortcutsModal(true)} title="اختصارات لوحة المفاتيح (?)" style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 10px",fontWeight:700,cursor:"pointer",fontSize:13}}>❓</button>
+
               <button onClick={()=>setDarkMode(d=>!d)} title="تبديل الوضع" style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 10px",fontWeight:600,cursor:"pointer",fontSize:14}}>{darkMode?"☀️":"🌙"}</button>
 
               <button onClick={()=>setImportModal(true)} style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>📂 استيراد</button>
@@ -4074,7 +4093,29 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
         <div style={{display:"flex",gap:10,marginTop:16}}><button onClick={addIssue} style={{flex:1,background:"#f59e0b",color:"#fff",border:"none",borderRadius:9,padding:11,fontWeight:700,cursor:"pointer",fontSize:14}}>✓ إضافة المشكلة</button><button onClick={()=>setIssueModal(false)} style={{flex:1,background:"#f4f5fb",color:"#555",border:"none",borderRadius:9,padding:11,fontWeight:600,cursor:"pointer",fontSize:14}}>إلغاء</button></div>
       </Modal>
 
+      <Modal show={shortcutsModal} onClose={()=>setShortcutsModal(false)} title="⌨️ اختصارات لوحة المفاتيح" width={460}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:12}}>
+          {[
+            ["Ctrl + K","البحث العام / Command Palette"],
+            ["Ctrl + S","حفظ السيناريو الحالي"],
+            ["Ctrl + P","طباعة التقرير"],
+            ["Esc","إغلاق النوافذ المنبثقة"],
+            ["?","عرض هذه القائمة"],
+            ["انقر على KPI","فتح Drill-down التفصيلي"],
+            ["⊟ / ⊞","تبديل كثافة العرض"],
+            ["🌙 / ☀️","تبديل الوضع الليلي"],
+          ].map(([k,d])=>(
+            <div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"hsl(var(--muted))",border:"1px solid hsl(var(--border))",borderRadius:8}}>
+              <span style={{color:"hsl(var(--muted-foreground))",fontSize:11}}>{d}</span>
+              <kbd style={{background:"hsl(var(--background))",border:"1px solid hsl(var(--border))",borderRadius:5,padding:"2px 8px",fontFamily:"monospace",fontSize:11,fontWeight:700,color:"hsl(var(--primary))"}}>{k}</kbd>
+            </div>
+          ))}
+        </div>
+        <button onClick={()=>setShortcutsModal(false)} style={{marginTop:16,width:"100%",background:"hsl(var(--primary))",color:"hsl(var(--primary-foreground))",border:"none",borderRadius:9,padding:11,fontWeight:700,cursor:"pointer",fontSize:13}}>✓ فهمت</button>
+      </Modal>
+
       <Modal show={threshModal} onClose={()=>setThreshModal(false)} title="⚙️ إعدادات الحدود التحذيرية" width={420}>
+
         <div style={{display:"flex",flexDirection:"column",gap:18}}>
           {[{label:"حد SPI",state:threshSPI,set:setThreshSPI},{label:"حد CPI",state:threshCPI,set:setThreshCPI}].map(({label,state,set})=>(
             <div key={label}><div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{fontSize:12,fontWeight:600,color:"#555"}}>{label} (تنبيه إذا أقل من)</span><span style={{fontFamily:"monospace",fontWeight:900,color:"#6366f1",fontSize:16}}>{state.toFixed(2)}</span></div>
