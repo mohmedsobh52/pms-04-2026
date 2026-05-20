@@ -443,10 +443,17 @@ const exportExcelFull=(acts,kpi,cf,risks,issues,resources,project)=>{
 
 // ═══════════════════════════════ SAVED PROJECTS TAB ═══════════════════════════════
 function ProjectsTab({projectsList,projectsLoading,projectsErr,fetchProjects,linkedProjectId,loadProjectFromDb,loadingItems,savedKpis,savedKpisLoading,computeProjectKpi,compareIds,setCompareIds,darkMode,fmt,sColor}){
-  const [search,setSearch]=useState("");
-  const [statusFilter,setStatusFilter]=useState("all"); // all|favorites|archived
+  const [search,setSearch]=useState(()=>localStorage.getItem("evm:projSearch")||"");
+  const [statusFilter,setStatusFilter]=useState(()=>localStorage.getItem("evm:projStatus")||"all"); // all|favorites|archived
+  const [dateFrom,setDateFrom]=useState(()=>localStorage.getItem("evm:projDateFrom")||"");
+  const [dateTo,setDateTo]=useState(()=>localStorage.getItem("evm:projDateTo")||"");
   const [favorites,setFavorites]=useState(()=>{ try{return JSON.parse(localStorage.getItem("evm:favorites")||"[]");}catch{return[];} });
   const [archived,setArchived]=useState(()=>{ try{return JSON.parse(localStorage.getItem("evm:archived")||"[]");}catch{return[];} });
+
+  useEffect(()=>{try{localStorage.setItem("evm:projSearch",search);}catch{}},[search]);
+  useEffect(()=>{try{localStorage.setItem("evm:projStatus",statusFilter);}catch{}},[statusFilter]);
+  useEffect(()=>{try{localStorage.setItem("evm:projDateFrom",dateFrom);}catch{}},[dateFrom]);
+  useEffect(()=>{try{localStorage.setItem("evm:projDateTo",dateTo);}catch{}},[dateTo]);
 
   const persistFav=(arr)=>{setFavorites(arr);try{localStorage.setItem("evm:favorites",JSON.stringify(arr));}catch{}};
   const persistArc=(arr)=>{setArchived(arr);try{localStorage.setItem("evm:archived",JSON.stringify(arr));}catch{}};
@@ -458,9 +465,10 @@ function ProjectsTab({projectsList,projectsLoading,projectsErr,fetchProjects,lin
     if(statusFilter==="favorites")arr=arr.filter(p=>favorites.includes(p.id));
     else if(statusFilter==="archived")arr=arr.filter(p=>archived.includes(p.id));
     else arr=arr.filter(p=>!archived.includes(p.id));
-    // favorites first
+    if(dateFrom){const f=new Date(dateFrom).getTime();arr=arr.filter(p=>{const t=new Date(p.updated_at||p.created_at||0).getTime();return t>=f;});}
+    if(dateTo){const t=new Date(dateTo).getTime()+86400000;arr=arr.filter(p=>{const x=new Date(p.updated_at||p.created_at||0).getTime();return x<=t;});}
     return arr.slice().sort((a,b)=>(favorites.includes(b.id)?1:0)-(favorites.includes(a.id)?1:0));
-  },[projectsList,search,statusFilter,favorites,archived]);
+  },[projectsList,search,statusFilter,favorites,archived,dateFrom,dateTo]);
 
   // Lazy-load KPIs for the visible projects
   useEffect(()=>{
