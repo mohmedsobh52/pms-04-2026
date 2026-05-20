@@ -623,6 +623,9 @@ export default function App(){
   const [threshCPI,setThreshCPI]=useState(0.9);
   const [threshModal,setThreshModal]=useState(false);
   const [kpiDrill,setKpiDrill]=useState(null); // null | "PV" | "EV" | "AC" | "EAC" | "ETC" | "CPI" | "SPI" | "TCPI" | "PROG"
+  const [density,setDensity]=useState(()=>localStorage.getItem("evm_density")||"compact"); // "compact" | "comfortable"
+  useEffect(()=>{localStorage.setItem("evm_density",density);},[density]);
+
 
   const [projModal,setProjModal]=useState(false);
   const [project,setProject]=useState(()=>recomputeProjectDates({name:"مشروع البنية التحتية — جامعة تبوك",number:"NWC-TAB-2024-P1",client:"شركة المياه الوطنية",contractor:"الإمتياز الوطنية للمقاولات",startDate:"2025-01-01",endDate:"",duration:"24",currency:"SAR",lockedField:"endDate"}));
