@@ -1713,7 +1713,9 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
         if(e.key==="p"){e.preventDefault();window.print();}
         if(e.key==="e"){e.preventDefault();exportExcelFull(acts,kpi,cf,risks,issues,resources,project);}
       }
-      if(e.key==="Escape"){setShowGlobalSearch(false);setShowNotif(false);}
+      if(e.key==="Escape"){setShowGlobalSearch(false);setShowNotif(false);setShortcutsModal(false);setKpiDrill(null);}
+      if(e.key==="?"&&!e.ctrlKey&&!e.metaKey&&!["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName)){e.preventDefault();setShortcutsModal(p=>!p);}
+
     };
     window.addEventListener("keydown",handler);
     return()=>window.removeEventListener("keydown",handler);
