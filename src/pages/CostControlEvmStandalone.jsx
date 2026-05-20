@@ -731,7 +731,10 @@ export default function App(){
   },[]);
   const [showHistory,setShowHistory]=useState(false);
   // UI extras
-  const [darkMode,setDarkMode]=useState(false);
+  const [darkMode,setDarkMode]=useState(()=>localStorage.getItem("evm_darkMode")==="1");
+  useEffect(()=>{try{localStorage.setItem("evm_darkMode",darkMode?"1":"0");}catch{}},[darkMode]);
+  const [autoSyncAC,setAutoSyncAC]=useState(()=>localStorage.getItem("evm_autoSyncAC")==="1");
+  useEffect(()=>{try{localStorage.setItem("evm_autoSyncAC",autoSyncAC?"1":"0");}catch{}},[autoSyncAC]);
   const [changelog,setChangelog]=useState([
     {ts:"2025-01-15 09:00",user:"النظام",action:"إنشاء المشروع وتحميل البيانات الأولية",type:"create"},
   ]);
