@@ -353,17 +353,26 @@ const exportCSV=(acts,kpi,project)=>{
 // ── XER Parser (Primavera P6) — extracts TASK section into activities ──
 const parseXERText=text=>{
   const lines=text.split(/\r?\n/);
-  let curTable=null,headers=[],rows=[];
+  const tables={};
+  let curTable=null,headers=[];
   for(const line of lines){
     const parts=line.split("\t");
-    if(parts[0]==="%T"){curTable=parts[1];headers=[];}
-    else if(parts[0]==="%F"&&curTable==="TASK"){headers=parts.slice(1);}
-    else if(parts[0]==="%R"&&curTable==="TASK"){
+    if(parts[0]==="%T"){curTable=parts[1];headers=[];tables[curTable]=tables[curTable]||[];}
+    else if(parts[0]==="%F"){headers=parts.slice(1);}
+    else if(parts[0]==="%R"&&curTable){
       const o={};headers.forEach((h,i)=>o[h]=parts[i+1]);
-      rows.push(o);
+      tables[curTable].push(o);
     }
   }
-  return rows.map((t,idx)=>{
+  const taskRows=tables.TASK||[];
+  const projRow=(tables.PROJECT||[])[0]||{};
+  const toIso=v=>{if(!v)return"";const m=String(v).match(/(\d{4})-(\d{1,2})-(\d{1,2})/);return m?`${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}`:"";};
+  const dates=taskRows.flatMap(t=>[t.target_start_date,t.target_end_date,t.act_start_date,t.act_end_date,t.early_start_date,t.early_end_date]).map(toIso).filter(Boolean).sort();
+  const schedule={
+    start:toIso(projRow.plan_start_date)||dates[0]||"",
+    end:toIso(projRow.plan_end_date)||toIso(projRow.scd_end_date)||dates[dates.length-1]||"",
+  };
+  const activities=taskRows.map((t,idx)=>{
     const bac=+t.target_cost||+t.target_work_qty||0;
     const ac=+t.act_total_cost||+t.act_work_qty||0;
     const pct=Math.min(100,Math.max(0,+t.phys_complete_pct||+t.act_pct_complete||0));
@@ -373,9 +382,13 @@ const parseXERText=text=>{
       disc:"GENERAL",
       items:1,
       bac,ac,pct,
+      _startDate:toIso(t.target_start_date||t.early_start_date),
+      _endDate:toIso(t.target_end_date||t.early_end_date),
     };
-  }).filter(r=>r.bac>0||r.ac>0);
+  }).filter(r=>r.bac>0||r.ac>0||r.id);
+  return{activities,schedule,_meta:{taskCount:taskRows.length,projectName:projRow.proj_short_name||""}};
 };
+
 
 // Full export including resources
 const exportExcelFull=(acts,kpi,cf,risks,issues,resources,project)=>{
@@ -1747,10 +1760,16 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
       const r=new FileReader();
       r.onload=ev=>{
         try{
-          const rows=parseXERText(ev.target.result);
-          if(!rows.length){setImportErr("لم يتم العثور على أنشطة (TASK) في ملف XER");return;}
-          setImportPreview(rows);setImportErr(`✅ تم استيراد ${rows.length} نشاط من Primavera XER`);
-          toast.success(`تم قراءة ${rows.length} نشاط من XER`);
+          const{activities,schedule,_meta}=parseXERText(ev.target.result);
+          if(!activities.length){setImportErr("لم يتم العثور على أنشطة (TASK) في ملف XER");return;}
+          setImportPreview(activities);
+          // Auto-apply schedule dates to project
+          if(schedule.start||schedule.end){
+            setProject(p=>recomputeProjectDates({...p,startDate:schedule.start||p.startDate,endDate:schedule.end||p.endDate}));
+            toast.success(`📅 تم تحديث الجدول الزمني: ${schedule.start} → ${schedule.end}`);
+          }
+          setImportErr(`✅ Primavera P6: ${activities.length} نشاط${_meta.projectName?` · مشروع "${_meta.projectName}"`:""}${schedule.start?` · الجدول: ${schedule.start} → ${schedule.end}`:""}`);
+          toast.success(`تم قراءة ${activities.length} نشاط من XER`);
         }catch(err){setImportErr("خطأ في قراءة XER: "+err.message);}
       };
       r.readAsText(file,"utf-8");
@@ -2077,18 +2096,40 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
 
               <button onClick={()=>setDarkMode(d=>!d)} title="تبديل الوضع" style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 10px",fontWeight:600,cursor:"pointer",fontSize:14}}>{darkMode?"☀️":"🌙"}</button>
 
-              <button onClick={()=>setImportModal(true)} style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>📂 استيراد</button>
-              <button onClick={()=>exportExcelFull(acts,kpi,cf,risks,issues,resources,project)} style={{background:"hsl(var(--success))",color:"hsl(var(--success-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📥 Excel كامل</button>
-              <button onClick={()=>{exportCSV(acts,kpi,project);toast.success("تم تصدير CSV");}} title="تصدير CSV للبيانات الحالية" style={{background:"hsl(var(--success)/.85)",color:"hsl(var(--success-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📄 CSV</button>
-              <button onClick={exportPDF} style={{background:"hsl(var(--destructive))",color:"hsl(var(--destructive-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📑 PDF</button>
-              <button onClick={syncACFromCertificates} disabled={syncingAC} title="مزامنة AC من شهادات التقدم" style={{background:"hsl(var(--accent))",color:"hsl(var(--accent-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:syncingAC?"wait":"pointer",fontSize:11,opacity:syncingAC?.6:1}}>{syncingAC?"⏳ مزامنة...":"🔁 مزامنة AC"}</button>
-              <button onClick={()=>{setAutoSyncAC(v=>{const nv=!v;toast.info(nv?"✅ تفعيل المزامنة التلقائية كل 5 دقائق":"⏸ إيقاف المزامنة التلقائية");return nv;});}} title="مزامنة AC تلقائياً كل 5 دقائق" style={{background:autoSyncAC?"hsl(var(--success))":"rgba(255,255,255,.1)",color:"#fff",border:`1px solid ${autoSyncAC?"hsl(var(--success))":"rgba(255,255,255,.25)"}`,borderRadius:7,padding:"6px 10px",fontWeight:700,cursor:"pointer",fontSize:11,display:"inline-flex",alignItems:"center",gap:4}}>{autoSyncAC?"🟢":"⚪"} Auto{syncingAC&&autoSyncAC?<span style={{display:"inline-block",width:6,height:6,borderRadius:99,background:"#fff",animation:"pulse 1.5s infinite"}}/>:null}</button>
+              {/* ── Import (highlighted for schedule import) ── */}
+              <button onClick={()=>setImportModal(true)} title="استيراد BOQ / جدول زمني Primavera (XER) / Excel / PDF / CSV" style={{background:"rgba(255,255,255,.15)",color:"#fff",border:"1px solid rgba(255,255,255,.3)",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📂 استيراد</button>
 
-              <button onClick={()=>{const n=prompt("اسم السيناريو:");if(n)saveScenarioToDb(n);}} title="حفظ السيناريو في السحابة" style={{background:"hsl(var(--qa-purple))",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>☁️ حفظ</button>
-              <button onClick={()=>{setScenariosModal(true);fetchDbScenarios();}} title="تحميل سيناريو محفوظ" style={{background:"hsla(0,0%,100%,.12)",color:"hsl(var(--primary-foreground))",border:"1px solid hsla(0,0%,100%,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>📚 السيناريوهات</button>
-              <button onClick={()=>setThreshModal(true)} style={{background:"hsla(0,0%,100%,.12)",color:"hsl(var(--primary-foreground))",border:"1px solid hsla(0,0%,100%,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>⚙️</button>
+              {/* ── Export dropdown ── */}
+              <details style={{position:"relative"}}>
+                <summary style={{listStyle:"none",background:"hsl(var(--success))",color:"hsl(var(--success-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11,userSelect:"none"}}>📥 تصدير ▾</summary>
+                <div style={{position:"absolute",top:"calc(100% + 4px)",insetInlineEnd:0,background:darkMode?"#1e293b":"#fff",border:`1px solid ${darkMode?"#334155":"#e5e7eb"}`,borderRadius:8,boxShadow:"0 12px 30px rgba(0,0,0,.18)",minWidth:170,zIndex:100,padding:5,display:"flex",flexDirection:"column",gap:2}}>
+                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;exportExcelFull(acts,kpi,cf,risks,issues,resources,project);}} style={{background:"transparent",border:"none",textAlign:"start",padding:"7px 11px",borderRadius:6,cursor:"pointer",fontSize:12,color:darkMode?"#f1f5f9":"#1a1a2e",fontWeight:600}}>📊 Excel كامل</button>
+                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;exportCSV(acts,kpi,project);toast.success("تم تصدير CSV");}} style={{background:"transparent",border:"none",textAlign:"start",padding:"7px 11px",borderRadius:6,cursor:"pointer",fontSize:12,color:darkMode?"#f1f5f9":"#1a1a2e",fontWeight:600}}>📄 CSV (البيانات الحالية)</button>
+                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;exportPDF();}} style={{background:"transparent",border:"none",textAlign:"start",padding:"7px 11px",borderRadius:6,cursor:"pointer",fontSize:12,color:darkMode?"#f1f5f9":"#1a1a2e",fontWeight:600}}>📑 PDF</button>
+                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;window.print();}} style={{background:"transparent",border:"none",textAlign:"start",padding:"7px 11px",borderRadius:6,cursor:"pointer",fontSize:12,color:darkMode?"#f1f5f9":"#1a1a2e",fontWeight:600}}>🖨️ طباعة</button>
+                </div>
+              </details>
+
+              {/* ── AC Sync dropdown ── */}
+              <details style={{position:"relative"}}>
+                <summary style={{listStyle:"none",background:autoSyncAC?"hsl(var(--success))":"hsl(var(--accent))",color:autoSyncAC?"hsl(var(--success-foreground))":"hsl(var(--accent-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:syncingAC?"wait":"pointer",fontSize:11,userSelect:"none",opacity:syncingAC?.7:1,display:"inline-flex",alignItems:"center",gap:5}}>{syncingAC?"⏳":autoSyncAC?"🟢":"🔁"} AC {autoSyncAC?"Auto":""} ▾</summary>
+                <div style={{position:"absolute",top:"calc(100% + 4px)",insetInlineEnd:0,background:darkMode?"#1e293b":"#fff",border:`1px solid ${darkMode?"#334155":"#e5e7eb"}`,borderRadius:8,boxShadow:"0 12px 30px rgba(0,0,0,.18)",minWidth:200,zIndex:100,padding:5,display:"flex",flexDirection:"column",gap:2}}>
+                  <button disabled={syncingAC} onClick={(e)=>{e.currentTarget.closest("details").open=false;syncACFromCertificates();}} style={{background:"transparent",border:"none",textAlign:"start",padding:"7px 11px",borderRadius:6,cursor:syncingAC?"wait":"pointer",fontSize:12,color:darkMode?"#f1f5f9":"#1a1a2e",fontWeight:600,opacity:syncingAC?.6:1}}>{syncingAC?"⏳ جاري المزامنة...":"🔁 مزامنة الآن"}</button>
+                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;setAutoSyncAC(v=>{const nv=!v;toast.info(nv?"✅ تفعيل المزامنة التلقائية كل 5 دقائق":"⏸ إيقاف المزامنة التلقائية");return nv;});}} style={{background:"transparent",border:"none",textAlign:"start",padding:"7px 11px",borderRadius:6,cursor:"pointer",fontSize:12,color:darkMode?"#f1f5f9":"#1a1a2e",fontWeight:600}}>{autoSyncAC?"⏸ إيقاف Auto-Sync":"🟢 تفعيل Auto-Sync (5د)"}</button>
+                </div>
+              </details>
+
+              {/* ── Scenarios dropdown ── */}
+              <details style={{position:"relative"}}>
+                <summary style={{listStyle:"none",background:"hsla(0,0%,100%,.12)",color:"#fff",border:"1px solid hsla(0,0%,100%,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11,userSelect:"none"}}>📚 سيناريوهات ▾</summary>
+                <div style={{position:"absolute",top:"calc(100% + 4px)",insetInlineEnd:0,background:darkMode?"#1e293b":"#fff",border:`1px solid ${darkMode?"#334155":"#e5e7eb"}`,borderRadius:8,boxShadow:"0 12px 30px rgba(0,0,0,.18)",minWidth:180,zIndex:100,padding:5,display:"flex",flexDirection:"column",gap:2}}>
+                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;const n=prompt("اسم السيناريو:");if(n)saveScenarioToDb(n);}} style={{background:"transparent",border:"none",textAlign:"start",padding:"7px 11px",borderRadius:6,cursor:"pointer",fontSize:12,color:darkMode?"#f1f5f9":"#1a1a2e",fontWeight:600}}>☁️ حفظ السيناريو</button>
+                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;setScenariosModal(true);fetchDbScenarios();}} style={{background:"transparent",border:"none",textAlign:"start",padding:"7px 11px",borderRadius:6,cursor:"pointer",fontSize:12,color:darkMode?"#f1f5f9":"#1a1a2e",fontWeight:600}}>📂 تحميل سيناريو</button>
+                </div>
+              </details>
+
+              <button onClick={()=>setThreshModal(true)} title="إعدادات الحدود" style={{background:"hsla(0,0%,100%,.12)",color:"hsl(var(--primary-foreground))",border:"1px solid hsla(0,0%,100%,.25)",borderRadius:7,padding:"6px 10px",fontWeight:600,cursor:"pointer",fontSize:11}}>⚙️</button>
               <button onClick={()=>setAddModal(true)} style={{background:"hsl(var(--primary))",color:"hsl(var(--primary-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>+ نشاط</button>
-              <button onClick={()=>window.print()} style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>🖨️</button>
             </div>
           </div>
           <div style={{display:"flex",gap:2,flexWrap:"nowrap",overflowX:"auto"}}>
