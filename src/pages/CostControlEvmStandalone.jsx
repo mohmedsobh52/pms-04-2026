@@ -623,6 +623,9 @@ export default function App(){
   const [threshCPI,setThreshCPI]=useState(0.9);
   const [threshModal,setThreshModal]=useState(false);
   const [kpiDrill,setKpiDrill]=useState(null); // null | "PV" | "EV" | "AC" | "EAC" | "ETC" | "CPI" | "SPI" | "TCPI" | "PROG"
+  const [density,setDensity]=useState(()=>localStorage.getItem("evm_density")||"compact"); // "compact" | "comfortable"
+  useEffect(()=>{localStorage.setItem("evm_density",density);},[density]);
+
 
   const [projModal,setProjModal]=useState(false);
   const [project,setProject]=useState(()=>recomputeProjectDates({name:"مشروع البنية التحتية — جامعة تبوك",number:"NWC-TAB-2024-P1",client:"شركة المياه الوطنية",contractor:"الإمتياز الوطنية للمقاولات",startDate:"2025-01-01",endDate:"",duration:"24",currency:"SAR",lockedField:"endDate"}));
@@ -1762,7 +1765,17 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
 
   return(
     <DarkCtx.Provider value={darkMode}>
-    <div style={{display:"flex",height:"100vh",fontFamily:"'IBM Plex Sans','Segoe UI',sans-serif",background:darkMode?"#0f172a":"#f4f5fb",color:darkMode?"#f1f5f9":"#1a1a2e",fontSize:13,overflow:"hidden"}}>
+    <style>{`
+      .evm-density-compact .evm-kpi-card{padding:9px 11px !important;border-radius:10px !important;}
+      .evm-density-compact .evm-kpi-card > div[style*="fontSize:23"]{font-size:17px !important;}
+      .evm-density-compact table{font-size:11px !important;}
+      .evm-density-compact table th,.evm-density-compact table td{padding:5px 8px !important;line-height:1.35 !important;}
+      .evm-density-comfortable .evm-kpi-card{padding:18px 20px !important;}
+      .evm-density-comfortable table th,.evm-density-comfortable table td{padding:11px 14px !important;}
+      [dir="rtl"] .evm-kpi-card > div[style*="top:6px"]{left:auto !important;right:8px !important;}
+    `}</style>
+    <div dir="rtl" className={`evm-density-${density}`} style={{display:"flex",height:"100vh",fontFamily:"'Manrope','Cairo','Segoe UI',sans-serif",background:darkMode?"#0f172a":"hsl(var(--background))",color:darkMode?"#f1f5f9":"hsl(var(--foreground))",fontSize:13,overflow:"hidden"}}>
+
 
       {/* ═══ SIDEBAR ═══ */}
       <div style={{width:216,background:darkMode?"#1e293b":"#fff",borderRight:`1px solid ${darkMode?"#334155":"#eee"}`,display:"flex",flexDirection:"column",flexShrink:0,overflow:"hidden"}}>
@@ -1944,7 +1957,9 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
                   </div>
                 )}
               </div>
+              <button onClick={()=>setDensity(d=>d==="compact"?"comfortable":"compact")} title={density==="compact"?"تبديل إلى وضع مريح":"تبديل إلى وضع مضغوط"} style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 10px",fontWeight:700,cursor:"pointer",fontSize:11}}>{density==="compact"?"⊟ مضغوط":"⊞ مريح"}</button>
               <button onClick={()=>setDarkMode(d=>!d)} title="تبديل الوضع" style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 10px",fontWeight:600,cursor:"pointer",fontSize:14}}>{darkMode?"☀️":"🌙"}</button>
+
               <button onClick={()=>setImportModal(true)} style={{background:"rgba(255,255,255,.1)",color:"#fff",border:"1px solid rgba(255,255,255,.25)",borderRadius:7,padding:"6px 12px",fontWeight:600,cursor:"pointer",fontSize:11}}>📂 استيراد</button>
               <button onClick={()=>exportExcelFull(acts,kpi,cf,risks,issues,resources,project)} style={{background:"hsl(var(--success))",color:"hsl(var(--success-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📥 Excel كامل</button>
               <button onClick={exportPDF} style={{background:"hsl(var(--destructive))",color:"hsl(var(--destructive-foreground))",border:"none",borderRadius:7,padding:"6px 12px",fontWeight:700,cursor:"pointer",fontSize:11}}>📑 PDF</button>
