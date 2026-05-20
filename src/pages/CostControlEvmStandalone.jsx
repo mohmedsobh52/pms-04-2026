@@ -1765,7 +1765,17 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
 
   return(
     <DarkCtx.Provider value={darkMode}>
-    <div style={{display:"flex",height:"100vh",fontFamily:"'IBM Plex Sans','Segoe UI',sans-serif",background:darkMode?"#0f172a":"#f4f5fb",color:darkMode?"#f1f5f9":"#1a1a2e",fontSize:13,overflow:"hidden"}}>
+    <style>{`
+      .evm-density-compact .evm-kpi-card{padding:9px 11px !important;border-radius:10px !important;}
+      .evm-density-compact .evm-kpi-card > div[style*="fontSize:23"]{font-size:17px !important;}
+      .evm-density-compact table{font-size:11px !important;}
+      .evm-density-compact table th,.evm-density-compact table td{padding:5px 8px !important;line-height:1.35 !important;}
+      .evm-density-comfortable .evm-kpi-card{padding:18px 20px !important;}
+      .evm-density-comfortable table th,.evm-density-comfortable table td{padding:11px 14px !important;}
+      [dir="rtl"] .evm-kpi-card > div[style*="top:6px"]{left:auto !important;right:8px !important;}
+    `}</style>
+    <div dir="rtl" className={`evm-density-${density}`} style={{display:"flex",height:"100vh",fontFamily:"'Manrope','Cairo','Segoe UI',sans-serif",background:darkMode?"#0f172a":"hsl(var(--background))",color:darkMode?"#f1f5f9":"hsl(var(--foreground))",fontSize:13,overflow:"hidden"}}>
+
 
       {/* ═══ SIDEBAR ═══ */}
       <div style={{width:216,background:darkMode?"#1e293b":"#fff",borderRight:`1px solid ${darkMode?"#334155":"#eee"}`,display:"flex",flexDirection:"column",flexShrink:0,overflow:"hidden"}}>
