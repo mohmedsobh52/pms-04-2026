@@ -4459,7 +4459,7 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
           onClick={()=>fileRef.current?.click()}
           style={{border:"2px dashed #e5e7eb",borderRadius:10,padding:"22px 16px",textAlign:"center",marginBottom:12,cursor:"pointer",background:"#fafafa",transition:"all .2s"}}>
           <input ref={fileRef} type="file" accept=".csv,.txt,.xlsx,.xls,.pdf,.xer" onChange={handleFileUpload} style={{display:"none"}}/>
-          <div style={{fontSize:30,marginBottom:6}}>{importType==="csv"?"📄":importType==="excel"?"📊":"📑"}</div>
+          <div style={{fontSize:30,marginBottom:6}}>{importType==="csv"?"📄":importType==="excel"?"📊":importType==="xer"?"🗓️":"📑"}</div>
           <div style={{fontSize:12,fontWeight:700,color:"#555"}}>اسحب الملف هنا أو اضغط للاختيار</div>
           <div style={{fontSize:10,color:"#bbb",marginTop:3}}>CSV · XLSX · XLS · PDF · XER (Primavera P6)</div>
         </div>
