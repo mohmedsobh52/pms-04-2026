@@ -695,6 +695,10 @@ export default function App(){
   const [kpiDrill,setKpiDrill]=useState(null); // null | "PV" | "EV" | "AC" | "EAC" | "ETC" | "CPI" | "SPI" | "TCPI" | "PROG"
   const [density,setDensity]=useState(()=>localStorage.getItem("evm_density")||"compact"); // "compact" | "comfortable"
   const [shortcutsModal,setShortcutsModal]=useState(false);
+  const [kpiSearch,setKpiSearch]=useState(()=>localStorage.getItem("evm_kpiSearch")||"");
+  const [kpiStatus,setKpiStatus]=useState(()=>localStorage.getItem("evm_kpiStatus")||"all"); // all|healthy|warn|crit
+  useEffect(()=>{try{localStorage.setItem("evm_kpiSearch",kpiSearch);}catch{}},[kpiSearch]);
+  useEffect(()=>{try{localStorage.setItem("evm_kpiStatus",kpiStatus);}catch{}},[kpiStatus]);
 
   useEffect(()=>{localStorage.setItem("evm_density",density);},[density]);
 
