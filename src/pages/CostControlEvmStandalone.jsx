@@ -2013,8 +2013,7 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
           {/* ═══ OVERVIEW ═══ */}
           {tab==="overview"&&(<>
             <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:11,marginBottom:12}}>
-              <Kpi l="PV — القيمة المخططة"  v={fmt(kpi.pv)}  ic="🎯" c="#6366f1"/>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:11,marginBottom:12}}>
+
               <Kpi l="PV — القيمة المخططة"  v={fmt(kpi.pv)}  ic="🎯" c="#6366f1" onClick={()=>setKpiDrill(d=>d==="PV"?null:"PV")}  active={kpiDrill==="PV"}/>
               <Kpi l="EV — القيمة المكتسبة" v={fmt(kpi.ev)}  ic="📈" c="#10b981" onClick={()=>setKpiDrill(d=>d==="EV"?null:"EV")}  active={kpiDrill==="EV"}/>
               <Kpi l="AC — التكلفة الفعلية"  v={fmt(kpi.ac)}  ic="💰" c="#f59e0b" onClick={()=>setKpiDrill(d=>d==="AC"?null:"AC")}  active={kpiDrill==="AC"}/>
