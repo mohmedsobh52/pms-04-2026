@@ -1958,12 +1958,14 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
               </button>
             ))}
           </div>
+          {alerts.length>0&&(
+            <div style={{marginTop:6,background:"rgba(0,0,0,.22)",borderTop:"1px solid rgba(255,255,255,.12)",borderRadius:"6px 6px 0 0",padding:"6px 12px",display:"flex",gap:14,flexWrap:"wrap",alignItems:"center"}}>
+              <span style={{fontSize:10,fontWeight:800,color:"hsl(var(--accent))",letterSpacing:.5,flexShrink:0}}>⚠ التنبيهات</span>
+              {alerts.map((a,i)=><span key={i} style={{fontSize:11,fontWeight:600,color:a.t==="c"?"#fecaca":"#fde68a",display:"flex",alignItems:"center",gap:3}}>{a.t==="c"?"🔴":"🟡"} {a.msg}</span>)}
+            </div>
+          )}
         </div>
-        {alerts.length>0&&(
-          <div style={{background:darkMode?"#1c1107":"#fff7ed",borderBottom:`1px solid ${darkMode?"#7c2d12":"#fed7aa"}`,padding:"6px 20px",display:"flex",gap:14,flexWrap:"wrap",flexShrink:0}}>
-            {alerts.map((a,i)=><span key={i} style={{fontSize:11,fontWeight:600,color:a.t==="c"?"#dc2626":"#b45309",display:"flex",alignItems:"center",gap:3}}>{a.t==="c"?"🔴":"🟡"} {a.msg}</span>)}
-          </div>
-        )}
+
         {timeMetrics.valid&&(
           <div style={{background:timeMetrics.overdue?"hsl(var(--destructive)/.08)":(darkMode?"#0f172a":"hsl(var(--card))"),borderBottom:`1px solid ${timeMetrics.overdue?"hsl(var(--destructive)/.3)":"hsl(var(--border))"}`,padding:"8px 20px",flexShrink:0}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,fontSize:11,fontWeight:700,color:darkMode?"#cbd5e1":"hsl(var(--foreground))",gap:12,flexWrap:"wrap"}}>
