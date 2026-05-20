@@ -4394,10 +4394,10 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
 
       <Modal show={importModal} onClose={()=>{setImportModal(false);setImportText("");setImportPreview([]);setImportErr("");setImportSheets([]);}} title="📂 استيراد أنشطة من ملف" width={560}>
         {/* Format tabs */}
-        <div style={{display:"flex",gap:6,marginBottom:14}}>
-          {[["csv","📄 CSV","#6366f1"],["excel","📊 Excel","#10b981"],["pdf","📑 PDF","#f59e0b"]].map(([v,l,c])=>(
+        <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+          {[["csv","📄 CSV","#6366f1"],["excel","📊 Excel","#10b981"],["pdf","📑 PDF","#f59e0b"],["xer","🗓️ XER (Primavera P6)","#8b5cf6"]].map(([v,l,c])=>(
             <button key={v} onClick={()=>{setImportType(v);setImportErr("");setImportPreview([]);setImportText("");setImportSheets([]);}}
-              style={{flex:1,background:importType===v?c+"20":"#f8f9fc",color:importType===v?c:"#666",border:`2px solid ${importType===v?c:"#e5e7eb"}`,borderRadius:8,padding:"8px",cursor:"pointer",fontWeight:importType===v?700:400,fontSize:12}}>
+              style={{flex:"1 1 120px",background:importType===v?c+"20":"#f8f9fc",color:importType===v?c:"#666",border:`2px solid ${importType===v?c:"#e5e7eb"}`,borderRadius:8,padding:"8px",cursor:"pointer",fontWeight:importType===v?700:400,fontSize:12}}>
               {l}
             </button>
           ))}
@@ -4441,6 +4441,14 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
           {importType==="pdf"&&<><b style={{color:"#f59e0b"}}>⚠️ PDF:</b><div style={{marginTop:4,color:"#555",lineHeight:1.7}}>
             يعمل فقط مع PDF يحتوي على نص قابل للنسخ (ليس صورة).<br/>
             إذا فشل: حوّل PDF → Excel أولاً عبر <span style={{color:"#0ea5e9"}}>smallpdf.com</span> ثم استخدم تبويب Excel.</div></>}
+          {importType==="xer"&&<><b style={{color:"#8b5cf6"}}>🗓️ Primavera P6 (XER):</b>
+            <div style={{marginTop:4,color:"#555",lineHeight:1.7}}>
+              • ملف XER المُصدَّر من Primavera P6 (File → Export → XER).<br/>
+              • يتم استخراج قسم <span style={{fontFamily:"monospace",color:"#8b5cf6"}}>TASK</span> (الأنشطة) وقسم <span style={{fontFamily:"monospace",color:"#8b5cf6"}}>PROJECT</span> (تواريخ الجدول).<br/>
+              • الحقول المُستخرجة: task_code → id، task_name → nameAr، target_cost → BAC، act_total_cost → AC، phys_complete_pct → %الإنجاز.<br/>
+              • التخصص يُستنتج من بادئة الكود (CIV / ELE / MEC / ARC / GEN).<br/>
+              • تواريخ بدء/نهاية المشروع تُحدَّث تلقائياً من الجدول.
+            </div></>}
         </div>
 
         {/* Drag & Drop Upload Area */}
@@ -4451,7 +4459,7 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
           onClick={()=>fileRef.current?.click()}
           style={{border:"2px dashed #e5e7eb",borderRadius:10,padding:"22px 16px",textAlign:"center",marginBottom:12,cursor:"pointer",background:"#fafafa",transition:"all .2s"}}>
           <input ref={fileRef} type="file" accept=".csv,.txt,.xlsx,.xls,.pdf,.xer" onChange={handleFileUpload} style={{display:"none"}}/>
-          <div style={{fontSize:30,marginBottom:6}}>{importType==="csv"?"📄":importType==="excel"?"📊":"📑"}</div>
+          <div style={{fontSize:30,marginBottom:6}}>{importType==="csv"?"📄":importType==="excel"?"📊":importType==="xer"?"🗓️":"📑"}</div>
           <div style={{fontSize:12,fontWeight:700,color:"#555"}}>اسحب الملف هنا أو اضغط للاختيار</div>
           <div style={{fontSize:10,color:"#bbb",marginTop:3}}>CSV · XLSX · XLS · PDF · XER (Primavera P6)</div>
         </div>
