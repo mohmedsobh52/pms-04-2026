@@ -1724,8 +1724,20 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
     }else if(ext==="pdf"){
       setImportType("pdf");setImportText("");lastExcelFile.current=null;
       parsePDFFile(file);
+    }else if(ext==="xer"){
+      setImportType("csv");lastExcelFile.current=null;
+      const r=new FileReader();
+      r.onload=ev=>{
+        try{
+          const rows=parseXERText(ev.target.result);
+          if(!rows.length){setImportErr("لم يتم العثور على أنشطة (TASK) في ملف XER");return;}
+          setImportPreview(rows);setImportErr(`✅ تم استيراد ${rows.length} نشاط من Primavera XER`);
+          toast.success(`تم قراءة ${rows.length} نشاط من XER`);
+        }catch(err){setImportErr("خطأ في قراءة XER: "+err.message);}
+      };
+      r.readAsText(file,"utf-8");
     }else{
-      setImportErr("صيغة غير مدعومة. الصيغ المقبولة: CSV, Excel (.xlsx/.xls), PDF");
+      setImportErr("صيغة غير مدعومة. الصيغ المقبولة: CSV, Excel (.xlsx/.xls), PDF, XER (Primavera P6)");
     }
     e.target.value="";
   };
