@@ -1760,10 +1760,16 @@ ${alerts.length?`تجدر الإشارة إلى وجود ${alerts.length} تنب
       const r=new FileReader();
       r.onload=ev=>{
         try{
-          const rows=parseXERText(ev.target.result);
-          if(!rows.length){setImportErr("لم يتم العثور على أنشطة (TASK) في ملف XER");return;}
-          setImportPreview(rows);setImportErr(`✅ تم استيراد ${rows.length} نشاط من Primavera XER`);
-          toast.success(`تم قراءة ${rows.length} نشاط من XER`);
+          const{activities,schedule,_meta}=parseXERText(ev.target.result);
+          if(!activities.length){setImportErr("لم يتم العثور على أنشطة (TASK) في ملف XER");return;}
+          setImportPreview(activities);
+          // Auto-apply schedule dates to project
+          if(schedule.start||schedule.end){
+            setProject(p=>recomputeProjectDates({...p,startDate:schedule.start||p.startDate,endDate:schedule.end||p.endDate}));
+            toast.success(`📅 تم تحديث الجدول الزمني: ${schedule.start} → ${schedule.end}`);
+          }
+          setImportErr(`✅ Primavera P6: ${activities.length} نشاط${_meta.projectName?` · مشروع "${_meta.projectName}"`:""}${schedule.start?` · الجدول: ${schedule.start} → ${schedule.end}`:""}`);
+          toast.success(`تم قراءة ${activities.length} نشاط من XER`);
         }catch(err){setImportErr("خطأ في قراءة XER: "+err.message);}
       };
       r.readAsText(file,"utf-8");
