@@ -321,6 +321,62 @@ const exportExcel=(acts,kpi,cf,risks,issues,project)=>{
   XLSX.writeFile(wb,`Cost_Control_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
 };
 
+// ── CSV Export (current filtered activities + KPI snapshot) ──
+const exportCSV=(acts,kpi,project)=>{
+  const esc=v=>{const s=String(v??"");return /[",\n;]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;};
+  const rows=[
+    ["# Cost Control EVM — CSV Export"],
+    ["Project",project?.name||""],
+    ["Generated",new Date().toISOString()],
+    [],
+    ["KPI","Value"],
+    ["BAC",kpi.bac],["PV",kpi.pv],["EV",kpi.ev],["AC",kpi.ac],
+    ["SV",kpi.SV],["CV",kpi.CV],
+    ["SPI",kpi.SPI?.toFixed?.(3)??kpi.SPI],["CPI",kpi.CPI?.toFixed?.(3)??kpi.CPI],
+    ["EAC",kpi.EAC],["ETC",kpi.ETC],["TCPI",kpi.TCPI?.toFixed?.(3)??kpi.TCPI],
+    ["VAC",kpi.bac-kpi.EAC],["Progress%",+(kpi.prog?.toFixed?.(1)??kpi.prog)],
+    [],
+    ["#","ID","Name","Discipline","Items","BAC","AC","EV","PV","Progress%","CPI","SPI","EAC","ETC","VAC","Status"],
+  ];
+  acts.forEach((a,i)=>{
+    const{pv,ev,cpi,spi,eac,etc}=calcAct(a);
+    rows.push([i+1,a.id,a.nameAr,a.disc,a.items,a.bac,a.ac,+ev.toFixed(0),+pv.toFixed(0),a.pct,+cpi.toFixed(3),+spi.toFixed(3),+eac.toFixed(0),+etc.toFixed(0),+(a.bac-eac).toFixed(0),cpi>=1?"OK":cpi>=0.9?"Warn":"Crit"]);
+  });
+  const csv="\uFEFF"+rows.map(r=>r.map(esc).join(",")).join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download=`evm_export_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+};
+
+// ── XER Parser (Primavera P6) — extracts TASK section into activities ──
+const parseXERText=text=>{
+  const lines=text.split(/\r?\n/);
+  let curTable=null,headers=[],rows=[];
+  for(const line of lines){
+    const parts=line.split("\t");
+    if(parts[0]==="%T"){curTable=parts[1];headers=[];}
+    else if(parts[0]==="%F"&&curTable==="TASK"){headers=parts.slice(1);}
+    else if(parts[0]==="%R"&&curTable==="TASK"){
+      const o={};headers.forEach((h,i)=>o[h]=parts[i+1]);
+      rows.push(o);
+    }
+  }
+  return rows.map((t,idx)=>{
+    const bac=+t.target_cost||+t.target_work_qty||0;
+    const ac=+t.act_total_cost||+t.act_work_qty||0;
+    const pct=Math.min(100,Math.max(0,+t.phys_complete_pct||+t.act_pct_complete||0));
+    return{
+      id:t.task_code||`TASK-${idx+1}`,
+      nameAr:t.task_name||`Activity ${idx+1}`,
+      disc:"GENERAL",
+      items:1,
+      bac,ac,pct,
+    };
+  }).filter(r=>r.bac>0||r.ac>0);
+};
+
 // Full export including resources
 const exportExcelFull=(acts,kpi,cf,risks,issues,resources,project)=>{
   const wb=XLSX.utils.book_new();
