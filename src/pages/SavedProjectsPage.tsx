@@ -101,6 +101,12 @@ export default function SavedProjectsPage() {
   // Drag-and-drop state
   const [draggedFile, setDraggedFile] = useState<File | null>(null);
   const [isGlobalDragOver, setIsGlobalDragOver] = useState(false);
+
+  // Rename dialog state
+  const [renameTarget, setRenameTarget] = useState<ProjectData | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   
   // Tab state - check URL for initial tab and mode
   const urlTab = searchParams.get("tab");
