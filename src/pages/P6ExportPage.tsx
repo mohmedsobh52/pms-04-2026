@@ -715,6 +715,51 @@ const P6ExportPage = () => {
         </div>
       )}
 
+      {/* KPI Dashboard */}
+      {hasItems && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6" dir={isArabic ? "rtl" : "ltr"}>
+          {[
+            { icon: Package, label: isArabic ? "إجمالي البنود" : "Total Items", value: items.length.toString(), sub: `${rawItems.length} ${isArabic ? "إجمالي" : "total"}`, color: "text-primary" },
+            { icon: DollarSign, label: isArabic ? "التكلفة الكلية" : "Total Cost", value: fmtMoney(kpis.totalCost), sub: analysisData?.summary?.currency || "SAR", color: "text-accent" },
+            { icon: Layers, label: isArabic ? "عدد الفئات" : "Categories", value: kpis.categoriesCount.toString(), sub: isArabic ? "فئة" : "categories", color: "text-primary" },
+            { icon: TrendingUp, label: isArabic ? "متوسط سعر الوحدة" : "Avg Unit Price", value: fmtMoney(kpis.avgUnitPrice), sub: analysisData?.summary?.currency || "SAR", color: "text-accent" },
+          ].map((k, i) => (
+            <div key={i} className="rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-muted-foreground font-medium">{k.label}</span>
+                <k.icon className={`w-4 h-4 ${k.color}`} />
+              </div>
+              <div className="text-2xl font-bold text-foreground">{k.value}</div>
+              <div className="text-[11px] text-muted-foreground mt-1">{k.sub}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Category breakdown chips */}
+      {hasItems && Object.keys(kpis.catBreakdown).length > 0 && (
+        <div className="rounded-2xl border border-border bg-card p-4 mb-6 shadow-sm" dir={isArabic ? "rtl" : "ltr"}>
+          <div className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
+            <Layers className="w-4 h-4 text-primary" />
+            {isArabic ? "توزيع الفئات" : "Category Breakdown"}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(kpis.catBreakdown)
+              .sort((a, b) => b[1].cost - a[1].cost)
+              .map(([cat, info]) => {
+                const pct = kpis.totalCost > 0 ? ((info.cost / kpis.totalCost) * 100).toFixed(1) : "0";
+                return (
+                  <div key={cat} className="flex items-center gap-2 rounded-full border border-border bg-muted/30 px-3 py-1.5">
+                    <span className="text-xs font-semibold text-foreground">{cat}</span>
+                    <Badge variant="secondary" className="h-5 text-[10px]">{info.count}</Badge>
+                    <span className="text-[10px] text-muted-foreground">{fmtMoney(info.cost)} ({pct}%)</span>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
       <ColorLegend type="category" isArabic={isArabic} className="mb-4" />
 
       {/* المحتوى */}
