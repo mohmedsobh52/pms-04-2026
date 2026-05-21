@@ -4,7 +4,8 @@ import {
   FolderOpen, Trash2, Calendar, FileText, Search,
   ArrowLeft, Eye, Edit, DollarSign, Package, Filter, X,
   SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3, Paperclip, Sparkles, Upload,
-  CheckSquare, Square, FileSpreadsheet, FileBarChart, Link2, CheckCircle2
+  CheckSquare, Square, FileSpreadsheet, FileBarChart, Link2, CheckCircle2,
+  Pencil, Copy, TrendingUp, Layers, Loader2
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SuspenseFallback, ErrorState } from "@/components/ui/loading-states";
@@ -100,6 +101,12 @@ export default function SavedProjectsPage() {
   // Drag-and-drop state
   const [draggedFile, setDraggedFile] = useState<File | null>(null);
   const [isGlobalDragOver, setIsGlobalDragOver] = useState(false);
+
+  // Rename dialog state
+  const [renameTarget, setRenameTarget] = useState<ProjectData | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   
   // Tab state - check URL for initial tab and mode
   const urlTab = searchParams.get("tab");
@@ -448,10 +455,127 @@ export default function SavedProjectsPage() {
     URL.revokeObjectURL(url);
   };
 
-
   const handleLoadProject = (project: ProjectData) => {
     navigate(`/projects/${project.id}`);
   };
+
+  // Open rename dialog
+  const openRename = (project: ProjectData) => {
+    setRenameTarget(project);
+    setRenameValue(project.name || "");
+  };
+
+  // Save renamed project (updates both tables if exists)
+  const handleRenameSave = async () => {
+    if (!renameTarget) return;
+    const newName = renameValue.trim();
+    if (!newName) {
+      toast({
+        title: isArabic ? "الاسم مطلوب" : "Name required",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (newName === renameTarget.name) {
+      setRenameTarget(null);
+      return;
+    }
+    setIsRenaming(true);
+    try {
+      // Try saved_projects first then project_data (either may host the row)
+      const upd1 = await supabase
+        .from("saved_projects")
+        .update({ name: newName, updated_at: new Date().toISOString() })
+        .eq("id", renameTarget.id);
+      const upd2 = await supabase
+        .from("project_data")
+        .update({ name: newName })
+        .eq("id", renameTarget.id);
+      if (upd1.error && upd2.error) throw upd1.error;
+
+      setProjects((prev) =>
+        prev.map((p) => (p.id === renameTarget.id ? { ...p, name: newName } : p))
+      );
+      toast({
+        title: isArabic ? "تم تعديل الاسم" : "Renamed",
+        description: newName,
+      });
+      setRenameTarget(null);
+      window.dispatchEvent(new Event("projects:updated"));
+    } catch (error: any) {
+      toast({
+        title: isArabic ? "فشل تعديل الاسم" : "Rename failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsRenaming(false);
+    }
+  };
+
+  // Duplicate project (deep copy items)
+  const handleDuplicate = async (project: ProjectData) => {
+    if (!user) return;
+    setDuplicatingId(project.id);
+    try {
+      const newName = `${project.name} ${isArabic ? "(نسخة)" : "(Copy)"}`;
+      const { data: inserted, error: insErr } = await supabase
+        .from("saved_projects")
+        .insert({
+          user_id: user.id,
+          name: newName,
+          file_name: project.file_name,
+          analysis_data: project.analysis_data,
+          wbs_data: project.wbs_data,
+          total_value: project.total_value,
+          items_count: project.items_count,
+          currency: project.currency,
+        })
+        .select()
+        .single();
+      if (insErr) throw insErr;
+
+      // Copy items if any
+      const { data: items } = await supabase
+        .from("project_items")
+        .select("*")
+        .eq("project_id", project.id);
+      if (items && items.length > 0 && inserted?.id) {
+        const cloned = items.map(({ id, created_at, updated_at, ...rest }: any) => ({
+          ...rest,
+          project_id: inserted.id,
+        }));
+        await supabase.from("project_items").insert(cloned);
+      }
+
+      toast({
+        title: isArabic ? "تم نسخ المشروع" : "Project duplicated",
+        description: newName,
+      });
+      fetchProjects();
+    } catch (error: any) {
+      toast({
+        title: isArabic ? "فشل النسخ" : "Duplicate failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
+
+  // KPI Summary
+  const kpiSummary = useMemo(() => {
+    const totalProjects = projects.length;
+    const totalItems = projects.reduce((s, p) => s + (p.items_count || 0), 0);
+    const totalValue = projects.reduce((s, p) => s + (p.total_value || 0), 0);
+    const withBoq = projects.filter((p) => (p.items_count || 0) > 0).length;
+    const avgValue = totalProjects > 0 ? totalValue / totalProjects : 0;
+    const topCurrency = projects[0]?.currency || "SAR";
+    return { totalProjects, totalItems, totalValue, withBoq, avgValue, topCurrency };
+  }, [projects]);
+
+
 
 
   if (authLoading) {
@@ -647,6 +771,51 @@ export default function SavedProjectsPage() {
             </div>
 
             {/* Color legend */}
+            {/* KPI Summary Cards */}
+            {projects.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="glass-card p-4 hover:border-primary/30 transition-all">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-muted-foreground">{isArabic ? "إجمالي المشاريع" : "Total Projects"}</span>
+                    <FolderOpen className="w-4 h-4 text-primary" />
+                  </div>
+                  <p className="text-2xl font-bold font-display">{kpiSummary.totalProjects}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {isArabic ? `${kpiSummary.withBoq} مع BOQ` : `${kpiSummary.withBoq} with BOQ`}
+                  </p>
+                </div>
+                <div className="glass-card p-4 hover:border-primary/30 transition-all">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-muted-foreground">{isArabic ? "إجمالي القيمة" : "Total Value"}</span>
+                    <DollarSign className="w-4 h-4 text-accent" />
+                  </div>
+                  <p className="text-2xl font-bold font-display text-primary">
+                    {kpiSummary.totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-1">{kpiSummary.topCurrency}</p>
+                </div>
+                <div className="glass-card p-4 hover:border-primary/30 transition-all">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-muted-foreground">{isArabic ? "إجمالي البنود" : "Total Items"}</span>
+                    <Layers className="w-4 h-4 text-primary" />
+                  </div>
+                  <p className="text-2xl font-bold font-display">{kpiSummary.totalItems.toLocaleString()}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">{isArabic ? "بند" : "items"}</p>
+                </div>
+                <div className="glass-card p-4 hover:border-primary/30 transition-all">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-muted-foreground">{isArabic ? "متوسط القيمة" : "Avg Value"}</span>
+                    <TrendingUp className="w-4 h-4 text-accent" />
+                  </div>
+                  <p className="text-2xl font-bold font-display">
+                    {kpiSummary.avgValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-1">{isArabic ? "لكل مشروع" : "per project"}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Color legend */}
             <ColorLegend type="status" isArabic={isArabic} className="mb-3" />
 
             {/* Search and Filter Bar */}
@@ -828,9 +997,19 @@ export default function SavedProjectsPage() {
                       aria-label={isArabic ? "تحديد المشروع" : "Select project"}
                     />
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-display font-semibold truncate group-hover:text-primary transition-colors">
-                        {project.name}
-                      </h3>
+                      <div className="flex items-center gap-1 group/title">
+                        <h3 className="font-display font-semibold truncate group-hover:text-primary transition-colors">
+                          {project.name}
+                        </h3>
+                        <button
+                          onClick={() => openRename(project)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary shrink-0"
+                          title={isArabic ? "تعديل الاسم" : "Rename"}
+                          aria-label={isArabic ? "تعديل الاسم" : "Rename"}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      </div>
                       {project.file_name && (
                         <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 truncate">
                           <FileText className="w-3 h-3 shrink-0" />
@@ -911,7 +1090,25 @@ export default function SavedProjectsPage() {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => openRename(project)}
+                    title={isArabic ? "تعديل الاسم" : "Rename"}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDuplicate(project)}
+                    disabled={duplicatingId === project.id}
+                    title={isArabic ? "نسخ المشروع" : "Duplicate"}
+                  >
+                    {duplicatingId === project.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => handleViewDetails(project)}
+                    title={isArabic ? "عرض التفاصيل" : "View details"}
                   >
                     <Eye className="w-4 h-4" />
                   </Button>
@@ -1092,6 +1289,44 @@ export default function SavedProjectsPage() {
                 </div>
               </>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Project Dialog */}
+      <Dialog open={!!renameTarget} onOpenChange={(open) => !open && setRenameTarget(null)}>
+        <DialogContent dir={isArabic ? "rtl" : "ltr"} className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-4 h-4 text-primary" />
+              {isArabic ? "تعديل اسم المشروع" : "Rename Project"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">
+                {isArabic ? "اسم المشروع" : "Project Name"}
+              </label>
+              <Input
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                placeholder={isArabic ? "أدخل الاسم الجديد" : "Enter new name"}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleRenameSave();
+                  if (e.key === "Escape") setRenameTarget(null);
+                }}
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setRenameTarget(null)} disabled={isRenaming}>
+                {isArabic ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button onClick={handleRenameSave} disabled={isRenaming || !renameValue.trim()} className="gap-2">
+                {isRenaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                {isArabic ? "حفظ" : "Save"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
