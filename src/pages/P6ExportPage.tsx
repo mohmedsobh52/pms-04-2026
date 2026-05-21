@@ -8,7 +8,14 @@ import {
   ArrowUpDown,
   Settings2,
   FileDown,
+  FileSpreadsheet,
+  Printer,
+  Package,
+  DollarSign,
+  Layers,
+  TrendingUp,
 } from "lucide-react";
+import ExcelJS from "exceljs";
 import { P6Export } from "@/components/P6Export";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { PageLayout } from "@/components/PageLayout";
@@ -275,6 +282,25 @@ const P6ExportPage = () => {
   const hasRawItems = rawItems.length > 0;
   const hasItems = items.length > 0;
 
+  // ── KPIs ──
+  const kpis = useMemo(() => {
+    const totalCost = items.reduce((s, it) => s + (it.total_price || it.quantity * it.unit_price || 0), 0);
+    const totalQty = items.reduce((s, it) => s + (it.quantity || 0), 0);
+    const cats = new Set(items.map((it) => it.category).filter(Boolean));
+    const avgUnitPrice = items.length ? items.reduce((s, it) => s + (it.unit_price || 0), 0) / items.length : 0;
+    const catBreakdown: Record<string, { count: number; cost: number }> = {};
+    items.forEach((it) => {
+      const c = it.category || (isArabic ? "غير مصنف" : "Uncategorized");
+      if (!catBreakdown[c]) catBreakdown[c] = { count: 0, cost: 0 };
+      catBreakdown[c].count++;
+      catBreakdown[c].cost += it.total_price || it.quantity * it.unit_price || 0;
+    });
+    return { totalCost, totalQty, categoriesCount: cats.size, avgUnitPrice, catBreakdown };
+  }, [items, isArabic]);
+
+  const fmtMoney = (n: number) =>
+    new Intl.NumberFormat(isArabic ? "ar-EG" : "en-US", { maximumFractionDigits: 0 }).format(n || 0);
+
   const handleReset = () => {
     setSelectedProjectId("");
     setProjectItems([]);
@@ -389,6 +415,74 @@ const P6ExportPage = () => {
     }
   };
 
+  // تصدير Excel
+  const handleExportExcel = async () => {
+    if (!hasItems) {
+      toast({ title: isArabic ? "لا توجد بيانات للتصدير" : "Nothing to export", variant: "destructive" });
+      return;
+    }
+    try {
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet(isArabic ? "خطة التنفيذ" : "Execution Plan");
+      ws.columns = [
+        { header: "#", key: "i", width: 6 },
+        { header: isArabic ? "رقم البند" : "Item #", key: "item", width: 14 },
+        { header: isArabic ? "الوصف" : "Description", key: "desc", width: 50 },
+        { header: isArabic ? "الفئة" : "Category", key: "cat", width: 16 },
+        { header: isArabic ? "الكمية" : "Qty", key: "qty", width: 10 },
+        { header: isArabic ? "الوحدة" : "Unit", key: "unit", width: 10 },
+        { header: isArabic ? "سعر الوحدة" : "Unit Price", key: "up", width: 14 },
+        { header: isArabic ? "الإجمالي" : "Total", key: "tot", width: 16 },
+      ];
+      ws.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+      ws.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF064E3B" } };
+      items.forEach((it, idx) =>
+        ws.addRow({
+          i: idx + 1, item: it.item_number, desc: it.description, cat: it.category || "-",
+          qty: it.quantity, unit: it.unit, up: it.unit_price, tot: it.total_price || it.quantity * it.unit_price,
+        }),
+      );
+      const totalRow = ws.addRow({ desc: isArabic ? "الإجمالي" : "TOTAL", tot: kpis.totalCost });
+      totalRow.font = { bold: true };
+      totalRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF5F0E0" } };
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const projectName = projects.find((p) => p.id === selectedProjectId)?.name || "execution-plan";
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `${projectName}-${Date.now()}.xlsx`; a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: isArabic ? "تم تصدير Excel" : "Excel exported" });
+    } catch (e: any) {
+      toast({ title: isArabic ? "فشل التصدير" : "Export failed", description: e?.message, variant: "destructive" });
+    }
+  };
+
+  // تصدير CSV
+  const handleExportCSV = () => {
+    if (!hasItems) {
+      toast({ title: isArabic ? "لا توجد بيانات للتصدير" : "Nothing to export", variant: "destructive" });
+      return;
+    }
+    const headers = ["#", "Item", "Description", "Category", "Qty", "Unit", "Unit Price", "Total"];
+    const rows = items.map((it, i) =>
+      [i + 1, it.item_number, `"${(it.description || "").replace(/"/g, '""')}"`, it.category || "-",
+        it.quantity, it.unit, it.unit_price, it.total_price || it.quantity * it.unit_price].join(","),
+    );
+    const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `execution-plan-${Date.now()}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: isArabic ? "تم تصدير CSV" : "CSV exported" });
+  };
+
+  // طباعة
+  const handlePrint = () => window.print();
+
+
+
   return (
     <PageLayout>
       {/* Header */}
@@ -468,14 +562,24 @@ const P6ExportPage = () => {
             </Button>
 
             {hasItems && (
-              <Button
-                variant="outline"
-                onClick={handleExportPDF}
-                className="gap-2"
-              >
-                <FileDown className="w-4 h-4" />
-                {isArabic ? "تصدير PDF" : "Export PDF"}
-              </Button>
+              <>
+                <Button variant="outline" onClick={handleExportPDF} className="gap-2">
+                  <FileDown className="w-4 h-4" />
+                  {isArabic ? "PDF" : "PDF"}
+                </Button>
+                <Button variant="outline" onClick={handleExportExcel} className="gap-2">
+                  <FileSpreadsheet className="w-4 h-4" />
+                  {isArabic ? "Excel" : "Excel"}
+                </Button>
+                <Button variant="outline" onClick={handleExportCSV} className="gap-2">
+                  <FileDown className="w-4 h-4" />
+                  CSV
+                </Button>
+                <Button variant="outline" onClick={handlePrint} className="gap-2">
+                  <Printer className="w-4 h-4" />
+                  {isArabic ? "طباعة" : "Print"}
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -607,6 +711,51 @@ const P6ExportPage = () => {
             <Badge variant="secondary" className="ml-auto">
               {items.length} / {rawItems.length} {isArabic ? "بند" : "items"}
             </Badge>
+          </div>
+        </div>
+      )}
+
+      {/* KPI Dashboard */}
+      {hasItems && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6" dir={isArabic ? "rtl" : "ltr"}>
+          {[
+            { icon: Package, label: isArabic ? "إجمالي البنود" : "Total Items", value: items.length.toString(), sub: `${rawItems.length} ${isArabic ? "إجمالي" : "total"}`, color: "text-primary" },
+            { icon: DollarSign, label: isArabic ? "التكلفة الكلية" : "Total Cost", value: fmtMoney(kpis.totalCost), sub: analysisData?.summary?.currency || "SAR", color: "text-accent" },
+            { icon: Layers, label: isArabic ? "عدد الفئات" : "Categories", value: kpis.categoriesCount.toString(), sub: isArabic ? "فئة" : "categories", color: "text-primary" },
+            { icon: TrendingUp, label: isArabic ? "متوسط سعر الوحدة" : "Avg Unit Price", value: fmtMoney(kpis.avgUnitPrice), sub: analysisData?.summary?.currency || "SAR", color: "text-accent" },
+          ].map((k, i) => (
+            <div key={i} className="rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-muted-foreground font-medium">{k.label}</span>
+                <k.icon className={`w-4 h-4 ${k.color}`} />
+              </div>
+              <div className="text-2xl font-bold text-foreground">{k.value}</div>
+              <div className="text-[11px] text-muted-foreground mt-1">{k.sub}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Category breakdown chips */}
+      {hasItems && Object.keys(kpis.catBreakdown).length > 0 && (
+        <div className="rounded-2xl border border-border bg-card p-4 mb-6 shadow-sm" dir={isArabic ? "rtl" : "ltr"}>
+          <div className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
+            <Layers className="w-4 h-4 text-primary" />
+            {isArabic ? "توزيع الفئات" : "Category Breakdown"}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(kpis.catBreakdown)
+              .sort((a, b) => b[1].cost - a[1].cost)
+              .map(([cat, info]) => {
+                const pct = kpis.totalCost > 0 ? ((info.cost / kpis.totalCost) * 100).toFixed(1) : "0";
+                return (
+                  <div key={cat} className="flex items-center gap-2 rounded-full border border-border bg-muted/30 px-3 py-1.5">
+                    <span className="text-xs font-semibold text-foreground">{cat}</span>
+                    <Badge variant="secondary" className="h-5 text-[10px]">{info.count}</Badge>
+                    <span className="text-[10px] text-muted-foreground">{fmtMoney(info.cost)} ({pct}%)</span>
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}
