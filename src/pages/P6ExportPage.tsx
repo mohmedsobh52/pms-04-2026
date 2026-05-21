@@ -282,6 +282,25 @@ const P6ExportPage = () => {
   const hasRawItems = rawItems.length > 0;
   const hasItems = items.length > 0;
 
+  // ── KPIs ──
+  const kpis = useMemo(() => {
+    const totalCost = items.reduce((s, it) => s + (it.total_price || it.quantity * it.unit_price || 0), 0);
+    const totalQty = items.reduce((s, it) => s + (it.quantity || 0), 0);
+    const cats = new Set(items.map((it) => it.category).filter(Boolean));
+    const avgUnitPrice = items.length ? items.reduce((s, it) => s + (it.unit_price || 0), 0) / items.length : 0;
+    const catBreakdown: Record<string, { count: number; cost: number }> = {};
+    items.forEach((it) => {
+      const c = it.category || (isArabic ? "غير مصنف" : "Uncategorized");
+      if (!catBreakdown[c]) catBreakdown[c] = { count: 0, cost: 0 };
+      catBreakdown[c].count++;
+      catBreakdown[c].cost += it.total_price || it.quantity * it.unit_price || 0;
+    });
+    return { totalCost, totalQty, categoriesCount: cats.size, avgUnitPrice, catBreakdown };
+  }, [items, isArabic]);
+
+  const fmtMoney = (n: number) =>
+    new Intl.NumberFormat(isArabic ? "ar-EG" : "en-US", { maximumFractionDigits: 0 }).format(n || 0);
+
   const handleReset = () => {
     setSelectedProjectId("");
     setProjectItems([]);
