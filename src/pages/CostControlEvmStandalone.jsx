@@ -1037,34 +1037,137 @@ export default function App(){
     }catch(e){toast.error("فشل الحذف");}
   },[]);
 
-  // ── Export PDF ──
+  // ── Export Comprehensive PDF Report ──
   const exportPDF=useCallback(()=>{
     try{
-      const doc=new jsPDF({orientation:"landscape",unit:"pt"});
-      doc.setFontSize(16);
-      doc.text("EVM Cost Control Report",40,40);
-      doc.setFontSize(10);
-      doc.text(`Project: ${project.name||"-"}    Date: ${new Date().toISOString().slice(0,10)}`,40,60);
+      const doc=new jsPDF({orientation:"landscape",unit:"pt",format:"a4"});
+      const pw=doc.internal.pageSize.getWidth();
+      const ph=doc.internal.pageSize.getHeight();
+      const today=new Date().toISOString().slice(0,10);
+
+      // ── Cover header ──
+      doc.setFillColor(6,78,59); doc.rect(0,0,pw,90,"F");
+      doc.setTextColor(255,255,255); doc.setFontSize(22);
+      doc.text("EVM Cost Control — Comprehensive Report",40,45);
+      doc.setFontSize(11);
+      doc.text(`Project: ${project.name||"-"}   |   No: ${project.number||"-"}   |   Date: ${today}`,40,72);
+      doc.setTextColor(0,0,0);
+
+      // ── KPIs ──
       autoTable(doc,{
-        startY:80,
-        head:[["KPI","Value"]],
+        startY:110,
+        head:[["KPI","Value","KPI","Value","KPI","Value"]],
         body:[
-          ["BAC",fmt(kpi.bac)],["PV",fmt(kpi.pv)],["EV",fmt(kpi.ev)],["AC",fmt(kpi.ac)],
-          ["CV",fmt(kpi.CV)],["SV",fmt(kpi.SV)],["CPI",kpi.CPI.toFixed(2)],["SPI",kpi.SPI.toFixed(2)],
-          ["EAC",fmt(kpi.EAC)],["ETC",fmt(kpi.ETC)],["TCPI",kpi.TCPI.toFixed(2)],["VAC",fmt(kpi.bac-kpi.EAC)],
+          ["BAC",fmt(kpi.bac),"PV",fmt(kpi.pv),"EV",fmt(kpi.ev)],
+          ["AC",fmt(kpi.ac),"CV",fmt(kpi.CV),"SV",fmt(kpi.SV)],
+          ["CPI",kpi.CPI.toFixed(2),"SPI",kpi.SPI.toFixed(2),"TCPI",kpi.TCPI.toFixed(2)],
+          ["EAC",fmt(kpi.EAC),"ETC",fmt(kpi.ETC),"VAC",fmt(kpi.bac-kpi.EAC)],
         ],
-        styles:{fontSize:9},headStyles:{fillColor:[99,102,241]},
+        styles:{fontSize:10,halign:"center"},
+        headStyles:{fillColor:[6,78,59],textColor:255},
+        columnStyles:{0:{fontStyle:"bold",fillColor:[240,245,240]},2:{fontStyle:"bold",fillColor:[240,245,240]},4:{fontStyle:"bold",fillColor:[240,245,240]}},
       });
+
+      // ── Alerts ──
+      if(alerts&&alerts.length){
+        autoTable(doc,{
+          startY:doc.lastAutoTable.finalY+15,
+          head:[["Active Alerts ("+alerts.length+")"]],
+          body:alerts.map(a=>[(a.t==="c"?"[CRITICAL] ":"[WARN] ")+a.msg]),
+          styles:{fontSize:9},
+          headStyles:{fillColor:[220,38,38],textColor:255},
+        });
+      }
+
+      // ── Baselines comparison ──
+      if(baselinesCompare&&baselinesCompare.length){
+        doc.addPage();
+        doc.setFontSize(14); doc.setTextColor(6,78,59);
+        doc.text("Baselines Comparison vs Actual",40,40);
+        doc.setTextColor(0,0,0);
+        autoTable(doc,{
+          startY:60,
+          head:[["Snapshot","Saved At","BAC Δ","EAC Δ","AC Δ","CPI Δ","SPI Δ","Slip (mo)"]],
+          body:baselinesCompare.map(b=>[
+            b.name||"-",
+            (b.savedAt||"").slice(0,10),
+            fmt(b.bacDiff||0), fmt(b.eacDiff||0), fmt(b.acDiff||0),
+            (b.cpiDiff||0).toFixed(2), (b.spiDiff||0).toFixed(2),
+            (b.slipMonths||0).toFixed(1),
+          ]),
+          styles:{fontSize:9,halign:"center"},
+          headStyles:{fillColor:[201,168,76],textColor:255},
+        });
+      }
+
+      // ── Monte Carlo ──
+      if(mcResult){
+        doc.addPage();
+        doc.setFontSize(14); doc.setTextColor(6,78,59);
+        doc.text(`Monte Carlo Forecast — ${mcResult.iterations} iterations`,40,40);
+        doc.setTextColor(0,0,0);
+        autoTable(doc,{
+          startY:60,
+          head:[["Metric","P10 (Best)","P50 (Median)","P90 (Worst)","Mean"]],
+          body:[
+            ["EAC",fmt(mcResult.eac.p10),fmt(mcResult.eac.p50),fmt(mcResult.eac.p90),fmt(mcResult.eac.mean)],
+            ["ETC",fmt(mcResult.etc.p10),fmt(mcResult.etc.p50),fmt(mcResult.etc.p90),fmt(mcResult.etc.mean||0)],
+            ["Duration (mo)",mcResult.dur.p10.toFixed(1),mcResult.dur.p50.toFixed(1),mcResult.dur.p90.toFixed(1),(mcResult.dur.mean||0).toFixed(1)],
+          ],
+          styles:{fontSize:10,halign:"center"},
+          headStyles:{fillColor:[139,92,246],textColor:255},
+        });
+        doc.setFontSize(11);
+        doc.text(`Probability of Budget Overrun: ${mcResult.probOverBudget}%`,40,doc.lastAutoTable.finalY+25);
+      }
+
+      // ── Narrative ──
+      if(narrativeText){
+        doc.addPage();
+        doc.setFontSize(14); doc.setTextColor(6,78,59);
+        doc.text("Narrative Report",40,40);
+        doc.setTextColor(0,0,0);
+        doc.setFontSize(10);
+        const lines=doc.splitTextToSize(narrativeText,pw-80);
+        let y=65;
+        lines.forEach(ln=>{
+          if(y>ph-40){doc.addPage();y=40;}
+          doc.text(ln,40,y);
+          y+=14;
+        });
+      }
+
+      // ── Activities ──
+      doc.addPage();
+      doc.setFontSize(14); doc.setTextColor(6,78,59);
+      doc.text(`Activities Breakdown (${acts.length})`,40,40);
+      doc.setTextColor(0,0,0);
       autoTable(doc,{
-        startY:doc.lastAutoTable.finalY+20,
-        head:[["ID","Name","Disc","BAC","AC","%","CPI","SPI"]],
-        body:acts.map(a=>{const k=calcAct(a);return[a.id,a.nameAr,a.disc,fmt(a.bac),fmt(a.ac),(a.pct||0)+"%",k.cpi.toFixed(2),k.spi.toFixed(2)];}),
-        styles:{fontSize:8},headStyles:{fillColor:[16,185,129]},
+        startY:60,
+        head:[["ID","Name","Disc","BAC","PV","EV","AC","%","CPI","SPI","EAC"]],
+        body:acts.map(a=>{const k=calcAct(a);return[a.id,a.nameAr,a.disc,fmt(a.bac),fmt(k.pv),fmt(k.ev),fmt(a.ac),(a.pct||0)+"%",k.cpi.toFixed(2),k.spi.toFixed(2),fmt(k.eac1||0)];}),
+        styles:{fontSize:8},
+        headStyles:{fillColor:[16,185,129],textColor:255},
+        didParseCell:(d)=>{
+          if(d.section==="body"){
+            if(d.column.index===8&&parseFloat(d.cell.raw)<0.9)d.cell.styles.textColor=[220,38,38];
+            if(d.column.index===9&&parseFloat(d.cell.raw)<0.9)d.cell.styles.textColor=[220,38,38];
+          }
+        },
       });
-      doc.save(`EVM_Report_${new Date().toISOString().slice(0,10)}.pdf`);
-      toast.success("تم تصدير PDF");
+
+      // ── Footer ──
+      const total=doc.internal.getNumberOfPages();
+      for(let i=1;i<=total;i++){
+        doc.setPage(i);
+        doc.setFontSize(8); doc.setTextColor(120,120,120);
+        doc.text(`Generated ${today}  |  Page ${i}/${total}  |  EVM Cost Control System`,40,ph-15);
+      }
+
+      doc.save(`EVM_Full_Report_${project.number||"project"}_${today}.pdf`);
+      toast.success("📑 تم تصدير التقرير الشامل بنجاح");
     }catch(e){toast.error("فشل التصدير: "+(e.message||""));}
-  },[acts,project]);
+  },[acts,project,kpi,alerts,baselinesCompare,mcResult,narrativeText]);
 
 
   // ── Computed ──
