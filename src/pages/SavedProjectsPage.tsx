@@ -1080,7 +1080,25 @@ export default function SavedProjectsPage() {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => openRename(project)}
+                    title={isArabic ? "تعديل الاسم" : "Rename"}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDuplicate(project)}
+                    disabled={duplicatingId === project.id}
+                    title={isArabic ? "نسخ المشروع" : "Duplicate"}
+                  >
+                    {duplicatingId === project.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => handleViewDetails(project)}
+                    title={isArabic ? "عرض التفاصيل" : "View details"}
                   >
                     <Eye className="w-4 h-4" />
                   </Button>
