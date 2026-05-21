@@ -997,9 +997,19 @@ export default function SavedProjectsPage() {
                       aria-label={isArabic ? "تحديد المشروع" : "Select project"}
                     />
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-display font-semibold truncate group-hover:text-primary transition-colors">
-                        {project.name}
-                      </h3>
+                      <div className="flex items-center gap-1 group/title">
+                        <h3 className="font-display font-semibold truncate group-hover:text-primary transition-colors">
+                          {project.name}
+                        </h3>
+                        <button
+                          onClick={() => openRename(project)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary shrink-0"
+                          title={isArabic ? "تعديل الاسم" : "Rename"}
+                          aria-label={isArabic ? "تعديل الاسم" : "Rename"}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      </div>
                       {project.file_name && (
                         <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 truncate">
                           <FileText className="w-3 h-3 shrink-0" />
