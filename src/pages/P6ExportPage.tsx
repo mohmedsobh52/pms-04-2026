@@ -8,7 +8,14 @@ import {
   ArrowUpDown,
   Settings2,
   FileDown,
+  FileSpreadsheet,
+  Printer,
+  Package,
+  DollarSign,
+  Layers,
+  TrendingUp,
 } from "lucide-react";
+import ExcelJS from "exceljs";
 import { P6Export } from "@/components/P6Export";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { PageLayout } from "@/components/PageLayout";
