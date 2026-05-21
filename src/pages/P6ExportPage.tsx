@@ -415,6 +415,74 @@ const P6ExportPage = () => {
     }
   };
 
+  // تصدير Excel
+  const handleExportExcel = async () => {
+    if (!hasItems) {
+      toast({ title: isArabic ? "لا توجد بيانات للتصدير" : "Nothing to export", variant: "destructive" });
+      return;
+    }
+    try {
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet(isArabic ? "خطة التنفيذ" : "Execution Plan");
+      ws.columns = [
+        { header: "#", key: "i", width: 6 },
+        { header: isArabic ? "رقم البند" : "Item #", key: "item", width: 14 },
+        { header: isArabic ? "الوصف" : "Description", key: "desc", width: 50 },
+        { header: isArabic ? "الفئة" : "Category", key: "cat", width: 16 },
+        { header: isArabic ? "الكمية" : "Qty", key: "qty", width: 10 },
+        { header: isArabic ? "الوحدة" : "Unit", key: "unit", width: 10 },
+        { header: isArabic ? "سعر الوحدة" : "Unit Price", key: "up", width: 14 },
+        { header: isArabic ? "الإجمالي" : "Total", key: "tot", width: 16 },
+      ];
+      ws.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+      ws.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF064E3B" } };
+      items.forEach((it, idx) =>
+        ws.addRow({
+          i: idx + 1, item: it.item_number, desc: it.description, cat: it.category || "-",
+          qty: it.quantity, unit: it.unit, up: it.unit_price, tot: it.total_price || it.quantity * it.unit_price,
+        }),
+      );
+      const totalRow = ws.addRow({ desc: isArabic ? "الإجمالي" : "TOTAL", tot: kpis.totalCost });
+      totalRow.font = { bold: true };
+      totalRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF5F0E0" } };
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const projectName = projects.find((p) => p.id === selectedProjectId)?.name || "execution-plan";
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `${projectName}-${Date.now()}.xlsx`; a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: isArabic ? "تم تصدير Excel" : "Excel exported" });
+    } catch (e: any) {
+      toast({ title: isArabic ? "فشل التصدير" : "Export failed", description: e?.message, variant: "destructive" });
+    }
+  };
+
+  // تصدير CSV
+  const handleExportCSV = () => {
+    if (!hasItems) {
+      toast({ title: isArabic ? "لا توجد بيانات للتصدير" : "Nothing to export", variant: "destructive" });
+      return;
+    }
+    const headers = ["#", "Item", "Description", "Category", "Qty", "Unit", "Unit Price", "Total"];
+    const rows = items.map((it, i) =>
+      [i + 1, it.item_number, `"${(it.description || "").replace(/"/g, '""')}"`, it.category || "-",
+        it.quantity, it.unit, it.unit_price, it.total_price || it.quantity * it.unit_price].join(","),
+    );
+    const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `execution-plan-${Date.now()}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: isArabic ? "تم تصدير CSV" : "CSV exported" });
+  };
+
+  // طباعة
+  const handlePrint = () => window.print();
+
+
+
   return (
     <PageLayout>
       {/* Header */}
