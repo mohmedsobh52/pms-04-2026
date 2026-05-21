@@ -1037,7 +1037,7 @@ export default function App(){
     }catch(e){toast.error("فشل الحذف");}
   },[]);
 
-  // exportPDF defined below after KPIs/baselinesCompare are computed
+  
 
 
   // ── Computed ──
