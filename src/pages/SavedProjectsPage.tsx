@@ -4,7 +4,8 @@ import {
   FolderOpen, Trash2, Calendar, FileText, Search,
   ArrowLeft, Eye, Edit, DollarSign, Package, Filter, X,
   SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3, Paperclip, Sparkles, Upload,
-  CheckSquare, Square, FileSpreadsheet, FileBarChart, Link2, CheckCircle2
+  CheckSquare, Square, FileSpreadsheet, FileBarChart, Link2, CheckCircle2,
+  Pencil, Copy, TrendingUp, Layers, Loader2
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SuspenseFallback, ErrorState } from "@/components/ui/loading-states";
