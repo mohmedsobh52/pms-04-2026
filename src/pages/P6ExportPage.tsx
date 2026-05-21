@@ -562,14 +562,24 @@ const P6ExportPage = () => {
             </Button>
 
             {hasItems && (
-              <Button
-                variant="outline"
-                onClick={handleExportPDF}
-                className="gap-2"
-              >
-                <FileDown className="w-4 h-4" />
-                {isArabic ? "تصدير PDF" : "Export PDF"}
-              </Button>
+              <>
+                <Button variant="outline" onClick={handleExportPDF} className="gap-2">
+                  <FileDown className="w-4 h-4" />
+                  {isArabic ? "PDF" : "PDF"}
+                </Button>
+                <Button variant="outline" onClick={handleExportExcel} className="gap-2">
+                  <FileSpreadsheet className="w-4 h-4" />
+                  {isArabic ? "Excel" : "Excel"}
+                </Button>
+                <Button variant="outline" onClick={handleExportCSV} className="gap-2">
+                  <FileDown className="w-4 h-4" />
+                  CSV
+                </Button>
+                <Button variant="outline" onClick={handlePrint} className="gap-2">
+                  <Printer className="w-4 h-4" />
+                  {isArabic ? "طباعة" : "Print"}
+                </Button>
+              </>
             )}
           </div>
         </div>
