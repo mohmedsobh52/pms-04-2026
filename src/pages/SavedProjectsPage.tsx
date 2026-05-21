@@ -455,10 +455,127 @@ export default function SavedProjectsPage() {
     URL.revokeObjectURL(url);
   };
 
-
   const handleLoadProject = (project: ProjectData) => {
     navigate(`/projects/${project.id}`);
   };
+
+  // Open rename dialog
+  const openRename = (project: ProjectData) => {
+    setRenameTarget(project);
+    setRenameValue(project.name || "");
+  };
+
+  // Save renamed project (updates both tables if exists)
+  const handleRenameSave = async () => {
+    if (!renameTarget) return;
+    const newName = renameValue.trim();
+    if (!newName) {
+      toast({
+        title: isArabic ? "الاسم مطلوب" : "Name required",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (newName === renameTarget.name) {
+      setRenameTarget(null);
+      return;
+    }
+    setIsRenaming(true);
+    try {
+      // Try saved_projects first then project_data (either may host the row)
+      const upd1 = await supabase
+        .from("saved_projects")
+        .update({ name: newName, updated_at: new Date().toISOString() })
+        .eq("id", renameTarget.id);
+      const upd2 = await supabase
+        .from("project_data")
+        .update({ name: newName })
+        .eq("id", renameTarget.id);
+      if (upd1.error && upd2.error) throw upd1.error;
+
+      setProjects((prev) =>
+        prev.map((p) => (p.id === renameTarget.id ? { ...p, name: newName } : p))
+      );
+      toast({
+        title: isArabic ? "تم تعديل الاسم" : "Renamed",
+        description: newName,
+      });
+      setRenameTarget(null);
+      window.dispatchEvent(new Event("projects:updated"));
+    } catch (error: any) {
+      toast({
+        title: isArabic ? "فشل تعديل الاسم" : "Rename failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsRenaming(false);
+    }
+  };
+
+  // Duplicate project (deep copy items)
+  const handleDuplicate = async (project: ProjectData) => {
+    if (!user) return;
+    setDuplicatingId(project.id);
+    try {
+      const newName = `${project.name} ${isArabic ? "(نسخة)" : "(Copy)"}`;
+      const { data: inserted, error: insErr } = await supabase
+        .from("saved_projects")
+        .insert({
+          user_id: user.id,
+          name: newName,
+          file_name: project.file_name,
+          analysis_data: project.analysis_data,
+          wbs_data: project.wbs_data,
+          total_value: project.total_value,
+          items_count: project.items_count,
+          currency: project.currency,
+        })
+        .select()
+        .single();
+      if (insErr) throw insErr;
+
+      // Copy items if any
+      const { data: items } = await supabase
+        .from("project_items")
+        .select("*")
+        .eq("project_id", project.id);
+      if (items && items.length > 0 && inserted?.id) {
+        const cloned = items.map(({ id, created_at, updated_at, ...rest }: any) => ({
+          ...rest,
+          project_id: inserted.id,
+        }));
+        await supabase.from("project_items").insert(cloned);
+      }
+
+      toast({
+        title: isArabic ? "تم نسخ المشروع" : "Project duplicated",
+        description: newName,
+      });
+      fetchProjects();
+    } catch (error: any) {
+      toast({
+        title: isArabic ? "فشل النسخ" : "Duplicate failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
+
+  // KPI Summary
+  const kpiSummary = useMemo(() => {
+    const totalProjects = projects.length;
+    const totalItems = projects.reduce((s, p) => s + (p.items_count || 0), 0);
+    const totalValue = projects.reduce((s, p) => s + (p.total_value || 0), 0);
+    const withBoq = projects.filter((p) => (p.items_count || 0) > 0).length;
+    const avgValue = totalProjects > 0 ? totalValue / totalProjects : 0;
+    const topCurrency = projects[0]?.currency || "SAR";
+    return { totalProjects, totalItems, totalValue, withBoq, avgValue, topCurrency };
+  }, [projects]);
+
+
 
 
   if (authLoading) {
