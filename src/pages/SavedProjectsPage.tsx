@@ -166,19 +166,27 @@ export default function SavedProjectsPage() {
       // Add saved_projects first (prioritize)
       savedProjects.forEach((p: any) => {
         const analysisData = p.analysis_data as any;
+        const items = Array.isArray(analysisData?.items) ? analysisData.items : [];
+        const computedTotal = items.reduce(
+          (s: number, it: any) =>
+            s + (Number(it?.total_price) || (Number(it?.quantity) || 0) * (Number(it?.unit_price) || 0)),
+          0
+        );
+        const summaryTotal = Number(analysisData?.summary?.total_value) || 0;
         projectMap.set(p.id, {
           id: p.id,
           name: p.name,
           file_name: p.file_name,
           analysis_data: p.analysis_data,
           wbs_data: p.wbs_data,
-          items_count: analysisData?.items?.length || analysisData?.summary?.total_items || 0,
-          total_value: analysisData?.summary?.total_value || 0,
+          items_count: items.length || analysisData?.summary?.total_items || 0,
+          total_value: computedTotal > 0 ? computedTotal : summaryTotal,
           currency: analysisData?.summary?.currency || 'SAR',
           created_at: p.created_at,
           updated_at: p.updated_at,
         });
       });
+
 
       // Add project_data if not already in map
       projectDataList.forEach((p: any) => {
