@@ -771,6 +771,51 @@ export default function SavedProjectsPage() {
             </div>
 
             {/* Color legend */}
+            {/* KPI Summary Cards */}
+            {projects.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="glass-card p-4 hover:border-primary/30 transition-all">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-muted-foreground">{isArabic ? "إجمالي المشاريع" : "Total Projects"}</span>
+                    <FolderOpen className="w-4 h-4 text-primary" />
+                  </div>
+                  <p className="text-2xl font-bold font-display">{kpiSummary.totalProjects}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {isArabic ? `${kpiSummary.withBoq} مع BOQ` : `${kpiSummary.withBoq} with BOQ`}
+                  </p>
+                </div>
+                <div className="glass-card p-4 hover:border-primary/30 transition-all">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-muted-foreground">{isArabic ? "إجمالي القيمة" : "Total Value"}</span>
+                    <DollarSign className="w-4 h-4 text-accent" />
+                  </div>
+                  <p className="text-2xl font-bold font-display text-primary">
+                    {kpiSummary.totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-1">{kpiSummary.topCurrency}</p>
+                </div>
+                <div className="glass-card p-4 hover:border-primary/30 transition-all">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-muted-foreground">{isArabic ? "إجمالي البنود" : "Total Items"}</span>
+                    <Layers className="w-4 h-4 text-primary" />
+                  </div>
+                  <p className="text-2xl font-bold font-display">{kpiSummary.totalItems.toLocaleString()}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">{isArabic ? "بند" : "items"}</p>
+                </div>
+                <div className="glass-card p-4 hover:border-primary/30 transition-all">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-muted-foreground">{isArabic ? "متوسط القيمة" : "Avg Value"}</span>
+                    <TrendingUp className="w-4 h-4 text-accent" />
+                  </div>
+                  <p className="text-2xl font-bold font-display">
+                    {kpiSummary.avgValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-1">{isArabic ? "لكل مشروع" : "per project"}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Color legend */}
             <ColorLegend type="status" isArabic={isArabic} className="mb-3" />
 
             {/* Search and Filter Bar */}
