@@ -1292,6 +1292,44 @@ export default function SavedProjectsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Rename Project Dialog */}
+      <Dialog open={!!renameTarget} onOpenChange={(open) => !open && setRenameTarget(null)}>
+        <DialogContent dir={isArabic ? "rtl" : "ltr"} className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-4 h-4 text-primary" />
+              {isArabic ? "تعديل اسم المشروع" : "Rename Project"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">
+                {isArabic ? "اسم المشروع" : "Project Name"}
+              </label>
+              <Input
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                placeholder={isArabic ? "أدخل الاسم الجديد" : "Enter new name"}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleRenameSave();
+                  if (e.key === "Escape") setRenameTarget(null);
+                }}
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setRenameTarget(null)} disabled={isRenaming}>
+                {isArabic ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button onClick={handleRenameSave} disabled={isRenaming || !renameValue.trim()} className="gap-2">
+                {isRenaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                {isArabic ? "حفظ" : "Save"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
