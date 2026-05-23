@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   Package, Search, Filter, Download, Trash2, Plus, Wand2, RefreshCw,
   ArrowUpDown, Hash, FileText, CheckCircle, MoreVertical, DollarSign,
-  Edit, XCircle, Loader2, History, Sparkles
+  Edit, XCircle, Loader2, History, Sparkles, Languages
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +64,8 @@ interface ProjectBOQTabProps {
   onHistoricalPrice: (item: ProjectItem) => void;
   onEnhanceWithAI: (item: ProjectItem) => void;
   enhancingItemId?: string | null;
+  onTranslateDescription?: (item: ProjectItem) => void;
+  translatingItemId?: string | null;
   onEditItem: (item: ProjectItem) => void;
   onDeleteItem: (itemId: string) => void;
   onUpdateUnitPrice?: (itemId: string, newPrice: number) => void;
@@ -101,6 +103,8 @@ export function ProjectBOQTab({
   onHistoricalPrice,
   onEnhanceWithAI,
   enhancingItemId = null,
+  onTranslateDescription,
+  translatingItemId = null,
   onEditItem,
   onDeleteItem,
   onUpdateUnitPrice,
@@ -392,6 +396,25 @@ export function ProjectBOQTab({
                                 ? (isArabic ? "جاري التحسين..." : "Enhancing...")
                                 : (isArabic ? "تحسين بالذكاء الاصطناعي" : "Enhance with AI")}
                             </DropdownMenuItem>
+                            {onTranslateDescription && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  if (translatingItemId === item.id) { e.preventDefault(); return; }
+                                  onTranslateDescription(item);
+                                }}
+                                disabled={translatingItemId === item.id || !item.description}
+                                className="gap-2"
+                              >
+                                {translatingItemId === item.id ? (
+                                  <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                                ) : (
+                                  <Languages className="w-4 h-4 text-primary" />
+                                )}
+                                {translatingItemId === item.id
+                                  ? (isArabic ? "جاري الترجمة..." : "Translating...")
+                                  : (isArabic ? "ترجمة الوصف إلى العربية" : "Translate to English")}
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
                               onClick={() => onEditItem(item)}
