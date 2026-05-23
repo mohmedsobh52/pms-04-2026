@@ -396,6 +396,25 @@ export function ProjectBOQTab({
                                 ? (isArabic ? "جاري التحسين..." : "Enhancing...")
                                 : (isArabic ? "تحسين بالذكاء الاصطناعي" : "Enhance with AI")}
                             </DropdownMenuItem>
+                            {onTranslateDescription && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  if (translatingItemId === item.id) { e.preventDefault(); return; }
+                                  onTranslateDescription(item);
+                                }}
+                                disabled={translatingItemId === item.id || !item.description}
+                                className="gap-2"
+                              >
+                                {translatingItemId === item.id ? (
+                                  <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                                ) : (
+                                  <Languages className="w-4 h-4 text-primary" />
+                                )}
+                                {translatingItemId === item.id
+                                  ? (isArabic ? "جاري الترجمة..." : "Translating...")
+                                  : (isArabic ? "ترجمة الوصف إلى العربية" : "Translate to English")}
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
                               onClick={() => onEditItem(item)}
