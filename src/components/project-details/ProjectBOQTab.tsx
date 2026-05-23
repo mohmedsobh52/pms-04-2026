@@ -67,6 +67,7 @@ interface ProjectBOQTabProps {
   onEditItem: (item: ProjectItem) => void;
   onDeleteItem: (itemId: string) => void;
   onUpdateUnitPrice?: (itemId: string, newPrice: number) => void;
+  onUpdateUnit?: (itemId: string, newUnit: string) => void;
   onUnconfirmItem: (itemId: string) => void;
   onDeleteZeroQuantityItems: () => void;
   formatCurrency: (value: number) => string;
