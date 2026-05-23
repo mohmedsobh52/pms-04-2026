@@ -219,9 +219,12 @@ export function SaveProjectButton({
         setDuplicateProject(existing[0] as any);
         setNewName(`${trimmed} (${new Date().toLocaleString(isArabic ? "ar-SA" : "en-US", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })})`);
         setRenameMode(false);
-        setDuplicateDialogOpen(true);
         setStatus("idle");
         setProgress(0);
+        // Close main dialog FIRST to avoid nested modal focus-trap lockup,
+        // then open the duplicate alert on the next tick.
+        setIsOpen(false);
+        setTimeout(() => setDuplicateDialogOpen(true), 50);
         return;
       }
 
