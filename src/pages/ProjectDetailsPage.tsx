@@ -1407,6 +1407,26 @@ export default function ProjectDetailsPage() {
                   toast({ title: isArabic ? "تم تحديث السعر" : "Price updated" });
                 }
               }}
+              onUpdateUnit={async (itemId, newUnit) => {
+                const previous = items;
+                setItems(prev => prev.map(i =>
+                  i.id === itemId ? { ...i, unit: newUnit } : i
+                ));
+                const { error } = await supabase
+                  .from("project_items")
+                  .update({ unit: newUnit })
+                  .eq("id", itemId);
+                if (error) {
+                  setItems(previous);
+                  toast({
+                    title: isArabic ? "خطأ في تحديث الوحدة" : "Error updating unit",
+                    description: error.message,
+                    variant: "destructive",
+                  });
+                } else {
+                  toast({ title: isArabic ? "تم تحديث الوحدة" : "Unit updated" });
+                }
+              }}
               onUnconfirmItem={handleUnconfirmItem}
               onDeleteZeroQuantityItems={handleDeleteZeroQuantityItems}
               formatCurrency={formatCurrency}
