@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/table";
 import { ProjectItem, PricingStats } from "./types";
 import { EditableUnitPrice } from "@/components/EditableUnitPrice";
+import { EditableUnit } from "@/components/EditableUnit";
 
 interface ProjectBOQTabProps {
   items: ProjectItem[];
