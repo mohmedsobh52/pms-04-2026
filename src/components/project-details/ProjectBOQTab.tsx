@@ -103,6 +103,8 @@ export function ProjectBOQTab({
   onHistoricalPrice,
   onEnhanceWithAI,
   enhancingItemId = null,
+  onTranslateDescription,
+  translatingItemId = null,
   onEditItem,
   onDeleteItem,
   onUpdateUnitPrice,
