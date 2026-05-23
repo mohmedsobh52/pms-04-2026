@@ -64,6 +64,8 @@ interface ProjectBOQTabProps {
   onHistoricalPrice: (item: ProjectItem) => void;
   onEnhanceWithAI: (item: ProjectItem) => void;
   enhancingItemId?: string | null;
+  onTranslateDescription?: (item: ProjectItem) => void;
+  translatingItemId?: string | null;
   onEditItem: (item: ProjectItem) => void;
   onDeleteItem: (itemId: string) => void;
   onUpdateUnitPrice?: (itemId: string, newPrice: number) => void;
