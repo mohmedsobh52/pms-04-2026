@@ -309,7 +309,16 @@ export function ProjectBOQTab({
                       </TableCell>
                       <TableCell className="font-mono text-sm whitespace-nowrap">{item.item_number}</TableCell>
                       <TableCell className="min-w-[350px] max-w-[500px] whitespace-pre-wrap break-words text-sm leading-relaxed">{item.description || '-'}</TableCell>
-                      <TableCell>{item.unit || '-'}</TableCell>
+                      <TableCell>
+                        {onUpdateUnit ? (
+                          <EditableUnit
+                            value={item.unit || ''}
+                            onSave={(newUnit) => onUpdateUnit(item.id, newUnit)}
+                          />
+                        ) : (
+                          item.unit || '-'
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">{item.quantity?.toLocaleString() || '-'}</TableCell>
                       <TableCell className="text-right">
                         {onUpdateUnitPrice ? (
