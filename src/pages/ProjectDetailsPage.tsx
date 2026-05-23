@@ -131,6 +131,7 @@ export default function ProjectDetailsPage() {
   const [historicalMatches, setHistoricalMatches] = useState<Array<{ unit_price: number; project_name?: string; description?: string; created_at?: string }>>([]);
   const [isLoadingHistorical, setIsLoadingHistorical] = useState(false);
   const [enhancingItemId, setEnhancingItemId] = useState<string | null>(null);
+  const [translatingItemId, setTranslatingItemId] = useState<string | null>(null);
 
   // Backfill state for project_items <- analysis_data.items
   const [backfillState, setBackfillState] = useState<{
