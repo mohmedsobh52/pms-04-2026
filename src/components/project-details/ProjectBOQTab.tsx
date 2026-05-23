@@ -104,6 +104,7 @@ export function ProjectBOQTab({
   onEditItem,
   onDeleteItem,
   onUpdateUnitPrice,
+  onUpdateUnit,
   onUnconfirmItem,
   onDeleteZeroQuantityItems,
   formatCurrency,
