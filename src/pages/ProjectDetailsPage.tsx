@@ -1005,6 +1005,39 @@ export default function ProjectDetailsPage() {
     }
   };
 
+  const handleTranslateDescription = async (item: ProjectItem) => {
+    if (!item.description) return;
+    setTranslatingItemId(item.id);
+    try {
+      // Detect language: if description contains Arabic chars → translate to English; else → Arabic
+      const hasArabic = /[\u0600-\u06FF]/.test(item.description);
+      const targetLanguage = hasArabic ? "en" : "ar";
+      const { data, error } = await supabase.functions.invoke("translate-item-description", {
+        body: { description: item.description, targetLanguage },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const translated: string = (data?.translated || "").toString().trim();
+      if (!translated) throw new Error(isArabic ? "لم يتم إرجاع ترجمة" : "No translation returned");
+      const { error: updateError } = await supabase
+        .from("project_items")
+        .update({ description: translated })
+        .eq("id", item.id);
+      if (updateError) throw updateError;
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, description: translated } : i));
+      toast({ title: isArabic ? "تمت ترجمة الوصف" : "Description translated" });
+    } catch (e: any) {
+      toast({
+        title: isArabic ? "تعذرت الترجمة" : "Translation failed",
+        description: e.message,
+        variant: "destructive",
+      });
+    } finally {
+      setTranslatingItemId(null);
+    }
+  };
+
+
   const handleDeleteZeroQuantityItems = async () => {
     const zeroItems = items.filter(item => !item.quantity || item.quantity === 0);
     
