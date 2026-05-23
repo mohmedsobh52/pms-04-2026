@@ -1406,6 +1406,8 @@ export default function ProjectDetailsPage() {
               onHistoricalPrice={handleHistoricalPrice}
               onEnhanceWithAI={handleEnhanceWithAI}
               enhancingItemId={enhancingItemId}
+              onTranslateDescription={handleTranslateDescription}
+              translatingItemId={translatingItemId}
               onEditItem={(item) => {
                 setSelectedItemForEdit(item);
                 setShowEditItemDialog(true);
