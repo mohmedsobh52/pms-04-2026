@@ -132,7 +132,7 @@ export function SaveProjectButton({
         : (isArabic ? "جاري حفظ المشروع..." : "Saving project...")
     );
 
-    const { data, error } = await supabase.rpc("save_project_with_items" as any, {
+    const rpcPromise = supabase.rpc("save_project_with_items" as any, {
       _project_id: overwriteId,
       _name: name,
       _file_name: fileName ?? null,
@@ -144,6 +144,13 @@ export function SaveProjectButton({
       _costs: costPayloads as any,
       _overwrite: !!overwriteId,
     });
+
+    // Safety timeout so the UI never hangs forever if the network stalls.
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(isArabic ? "انتهت مهلة الحفظ. تحقق من الاتصال وحاول مجدداً." : "Save timed out. Check your connection and try again.")), 60000)
+    );
+
+    const { data, error } = (await Promise.race([rpcPromise, timeoutPromise])) as any;
 
     if (error) throw error;
 
