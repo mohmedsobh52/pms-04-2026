@@ -393,9 +393,9 @@ function validatePrice(aiPrice: number, refPrice: { min: number; max: number } |
 }
 
 // Retry configuration
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 2;
 const INITIAL_DELAY_MS = 1000;
-const REQUEST_TIMEOUT_MS = 60000;
+const REQUEST_TIMEOUT_MS = 45000;
 
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
@@ -767,28 +767,37 @@ serve(async (req) => {
       }
     }
 
-    // ===== SECOND PASS: Boost weak items with stronger model (gpt-5) =====
+    // ===== SECOND PASS: Boost a SMALL number of weak items with stronger model =====
+    // Strict caps prevent edge-function timeouts (gpt-5 is much slower than flash).
+    const BOOST_MAX_ITEMS = 12;
+    const BOOST_BATCH_SIZE = 6;
+    const BOOST_BATCH_TIMEOUT_MS = 45000;
     const weakItems = allSuggestions
       .filter(s => s.confidence !== "High")
       .map(s => items.find(i => i.item_number === s.item_number))
-      .filter((x): x is BOQItem => !!x);
+      .filter((x): x is BOQItem => !!x)
+      .slice(0, BOOST_MAX_ITEMS);
 
-    if (weakItems.length > 0 && weakItems.length <= 60 && model !== "openai/gpt-5") {
-      console.log(`Boosting ${weakItems.length} weak items with openai/gpt-5`);
+    if (weakItems.length > 0 && model !== "openai/gpt-5") {
+      console.log(`Boosting ${weakItems.length} weak items with openai/gpt-5 (capped)`);
       try {
-        for (let i = 0; i < weakItems.length; i += BATCH_SIZE) {
-          const batch = weakItems.slice(i, i + BATCH_SIZE);
-          const boosted = await processBatch(batch, location, LOVABLE_API_KEY, "openai/gpt-5", libraryData);
-          const rank = (c: string) => c === "High" ? 3 : c === "Medium" ? 2 : 1;
+        for (let i = 0; i < weakItems.length; i += BOOST_BATCH_SIZE) {
+          const batch = weakItems.slice(i, i + BOOST_BATCH_SIZE);
+          const boosted = await Promise.race([
+            processBatch(batch, location, LOVABLE_API_KEY, "openai/gpt-5", libraryData),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), BOOST_BATCH_TIMEOUT_MS)),
+          ]);
+          if (!boosted) {
+            console.log("Boost batch timed out — skipping remainder of boost pass");
+            break;
+          }
+          const rank = (c: string) => (c === "High" ? 3 : c === "Medium" ? 2 : 1);
           for (const bs of boosted.suggestions) {
             const idx = allSuggestions.findIndex(s => s.item_number === bs.item_number);
             if (idx === -1) continue;
             if (rank(bs.confidence) > rank(allSuggestions[idx].confidence)) {
               allSuggestions[idx] = { ...bs, notes: `Boosted: ${bs.notes}` };
             }
-          }
-          if (i + BATCH_SIZE < weakItems.length) {
-            await new Promise(r => setTimeout(r, 500));
           }
         }
       } catch (boostErr) {
