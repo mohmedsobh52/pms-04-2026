@@ -1017,37 +1017,51 @@ export default function ProjectDetailsPage() {
     }
   };
 
-  const handleTranslateDescription = async (item: ProjectItem) => {
-    if (!item.description) return;
-    setTranslatingItemId(item.id);
-    try {
-      // Detect language: if description contains Arabic chars → translate to English; else → Arabic
-      const hasArabic = /[\u0600-\u06FF]/.test(item.description);
-      const targetLanguage = hasArabic ? "en" : "ar";
-      const { data, error } = await supabase.functions.invoke("translate-item-description", {
-        body: { description: item.description, targetLanguage },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      const translated: string = (data?.translated || "").toString().trim();
-      if (!translated) throw new Error(isArabic ? "لم يتم إرجاع ترجمة" : "No translation returned");
-      const { error: updateError } = await supabase
-        .from("project_items")
-        .update({ description: translated })
-        .eq("id", item.id);
-      if (updateError) throw updateError;
-      setItems(prev => prev.map(i => i.id === item.id ? { ...i, description: translated } : i));
-      toast({ title: isArabic ? "تمت ترجمة الوصف" : "Description translated" });
-    } catch (e: any) {
+  // Open translation preview for a single item (description + notes + category if present)
+  const handleTranslateDescription = (item: ProjectItem) => {
+    if (!item.description && !item.notes && !item.category) return;
+    const fields: Array<"description" | "notes" | "category"> = [];
+    if (item.description) fields.push("description");
+    if (item.notes) fields.push("notes");
+    if (item.category) fields.push("category");
+    setTranslationFields(fields);
+    setTranslationPreviewItems([item]);
+    setShowTranslationPreview(true);
+  };
+
+  // Open translation preview for currently selected items (bulk)
+  const handleBulkTranslate = (selectedIds: Set<string>) => {
+    const selected = items.filter((it) => selectedIds.has(it.id));
+    if (selected.length === 0) {
       toast({
-        title: isArabic ? "تعذرت الترجمة" : "Translation failed",
-        description: e.message,
+        title: isArabic ? "لا توجد بنود محددة" : "No items selected",
         variant: "destructive",
       });
-    } finally {
-      setTranslatingItemId(null);
+      return;
     }
+    setTranslationFields(["description", "notes", "category"]);
+    setTranslationPreviewItems(selected);
+    setShowTranslationPreview(true);
   };
+
+  const handleTranslationsSaved = (updated: Array<{ id: string; translations: any }>) => {
+    setItems((prev) =>
+      prev.map((it) => {
+        const u = updated.find((x) => x.id === it.id);
+        return u ? { ...it, translations: u.translations } : it;
+      }),
+    );
+  };
+
+  const toggleTranslationVisibility = (itemId: string) => {
+    setVisibleTranslations((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
+
 
 
   const handleDeleteZeroQuantityItems = async () => {
