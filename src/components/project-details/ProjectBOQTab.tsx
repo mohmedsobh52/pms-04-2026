@@ -259,7 +259,21 @@ export function ProjectBOQTab({
                 )}
                 {isArabic ? "تسعير تلقائي" : "Auto Price"}
               </Button>
-              <Button 
+              {onBulkTranslate && (
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={onBulkTranslate}
+                  disabled={selectedItems.size === 0}
+                >
+                  <Languages className="w-4 h-4" />
+                  {isArabic ? "ترجمة جماعية" : "Bulk Translate"}
+                  {selectedItems.size > 0 && (
+                    <Badge variant="secondary" className="ml-1">{selectedItems.size}</Badge>
+                  )}
+                </Button>
+              )}
+              <Button
                 className="gap-2"
                 onClick={onAddItem}
               >
@@ -269,6 +283,23 @@ export function ProjectBOQTab({
             </div>
           </div>
         </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[50px]">
+                    <Checkbox
+                      checked={selectedItems.size === filteredItems.length && filteredItems.length > 0}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          onSelectedItemsChange(new Set(filteredItems.map(i => i.id)));
+                        } else {
+                          onSelectedItemsChange(new Set());
+                        }
+                      }}
+                    />
+                  </TableHead>
         <CardContent>
           <div className="rounded-md border">
             <Table>
