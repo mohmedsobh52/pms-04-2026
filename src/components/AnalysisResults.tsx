@@ -2491,9 +2491,10 @@ export function AnalysisResults({ data, wbsData: wbsDataProp, onApplyRate, fileN
                     
                     const costData = getItemCostData(item.item_number);
                     const calcCosts = getItemCalculatedCosts(item.item_number);
-                    // Total = Qty × AI Rate (simple and direct calculation)
-                    const aiRate = calcCosts.aiSuggestedRate || 0;
-                    const totalPrice = aiRate * (item.quantity || 0);
+                    // Total = Qty × (AI Rate ?? unit_price), fallback to stored total_price
+                    const qty = item.quantity || 0;
+                    const aiRate = calcCosts.aiSuggestedRate || item.unit_price || 0;
+                    const totalPrice = aiRate > 0 && qty > 0 ? aiRate * qty : (item.total_price || 0);
                     
                     // Debug logging for first 3 items
                     if (idx < 3) {
