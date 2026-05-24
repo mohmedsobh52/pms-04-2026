@@ -35,6 +35,7 @@ import {
 import { ProjectItem, PricingStats } from "./types";
 import { EditableUnitPrice } from "@/components/EditableUnitPrice";
 import { EditableUnit } from "@/components/EditableUnit";
+import { DescriptionWithTranslation } from "./DescriptionWithTranslation";
 
 interface ProjectBOQTabProps {
   items: ProjectItem[];
