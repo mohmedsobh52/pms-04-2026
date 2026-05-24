@@ -35,6 +35,7 @@ import {
 import { ProjectItem, PricingStats } from "./types";
 import { EditableUnitPrice } from "@/components/EditableUnitPrice";
 import { EditableUnit } from "@/components/EditableUnit";
+import { DescriptionWithTranslation } from "./DescriptionWithTranslation";
 
 interface ProjectBOQTabProps {
   items: ProjectItem[];
@@ -332,7 +333,9 @@ export function ProjectBOQTab({
                         />
                       </TableCell>
                       <TableCell className="font-mono text-sm whitespace-nowrap">{item.item_number}</TableCell>
-                      <TableCell className="min-w-[350px] max-w-[500px] whitespace-pre-wrap break-words text-sm leading-relaxed">{item.description || '-'}</TableCell>
+                      <TableCell className="min-w-[350px] max-w-[500px] text-sm leading-relaxed">
+                        <DescriptionWithTranslation item={item} isArabic={isArabic} />
+                      </TableCell>
                       <TableCell>
                         {onUpdateUnit ? (
                           <EditableUnit

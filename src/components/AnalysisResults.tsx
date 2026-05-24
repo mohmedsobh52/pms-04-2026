@@ -2491,9 +2491,11 @@ export function AnalysisResults({ data, wbsData: wbsDataProp, onApplyRate, fileN
                     
                     const costData = getItemCostData(item.item_number);
                     const calcCosts = getItemCalculatedCosts(item.item_number);
-                    // Total = Qty × AI Rate (simple and direct calculation)
-                    const aiRate = calcCosts.aiSuggestedRate || 0;
-                    const totalPrice = aiRate * (item.quantity || 0);
+                    // Total = Qty × (unit_price ?? AI Rate), fallback to stored total_price
+                    // Prefer the actual applied unit_price so row totals match the project Total Value.
+                    const qty = item.quantity || 0;
+                    const aiRate = (item.unit_price && item.unit_price > 0) ? item.unit_price : (calcCosts.aiSuggestedRate || 0);
+                    const totalPrice = aiRate > 0 && qty > 0 ? aiRate * qty : (item.total_price || 0);
                     
                     // Debug logging for first 3 items
                     if (idx < 3) {
@@ -2826,10 +2828,12 @@ export function AnalysisResults({ data, wbsData: wbsDataProp, onApplyRate, fileN
                     </td>
                     <td className="px-4 py-4 text-right font-bold text-primary bg-primary/20">
                       {(() => {
-                        // Grand Total = Sum of (Qty × AI Rate) for all items
+                        // Grand Total mirrors row totals: Qty × (unit_price ?? AI Rate), fallback to total_price
                         const calculatedTotal = filteredItems.reduce((sum, item) => {
-                          const aiRate = getItemCalculatedCosts(item.item_number).aiSuggestedRate || 0;
-                          return sum + (aiRate * (item.quantity || 0));
+                          const qty = item.quantity || 0;
+                          const aiRate = (item.unit_price && item.unit_price > 0) ? item.unit_price : (getItemCalculatedCosts(item.item_number).aiSuggestedRate || 0);
+                          const line = aiRate > 0 && qty > 0 ? aiRate * qty : (item.total_price || 0);
+                          return sum + line;
                         }, 0);
                         return calculatedTotal > 0 ? calculatedTotal.toLocaleString() : '-';
                       })()} {data.summary?.currency || 'SAR'}
@@ -2888,10 +2892,12 @@ export function AnalysisResults({ data, wbsData: wbsDataProp, onApplyRate, fileN
             {/* Category Summary */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
               {Object.entries(groupedItems).map(([category, categoryItems]) => {
-                // Category Total = Sum of (Qty × AI Rate)
+                // Category Total mirrors row totals: Qty × (unit_price ?? AI Rate), fallback to total_price
                 const categoryTotal = categoryItems.reduce((sum, item) => {
-                  const aiRate = getItemCalculatedCosts(item.item_number).aiSuggestedRate || 0;
-                  return sum + (aiRate * (item.quantity || 0));
+                  const qty = item.quantity || 0;
+                  const aiRate = (item.unit_price && item.unit_price > 0) ? item.unit_price : (getItemCalculatedCosts(item.item_number).aiSuggestedRate || 0);
+                  const line = aiRate > 0 && qty > 0 ? aiRate * qty : (item.total_price || 0);
+                  return sum + line;
                 }, 0);
                 
                 return (
@@ -2971,12 +2977,11 @@ export function AnalysisResults({ data, wbsData: wbsDataProp, onApplyRate, fileN
               </div>
               {(() => {
                 // Compute total using SAME formula as table grand total:
-                // Σ (AI Rate × Qty), falling back to unit_price × qty, then to total_price
+                // Σ (unit_price × qty) preferred, fallback to AI rate × qty, then total_price
                 const computedTotal = (data.items || []).reduce((sum, item) => {
-                  const aiRate = getItemCalculatedCosts(item.item_number).aiSuggestedRate || 0;
                   const qty = item.quantity || 0;
-                  if (aiRate > 0) return sum + aiRate * qty;
-                  if (item.unit_price && qty) return sum + item.unit_price * qty;
+                  const rate = (item.unit_price && item.unit_price > 0) ? item.unit_price : (getItemCalculatedCosts(item.item_number).aiSuggestedRate || 0);
+                  if (rate > 0 && qty > 0) return sum + rate * qty;
                   return sum + (item.total_price || 0);
                 }, 0);
                 const displayTotal = computedTotal > 0 ? computedTotal : (data.summary.total_value || 0);
