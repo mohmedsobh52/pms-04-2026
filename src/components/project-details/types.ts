@@ -16,11 +16,12 @@ export type FieldTranslations = {
   en?: string;
 };
 
-export interface ProjectItemTranslations {
+export type ProjectItemTranslations = {
   description?: FieldTranslations;
   notes?: FieldTranslations;
   category?: FieldTranslations;
-}
+  [key: string]: any;
+};
 
 export interface ProjectItem {
   id: string;
