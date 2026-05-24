@@ -289,23 +289,6 @@ export function ProjectBOQTab({
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[50px]">
-                    <Checkbox
-                      checked={selectedItems.size === filteredItems.length && filteredItems.length > 0}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          onSelectedItemsChange(new Set(filteredItems.map(i => i.id)));
-                        } else {
-                          onSelectedItemsChange(new Set());
-                        }
-                      }}
-                    />
-                  </TableHead>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]">
                     <Checkbox 
                       checked={selectedItems.size === filteredItems.length && filteredItems.length > 0}
                       onCheckedChange={(checked) => {
