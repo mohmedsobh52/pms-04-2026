@@ -404,7 +404,15 @@ export default function ProjectDetailsPage() {
     ).length;
     const unpricedItems = totalItems - pricedItems;
     const pricingPercentage = totalItems > 0 ? Math.round((pricedItems / totalItems) * 100 * 10) / 10 : 0;
-    const totalValue = effectiveItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+    const totalValue = effectiveItems.reduce((sum, item) => {
+      const qty = Number(item.quantity) || 0;
+      const up = Number(item.unit_price) || 0;
+      const tp = Number(item.total_price) || 0;
+      // Prefer qty × unit_price when available (reflects applied AI rates),
+      // otherwise fall back to stored total_price
+      const line = up > 0 && qty > 0 ? up * qty : tp;
+      return sum + line;
+    }, 0);
 
     return { totalItems, pricedItems, confirmedItems, unpricedItems, pricingPercentage, totalValue };
   }, [effectiveItems]);
