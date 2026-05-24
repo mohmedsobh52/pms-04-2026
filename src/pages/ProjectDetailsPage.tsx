@@ -1717,6 +1717,16 @@ export default function ProjectDetailsPage() {
         </Tabs>
       </main>
 
+      {/* Translation Preview Dialog */}
+      <TranslationPreviewDialog
+        open={showTranslationPreview}
+        onOpenChange={setShowTranslationPreview}
+        items={translationPreviewItems}
+        fields={translationFields}
+        isArabic={isArabic}
+        onSaved={handleTranslationsSaved}
+      />
+
       {/* Auto Price Dialog */}
       {showAutoPriceDialog && (
         <AutoPriceDialog
