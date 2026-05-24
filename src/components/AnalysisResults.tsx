@@ -168,7 +168,31 @@ const getCostRange = (price: number): string => {
   return "high";
 };
 
-export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedProjectId, onQuickPrice, onDetailedPrice, onHistoricalPrice, onEnhanceWithAI, enhancingItemNumber, onEditItem, onClearPrice, onDeleteItem, onUpdateItemFields }: AnalysisResultsProps) {
+export function AnalysisResults({ data, wbsData: wbsDataProp, onApplyRate, fileName, savedProjectId, onQuickPrice, onDetailedPrice, onHistoricalPrice, onEnhanceWithAI, enhancingItemNumber, onEditItem, onClearPrice, onDeleteItem, onUpdateItemFields }: AnalysisResultsProps) {
+  // Auto-derive WBS from items grouped by category when no wbsData prop is provided
+  const wbsData = useMemo<AnalysisData | undefined>(() => {
+    if (wbsDataProp?.wbs && wbsDataProp.wbs.length > 0) return wbsDataProp;
+    const items = data?.items || [];
+    if (items.length === 0) return wbsDataProp;
+    const groups = new Map<string, string[]>();
+    for (const it of items) {
+      const cat = (it.category || "General").trim() || "General";
+      if (!groups.has(cat)) groups.set(cat, []);
+      groups.get(cat)!.push(it.item_number || "");
+    }
+    const wbs: WBSItem[] = [];
+    let i = 1;
+    for (const [cat, nums] of groups.entries()) {
+      wbs.push({
+        code: `WBS-${String(i).padStart(2, "0")}`,
+        title: cat,
+        level: 1,
+        items: nums.filter(Boolean),
+      });
+      i++;
+    }
+    return { ...(wbsDataProp || { analysis_type: "wbs" }), wbs };
+  }, [wbsDataProp, data?.items]);
   // Inline edit state for description (per item_number)
   const [inlineEditItem, setInlineEditItem] = useState<string | null>(null);
   const [inlineEditValue, setInlineEditValue] = useState<string>("");
