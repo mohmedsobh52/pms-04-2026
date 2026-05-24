@@ -2827,10 +2827,12 @@ export function AnalysisResults({ data, wbsData: wbsDataProp, onApplyRate, fileN
                     </td>
                     <td className="px-4 py-4 text-right font-bold text-primary bg-primary/20">
                       {(() => {
-                        // Grand Total = Sum of (Qty × AI Rate) for all items
+                        // Grand Total mirrors row totals: Qty × (AI Rate ?? unit_price), fallback to total_price
                         const calculatedTotal = filteredItems.reduce((sum, item) => {
-                          const aiRate = getItemCalculatedCosts(item.item_number).aiSuggestedRate || 0;
-                          return sum + (aiRate * (item.quantity || 0));
+                          const qty = item.quantity || 0;
+                          const aiRate = getItemCalculatedCosts(item.item_number).aiSuggestedRate || item.unit_price || 0;
+                          const line = aiRate > 0 && qty > 0 ? aiRate * qty : (item.total_price || 0);
+                          return sum + line;
                         }, 0);
                         return calculatedTotal > 0 ? calculatedTotal.toLocaleString() : '-';
                       })()} {data.summary?.currency || 'SAR'}
