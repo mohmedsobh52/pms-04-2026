@@ -66,6 +66,9 @@ interface ProjectBOQTabProps {
   enhancingItemId?: string | null;
   onTranslateDescription?: (item: ProjectItem) => void;
   translatingItemId?: string | null;
+  onBulkTranslate?: () => void;
+  visibleTranslations?: Set<string>;
+  onToggleTranslationVisibility?: (itemId: string) => void;
   onEditItem: (item: ProjectItem) => void;
   onDeleteItem: (itemId: string) => void;
   onUpdateUnitPrice?: (itemId: string, newPrice: number) => void;
@@ -105,6 +108,9 @@ export function ProjectBOQTab({
   enhancingItemId = null,
   onTranslateDescription,
   translatingItemId = null,
+  onBulkTranslate,
+  visibleTranslations,
+  onToggleTranslationVisibility,
   onEditItem,
   onDeleteItem,
   onUpdateUnitPrice,
@@ -253,7 +259,21 @@ export function ProjectBOQTab({
                 )}
                 {isArabic ? "تسعير تلقائي" : "Auto Price"}
               </Button>
-              <Button 
+              {onBulkTranslate && (
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={onBulkTranslate}
+                  disabled={selectedItems.size === 0}
+                >
+                  <Languages className="w-4 h-4" />
+                  {isArabic ? "ترجمة جماعية" : "Bulk Translate"}
+                  {selectedItems.size > 0 && (
+                    <Badge variant="secondary" className="ml-1">{selectedItems.size}</Badge>
+                  )}
+                </Button>
+              )}
+              <Button
                 className="gap-2"
                 onClick={onAddItem}
               >
