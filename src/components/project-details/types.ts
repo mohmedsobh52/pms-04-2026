@@ -38,7 +38,7 @@ export interface ProjectItem {
   is_section: boolean | null;
   sort_order: number | null;
   notes?: string | null;
-  translations?: ProjectItemTranslations | null;
+  translations?: any;
 }
 
 export interface ProjectAttachment {
