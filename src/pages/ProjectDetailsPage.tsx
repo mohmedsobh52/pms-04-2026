@@ -32,6 +32,7 @@ import { QuickPriceDialog } from "@/components/project-details/QuickPriceDialog"
 import { ProjectHeader } from "@/components/project-details/ProjectHeader";
 import { ProjectOverviewTab } from "@/components/project-details/ProjectOverviewTab";
 import { ProjectBOQTab } from "@/components/project-details/ProjectBOQTab";
+import { TranslationPreviewDialog } from "@/components/project-details/TranslationPreviewDialog";
 import { ProjectDocumentsTab } from "@/components/project-details/ProjectDocumentsTab";
 import { ProjectSettingsTab } from "@/components/project-details/ProjectSettingsTab";
 import { 
