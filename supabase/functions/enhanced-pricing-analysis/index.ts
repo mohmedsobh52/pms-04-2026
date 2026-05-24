@@ -1690,9 +1690,12 @@ function aggregateResults(
           price = refMax;
           confidence = Math.max(60, confidence - 10);
         } else {
-          // Within range - boost confidence significantly
-          confidence = Math.min(98, confidence + 15);
+          // Within range - boost confidence significantly toward 95%+
+          confidence = Math.min(98, Math.max(confidence, 88) + 8);
         }
+      } else {
+        // No reference match: ensure analyzer confidence has a sensible floor
+        confidence = Math.max(confidence, 80);
       }
       
       // Use custom weight if provided, otherwise use default
