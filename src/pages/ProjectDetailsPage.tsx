@@ -132,6 +132,10 @@ export default function ProjectDetailsPage() {
   const [isLoadingHistorical, setIsLoadingHistorical] = useState(false);
   const [enhancingItemId, setEnhancingItemId] = useState<string | null>(null);
   const [translatingItemId, setTranslatingItemId] = useState<string | null>(null);
+  const [showTranslationPreview, setShowTranslationPreview] = useState(false);
+  const [translationPreviewItems, setTranslationPreviewItems] = useState<ProjectItem[]>([]);
+  const [translationFields, setTranslationFields] = useState<Array<"description" | "notes" | "category">>(["description"]);
+  const [visibleTranslations, setVisibleTranslations] = useState<Set<string>>(new Set());
 
   // Backfill state for project_items <- analysis_data.items
   const [backfillState, setBackfillState] = useState<{
