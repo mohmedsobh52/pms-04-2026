@@ -2891,10 +2891,12 @@ export function AnalysisResults({ data, wbsData: wbsDataProp, onApplyRate, fileN
             {/* Category Summary */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
               {Object.entries(groupedItems).map(([category, categoryItems]) => {
-                // Category Total = Sum of (Qty × AI Rate)
+                // Category Total mirrors row totals: Qty × (AI Rate ?? unit_price), fallback to total_price
                 const categoryTotal = categoryItems.reduce((sum, item) => {
-                  const aiRate = getItemCalculatedCosts(item.item_number).aiSuggestedRate || 0;
-                  return sum + (aiRate * (item.quantity || 0));
+                  const qty = item.quantity || 0;
+                  const aiRate = getItemCalculatedCosts(item.item_number).aiSuggestedRate || item.unit_price || 0;
+                  const line = aiRate > 0 && qty > 0 ? aiRate * qty : (item.total_price || 0);
+                  return sum + line;
                 }, 0);
                 
                 return (
