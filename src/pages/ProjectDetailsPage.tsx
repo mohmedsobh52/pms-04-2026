@@ -1434,6 +1434,9 @@ export default function ProjectDetailsPage() {
               enhancingItemId={enhancingItemId}
               onTranslateDescription={handleTranslateDescription}
               translatingItemId={translatingItemId}
+              onBulkTranslate={() => handleBulkTranslate(selectedItems)}
+              visibleTranslations={visibleTranslations}
+              onToggleTranslationVisibility={toggleTranslationVisibility}
               onEditItem={(item) => {
                 setSelectedItemForEdit(item);
                 setShowEditItemDialog(true);
