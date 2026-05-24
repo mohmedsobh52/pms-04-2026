@@ -66,6 +66,9 @@ interface ProjectBOQTabProps {
   enhancingItemId?: string | null;
   onTranslateDescription?: (item: ProjectItem) => void;
   translatingItemId?: string | null;
+  onBulkTranslate?: () => void;
+  visibleTranslations?: Set<string>;
+  onToggleTranslationVisibility?: (itemId: string) => void;
   onEditItem: (item: ProjectItem) => void;
   onDeleteItem: (itemId: string) => void;
   onUpdateUnitPrice?: (itemId: string, newPrice: number) => void;
