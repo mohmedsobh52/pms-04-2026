@@ -194,7 +194,7 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
       console.log(`Library data loaded: ${libraryData?.materials?.length || 0} materials, ${libraryData?.labor?.length || 0} labor, ${libraryData?.equipment?.length || 0} equipment`);
       
       const regionInfo = REGIONS.find(r => r.value === region);
-      const { data, error } = await supabase.functions.invoke("suggest-market-rates", {
+      const invokePromise = supabase.functions.invoke("suggest-market-rates", {
         body: { 
           items: validItems, 
           location, 
@@ -203,10 +203,14 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
           libraryData
         },
       });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("انتهت مهلة التحليل. حاول مرة أخرى أو قلل عدد البنود.")), 180000)
+      );
+      const { data, error } = (await Promise.race([invokePromise, timeoutPromise])) as any;
 
       if (error) throw error;
 
-      if (data.error) {
+      if (data?.error) {
         throw new Error(data.error);
       }
 
