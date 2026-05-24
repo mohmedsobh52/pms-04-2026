@@ -2977,12 +2977,11 @@ export function AnalysisResults({ data, wbsData: wbsDataProp, onApplyRate, fileN
               </div>
               {(() => {
                 // Compute total using SAME formula as table grand total:
-                // Σ (AI Rate × Qty), falling back to unit_price × qty, then to total_price
+                // Σ (unit_price × qty) preferred, fallback to AI rate × qty, then total_price
                 const computedTotal = (data.items || []).reduce((sum, item) => {
-                  const aiRate = getItemCalculatedCosts(item.item_number).aiSuggestedRate || 0;
                   const qty = item.quantity || 0;
-                  if (aiRate > 0) return sum + aiRate * qty;
-                  if (item.unit_price && qty) return sum + item.unit_price * qty;
+                  const rate = (item.unit_price && item.unit_price > 0) ? item.unit_price : (getItemCalculatedCosts(item.item_number).aiSuggestedRate || 0);
+                  if (rate > 0 && qty > 0) return sum + rate * qty;
                   return sum + (item.total_price || 0);
                 }, 0);
                 const displayTotal = computedTotal > 0 ? computedTotal : (data.summary.total_value || 0);
