@@ -2400,6 +2400,7 @@ export type Database = {
           specifications: string | null
           subcategory: string | null
           total_price: number | null
+          translations: Json
           unit: string | null
           unit_price: number | null
         }
@@ -2422,6 +2423,7 @@ export type Database = {
           specifications?: string | null
           subcategory?: string | null
           total_price?: number | null
+          translations?: Json
           unit?: string | null
           unit_price?: number | null
         }
@@ -2444,6 +2446,7 @@ export type Database = {
           specifications?: string | null
           subcategory?: string | null
           total_price?: number | null
+          translations?: Json
           unit?: string | null
           unit_price?: number | null
         }
