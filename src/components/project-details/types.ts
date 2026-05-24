@@ -11,6 +11,17 @@ export interface ProjectData {
   updated_at: string;
 }
 
+export type FieldTranslations = {
+  ar?: string;
+  en?: string;
+};
+
+export interface ProjectItemTranslations {
+  description?: FieldTranslations;
+  notes?: FieldTranslations;
+  category?: FieldTranslations;
+}
+
 export interface ProjectItem {
   id: string;
   item_number: string;
@@ -25,6 +36,8 @@ export interface ProjectItem {
   specifications: string | null;
   is_section: boolean | null;
   sort_order: number | null;
+  notes?: string | null;
+  translations?: ProjectItemTranslations | null;
 }
 
 export interface ProjectAttachment {
