@@ -785,14 +785,29 @@ export async function extractRawDataFromExcel(
     return { rows: [], headers: [], sheetNames, totalRows: 0 };
   }
   
-  // Quick header detection (first row with 3+ cells)
+  // Smart header detection: pick row whose headers best match known BOQ columns
   let headerRowIndex = 0;
-  const maxHeaderSearch = Math.min(5, data.length);
+  let bestScore = -1;
+  const maxHeaderSearch = Math.min(30, data.length);
   for (let i = 0; i < maxHeaderSearch; i++) {
-    const row = data[i];
-    if (row && row.filter(c => c != null && String(c).trim()).length >= 3) {
+    const row = data[i] || [];
+    const nonEmpty = row.filter(c => c != null && String(c).trim() !== '').length;
+    if (nonEmpty < 3) continue;
+    const candidateHeaders = row.map(h => h != null ? String(h).trim() : '');
+    const score = Object.keys(detectColumnMapping(candidateHeaders)).length;
+    if (score > bestScore) {
+      bestScore = score;
       headerRowIndex = i;
-      break;
+    }
+  }
+  // Fallback: first row with 3+ cells
+  if (bestScore <= 0) {
+    for (let i = 0; i < maxHeaderSearch; i++) {
+      const row = data[i] || [];
+      if (row && row.filter(c => c != null && String(c).trim()).length >= 3) {
+        headerRowIndex = i;
+        break;
+      }
     }
   }
   
