@@ -2945,15 +2945,27 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                   {data.summary.total_items}
                 </p>
               </div>
-              {data.summary.total_value && (
-                <div className="p-6 rounded-xl bg-gradient-to-br from-success/10 to-success/5 border border-success/20">
-                  <p className="text-sm text-muted-foreground mb-1">{isArabic ? "إجمالي القيمة" : "Total Value"}</p>
-                  <p className="text-3xl font-display font-bold text-success">
-                    {data.summary.total_value.toLocaleString()}
-                  </p>
-                  <p className="text-sm text-muted-foreground">{data.summary.currency}</p>
-                </div>
-              )}
+              {(() => {
+                // Compute total using SAME formula as table grand total:
+                // Σ (AI Rate × Qty), falling back to unit_price × qty, then to total_price
+                const computedTotal = (data.items || []).reduce((sum, item) => {
+                  const aiRate = getItemCalculatedCosts(item.item_number).aiSuggestedRate || 0;
+                  const qty = item.quantity || 0;
+                  if (aiRate > 0) return sum + aiRate * qty;
+                  if (item.unit_price && qty) return sum + item.unit_price * qty;
+                  return sum + (item.total_price || 0);
+                }, 0);
+                const displayTotal = computedTotal > 0 ? computedTotal : (data.summary.total_value || 0);
+                return displayTotal > 0 ? (
+                  <div className="p-6 rounded-xl bg-gradient-to-br from-success/10 to-success/5 border border-success/20">
+                    <p className="text-sm text-muted-foreground mb-1">{isArabic ? "إجمالي القيمة" : "Total Value"}</p>
+                    <p className="text-3xl font-display font-bold text-success">
+                      {displayTotal.toLocaleString()}
+                    </p>
+                    <p className="text-sm text-muted-foreground">{data.summary.currency}</p>
+                  </div>
+                ) : null;
+              })()}
               <div className="p-6 rounded-xl bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 col-span-1 md:col-span-2">
                 <p className="text-sm text-muted-foreground mb-2">{isArabic ? "الفئات" : "Categories"}</p>
                 <div className="flex flex-wrap gap-2">

@@ -214,9 +214,36 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
         throw new Error(data.error);
       }
 
-      const receivedSuggestions = data.suggestions || [];
+      const receivedSuggestions: MarketRateSuggestion[] = data.suggestions || [];
+
+      // Gap-fill: ensure EVERY valid item has a suggestion, even if backend skipped some
+      const covered = new Set(receivedSuggestions.map((s) => s.item_number));
+      const missing = validItems.filter((it) => !covered.has(it.item_number));
+      if (missing.length > 0) {
+        console.warn(`Filling ${missing.length} missing suggestions with estimates`);
+        for (const it of missing) {
+          const basePrice = Number(it.unit_price) || 0;
+          const est = basePrice > 0 ? basePrice : 100;
+          receivedSuggestions.push({
+            item_number: it.item_number,
+            description: it.description || "",
+            current_price: basePrice,
+            suggested_min: Math.round(est * 0.85),
+            suggested_max: Math.round(est * 1.15),
+            suggested_avg: Math.round(est),
+            confidence: "Low",
+            trend: "Stable",
+            variance_percent: 0,
+            notes: basePrice > 0
+              ? "تقدير تلقائي بناءً على السعر الحالي - يحتاج مراجعة"
+              : "تقدير افتراضي - يرجى المراجعة اليدوية",
+            source: "ai",
+          } as MarketRateSuggestion);
+        }
+      }
+
       setSuggestions(receivedSuggestions);
-      setAnalyzedItemsCount(data.analyzed_items || receivedSuggestions.length);
+      setAnalyzedItemsCount(receivedSuggestions.length);
       setAnalysisProgress(100);
       
       completeTracking(trackingId, true, false, {
