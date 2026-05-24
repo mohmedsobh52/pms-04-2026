@@ -393,9 +393,9 @@ function validatePrice(aiPrice: number, refPrice: { min: number; max: number } |
 }
 
 // Retry configuration
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 2;
 const INITIAL_DELAY_MS = 1000;
-const REQUEST_TIMEOUT_MS = 60000;
+const REQUEST_TIMEOUT_MS = 45000;
 
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
