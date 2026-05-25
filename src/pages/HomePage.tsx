@@ -27,6 +27,7 @@ import {
   ListChecks,
   Shield,
   Settings,
+  History,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
@@ -63,6 +64,7 @@ const groups: { titleAr: string; titleEn: string; items: Section[] }[] = [
       { nameAr: "التسعير والتحليل", nameEn: "Cost Analysis", descAr: "تحليل التكاليف والأسعار", descEn: "Cost & price analysis", path: "/cost-analysis", icon: DollarSign, token: "priority-medium", countKey: "cost_analysis" },
       { nameAr: "عروض الاسعار", nameEn: "Quotations", descAr: "مقارنة ورفع العروض", descEn: "Upload & compare quotes", path: "/quotations", icon: FileSearch, token: "cat-subcontractor", countKey: null },
       { nameAr: "المكتبة", nameEn: "Library", descAr: "مكتبة الأسعار والمواد", descEn: "Price & material library", path: "/library", icon: BookOpen, token: "cat-material", countKey: "material_prices" },
+      { nameAr: "البيانات التاريخية", nameEn: "Historical Data", descAr: "أسعار ومشاريع تاريخية", descEn: "Historical pricing & projects", path: "/historical-pricing", icon: History, token: "cat-other", countKey: null },
     ],
   },
   {
