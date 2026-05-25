@@ -36,6 +36,7 @@ import { ColorLegend } from "@/components/ui/color-code";
 import { normalizeHistoricalItems, NormalizedHistoricalItem } from "@/lib/historical-data-utils";
 import { PriceTrendsTab } from "@/components/historical/PriceTrendsTab";
 import { MaterialHistoryDialog } from "@/components/historical/MaterialHistoryDialog";
+import { SuggestionsBox } from "@/components/historical/SuggestionsBox";
 interface HistoricalFile {
   id: string;
   file_name: string;
@@ -1128,6 +1129,7 @@ export default function HistoricalPricingPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        <SuggestionsBox />
       </div>
     </PageLayout>
   );
