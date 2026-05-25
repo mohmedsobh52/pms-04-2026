@@ -715,6 +715,10 @@ export default function HistoricalPricingPage() {
               <Database className="w-4 h-4" />
               الملفات ({files.length})
             </TabsTrigger>
+            <TabsTrigger value="trends" className="gap-2">
+              <TrendingUp className="w-4 h-4" />
+              اتجاهات الأسعار
+            </TabsTrigger>
             <TabsTrigger value="stats" className="gap-2">
               <BarChart3 className="w-4 h-4" />
               الإحصائيات
