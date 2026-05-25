@@ -866,31 +866,78 @@ export default function HistoricalPricingPage() {
               );
             })()}
 
-        {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="بحث بالاسم أو الملف..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pr-10"
-            />
+        {/* Filters + Export */}
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="flex-1 relative">
+              <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="بحث بالاسم أو الملف..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pr-10"
+              />
+            </div>
+            <Select value={filterLocation} onValueChange={setFilterLocation}>
+              <SelectTrigger className="w-[180px]">
+                <Filter className="w-4 h-4 ml-2" />
+                <SelectValue placeholder="الموقع" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">جميع المواقع</SelectItem>
+                {LOCATIONS.map(loc => (
+                  <SelectItem key={loc.value} value={loc.value}>{loc.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterVerified} onValueChange={setFilterVerified}>
+              <SelectTrigger className="w-[160px]">
+                <CheckCircle className="w-4 h-4 ml-2" />
+                <SelectValue placeholder="حالة التحقق" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">الكل</SelectItem>
+                <SelectItem value="verified">موثق فقط</SelectItem>
+                <SelectItem value="unverified">غير موثق</SelectItem>
+              </SelectContent>
+            </Select>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Download className="w-4 h-4" />
+                  تصدير الكل
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleExportAll("xlsx")}>Excel (.xlsx)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExportAll("csv")}>CSV</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          <Select value={filterLocation} onValueChange={setFilterLocation}>
-            <SelectTrigger className="w-[200px]">
-              <Filter className="w-4 h-4 ml-2" />
-              <SelectValue placeholder="فلترة بالموقع" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">جميع المواقع</SelectItem>
-              {LOCATIONS.map(loc => (
-                <SelectItem key={loc.value} value={loc.value}>
-                  {loc.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col md:flex-row gap-3 items-end">
+            <div className="space-y-1">
+              <Label className="text-xs">من تاريخ</Label>
+              <Input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} className="w-[180px]" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">إلى تاريخ</Label>
+              <Input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} className="w-[180px]" />
+            </div>
+            {(filterDateFrom || filterDateTo || filterVerified !== "all" || filterLocation !== "all" || searchQuery) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearchQuery(""); setFilterLocation("all"); setFilterVerified("all");
+                  setFilterDateFrom(""); setFilterDateTo("");
+                }}
+              >
+                <XCircle className="w-4 h-4 ml-1" />
+                مسح الفلاتر
+              </Button>
+            )}
+            <Badge variant="secondary" className="mr-auto">{filteredFiles.length} ملف</Badge>
+          </div>
         </div>
 
         {/* Files List */}
