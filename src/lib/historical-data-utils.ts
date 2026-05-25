@@ -86,12 +86,18 @@ export function normalizeHistoricalItems(rawItems: any[], headers?: string[]): N
 
   // Get headers from first item if not provided
   const itemHeaders = headers || Object.keys(rawItems[0] || {});
-  const columnMap = buildColumnMap(itemHeaders);
+
+  // Detect if data is already normalized — keys match canonical field names exactly.
+  const canonical = new Set(['item_number','description','description_ar','unit','quantity','unit_price','total_price','item_code']);
+  const isAlreadyNormalized = itemHeaders.some(h => canonical.has(h));
+
+  const columnMap = isAlreadyNormalized ? {} : buildColumnMap(itemHeaders);
 
   return rawItems.map((raw, index) => {
     const item: Partial<NormalizedHistoricalItem> = {
       id: generateId(),
     };
+
 
     // Map each raw field to normalized field
     for (const [originalKey, normalizedKey] of Object.entries(columnMap)) {
