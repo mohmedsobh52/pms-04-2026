@@ -303,6 +303,69 @@ export default function HistoricalPricingPage() {
     });
   };
 
+  // Export saved file data to CSV
+  const handleExportSavedToCSV = (file: HistoricalFile) => {
+    if (!file.items || file.items.length === 0) return;
+    const headers = Object.keys(file.items[0] || {});
+    const escape = (v: any) => {
+      const s = v === null || v === undefined ? "" : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const lines = [headers.join(",")];
+    for (const row of file.items) lines.push(headers.map((h) => escape((row as any)[h])).join(","));
+    const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${file.project_name.replace(/[^a-zA-Z0-9أ-ي]/g, '_')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "✅ تم التصدير", description: `تم تصدير ${file.items.length} صف إلى CSV` });
+  };
+
+  // Export ALL filtered files (flattened items) — entry point for the toolbar.
+  const handleExportAll = (fmt: "xlsx" | "csv") => {
+    const rows: any[] = [];
+    for (const f of filteredFiles) {
+      const items = normalizeHistoricalItems(Array.isArray(f.items) ? f.items : []);
+      for (const it of items) {
+        rows.push({
+          project_name: f.project_name,
+          project_date: f.project_date,
+          project_location: f.project_location,
+          currency: f.currency,
+          is_verified: f.is_verified,
+          ...it,
+        });
+      }
+    }
+    if (rows.length === 0) {
+      toast({ title: "لا توجد بيانات", description: "لا يوجد ما يمكن تصديره", variant: "destructive" });
+      return;
+    }
+    if (fmt === "xlsx") {
+      const wb = createWorkbook();
+      addJsonSheet(wb, rows, "Historical");
+      downloadWorkbook(wb, `historical_pricing_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } else {
+      const headers = Object.keys(rows[0]);
+      const escape = (v: any) => {
+        const s = v === null || v === undefined ? "" : String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const lines = [headers.join(",")];
+      for (const r of rows) lines.push(headers.map((h) => escape(r[h])).join(","));
+      const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `historical_pricing_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    toast({ title: "✅ تم التصدير", description: `${rows.length} صف` });
+  };
+
   const handleSaveFile = async () => {
     if (!user) {
       toast({
