@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from "react";
-import { Database, Upload, FileSpreadsheet, FileText, Trash2, Eye, Calendar, MapPin, CheckCircle, XCircle, Plus, Search, Filter, ArrowLeft, BarChart3, Loader2, Download, FileImage } from "lucide-react";
+import { Database, Upload, FileSpreadsheet, FileText, Trash2, Eye, Calendar, MapPin, CheckCircle, XCircle, Plus, Search, Filter, ArrowLeft, BarChart3, Loader2, Download, FileImage, History, TrendingUp } from "lucide-react";
 import { SuspenseFallback } from "@/components/ui/loading-states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,6 +34,8 @@ import { ImportFromSavedProjects } from "@/components/ImportFromSavedProjects";
 import { HistoricalItemsTable } from "@/components/HistoricalItemsTable";
 import { ColorLegend } from "@/components/ui/color-code";
 import { normalizeHistoricalItems, NormalizedHistoricalItem } from "@/lib/historical-data-utils";
+import { PriceTrendsTab } from "@/components/historical/PriceTrendsTab";
+import { MaterialHistoryDialog } from "@/components/historical/MaterialHistoryDialog";
 interface HistoricalFile {
   id: string;
   file_name: string;
