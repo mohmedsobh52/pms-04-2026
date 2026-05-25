@@ -1066,7 +1066,7 @@ export default function HistoricalPricingPage() {
 
         {/* View Dialog */}
         <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[85vh]">
+          <DialogContent className="max-w-[95vw] w-[95vw] max-h-[95vh] sm:max-w-[95vw] overflow-hidden flex flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Eye className="w-5 h-5" />
