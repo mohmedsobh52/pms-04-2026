@@ -6,6 +6,7 @@ import { PageTransition } from "./PageTransition";
 import { PageTipsBox } from "./PageTipsBox";
 import BackgroundImage from "./BackgroundImage";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { SuggestionsBox } from "./historical/SuggestionsBox";
 
 interface PageLayoutProps {
   children: ReactNode;
@@ -50,6 +51,8 @@ export function PageLayout({ children, showBackground = false, className = "" }:
           </div>
         </div>
       </footer>
+
+      <SuggestionsBox />
     </div>
   );
 }
