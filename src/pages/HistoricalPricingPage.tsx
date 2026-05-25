@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from "react";
-import { Database, Upload, FileSpreadsheet, FileText, Trash2, Eye, Calendar, MapPin, CheckCircle, XCircle, Plus, Search, Filter, ArrowLeft, BarChart3, Loader2, Download, FileImage } from "lucide-react";
+import { Database, Upload, FileSpreadsheet, FileText, Trash2, Eye, Calendar, MapPin, CheckCircle, XCircle, Plus, Search, Filter, ArrowLeft, BarChart3, Loader2, Download, FileImage, History, TrendingUp } from "lucide-react";
 import { SuspenseFallback } from "@/components/ui/loading-states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,6 +34,8 @@ import { ImportFromSavedProjects } from "@/components/ImportFromSavedProjects";
 import { HistoricalItemsTable } from "@/components/HistoricalItemsTable";
 import { ColorLegend } from "@/components/ui/color-code";
 import { normalizeHistoricalItems, NormalizedHistoricalItem } from "@/lib/historical-data-utils";
+import { PriceTrendsTab } from "@/components/historical/PriceTrendsTab";
+import { MaterialHistoryDialog } from "@/components/historical/MaterialHistoryDialog";
 interface HistoricalFile {
   id: string;
   file_name: string;
@@ -64,10 +72,15 @@ export default function HistoricalPricingPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterLocation, setFilterLocation] = useState<string>("all");
+  const [filterVerified, setFilterVerified] = useState<string>("all"); // all | verified | unverified
+  const [filterDateFrom, setFilterDateFrom] = useState<string>("");
+  const [filterDateTo, setFilterDateTo] = useState<string>("");
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<HistoricalFile | null>(null);
   const [activeTab, setActiveTab] = useState("files");
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [historyKeyword, setHistoryKeyword] = useState("");
   
   // Upload form state
   const [projectName, setProjectName] = useState("");
@@ -290,6 +303,69 @@ export default function HistoricalPricingPage() {
     });
   };
 
+  // Export saved file data to CSV
+  const handleExportSavedToCSV = (file: HistoricalFile) => {
+    if (!file.items || file.items.length === 0) return;
+    const headers = Object.keys(file.items[0] || {});
+    const escape = (v: any) => {
+      const s = v === null || v === undefined ? "" : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const lines = [headers.join(",")];
+    for (const row of file.items) lines.push(headers.map((h) => escape((row as any)[h])).join(","));
+    const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${file.project_name.replace(/[^a-zA-Z0-9أ-ي]/g, '_')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "✅ تم التصدير", description: `تم تصدير ${file.items.length} صف إلى CSV` });
+  };
+
+  // Export ALL filtered files (flattened items) — entry point for the toolbar.
+  const handleExportAll = (fmt: "xlsx" | "csv") => {
+    const rows: any[] = [];
+    for (const f of filteredFiles) {
+      const items = normalizeHistoricalItems(Array.isArray(f.items) ? f.items : []);
+      for (const it of items) {
+        rows.push({
+          project_name: f.project_name,
+          project_date: f.project_date,
+          project_location: f.project_location,
+          currency: f.currency,
+          is_verified: f.is_verified,
+          ...it,
+        });
+      }
+    }
+    if (rows.length === 0) {
+      toast({ title: "لا توجد بيانات", description: "لا يوجد ما يمكن تصديره", variant: "destructive" });
+      return;
+    }
+    if (fmt === "xlsx") {
+      const wb = createWorkbook();
+      addJsonSheet(wb, rows, "Historical");
+      downloadWorkbook(wb, `historical_pricing_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } else {
+      const headers = Object.keys(rows[0]);
+      const escape = (v: any) => {
+        const s = v === null || v === undefined ? "" : String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const lines = [headers.join(",")];
+      for (const r of rows) lines.push(headers.map((h) => escape(r[h])).join(","));
+      const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `historical_pricing_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    toast({ title: "✅ تم التصدير", description: `${rows.length} صف` });
+  };
+
   const handleSaveFile = async () => {
     if (!user) {
       toast({
@@ -400,11 +476,18 @@ export default function HistoricalPricingPage() {
   };
 
   const filteredFiles = files.filter(file => {
-    const matchesSearch = 
+    const matchesSearch =
       file.project_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       file.file_name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesLocation = filterLocation === "all" || file.project_location === filterLocation;
-    return matchesSearch && matchesLocation;
+    const matchesVerified =
+      filterVerified === "all" ||
+      (filterVerified === "verified" && file.is_verified) ||
+      (filterVerified === "unverified" && !file.is_verified);
+    const fileDate = file.project_date ? new Date(file.project_date).getTime() : null;
+    const matchesFrom = !filterDateFrom || (fileDate !== null && fileDate >= new Date(filterDateFrom).getTime());
+    const matchesTo = !filterDateTo || (fileDate !== null && fileDate <= new Date(filterDateTo).getTime());
+    return matchesSearch && matchesLocation && matchesVerified && matchesFrom && matchesTo;
   });
 
   const totalItems = files.reduce((sum, f) => sum + f.items_count, 0);
@@ -632,6 +715,10 @@ export default function HistoricalPricingPage() {
               <Database className="w-4 h-4" />
               الملفات ({files.length})
             </TabsTrigger>
+            <TabsTrigger value="trends" className="gap-2">
+              <TrendingUp className="w-4 h-4" />
+              اتجاهات الأسعار
+            </TabsTrigger>
             <TabsTrigger value="stats" className="gap-2">
               <BarChart3 className="w-4 h-4" />
               الإحصائيات
@@ -779,31 +866,78 @@ export default function HistoricalPricingPage() {
               );
             })()}
 
-        {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="بحث بالاسم أو الملف..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pr-10"
-            />
+        {/* Filters + Export */}
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="flex-1 relative">
+              <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="بحث بالاسم أو الملف..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pr-10"
+              />
+            </div>
+            <Select value={filterLocation} onValueChange={setFilterLocation}>
+              <SelectTrigger className="w-[180px]">
+                <Filter className="w-4 h-4 ml-2" />
+                <SelectValue placeholder="الموقع" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">جميع المواقع</SelectItem>
+                {LOCATIONS.map(loc => (
+                  <SelectItem key={loc.value} value={loc.value}>{loc.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterVerified} onValueChange={setFilterVerified}>
+              <SelectTrigger className="w-[160px]">
+                <CheckCircle className="w-4 h-4 ml-2" />
+                <SelectValue placeholder="حالة التحقق" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">الكل</SelectItem>
+                <SelectItem value="verified">موثق فقط</SelectItem>
+                <SelectItem value="unverified">غير موثق</SelectItem>
+              </SelectContent>
+            </Select>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Download className="w-4 h-4" />
+                  تصدير الكل
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleExportAll("xlsx")}>Excel (.xlsx)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExportAll("csv")}>CSV</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          <Select value={filterLocation} onValueChange={setFilterLocation}>
-            <SelectTrigger className="w-[200px]">
-              <Filter className="w-4 h-4 ml-2" />
-              <SelectValue placeholder="فلترة بالموقع" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">جميع المواقع</SelectItem>
-              {LOCATIONS.map(loc => (
-                <SelectItem key={loc.value} value={loc.value}>
-                  {loc.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col md:flex-row gap-3 items-end">
+            <div className="space-y-1">
+              <Label className="text-xs">من تاريخ</Label>
+              <Input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} className="w-[180px]" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">إلى تاريخ</Label>
+              <Input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} className="w-[180px]" />
+            </div>
+            {(filterDateFrom || filterDateTo || filterVerified !== "all" || filterLocation !== "all" || searchQuery) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearchQuery(""); setFilterLocation("all"); setFilterVerified("all");
+                  setFilterDateFrom(""); setFilterDateTo("");
+                }}
+              >
+                <XCircle className="w-4 h-4 ml-1" />
+                مسح الفلاتر
+              </Button>
+            )}
+            <Badge variant="secondary" className="mr-auto">{filteredFiles.length} ملف</Badge>
+          </div>
         </div>
 
         {/* Files List */}
@@ -876,13 +1010,27 @@ export default function HistoricalPricingPage() {
                         <p className="text-xs text-muted-foreground">{file.currency}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleExportSavedToExcel(file)}
-                          title="تصدير إلى Excel"
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" title="تصدير">
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleExportSavedToExcel(file)}>Excel (.xlsx)</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExportSavedToCSV(file)}>CSV</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          title="سجل تغييرات أسعار هذا المشروع"
+                          onClick={() => {
+                            setHistoryKeyword(file.project_name);
+                            setHistoryDialogOpen(true);
+                          }}
                         >
-                          <Download className="w-4 h-4" />
+                          <History className="w-4 h-4" />
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => handleViewFile(file)}>
                           <Eye className="w-4 h-4" />
@@ -900,10 +1048,21 @@ export default function HistoricalPricingPage() {
         )}
           </TabsContent>
 
+          <TabsContent value="trends" className="mt-4">
+            <PriceTrendsTab files={files} />
+          </TabsContent>
+
           <TabsContent value="stats" className="mt-4">
             <HistoricalPricingStats files={files} />
           </TabsContent>
         </Tabs>
+
+        <MaterialHistoryDialog
+          open={historyDialogOpen}
+          onOpenChange={setHistoryDialogOpen}
+          keyword={historyKeyword}
+          files={files}
+        />
 
         {/* View Dialog */}
         <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
