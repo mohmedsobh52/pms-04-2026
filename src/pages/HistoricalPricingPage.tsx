@@ -1010,13 +1010,27 @@ export default function HistoricalPricingPage() {
                         <p className="text-xs text-muted-foreground">{file.currency}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleExportSavedToExcel(file)}
-                          title="تصدير إلى Excel"
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" title="تصدير">
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleExportSavedToExcel(file)}>Excel (.xlsx)</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExportSavedToCSV(file)}>CSV</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          title="سجل تغييرات أسعار هذا المشروع"
+                          onClick={() => {
+                            setHistoryKeyword(file.project_name);
+                            setHistoryDialogOpen(true);
+                          }}
                         >
-                          <Download className="w-4 h-4" />
+                          <History className="w-4 h-4" />
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => handleViewFile(file)}>
                           <Eye className="w-4 h-4" />
@@ -1034,10 +1048,21 @@ export default function HistoricalPricingPage() {
         )}
           </TabsContent>
 
+          <TabsContent value="trends" className="mt-4">
+            <PriceTrendsTab files={files} />
+          </TabsContent>
+
           <TabsContent value="stats" className="mt-4">
             <HistoricalPricingStats files={files} />
           </TabsContent>
         </Tabs>
+
+        <MaterialHistoryDialog
+          open={historyDialogOpen}
+          onOpenChange={setHistoryDialogOpen}
+          keyword={historyKeyword}
+          files={files}
+        />
 
         {/* View Dialog */}
         <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
