@@ -228,7 +228,7 @@ export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName
                 <TableHead className="text-xs whitespace-nowrap px-2 w-[90px]">الإجمالي</TableHead>
                 <TableHead className="text-xs whitespace-nowrap px-2 w-[80px]">كود البند</TableHead>
                 {!readOnly && (
-                  <TableHead className="text-xs whitespace-nowrap px-2 w-[40px]"></TableHead>
+                  <TableHead className="text-xs whitespace-nowrap px-2 w-[80px]"></TableHead>
                 )}
               </TableRow>
             </TableHeader>
