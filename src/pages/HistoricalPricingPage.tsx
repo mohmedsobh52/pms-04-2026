@@ -476,11 +476,18 @@ export default function HistoricalPricingPage() {
   };
 
   const filteredFiles = files.filter(file => {
-    const matchesSearch = 
+    const matchesSearch =
       file.project_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       file.file_name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesLocation = filterLocation === "all" || file.project_location === filterLocation;
-    return matchesSearch && matchesLocation;
+    const matchesVerified =
+      filterVerified === "all" ||
+      (filterVerified === "verified" && file.is_verified) ||
+      (filterVerified === "unverified" && !file.is_verified);
+    const fileDate = file.project_date ? new Date(file.project_date).getTime() : null;
+    const matchesFrom = !filterDateFrom || (fileDate !== null && fileDate >= new Date(filterDateFrom).getTime());
+    const matchesTo = !filterDateTo || (fileDate !== null && fileDate <= new Date(filterDateTo).getTime());
+    return matchesSearch && matchesLocation && matchesVerified && matchesFrom && matchesTo;
   });
 
   const totalItems = files.reduce((sum, f) => sum + f.items_count, 0);
