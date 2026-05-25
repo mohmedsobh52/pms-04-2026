@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Trash2, Save, Download, Search, Edit3, Check, X } from "lucide-react";
+import { Plus, Trash2, Save, Download, Search, Edit3, Check, X, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { createWorkbook, addJsonSheet, downloadWorkbook } from "@/lib/exceljs-utils";
 import { NormalizedHistoricalItem, createEmptyItem, calculateTotal } from "@/lib/historical-data-utils";
+import { addHistoricalSuggestion } from "@/lib/historical-suggestions";
 
 interface HistoricalItemsTableProps {
   items: NormalizedHistoricalItem[];
@@ -253,14 +254,40 @@ export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName
                     <TableCell className="px-2">{renderCell(item, 'item_code')}</TableCell>
                     {!readOnly && (
                       <TableCell className="px-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => deleteItem(item.id)}
-                        >
-                          <Trash2 className="w-3 h-3 text-destructive" />
-                        </Button>
+                        <div className="flex items-center gap-0.5">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            title="إضافة كاقتراح سعر"
+                            onClick={() => {
+                              addHistoricalSuggestion({
+                                source_file_id: fileId || "",
+                                source_project_name: projectName || "",
+                                source_project_date: null,
+                                item_number: item.item_number,
+                                description: item.description,
+                                description_ar: item.description_ar,
+                                unit: item.unit,
+                                quantity: item.quantity,
+                                unit_price: item.unit_price,
+                                total_price: item.total_price,
+                                currency: "SAR",
+                              });
+                              toast({ title: "✅ تمت إضافة الاقتراح", description: `${item.description_ar || item.description || item.item_number}` });
+                            }}
+                          >
+                            <Lightbulb className="w-3 h-3 text-primary" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => deleteItem(item.id)}
+                          >
+                            <Trash2 className="w-3 h-3 text-destructive" />
+                          </Button>
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>
