@@ -1114,9 +1114,60 @@ export default function HistoricalPricingPage() {
               </div>
             )}
 
-            <DialogFooter>
-              <Button 
-                variant="outline" 
+            <DialogFooter className="gap-2 flex-wrap">
+              <input
+                type="file"
+                id="refill-desc-input"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file || !selectedFile) return;
+                  try {
+                    const result = await extractRawDataFromExcel(file);
+                    const fresh = normalizeHistoricalItems(result.rows, result.headers);
+                    const current = normalizeHistoricalItems(selectedFile.items);
+                    // Build index by item_number for quick lookup
+                    const byNum = new Map(fresh.map((it) => [String(it.item_number).trim(), it]));
+                    let filled = 0;
+                    const merged = current.map((it) => {
+                      const match = byNum.get(String(it.item_number).trim());
+                      if (!match) return it;
+                      const updated = { ...it };
+                      if (!it.description && match.description) { updated.description = match.description; filled++; }
+                      if (!it.description_ar && match.description_ar) { updated.description_ar = match.description_ar; filled++; }
+                      if (!it.item_code && match.item_code) updated.item_code = match.item_code;
+                      if ((!it.quantity || it.quantity === 0) && match.quantity) updated.quantity = match.quantity;
+                      if ((!it.unit_price || it.unit_price === 0) && match.unit_price) updated.unit_price = match.unit_price;
+                      if (!updated.total_price) updated.total_price = updated.quantity * updated.unit_price;
+                      return updated;
+                    });
+                    const totalValue = merged.reduce((s, x) => s + (x.total_price || 0), 0);
+                    const { error } = await supabase
+                      .from("historical_pricing_files")
+                      .update({ items: merged as any, items_count: merged.length, total_value: totalValue })
+                      .eq("id", selectedFile.id);
+                    if (error) throw error;
+                    setSelectedFile({ ...selectedFile, items: merged, items_count: merged.length, total_value: totalValue });
+                    await fetchFiles();
+                    toast({ title: "✅ تم التحديث", description: `تم تعبئة ${filled} حقل وصف من الملف` });
+                  } catch (err: any) {
+                    toast({ title: "خطأ", description: err.message, variant: "destructive" });
+                  } finally {
+                    (e.target as HTMLInputElement).value = "";
+                  }
+                }}
+              />
+              <Button
+                variant="outline"
+                onClick={() => document.getElementById("refill-desc-input")?.click()}
+                className="gap-2"
+              >
+                <Upload className="w-4 h-4" />
+                تحديث الأوصاف من Excel
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => selectedFile && handleExportSavedToExcel(selectedFile)}
                 className="gap-2"
               >
