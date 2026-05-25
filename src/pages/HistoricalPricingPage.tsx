@@ -1149,7 +1149,7 @@ export default function HistoricalPricingPage() {
                       .eq("id", selectedFile.id);
                     if (error) throw error;
                     setSelectedFile({ ...selectedFile, items: merged, items_count: merged.length, total_value: totalValue });
-                    await fetchFiles();
+                    await loadFiles();
                     toast({ title: "✅ تم التحديث", description: `تم تعبئة ${filled} حقل وصف من الملف` });
                   } catch (err: any) {
                     toast({ title: "خطأ", description: err.message, variant: "destructive" });
