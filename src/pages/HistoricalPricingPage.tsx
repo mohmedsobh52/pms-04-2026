@@ -72,10 +72,15 @@ export default function HistoricalPricingPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterLocation, setFilterLocation] = useState<string>("all");
+  const [filterVerified, setFilterVerified] = useState<string>("all"); // all | verified | unverified
+  const [filterDateFrom, setFilterDateFrom] = useState<string>("");
+  const [filterDateTo, setFilterDateTo] = useState<string>("");
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<HistoricalFile | null>(null);
   const [activeTab, setActiveTab] = useState("files");
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [historyKeyword, setHistoryKeyword] = useState("");
   
   // Upload form state
   const [projectName, setProjectName] = useState("");
