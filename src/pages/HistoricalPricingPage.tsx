@@ -1134,14 +1134,15 @@ export default function HistoricalPricingPage() {
                     const merged = current.map((it, idx) => {
                       const match = byNum.get(String(it.item_number).trim()) || fresh[idx];
                       if (!match) return it;
+                      // OVERWRITE from source file (source-of-truth re-import)
                       const updated = { ...it };
-                      if (!it.description && match.description) { updated.description = match.description; filledDesc++; }
-                      if (!it.description_ar && match.description_ar) { updated.description_ar = match.description_ar; filledDesc++; }
-                      if (!it.item_code && match.item_code) updated.item_code = match.item_code;
-                      if (!it.unit && match.unit) updated.unit = match.unit;
-                      if ((!it.quantity || it.quantity === 0) && match.quantity) { updated.quantity = match.quantity; filledQty++; }
-                      if ((!it.unit_price || it.unit_price === 0) && match.unit_price) updated.unit_price = match.unit_price;
-                      updated.total_price = (updated.quantity || 0) * (updated.unit_price || 0);
+                      if (match.description) { updated.description = match.description; filledDesc++; }
+                      if (match.description_ar) { updated.description_ar = match.description_ar; filledDesc++; }
+                      if (match.item_code) updated.item_code = match.item_code;
+                      if (match.unit) updated.unit = match.unit;
+                      if (match.quantity) { updated.quantity = match.quantity; filledQty++; }
+                      if (match.unit_price) updated.unit_price = match.unit_price;
+                      updated.total_price = match.total_price || ((updated.quantity || 0) * (updated.unit_price || 0));
                       return updated;
                     });
                     const totalValue = merged.reduce((s, x) => s + (x.total_price || 0), 0);
