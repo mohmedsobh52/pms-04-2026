@@ -184,6 +184,12 @@ function AutoPriceDialogComponent({
         }
       }
 
+      // Merge AI override if available and stronger
+      const ai = aiOverrides[item.id];
+      if (ai && (!bestMatch || ai.confidence > bestMatch.confidence)) {
+        bestMatch = { price: ai.price, confidence: ai.confidence, source: ai.source, sourceName: ai.sourceName };
+      }
+
       results.push({
         itemId: item.id,
         itemNumber: item.item_number,
@@ -197,7 +203,7 @@ function AutoPriceDialogComponent({
     }
 
     return results.sort((a, b) => b.confidence - a.confidence);
-  }, [unpricedItems, materials, laborRates, equipmentRates, findMatchingPrice]);
+  }, [unpricedItems, materials, laborRates, equipmentRates, findMatchingPrice, aiOverrides]);
 
   const aboveThreshold = useMemo(
     () => allSuggestions.filter(r => r.hasMatch && r.confidence >= confidenceThreshold[0]),
