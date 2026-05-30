@@ -757,17 +757,40 @@ export function BOQAnalyzerPanel({ onProjectSaved, embedded = false, initialFile
         <div className="space-y-4">
           {/* AI Enrichment Option */}
           {showAIEnrichmentOption && (
-            <Alert>
-              <Sparkles className="w-4 h-4" />
-              <AlertDescription className="flex items-center justify-between">
-                <span>
-                  {isArabic 
-                    ? 'يمكنك تحسين التصنيفات باستخدام الذكاء الاصطناعي'
-                    : 'You can improve categories using AI'}
-                </span>
-                <Button size="sm" variant="outline" className="gap-1">
-                  <Sparkles className="w-3 h-3" />
-                  {isArabic ? 'تحسين بالـ AI' : 'Enhance with AI'}
+            <Alert className="border-primary/30 bg-gradient-to-r from-primary/5 to-accent/5">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <AlertDescription className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
+                <div className="flex-1">
+                  <div className="font-medium text-foreground">
+                    {isArabic ? "تحسين التصنيفات بالذكاء الاصطناعي" : "Enhance categories with AI"}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {isArabic
+                      ? `سيتم إعادة تصنيف ${analysisData?.items?.length || 0} بند تلقائياً إلى فئات احترافية`
+                      : `Will automatically re-classify ${analysisData?.items?.length || 0} items into professional categories`}
+                  </div>
+                  {isEnhancing && enhanceProgress && (
+                    <Progress
+                      value={(enhanceProgress.done / Math.max(1, enhanceProgress.total)) * 100}
+                      className="h-1.5 mt-2"
+                    />
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="gap-1 shrink-0"
+                  onClick={handleEnhanceWithAI}
+                  disabled={isEnhancing}
+                >
+                  {isEnhancing ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3 h-3" />
+                  )}
+                  {isEnhancing
+                    ? (isArabic ? "جاري التحسين..." : "Enhancing...")
+                    : (isArabic ? "تحسين بالـ AI" : "Enhance with AI")}
                 </Button>
               </AlertDescription>
             </Alert>
