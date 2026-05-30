@@ -60,6 +60,9 @@ function AutoPriceDialogComponent({
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  // Map of itemId -> AI-graded override { price, confidence, source, sourceName }
+  const [aiOverrides, setAiOverrides] = useState<Record<string, { price: number; confidence: number; source: string; sourceName: string }>>({});
 
   const { materials, findMatchingPrice } = useMaterialPrices();
   const { laborRates } = useLaborRates();
