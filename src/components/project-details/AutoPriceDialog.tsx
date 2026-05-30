@@ -545,6 +545,7 @@ function AutoPriceDialogComponent({
               {isArabic ? `تطبيق (${selectedIds.size} بند)` : `Apply (${selectedIds.size} items)`}
             </Button>
           )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
