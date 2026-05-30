@@ -1,5 +1,7 @@
 import { useState, useMemo, memo, useEffect } from "react";
-import { Sparkles, Info, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
+import { Sparkles, Info, AlertTriangle, CheckCircle, Loader2, Wand2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -58,6 +60,9 @@ function AutoPriceDialogComponent({
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  // Map of itemId -> AI-graded override { price, confidence, source, sourceName }
+  const [aiOverrides, setAiOverrides] = useState<Record<string, { price: number; confidence: number; source: string; sourceName: string }>>({});
 
   const { materials, findMatchingPrice } = useMaterialPrices();
   const { laborRates } = useLaborRates();
@@ -95,6 +100,13 @@ function AutoPriceDialogComponent({
     return items.filter(item => !item.unit_price || item.unit_price === 0);
   }, [items]);
 
+  // Extract numeric/dimensional tokens like "20", "150mm", "3/4", "M20"
+  const extractNumbers = (s: string): string[] => {
+    const out = (s.match(/\d+(?:[.,/]\d+)?(?:\s?(?:mm|cm|m|kg|in|"|'|m2|m3))?/gi) || [])
+      .map(t => t.toLowerCase().replace(/\s+/g, ""));
+    return Array.from(new Set(out));
+  };
+
   function calculateSimilarity(
     itemDesc: string,
     candidateText: string,
@@ -107,16 +119,26 @@ function AutoPriceDialogComponent({
     const cand = normalizeText(candidateText);
     let score = 0;
     if (cand && desc) {
-      if (desc.includes(cand) || cand.includes(desc)) score += 70;
-      // partial: any candidate token appearing in desc
+      if (desc.includes(cand) || cand.includes(desc)) score += 60;
       const candToks = tokenize(candidateText);
       const matched = candToks.filter(t => desc.includes(t)).length;
       if (candToks.length > 0) score += Math.round((matched / candToks.length) * 25);
     }
     score += Math.round(jaccardScore(itemDesc, candidateText) * 0.5);
+    // Dimension/number matching is a strong signal
+    const itemNums = extractNumbers(itemDesc);
+    const candNums = extractNumbers(candidateText);
+    if (itemNums.length && candNums.length) {
+      const shared = itemNums.filter(n => candNums.includes(n)).length;
+      const ratio = shared / Math.max(itemNums.length, candNums.length);
+      score += Math.round(ratio * 15);
+      // Penalize when both sides have numbers but none overlap (likely wrong size)
+      if (shared === 0) score -= 15;
+    }
     if (itemUnit && candidateUnit && normalizeText(itemUnit) === normalizeText(candidateUnit)) score += 10;
+    else if (itemUnit && candidateUnit) score -= 5;
     if (itemCategory && candidateCategory && normalizeText(itemCategory) === normalizeText(candidateCategory)) score += 8;
-    return Math.min(score, 99);
+    return Math.max(0, Math.min(score, 99));
   }
 
   // Compute best match per unpriced item (regardless of threshold)
@@ -162,6 +184,12 @@ function AutoPriceDialogComponent({
         }
       }
 
+      // Merge AI override if available and stronger
+      const ai = aiOverrides[item.id];
+      if (ai && (!bestMatch || ai.confidence > bestMatch.confidence)) {
+        bestMatch = { price: ai.price, confidence: ai.confidence, source: ai.source, sourceName: ai.sourceName };
+      }
+
       results.push({
         itemId: item.id,
         itemNumber: item.item_number,
@@ -175,7 +203,7 @@ function AutoPriceDialogComponent({
     }
 
     return results.sort((a, b) => b.confidence - a.confidence);
-  }, [unpricedItems, materials, laborRates, equipmentRates, findMatchingPrice]);
+  }, [unpricedItems, materials, laborRates, equipmentRates, findMatchingPrice, aiOverrides]);
 
   const aboveThreshold = useMemo(
     () => allSuggestions.filter(r => r.hasMatch && r.confidence >= confidenceThreshold[0]),
@@ -195,6 +223,83 @@ function AutoPriceDialogComponent({
       return next;
     });
   };
+
+  const handleEnhanceWithAI = async () => {
+    // Target items with weak (<85%) or no matches
+    const targets = allSuggestions.filter(r => !r.hasMatch || r.confidence < 85);
+    if (targets.length === 0) {
+      toast.info(isArabic ? "كل البنود لديها مطابقة قوية بالفعل" : "All items already have strong matches");
+      return;
+    }
+    const targetItems = unpricedItems.filter(it => targets.some(t => t.itemId === it.id));
+
+    // Build candidate pool from all libraries with stable IDs
+    const candidates = [
+      ...materials.map(m => ({
+        id: `lib:${m.id}`, name: m.name, name_ar: m.name_ar, unit: m.unit,
+        category: m.category, price: m.unit_price, source: "library" as const,
+      })),
+      ...laborRates.map(l => ({
+        id: `lab:${l.id}`, name: l.name, name_ar: l.name_ar, unit: l.unit,
+        category: l.category, price: l.unit_rate, source: "labor" as const,
+      })),
+      ...equipmentRates.map(e => ({
+        id: `eq:${e.id}`, name: e.name, name_ar: e.name_ar, unit: e.unit,
+        category: e.category, price: e.rental_rate, source: "equipment" as const,
+      })),
+    ];
+
+    if (candidates.length === 0) {
+      toast.error(isArabic ? "لا توجد عناصر في مكتبة الأسعار" : "Price library is empty");
+      return;
+    }
+
+    setIsEnhancing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-auto-price", {
+        body: {
+          items: targetItems.map(it => ({
+            id: it.id, description: it.description || "",
+            unit: it.unit, category: it.category,
+          })),
+          candidates,
+          isArabic,
+        },
+      });
+      if (error) throw error;
+      const matches: { itemId: string; candidateId: string | null; confidence: number }[] = data?.matches || [];
+      const candMap = new Map(candidates.map(c => [c.id, c]));
+      const newOverrides: typeof aiOverrides = {};
+      let upgraded = 0;
+      let strong = 0;
+      for (const m of matches) {
+        if (!m.candidateId || m.confidence <= 0) continue;
+        const c = candMap.get(m.candidateId);
+        if (!c) continue;
+        newOverrides[m.itemId] = {
+          price: c.price,
+          confidence: Math.min(99, Math.round(m.confidence)),
+          source: c.source,
+          sourceName: c.name,
+        };
+        upgraded++;
+        if (m.confidence >= 95) strong++;
+      }
+      setAiOverrides(prev => ({ ...prev, ...newOverrides }));
+      toast.success(
+        isArabic
+          ? `تم تحسين ${upgraded} بند بواسطة الذكاء الاصطناعي (${strong} بثقة ≥95%)`
+          : `AI enhanced ${upgraded} items (${strong} at ≥95% confidence)`
+      );
+    } catch (e: any) {
+      console.error("AI enhance failed", e);
+      const msg = e?.message || (isArabic ? "فشل التحسين بالذكاء الاصطناعي" : "AI enhance failed");
+      toast.error(msg);
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
 
   const handleApply = async () => {
     if (selectedIds.size === 0) return;
@@ -407,7 +512,17 @@ function AutoPriceDialogComponent({
           )}
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 sm:justify-between">
+          <Button
+            variant="secondary"
+            onClick={handleEnhanceWithAI}
+            disabled={isEnhancing || unpricedItems.length === 0}
+            className="gap-2"
+          >
+            {isEnhancing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+            {isArabic ? "تحسين بالذكاء الاصطناعي" : "Enhance with AI"}
+          </Button>
+          <div className="flex gap-2">
           <Button variant="outline" onClick={onClose}>
             {isArabic ? "إلغاء" : "Cancel"}
           </Button>
@@ -430,6 +545,7 @@ function AutoPriceDialogComponent({
               {isArabic ? `تطبيق (${selectedIds.size} بند)` : `Apply (${selectedIds.size} items)`}
             </Button>
           )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
