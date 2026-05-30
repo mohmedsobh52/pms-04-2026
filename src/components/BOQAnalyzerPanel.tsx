@@ -75,6 +75,46 @@ export function BOQAnalyzerPanel({ onProjectSaved, embedded = false, initialFile
   const [excelColumnMapping, setExcelColumnMapping] = useState<Record<string, number>>({});
   const [showExcelPreview, setShowExcelPreview] = useState(false);
   const [showAIEnrichmentOption, setShowAIEnrichmentOption] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [enhanceProgress, setEnhanceProgress] = useState<{ done: number; total: number } | null>(null);
+
+  const handleEnhanceWithAI = useCallback(async () => {
+    if (!analysisData?.items?.length) return;
+    setIsEnhancing(true);
+    setEnhanceProgress({ done: 0, total: analysisData.items.length });
+    try {
+      const { data, error } = await supabase.functions.invoke("enhance-boq-categories", {
+        body: { items: analysisData.items, isArabic },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const enhancedItems = data?.items || [];
+      setAnalysisData({
+        ...analysisData,
+        items: enhancedItems,
+      });
+      setShowAIEnrichmentOption(false);
+      setEnhanceProgress({ done: enhancedItems.length, total: enhancedItems.length });
+
+      const categoriesCount = Object.keys(data?.categoryCounts || {}).length;
+      toast({
+        title: isArabic ? "تم التحسين بنجاح" : "Enhanced successfully",
+        description: isArabic
+          ? `تم تصنيف ${enhancedItems.length} بند إلى ${categoriesCount} فئة`
+          : `Classified ${enhancedItems.length} items into ${categoriesCount} categories`,
+      });
+    } catch (e: any) {
+      toast({
+        title: isArabic ? "فشل التحسين" : "Enhancement failed",
+        description: e?.message || String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setIsEnhancing(false);
+      setTimeout(() => setEnhanceProgress(null), 1500);
+    }
+  }, [analysisData, isArabic, setAnalysisData, toast]);
   
   // Save dialog
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
