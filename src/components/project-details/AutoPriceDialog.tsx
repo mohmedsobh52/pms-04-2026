@@ -1,5 +1,7 @@
 import { useState, useMemo, memo, useEffect } from "react";
-import { Sparkles, Info, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
+import { Sparkles, Info, AlertTriangle, CheckCircle, Loader2, Wand2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
