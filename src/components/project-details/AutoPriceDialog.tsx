@@ -224,6 +224,83 @@ function AutoPriceDialogComponent({
     });
   };
 
+  const handleEnhanceWithAI = async () => {
+    // Target items with weak (<85%) or no matches
+    const targets = allSuggestions.filter(r => !r.hasMatch || r.confidence < 85);
+    if (targets.length === 0) {
+      toast.info(isArabic ? "كل البنود لديها مطابقة قوية بالفعل" : "All items already have strong matches");
+      return;
+    }
+    const targetItems = unpricedItems.filter(it => targets.some(t => t.itemId === it.id));
+
+    // Build candidate pool from all libraries with stable IDs
+    const candidates = [
+      ...materials.map(m => ({
+        id: `lib:${m.id}`, name: m.name, name_ar: m.name_ar, unit: m.unit,
+        category: m.category, price: m.unit_price, source: "library" as const,
+      })),
+      ...laborRates.map(l => ({
+        id: `lab:${l.id}`, name: l.name, name_ar: l.name_ar, unit: l.unit,
+        category: l.category, price: l.unit_rate, source: "labor" as const,
+      })),
+      ...equipmentRates.map(e => ({
+        id: `eq:${e.id}`, name: e.name, name_ar: e.name_ar, unit: e.unit,
+        category: e.category, price: e.rental_rate, source: "equipment" as const,
+      })),
+    ];
+
+    if (candidates.length === 0) {
+      toast.error(isArabic ? "لا توجد عناصر في مكتبة الأسعار" : "Price library is empty");
+      return;
+    }
+
+    setIsEnhancing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-auto-price", {
+        body: {
+          items: targetItems.map(it => ({
+            id: it.id, description: it.description || "",
+            unit: it.unit, category: it.category,
+          })),
+          candidates,
+          isArabic,
+        },
+      });
+      if (error) throw error;
+      const matches: { itemId: string; candidateId: string | null; confidence: number }[] = data?.matches || [];
+      const candMap = new Map(candidates.map(c => [c.id, c]));
+      const newOverrides: typeof aiOverrides = {};
+      let upgraded = 0;
+      let strong = 0;
+      for (const m of matches) {
+        if (!m.candidateId || m.confidence <= 0) continue;
+        const c = candMap.get(m.candidateId);
+        if (!c) continue;
+        newOverrides[m.itemId] = {
+          price: c.price,
+          confidence: Math.min(99, Math.round(m.confidence)),
+          source: c.source,
+          sourceName: c.name,
+        };
+        upgraded++;
+        if (m.confidence >= 95) strong++;
+      }
+      setAiOverrides(prev => ({ ...prev, ...newOverrides }));
+      toast.success(
+        isArabic
+          ? `تم تحسين ${upgraded} بند بواسطة الذكاء الاصطناعي (${strong} بثقة ≥95%)`
+          : `AI enhanced ${upgraded} items (${strong} at ≥95% confidence)`
+      );
+    } catch (e: any) {
+      console.error("AI enhance failed", e);
+      const msg = e?.message || (isArabic ? "فشل التحسين بالذكاء الاصطناعي" : "AI enhance failed");
+      toast.error(msg);
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+
   const handleApply = async () => {
     if (selectedIds.size === 0) return;
     setIsApplying(true);
