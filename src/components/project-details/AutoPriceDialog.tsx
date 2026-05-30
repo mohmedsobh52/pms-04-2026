@@ -512,7 +512,17 @@ function AutoPriceDialogComponent({
           )}
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 sm:justify-between">
+          <Button
+            variant="secondary"
+            onClick={handleEnhanceWithAI}
+            disabled={isEnhancing || unpricedItems.length === 0}
+            className="gap-2"
+          >
+            {isEnhancing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+            {isArabic ? "تحسين بالذكاء الاصطناعي" : "Enhance with AI"}
+          </Button>
+          <div className="flex gap-2">
           <Button variant="outline" onClick={onClose}>
             {isArabic ? "إلغاء" : "Cancel"}
           </Button>
