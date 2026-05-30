@@ -100,6 +100,13 @@ function AutoPriceDialogComponent({
     return items.filter(item => !item.unit_price || item.unit_price === 0);
   }, [items]);
 
+  // Extract numeric/dimensional tokens like "20", "150mm", "3/4", "M20"
+  const extractNumbers = (s: string): string[] => {
+    const out = (s.match(/\d+(?:[.,/]\d+)?(?:\s?(?:mm|cm|m|kg|in|"|'|m2|m3))?/gi) || [])
+      .map(t => t.toLowerCase().replace(/\s+/g, ""));
+    return Array.from(new Set(out));
+  };
+
   function calculateSimilarity(
     itemDesc: string,
     candidateText: string,
@@ -112,16 +119,26 @@ function AutoPriceDialogComponent({
     const cand = normalizeText(candidateText);
     let score = 0;
     if (cand && desc) {
-      if (desc.includes(cand) || cand.includes(desc)) score += 70;
-      // partial: any candidate token appearing in desc
+      if (desc.includes(cand) || cand.includes(desc)) score += 60;
       const candToks = tokenize(candidateText);
       const matched = candToks.filter(t => desc.includes(t)).length;
       if (candToks.length > 0) score += Math.round((matched / candToks.length) * 25);
     }
     score += Math.round(jaccardScore(itemDesc, candidateText) * 0.5);
+    // Dimension/number matching is a strong signal
+    const itemNums = extractNumbers(itemDesc);
+    const candNums = extractNumbers(candidateText);
+    if (itemNums.length && candNums.length) {
+      const shared = itemNums.filter(n => candNums.includes(n)).length;
+      const ratio = shared / Math.max(itemNums.length, candNums.length);
+      score += Math.round(ratio * 15);
+      // Penalize when both sides have numbers but none overlap (likely wrong size)
+      if (shared === 0) score -= 15;
+    }
     if (itemUnit && candidateUnit && normalizeText(itemUnit) === normalizeText(candidateUnit)) score += 10;
+    else if (itemUnit && candidateUnit) score -= 5;
     if (itemCategory && candidateCategory && normalizeText(itemCategory) === normalizeText(candidateCategory)) score += 8;
-    return Math.min(score, 99);
+    return Math.max(0, Math.min(score, 99));
   }
 
   // Compute best match per unpriced item (regardless of threshold)
