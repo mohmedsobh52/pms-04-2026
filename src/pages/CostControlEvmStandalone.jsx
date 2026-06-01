@@ -1514,14 +1514,27 @@ export default function App(){
     const mean=arr=>arr.reduce((s,x)=>s+x,0)/arr.length;
     const c=Number(mcSettings.confidence)||80;
     const lo=(100-c)/2,hi=100-lo;
-    // Histogram bins for EAC
+    // Histogram bins for EAC (with cumulative + midpoint for ref lines)
     const min=Math.min(...eacs),max=Math.max(...eacs);
-    const bins=20;
+    const bins=24;
     const bw=(max-min)/bins||1;
+    let cum=0;
     const hist=Array.from({length:bins},(_,i)=>{
       const lo2=min+i*bw,hi2=lo2+bw;
-      const cnt=eacs.filter(x=>x>=lo2&&x<hi2).length;
-      return{range:`${(lo2/1e6).toFixed(1)}M`,count:cnt,pct:+(cnt/N*100).toFixed(1)};
+      const mid=(lo2+hi2)/2;
+      const cnt= i===bins-1
+        ? eacs.filter(x=>x>=lo2&&x<=hi2).length
+        : eacs.filter(x=>x>=lo2&&x<hi2).length;
+      cum+=cnt;
+      return{
+        range:`${(lo2/1e6).toFixed(2)}M`,
+        rangeFull:`${(lo2/1e6).toFixed(2)}M → ${(hi2/1e6).toFixed(2)}M`,
+        midM:+(mid/1e6).toFixed(3),
+        mid,
+        count:cnt,
+        pct:+(cnt/N*100).toFixed(2),
+        cumPct:+(cum/N*100).toFixed(2),
+      };
     });
     // Deficit probability vs threshold (M)
     const thr=(Number(forecastSettings.deficitThresholdM)||0)*1e6;
