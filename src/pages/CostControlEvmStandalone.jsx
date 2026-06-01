@@ -805,6 +805,8 @@ export default function App(){
   });
   useEffect(()=>{try{localStorage.setItem("evm:mcSettings",JSON.stringify(mcSettings));}catch{}},[mcSettings]);
   const [mcResult,setMcResult]=useState(null);
+  const [histRange,setHistRange]=useState({minM:0,maxM:0}); // filter window in millions
+  const eacHistRef=useRef(null);
   const [scenarios,setScenarios]=useState([
     {id:"S1",name:"السيناريو المتفائل",   spiAdj:1.15, cpiAdj:1.10, color:"#10b981", active:false},
     {id:"S2",name:"السيناريو الأساسي",   spiAdj:1.00, cpiAdj:1.00, color:"#6366f1", active:true},
