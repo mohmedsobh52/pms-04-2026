@@ -470,6 +470,23 @@ export function ProjectBOQTab({
                   ))
                 )}
               </TableBody>
+              {filteredItems.length > 0 && (
+                <TableFooter>
+                  <TableRow className="bg-muted/50 font-semibold">
+                    <TableCell colSpan={6} className="text-right">
+                      {isArabic ? "الإجمالي الكلي" : "Grand Total"}
+                    </TableCell>
+                    <TableCell className="text-right text-base text-primary">
+                      {formatCurrency(
+                        filteredItems.reduce((sum, it) => sum + (it.total_price || 0), 0)
+                      )}
+                    </TableCell>
+                    <TableCell colSpan={2} className="text-sm text-muted-foreground">
+                      {isArabic ? `${filteredItems.length} بند` : `${filteredItems.length} items`}
+                    </TableCell>
+                  </TableRow>
+                </TableFooter>
+              )}
             </Table>
           </div>
           
