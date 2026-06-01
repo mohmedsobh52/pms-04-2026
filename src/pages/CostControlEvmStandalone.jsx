@@ -1546,11 +1546,14 @@ export default function App(){
       etc:{mean:mean(etcs),p10:pct(etcs,10),p50:pct(etcs,50),p90:pct(etcs,90),pLo:pct(etcs,lo),pHi:pct(etcs,hi)},
       dur:{mean:mean(durs),p10:pct(durs,10),p50:pct(durs,50),p90:pct(durs,90)},
       hist,
+      eacs, // raw samples for re-binning under filter
       probOverBudget:+(overBudget/N*100).toFixed(1),
       probDeficit:+(overDeficit/N*100).toFixed(1),
       confidence:c,
       bac,
     });
+    // Reset histogram range filter to full
+    setHistRange({minM:+(min/1e6).toFixed(2),maxM:+(max/1e6).toFixed(2)});
     toast.success(`🎲 Monte Carlo: ${N} محاكاة`);
   },[mcSettings,kpi,project.duration,forecastSettings.deficitThresholdM]);
 
