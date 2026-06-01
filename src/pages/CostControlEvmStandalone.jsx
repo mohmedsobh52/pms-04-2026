@@ -1514,14 +1514,27 @@ export default function App(){
     const mean=arr=>arr.reduce((s,x)=>s+x,0)/arr.length;
     const c=Number(mcSettings.confidence)||80;
     const lo=(100-c)/2,hi=100-lo;
-    // Histogram bins for EAC
+    // Histogram bins for EAC (with cumulative + midpoint for ref lines)
     const min=Math.min(...eacs),max=Math.max(...eacs);
-    const bins=20;
+    const bins=24;
     const bw=(max-min)/bins||1;
+    let cum=0;
     const hist=Array.from({length:bins},(_,i)=>{
       const lo2=min+i*bw,hi2=lo2+bw;
-      const cnt=eacs.filter(x=>x>=lo2&&x<hi2).length;
-      return{range:`${(lo2/1e6).toFixed(1)}M`,count:cnt,pct:+(cnt/N*100).toFixed(1)};
+      const mid=(lo2+hi2)/2;
+      const cnt= i===bins-1
+        ? eacs.filter(x=>x>=lo2&&x<=hi2).length
+        : eacs.filter(x=>x>=lo2&&x<hi2).length;
+      cum+=cnt;
+      return{
+        range:`${(lo2/1e6).toFixed(2)}M`,
+        rangeFull:`${(lo2/1e6).toFixed(2)}M → ${(hi2/1e6).toFixed(2)}M`,
+        midM:+(mid/1e6).toFixed(3),
+        mid,
+        count:cnt,
+        pct:+(cnt/N*100).toFixed(2),
+        cumPct:+(cum/N*100).toFixed(2),
+      };
     });
     // Deficit probability vs threshold (M)
     const thr=(Number(forecastSettings.deficitThresholdM)||0)*1e6;
@@ -3069,19 +3082,53 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:12,marginBottom:12}}>
                     <Card>
-                      <H3>📊 توزيع EAC (Histogram)</H3>
-                      <ResponsiveContainer width="100%" height={220}>
-                        <BarChart data={mcResult.hist}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5"/>
-                          <XAxis dataKey="range" tick={{fontSize:8}} angle={-30} textAnchor="end" height={48}/>
-                          <YAxis tick={{fontSize:9}}/>
-                          <Tooltip content={<CTip/>}/>
-                          <ReferenceLine x={`${(mcResult.bac/1e6).toFixed(1)}M`} stroke="#ef4444" strokeDasharray="5 3" label={{value:"BAC",position:"top",fontSize:9,fill:"#ef4444"}}/>
-                          <Bar dataKey="count" name="عدد المحاكاة" radius={[3,3,0,0]}>
-                            {mcResult.hist.map((d,i)=><Cell key={i} fill={parseFloat(d.range)*1e6>mcResult.bac?"#ef4444":"#10b981"}/>)}
+                      <H3>📊 توزيع EAC (Histogram + CDF)</H3>
+                      <ResponsiveContainer width="100%" height={260}>
+                        <ComposedChart data={mcResult.hist} margin={{top:10,right:30,left:0,bottom:30}}>
+                          <defs>
+                            <linearGradient id="histSafe" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#10b981" stopOpacity={0.95}/>
+                              <stop offset="100%" stopColor="#10b981" stopOpacity={0.45}/>
+                            </linearGradient>
+                            <linearGradient id="histRisk" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#ef4444" stopOpacity={0.95}/>
+                              <stop offset="100%" stopColor="#ef4444" stopOpacity={0.45}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke={darkMode?"#1f2937":"#eef0f3"}/>
+                          <XAxis dataKey="range" tick={{fontSize:9}} angle={-35} textAnchor="end" height={52}
+                                 label={{value:"EAC (مليون)",position:"insideBottom",offset:-22,fontSize:10,fill:"#6b7280"}}/>
+                          <YAxis yAxisId="left" tick={{fontSize:9}} label={{value:"عدد المحاكاة",angle:-90,position:"insideLeft",fontSize:9,fill:"#6366f1"}}/>
+                          <YAxis yAxisId="right" orientation="right" domain={[0,100]} tick={{fontSize:9}} tickFormatter={v=>v+"%"}
+                                 label={{value:"تراكمي %",angle:90,position:"insideRight",fontSize:9,fill:"#8b5cf6"}}/>
+                          <Tooltip
+                            contentStyle={{background:darkMode?"#0f172a":"#fff",border:"1px solid #e5e7eb",borderRadius:8,fontSize:11}}
+                            formatter={(v,n,p)=>{
+                              if(n==="عدد المحاكاة") return [`${v} (${p.payload.pct}%)`,n];
+                              if(n==="تراكمي %") return [`${v}%`,n];
+                              return [v,n];
+                            }}
+                            labelFormatter={(_,p)=>p?.[0]?.payload?.rangeFull||""}
+                          />
+                          <Legend wrapperStyle={{fontSize:10}}/>
+                          <ReferenceLine yAxisId="left" x={`${(Math.floor(mcResult.bac/1e6*100)/100).toFixed(2)}M`} stroke="#ef4444" strokeWidth={2} strokeDasharray="5 3" label={{value:"BAC",position:"top",fontSize:10,fill:"#ef4444",fontWeight:700}}/>
+                          <ReferenceLine yAxisId="left" x={`${(Math.floor(mcResult.eac.p10/1e6*100)/100).toFixed(2)}M`} stroke="#10b981" strokeDasharray="3 3" label={{value:"P10",position:"top",fontSize:9,fill:"#10b981"}}/>
+                          <ReferenceLine yAxisId="left" x={`${(Math.floor(mcResult.eac.p50/1e6*100)/100).toFixed(2)}M`} stroke="#6366f1" strokeWidth={1.5} strokeDasharray="4 2" label={{value:"P50",position:"top",fontSize:9,fill:"#6366f1",fontWeight:700}}/>
+                          <ReferenceLine yAxisId="left" x={`${(Math.floor(mcResult.eac.p90/1e6*100)/100).toFixed(2)}M`} stroke="#f59e0b" strokeDasharray="3 3" label={{value:"P90",position:"top",fontSize:9,fill:"#f59e0b"}}/>
+                          <Bar yAxisId="left" dataKey="count" name="عدد المحاكاة" radius={[4,4,0,0]}>
+                            {mcResult.hist.map((d,i)=>(
+                              <Cell key={i} fill={d.mid>mcResult.bac?"url(#histRisk)":"url(#histSafe)"}/>
+                            ))}
                           </Bar>
-                        </BarChart>
+                          <Line yAxisId="right" type="monotone" dataKey="cumPct" name="تراكمي %" stroke="#8b5cf6" strokeWidth={2.5} dot={false} activeDot={{r:4}}/>
+                        </ComposedChart>
                       </ResponsiveContainer>
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8,fontSize:10}}>
+                        <span style={{padding:"3px 8px",borderRadius:12,background:"#10b98120",color:"#10b981",fontWeight:700}}>🟢 ضمن الميزانية: {(100-mcResult.probOverBudget).toFixed(1)}%</span>
+                        <span style={{padding:"3px 8px",borderRadius:12,background:"#ef444420",color:"#ef4444",fontWeight:700}}>🔴 تجاوز BAC: {mcResult.probOverBudget}%</span>
+                        <span style={{padding:"3px 8px",borderRadius:12,background:"#8b5cf620",color:"#8b5cf6",fontWeight:700}}>📊 IQR: {fmt(mcResult.eac.p10)} → {fmt(mcResult.eac.p90)}</span>
+                        <span style={{padding:"3px 8px",borderRadius:12,background:"#6366f120",color:"#6366f1",fontWeight:700}}>🎯 VaR (P90-Mean): {fmt(mcResult.eac.p90-mcResult.eac.mean)}</span>
+                      </div>
                     </Card>
                     <Card>
                       <H3>📋 ملخص احتمالي (ثقة {mcResult.confidence}%)</H3>
