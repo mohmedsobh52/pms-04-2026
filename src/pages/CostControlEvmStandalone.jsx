@@ -1562,6 +1562,133 @@ export default function App(){
     toast.success(`🎲 Monte Carlo: ${N} محاكاة`);
   },[mcSettings,kpi,project.duration,forecastSettings.deficitThresholdM]);
 
+  // ── Memoized histogram view (re-bins under user range filter) ──
+  const histView=useMemo(()=>{
+    if(!mcResult) return null;
+    const rawAll=mcResult.eacs||[];
+    const loF=(histRange.minM||0)*1e6;
+    const hiF=(histRange.maxM||0)*1e6;
+    const useFilter=hiF>loF && rawAll.length>0;
+    const samples=useFilter?rawAll.filter(x=>x>=loF&&x<=hiF):rawAll;
+    const total=samples.length||1;
+    let viewHist=mcResult.hist;
+    if(useFilter && samples.length){
+      const mn=Math.min(...samples),mx=Math.max(...samples);
+      const bins=24,bw=(mx-mn)/bins||1;let cum=0;
+      viewHist=Array.from({length:bins},(_,i)=>{
+        const a=mn+i*bw,b=a+bw,mid=(a+b)/2;
+        const cnt=i===bins-1?samples.filter(x=>x>=a&&x<=b).length:samples.filter(x=>x>=a&&x<b).length;
+        cum+=cnt;
+        return{range:`${(a/1e6).toFixed(2)}M`,rangeFull:`${(a/1e6).toFixed(2)}M → ${(b/1e6).toFixed(2)}M`,midM:+(mid/1e6).toFixed(3),mid,count:cnt,pct:+(cnt/total*100).toFixed(2),cumPct:+(cum/total*100).toFixed(2)};
+      });
+    }
+    const overBudgetCount=samples.filter(x=>x>mcResult.bac).length;
+    const overBudgetPct=+(overBudgetCount/total*100).toFixed(1);
+    const iqrLow=mcResult.eac.p10,iqrHigh=mcResult.eac.p90;
+    const vaR=mcResult.eac.p90-mcResult.eac.mean;
+    return{viewHist,samples,total,overBudgetCount,overBudgetPct,iqrLow,iqrHigh,vaR};
+  },[mcResult,histRange]);
+
+  // ── Save current MC into compare slot ──
+  const saveMcSnapshot=useCallback((slot)=>{
+    if(!mcResult){toast.error("شغّل المحاكاة أولاً");return;}
+    const label=prompt(`اسم اللقطة (${slot})`,`فترة ${slot} — ${new Date().toLocaleDateString("ar-EG")}`);
+    if(!label) return;
+    setMcSnapshots(p=>({...p,[slot]:{label,mc:mcResult,savedAt:new Date().toISOString()}}));
+    toast.success(`💾 حُفظت اللقطة كـ ${slot}: ${label}`);
+  },[mcResult]);
+
+  // ── Export Monte Carlo data as CSV ──
+  const exportMcCSV=useCallback(()=>{
+    if(!mcResult){toast.error("لا توجد بيانات محاكاة");return;}
+    const lines=[];
+    lines.push("Monte Carlo — EAC Simulation Export");
+    lines.push(`Generated,${new Date().toISOString()}`);
+    lines.push(`Iterations,${mcResult.iterations}`);
+    lines.push(`BAC,${mcResult.bac}`);
+    lines.push("");
+    lines.push("=== Summary Statistics ===");
+    lines.push("Metric,Value,Delta vs BAC");
+    const rows=[
+      ["P10 (Optimistic)",mcResult.eac.p10],
+      ["P50 (Median)",mcResult.eac.p50],
+      ["P90 (Pessimistic)",mcResult.eac.p90],
+      ["Mean",mcResult.eac.mean],
+      ["Min",mcResult.eac.min],
+      ["Max",mcResult.eac.max],
+      ["BAC",mcResult.bac],
+    ];
+    rows.forEach(([l,v])=>lines.push(`${l},${Math.round(v)},${Math.round(v-mcResult.bac)}`));
+    lines.push(`IQR (P90-P10),${Math.round(mcResult.eac.p90-mcResult.eac.p10)},`);
+    lines.push(`VaR (P90-Mean),${Math.round(mcResult.eac.p90-mcResult.eac.mean)},`);
+    lines.push(`Prob Over BAC %,${mcResult.probOverBudget},`);
+    lines.push("");
+    lines.push("=== Histogram Bins ===");
+    lines.push("Range,Mid,Count,Pct%,CumPct%");
+    (mcResult.hist||[]).forEach(b=>lines.push(`${b.rangeFull},${Math.round(b.mid)},${b.count},${b.pct},${b.cumPct}`));
+    lines.push("");
+    lines.push("=== Raw Samples ===");
+    lines.push("Index,EAC");
+    (mcResult.eacs||[]).forEach((v,i)=>lines.push(`${i+1},${Math.round(v)}`));
+    const blob=new Blob(["\uFEFF"+lines.join("\n")],{type:"text/csv;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download=`EAC-MonteCarlo-${Date.now()}.csv`;a.click();
+    URL.revokeObjectURL(url);
+    toast.success("📊 تم تصدير CSV");
+  },[mcResult]);
+
+  // ── Executive Summary PDF (risk highlights) ──
+  const exportExecutivePDF=useCallback(()=>{
+    if(!mcResult){toast.error("لا توجد بيانات محاكاة");return;}
+    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    const W=doc.internal.pageSize.getWidth(),M=14;let y=M;
+    doc.setFont("helvetica","bold");doc.setFontSize(18);
+    doc.text("Executive Risk Summary — EAC Monte Carlo",M,y);y+=7;
+    doc.setFont("helvetica","normal");doc.setFontSize(10);doc.setTextColor(110);
+    doc.text(`Generated: ${new Date().toLocaleString("en-GB")}`,M,y);y+=4;
+    doc.text(`Iterations: ${mcResult.iterations}   |   BAC: ${fmt(mcResult.bac)}`,M,y);y+=8;
+    // Risk badge
+    const prob=mcResult.probOverBudget;
+    const band=prob>50?[239,68,68,"HIGH RISK"]:prob>20?[245,158,11,"MEDIUM RISK"]:[16,185,129,"LOW RISK"];
+    doc.setFillColor(band[0],band[1],band[2]);doc.roundedRect(M,y,W-2*M,14,2,2,"F");
+    doc.setTextColor(255);doc.setFont("helvetica","bold");doc.setFontSize(13);
+    doc.text(`${band[3]}  —  Probability of BAC overrun: ${prob}%`,M+4,y+9);
+    y+=20;doc.setTextColor(0);
+    // Key metrics table
+    autoTable(doc,{startY:y,head:[["Metric","Value","Δ vs BAC","Interpretation"]],body:[
+      ["P10 (Optimistic)",fmt(mcResult.eac.p10),fmt(mcResult.eac.p10-mcResult.bac),"10% chance EAC will be at or below this"],
+      ["P50 (Median)",fmt(mcResult.eac.p50),fmt(mcResult.eac.p50-mcResult.bac),"Most likely outcome"],
+      ["P90 (Pessimistic)",fmt(mcResult.eac.p90),fmt(mcResult.eac.p90-mcResult.bac),"90% chance EAC will be at or below this"],
+      ["Mean",fmt(mcResult.eac.mean),fmt(mcResult.eac.mean-mcResult.bac),"Average of all simulations"],
+      ["IQR (P90-P10)",fmt(mcResult.eac.p90-mcResult.eac.p10),"—","Spread / uncertainty width"],
+      ["VaR (P90-Mean)",fmt(mcResult.eac.p90-mcResult.eac.mean),"—","Tail risk above the mean"],
+      ["ETC P50",fmt(mcResult.etc.p50),"—","Median remaining cost"],
+      ["Duration P50",mcResult.dur.p50.toFixed(1)+" mo","—","Median expected duration"],
+    ],styles:{fontSize:9,cellPadding:2},headStyles:{fillColor:[37,99,235],textColor:255},margin:{left:M,right:M}});
+    y=doc.lastAutoTable.finalY+8;
+    // Narrative
+    doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text("Key Findings",M,y);y+=5;
+    doc.setFont("helvetica","normal");doc.setFontSize(10);doc.setTextColor(50);
+    const findings=[
+      `• Probability of exceeding budget: ${prob}% (${prob>50?"action required":prob>20?"monitor closely":"acceptable"}).`,
+      `• Most likely EAC (P50) is ${fmt(mcResult.eac.p50)}, ${mcResult.eac.p50>mcResult.bac?`exceeding BAC by ${fmt(mcResult.eac.p50-mcResult.bac)}`:`under BAC by ${fmt(mcResult.bac-mcResult.eac.p50)}`}.`,
+      `• Uncertainty range (IQR) of ${fmt(mcResult.eac.p90-mcResult.eac.p10)} indicates ${(mcResult.eac.p90-mcResult.eac.p10)/mcResult.bac>0.2?"high":"moderate"} variability.`,
+      `• Worst-case tail (VaR) shows ${fmt(mcResult.eac.p90-mcResult.eac.mean)} of additional exposure beyond the mean.`,
+    ];
+    findings.forEach(t=>{const lines=doc.splitTextToSize(t,W-2*M);doc.text(lines,M,y);y+=lines.length*5;});
+    // Recommendations
+    y+=4;doc.setFont("helvetica","bold");doc.setFontSize(12);doc.setTextColor(0);doc.text("Recommendations",M,y);y+=5;
+    doc.setFont("helvetica","normal");doc.setFontSize(10);doc.setTextColor(50);
+    const recs=prob>50
+      ?["• Escalate to steering committee and trigger contingency reserve.","• Re-baseline CPI/SPI targets and tighten cost controls.","• Review top cost drivers and de-scope where possible."]
+      :prob>20
+      ?["• Increase monitoring cadence on cost performance (CPI).","• Validate forecast assumptions monthly.","• Prepare mitigation plan for high-impact activities."]
+      :["• Maintain current controls; risk is within acceptable bounds.","• Continue periodic Monte Carlo refresh.","• Document lessons-learned on cost discipline."];
+    recs.forEach(t=>{const lines=doc.splitTextToSize(t,W-2*M);doc.text(lines,M,y);y+=lines.length*5;});
+    doc.save(`Executive-EAC-Risk-${new Date().toISOString().split("T")[0]}.pdf`);
+    toast.success("📄 تم تصدير الملخص التنفيذي PDF");
+  },[mcResult]);
+
 
 
 
