@@ -807,6 +807,9 @@ export default function App(){
   const [mcResult,setMcResult]=useState(null);
   const [histRange,setHistRange]=useState({minM:0,maxM:0}); // filter window in millions
   const eacHistRef=useRef(null);
+  // Compare-mode snapshots (A vs B)
+  const [mcSnapshots,setMcSnapshots]=useState({A:null,B:null}); // {label, mc}
+  const [compareMode,setCompareMode]=useState(false);
   const [scenarios,setScenarios]=useState([
     {id:"S1",name:"السيناريو المتفائل",   spiAdj:1.15, cpiAdj:1.10, color:"#10b981", active:false},
     {id:"S2",name:"السيناريو الأساسي",   spiAdj:1.00, cpiAdj:1.00, color:"#6366f1", active:true},
@@ -1558,6 +1561,133 @@ export default function App(){
     setHistRange({minM:+(min/1e6).toFixed(2),maxM:+(max/1e6).toFixed(2)});
     toast.success(`🎲 Monte Carlo: ${N} محاكاة`);
   },[mcSettings,kpi,project.duration,forecastSettings.deficitThresholdM]);
+
+  // ── Memoized histogram view (re-bins under user range filter) ──
+  const histView=useMemo(()=>{
+    if(!mcResult) return null;
+    const rawAll=mcResult.eacs||[];
+    const loF=(histRange.minM||0)*1e6;
+    const hiF=(histRange.maxM||0)*1e6;
+    const useFilter=hiF>loF && rawAll.length>0;
+    const samples=useFilter?rawAll.filter(x=>x>=loF&&x<=hiF):rawAll;
+    const total=samples.length||1;
+    let viewHist=mcResult.hist;
+    if(useFilter && samples.length){
+      const mn=Math.min(...samples),mx=Math.max(...samples);
+      const bins=24,bw=(mx-mn)/bins||1;let cum=0;
+      viewHist=Array.from({length:bins},(_,i)=>{
+        const a=mn+i*bw,b=a+bw,mid=(a+b)/2;
+        const cnt=i===bins-1?samples.filter(x=>x>=a&&x<=b).length:samples.filter(x=>x>=a&&x<b).length;
+        cum+=cnt;
+        return{range:`${(a/1e6).toFixed(2)}M`,rangeFull:`${(a/1e6).toFixed(2)}M → ${(b/1e6).toFixed(2)}M`,midM:+(mid/1e6).toFixed(3),mid,count:cnt,pct:+(cnt/total*100).toFixed(2),cumPct:+(cum/total*100).toFixed(2)};
+      });
+    }
+    const overBudgetCount=samples.filter(x=>x>mcResult.bac).length;
+    const overBudgetPct=+(overBudgetCount/total*100).toFixed(1);
+    const iqrLow=mcResult.eac.p10,iqrHigh=mcResult.eac.p90;
+    const vaR=mcResult.eac.p90-mcResult.eac.mean;
+    return{viewHist,samples,total,overBudgetCount,overBudgetPct,iqrLow,iqrHigh,vaR};
+  },[mcResult,histRange]);
+
+  // ── Save current MC into compare slot ──
+  const saveMcSnapshot=useCallback((slot)=>{
+    if(!mcResult){toast.error("شغّل المحاكاة أولاً");return;}
+    const label=prompt(`اسم اللقطة (${slot})`,`فترة ${slot} — ${new Date().toLocaleDateString("ar-EG")}`);
+    if(!label) return;
+    setMcSnapshots(p=>({...p,[slot]:{label,mc:mcResult,savedAt:new Date().toISOString()}}));
+    toast.success(`💾 حُفظت اللقطة كـ ${slot}: ${label}`);
+  },[mcResult]);
+
+  // ── Export Monte Carlo data as CSV ──
+  const exportMcCSV=useCallback(()=>{
+    if(!mcResult){toast.error("لا توجد بيانات محاكاة");return;}
+    const lines=[];
+    lines.push("Monte Carlo — EAC Simulation Export");
+    lines.push(`Generated,${new Date().toISOString()}`);
+    lines.push(`Iterations,${mcResult.iterations}`);
+    lines.push(`BAC,${mcResult.bac}`);
+    lines.push("");
+    lines.push("=== Summary Statistics ===");
+    lines.push("Metric,Value,Delta vs BAC");
+    const rows=[
+      ["P10 (Optimistic)",mcResult.eac.p10],
+      ["P50 (Median)",mcResult.eac.p50],
+      ["P90 (Pessimistic)",mcResult.eac.p90],
+      ["Mean",mcResult.eac.mean],
+      ["Min",mcResult.eac.min],
+      ["Max",mcResult.eac.max],
+      ["BAC",mcResult.bac],
+    ];
+    rows.forEach(([l,v])=>lines.push(`${l},${Math.round(v)},${Math.round(v-mcResult.bac)}`));
+    lines.push(`IQR (P90-P10),${Math.round(mcResult.eac.p90-mcResult.eac.p10)},`);
+    lines.push(`VaR (P90-Mean),${Math.round(mcResult.eac.p90-mcResult.eac.mean)},`);
+    lines.push(`Prob Over BAC %,${mcResult.probOverBudget},`);
+    lines.push("");
+    lines.push("=== Histogram Bins ===");
+    lines.push("Range,Mid,Count,Pct%,CumPct%");
+    (mcResult.hist||[]).forEach(b=>lines.push(`${b.rangeFull},${Math.round(b.mid)},${b.count},${b.pct},${b.cumPct}`));
+    lines.push("");
+    lines.push("=== Raw Samples ===");
+    lines.push("Index,EAC");
+    (mcResult.eacs||[]).forEach((v,i)=>lines.push(`${i+1},${Math.round(v)}`));
+    const blob=new Blob(["\uFEFF"+lines.join("\n")],{type:"text/csv;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download=`EAC-MonteCarlo-${Date.now()}.csv`;a.click();
+    URL.revokeObjectURL(url);
+    toast.success("📊 تم تصدير CSV");
+  },[mcResult]);
+
+  // ── Executive Summary PDF (risk highlights) ──
+  const exportExecutivePDF=useCallback(()=>{
+    if(!mcResult){toast.error("لا توجد بيانات محاكاة");return;}
+    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    const W=doc.internal.pageSize.getWidth(),M=14;let y=M;
+    doc.setFont("helvetica","bold");doc.setFontSize(18);
+    doc.text("Executive Risk Summary — EAC Monte Carlo",M,y);y+=7;
+    doc.setFont("helvetica","normal");doc.setFontSize(10);doc.setTextColor(110);
+    doc.text(`Generated: ${new Date().toLocaleString("en-GB")}`,M,y);y+=4;
+    doc.text(`Iterations: ${mcResult.iterations}   |   BAC: ${fmt(mcResult.bac)}`,M,y);y+=8;
+    // Risk badge
+    const prob=mcResult.probOverBudget;
+    const band=prob>50?[239,68,68,"HIGH RISK"]:prob>20?[245,158,11,"MEDIUM RISK"]:[16,185,129,"LOW RISK"];
+    doc.setFillColor(band[0],band[1],band[2]);doc.roundedRect(M,y,W-2*M,14,2,2,"F");
+    doc.setTextColor(255);doc.setFont("helvetica","bold");doc.setFontSize(13);
+    doc.text(`${band[3]}  —  Probability of BAC overrun: ${prob}%`,M+4,y+9);
+    y+=20;doc.setTextColor(0);
+    // Key metrics table
+    autoTable(doc,{startY:y,head:[["Metric","Value","Δ vs BAC","Interpretation"]],body:[
+      ["P10 (Optimistic)",fmt(mcResult.eac.p10),fmt(mcResult.eac.p10-mcResult.bac),"10% chance EAC will be at or below this"],
+      ["P50 (Median)",fmt(mcResult.eac.p50),fmt(mcResult.eac.p50-mcResult.bac),"Most likely outcome"],
+      ["P90 (Pessimistic)",fmt(mcResult.eac.p90),fmt(mcResult.eac.p90-mcResult.bac),"90% chance EAC will be at or below this"],
+      ["Mean",fmt(mcResult.eac.mean),fmt(mcResult.eac.mean-mcResult.bac),"Average of all simulations"],
+      ["IQR (P90-P10)",fmt(mcResult.eac.p90-mcResult.eac.p10),"—","Spread / uncertainty width"],
+      ["VaR (P90-Mean)",fmt(mcResult.eac.p90-mcResult.eac.mean),"—","Tail risk above the mean"],
+      ["ETC P50",fmt(mcResult.etc.p50),"—","Median remaining cost"],
+      ["Duration P50",mcResult.dur.p50.toFixed(1)+" mo","—","Median expected duration"],
+    ],styles:{fontSize:9,cellPadding:2},headStyles:{fillColor:[37,99,235],textColor:255},margin:{left:M,right:M}});
+    y=doc.lastAutoTable.finalY+8;
+    // Narrative
+    doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text("Key Findings",M,y);y+=5;
+    doc.setFont("helvetica","normal");doc.setFontSize(10);doc.setTextColor(50);
+    const findings=[
+      `• Probability of exceeding budget: ${prob}% (${prob>50?"action required":prob>20?"monitor closely":"acceptable"}).`,
+      `• Most likely EAC (P50) is ${fmt(mcResult.eac.p50)}, ${mcResult.eac.p50>mcResult.bac?`exceeding BAC by ${fmt(mcResult.eac.p50-mcResult.bac)}`:`under BAC by ${fmt(mcResult.bac-mcResult.eac.p50)}`}.`,
+      `• Uncertainty range (IQR) of ${fmt(mcResult.eac.p90-mcResult.eac.p10)} indicates ${(mcResult.eac.p90-mcResult.eac.p10)/mcResult.bac>0.2?"high":"moderate"} variability.`,
+      `• Worst-case tail (VaR) shows ${fmt(mcResult.eac.p90-mcResult.eac.mean)} of additional exposure beyond the mean.`,
+    ];
+    findings.forEach(t=>{const lines=doc.splitTextToSize(t,W-2*M);doc.text(lines,M,y);y+=lines.length*5;});
+    // Recommendations
+    y+=4;doc.setFont("helvetica","bold");doc.setFontSize(12);doc.setTextColor(0);doc.text("Recommendations",M,y);y+=5;
+    doc.setFont("helvetica","normal");doc.setFontSize(10);doc.setTextColor(50);
+    const recs=prob>50
+      ?["• Escalate to steering committee and trigger contingency reserve.","• Re-baseline CPI/SPI targets and tighten cost controls.","• Review top cost drivers and de-scope where possible."]
+      :prob>20
+      ?["• Increase monitoring cadence on cost performance (CPI).","• Validate forecast assumptions monthly.","• Prepare mitigation plan for high-impact activities."]
+      :["• Maintain current controls; risk is within acceptable bounds.","• Continue periodic Monte Carlo refresh.","• Document lessons-learned on cost discipline."];
+    recs.forEach(t=>{const lines=doc.splitTextToSize(t,W-2*M);doc.text(lines,M,y);y+=lines.length*5;});
+    doc.save(`Executive-EAC-Risk-${new Date().toISOString().split("T")[0]}.pdf`);
+    toast.success("📄 تم تصدير الملخص التنفيذي PDF");
+  },[mcResult]);
 
 
 
@@ -3085,31 +3215,20 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
                     <Kpi l={`EAC P90 (متشائم)`} v={fmt(mcResult.eac.p90)} c="#ef4444" sub="أسوأ سيناريو"/>
                     <Kpi l={`احتمال تجاوز الميزانية`} v={mcResult.probOverBudget+"%"} c={mcResult.probOverBudget>50?"#ef4444":mcResult.probOverBudget>20?"#f59e0b":"#10b981"} sub={`من ${mcResult.iterations} محاكاة`}/>
                   </div>
-                  {(() => {
-                    // Re-bin under user-selected range filter
-                    const rawAll = mcResult.eacs || [];
-                    const loF = (histRange.minM||0)*1e6;
-                    const hiF = (histRange.maxM||0)*1e6;
-                    const useFilter = hiF>loF && rawAll.length>0;
-                    const samples = useFilter ? rawAll.filter(x=>x>=loF && x<=hiF) : rawAll;
-                    const total = samples.length || 1;
-                    let viewHist = mcResult.hist;
-                    if (useFilter && samples.length){
-                      const mn=Math.min(...samples), mx=Math.max(...samples);
-                      const bins=24, bw=(mx-mn)/bins||1; let cum=0;
-                      viewHist = Array.from({length:bins},(_,i)=>{
-                        const a=mn+i*bw, b=a+bw, mid=(a+b)/2;
-                        const cnt = i===bins-1 ? samples.filter(x=>x>=a&&x<=b).length : samples.filter(x=>x>=a&&x<b).length;
-                        cum+=cnt;
-                        return {range:`${(a/1e6).toFixed(2)}M`,rangeFull:`${(a/1e6).toFixed(2)}M → ${(b/1e6).toFixed(2)}M`,midM:+(mid/1e6).toFixed(3),mid,count:cnt,pct:+(cnt/total*100).toFixed(2),cumPct:+(cum/total*100).toFixed(2)};
-                      });
-                    }
-                    const overBudgetCount = samples.filter(x=>x>mcResult.bac).length;
-                    const overBudgetPct = +(overBudgetCount/total*100).toFixed(1);
-                    const iqrLow = mcResult.eac.p10, iqrHigh = mcResult.eac.p90;
-                    const vaR = mcResult.eac.p90 - mcResult.eac.mean;
+                  {histView && (() => {
+                    const {viewHist,total,overBudgetPct,iqrLow,iqrHigh,vaR} = histView;
 
-                    // Custom rich tooltip
+                    // Compare-mode: project snapshot B onto same X bins as current viewHist
+                    const cmpMc = compareMode ? mcSnapshots.B?.mc : null;
+                    const cmpAMc = compareMode ? (mcSnapshots.A?.mc || mcResult) : null;
+                    const overlay = cmpMc && viewHist.length ? viewHist.map((b,i,arr)=>{
+                      const next = arr[i+1]?.mid ?? (b.mid + (b.mid - (arr[i-1]?.mid ?? b.mid)));
+                      const lo = i===0 ? -Infinity : (arr[i-1].mid + b.mid)/2;
+                      const hi = i===arr.length-1 ? Infinity : (b.mid + next)/2;
+                      const cnt = (cmpMc.eacs||[]).filter(x=>x>=lo && x<hi).length;
+                      return {...b, cmpCount:cnt};
+                    }) : viewHist;
+
                     const RichTip = ({active,payload})=>{
                       if(!active||!payload||!payload.length) return null;
                       const d = payload[0].payload;
@@ -3118,10 +3237,11 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
                         ? "🔴 ضمن منطقة تجاوز BAC — يحتاج تدخل"
                         : d.mid<mcResult.eac.p50 ? "🟢 سيناريو متفائل أقل من P50" : "🟡 ضمن النطاق المتوقع";
                       return (
-                        <div style={{background:darkMode?"#0f172a":"#fff",border:`2px solid ${overBac?"#ef4444":"#10b981"}`,borderRadius:10,padding:"10px 12px",fontSize:11,minWidth:200,boxShadow:"0 8px 24px rgba(0,0,0,0.18)"}}>
+                        <div style={{background:darkMode?"#0f172a":"#fff",border:`2px solid ${overBac?"#ef4444":"#10b981"}`,borderRadius:10,padding:"10px 12px",fontSize:11,minWidth:220,boxShadow:"0 8px 24px rgba(0,0,0,0.18)"}}>
                           <div style={{fontWeight:800,fontSize:12,marginBottom:6,color:overBac?"#ef4444":"#10b981"}}>📊 {d.rangeFull}</div>
                           <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:4,marginBottom:4}}>
-                            <span style={{color:"#888"}}>عدد المحاكاة:</span><b style={{fontFamily:"monospace"}}>{d.count}</b>
+                            <span style={{color:"#888"}}>{compareMode?`${mcSnapshots.A?.label||"A"} — عدد:`:"عدد المحاكاة:"}</span><b style={{fontFamily:"monospace"}}>{d.count}</b>
+                            {compareMode && cmpMc && (<><span style={{color:"#888"}}>{mcSnapshots.B?.label||"B"} — عدد:</span><b style={{fontFamily:"monospace",color:"#f59e0b"}}>{d.cmpCount}</b></>)}
                             <span style={{color:"#888"}}>النسبة من الإجمالي:</span><b style={{fontFamily:"monospace",color:"#6366f1"}}>{d.pct}%</b>
                             <span style={{color:"#888"}}>التراكمي (CDF):</span><b style={{fontFamily:"monospace",color:"#8b5cf6"}}>{d.cumPct}%</b>
                             <span style={{color:"#888"}}>متوسط النطاق:</span><b style={{fontFamily:"monospace"}}>{fmt(d.mid)}</b>
@@ -3132,7 +3252,6 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
                       );
                     };
 
-                    // Export helpers
                     const exportChart = (kind)=>{
                       const svg = eacHistRef.current?.querySelector("svg");
                       if(!svg){toast.error("لم يتم العثور على الرسم"); return;}
@@ -3194,11 +3313,24 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
                       )}
 
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:8}}>
-                        <H3 style={{margin:0}}>📊 توزيع EAC (Histogram + CDF)</H3>
-                        <div style={{display:"flex",gap:6}}>
-                          <button onClick={()=>exportChart("png")} style={{padding:"5px 10px",borderRadius:6,border:"1px solid #6366f1",background:"#6366f110",color:"#6366f1",fontSize:10,fontWeight:700,cursor:"pointer"}}>📥 PNG</button>
-                          <button onClick={()=>exportChart("svg")} style={{padding:"5px 10px",borderRadius:6,border:"1px solid #8b5cf6",background:"#8b5cf610",color:"#8b5cf6",fontSize:10,fontWeight:700,cursor:"pointer"}}>📥 SVG</button>
+                        <H3 style={{margin:0}}>📊 توزيع EAC (Histogram + CDF) {compareMode && <span style={{fontSize:11,color:"#f59e0b",fontWeight:700}}>· وضع المقارنة</span>}</H3>
+                        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                          <button onClick={()=>exportChart("png")} title="تصدير الرسم كصورة PNG" style={{padding:"5px 10px",borderRadius:6,border:"1px solid #6366f1",background:"#6366f110",color:"#6366f1",fontSize:10,fontWeight:700,cursor:"pointer"}}>📥 PNG</button>
+                          <button onClick={()=>exportChart("svg")} title="تصدير الرسم كملف SVG" style={{padding:"5px 10px",borderRadius:6,border:"1px solid #8b5cf6",background:"#8b5cf610",color:"#8b5cf6",fontSize:10,fontWeight:700,cursor:"pointer"}}>📥 SVG</button>
+                          <button onClick={exportMcCSV} title="تصدير العينات + الإحصائيات CSV" style={{padding:"5px 10px",borderRadius:6,border:"1px solid #10b981",background:"#10b98110",color:"#10b981",fontSize:10,fontWeight:700,cursor:"pointer"}}>📊 CSV</button>
+                          <button onClick={exportExecutivePDF} title="ملخص تنفيذي للمخاطر PDF" style={{padding:"5px 10px",borderRadius:6,border:"1px solid #ef4444",background:"#ef444410",color:"#ef4444",fontSize:10,fontWeight:700,cursor:"pointer"}}>📄 Exec PDF</button>
                         </div>
+                      </div>
+
+                      {/* Compare-mode toolbar */}
+                      <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",padding:"6px 10px",background:darkMode?"#1e1b4b":"#faf5ff",borderRadius:7,marginBottom:8,fontSize:10,border:"1px dashed #c4b5fd"}}>
+                        <span style={{fontWeight:700,color:"#7c3aed"}}>🔀 المقارنة:</span>
+                        <button onClick={()=>saveMcSnapshot("A")} style={{padding:"3px 8px",borderRadius:5,border:"1px solid #6366f1",background:mcSnapshots.A?"#6366f120":"transparent",color:"#6366f1",fontWeight:700,cursor:"pointer"}}>💾 حفظ كـ A</button>
+                        <button onClick={()=>saveMcSnapshot("B")} style={{padding:"3px 8px",borderRadius:5,border:"1px solid #f59e0b",background:mcSnapshots.B?"#f59e0b20":"transparent",color:"#f59e0b",fontWeight:700,cursor:"pointer"}}>💾 حفظ كـ B</button>
+                        <button disabled={!mcSnapshots.A||!mcSnapshots.B} onClick={()=>setCompareMode(m=>!m)} style={{padding:"3px 8px",borderRadius:5,border:`1px solid ${compareMode?"#ef4444":"#10b981"}`,background:compareMode?"#ef444420":"#10b98110",color:compareMode?"#ef4444":"#10b981",fontWeight:700,cursor:(!mcSnapshots.A||!mcSnapshots.B)?"not-allowed":"pointer",opacity:(!mcSnapshots.A||!mcSnapshots.B)?0.4:1}}>{compareMode?"⏹ إيقاف المقارنة":"▶ تشغيل المقارنة"}</button>
+                        {mcSnapshots.A && <span style={{color:"#6366f1"}}>A: <b>{mcSnapshots.A.label}</b></span>}
+                        {mcSnapshots.B && <span style={{color:"#f59e0b"}}>B: <b>{mcSnapshots.B.label}</b></span>}
+                        {(mcSnapshots.A||mcSnapshots.B) && <button onClick={()=>{setMcSnapshots({A:null,B:null});setCompareMode(false);}} style={{padding:"3px 6px",borderRadius:5,border:"1px solid #94a3b8",background:"transparent",color:"#64748b",fontSize:9,cursor:"pointer",marginInlineStart:"auto"}}>🗑 مسح</button>}
                       </div>
 
                       {/* Range filter */}
@@ -3227,7 +3359,7 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
 
                       <div ref={eacHistRef}>
                       <ResponsiveContainer width="100%" height={260}>
-                        <ComposedChart data={viewHist} margin={{top:10,right:30,left:0,bottom:30}}>
+                        <ComposedChart data={overlay} margin={{top:10,right:30,left:0,bottom:30}}>
                           <defs>
                             <linearGradient id="histSafe" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0%" stopColor="#10b981" stopOpacity={0.95}/>
@@ -3236,6 +3368,10 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
                             <linearGradient id="histRisk" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0%" stopColor="#ef4444" stopOpacity={0.95}/>
                               <stop offset="100%" stopColor="#ef4444" stopOpacity={0.45}/>
+                            </linearGradient>
+                            <linearGradient id="histCmp" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.85}/>
+                              <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.35}/>
                             </linearGradient>
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" stroke={darkMode?"#1f2937":"#eef0f3"}/>
@@ -3246,16 +3382,18 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
                                  label={{value:"تراكمي %",angle:90,position:"insideRight",fontSize:9,fill:"#8b5cf6"}}/>
                           <Tooltip content={<RichTip/>}/>
                           <Legend wrapperStyle={{fontSize:10}}/>
-                          <ReferenceLine yAxisId="left" x={`${(Math.floor(mcResult.bac/1e6*100)/100).toFixed(2)}M`} stroke="#ef4444" strokeWidth={2} strokeDasharray="5 3" label={{value:`BAC (${mcResult.probOverBudget}% تجاوز)`,position:"top",fontSize:10,fill:"#ef4444",fontWeight:700}}/>
+                          <ReferenceLine yAxisId="left" x={`${(Math.floor(mcResult.bac/1e6*100)/100).toFixed(2)}M`} stroke="#ef4444" strokeWidth={2} strokeDasharray="5 3" label={{value:compareMode?`BAC-A (${mcResult.probOverBudget}%)`:`BAC (${mcResult.probOverBudget}% تجاوز)`,position:"top",fontSize:10,fill:"#ef4444",fontWeight:700}}/>
+                          {compareMode && cmpMc && <ReferenceLine yAxisId="left" x={`${(Math.floor(cmpMc.bac/1e6*100)/100).toFixed(2)}M`} stroke="#f59e0b" strokeWidth={2} strokeDasharray="2 2" label={{value:`BAC-B (${cmpMc.probOverBudget}%)`,position:"top",fontSize:10,fill:"#f59e0b",fontWeight:700}}/>}
                           <ReferenceLine yAxisId="left" x={`${(Math.floor(mcResult.eac.p10/1e6*100)/100).toFixed(2)}M`} stroke="#10b981" strokeDasharray="3 3" label={{value:"P10",position:"top",fontSize:9,fill:"#10b981"}}/>
                           <ReferenceLine yAxisId="left" x={`${(Math.floor(mcResult.eac.p50/1e6*100)/100).toFixed(2)}M`} stroke="#6366f1" strokeWidth={1.5} strokeDasharray="4 2" label={{value:"P50",position:"top",fontSize:9,fill:"#6366f1",fontWeight:700}}/>
                           <ReferenceLine yAxisId="left" x={`${(Math.floor(mcResult.eac.p90/1e6*100)/100).toFixed(2)}M`} stroke="#f59e0b" strokeDasharray="3 3" label={{value:"P90",position:"top",fontSize:9,fill:"#f59e0b"}}/>
-                          <Bar yAxisId="left" dataKey="count" name="عدد المحاكاة" radius={[4,4,0,0]}>
-                            {viewHist.map((d,i)=>(
+                          <Bar yAxisId="left" dataKey="count" name={compareMode?(mcSnapshots.A?.label||"A"):"عدد المحاكاة"} radius={[4,4,0,0]}>
+                            {overlay.map((d,i)=>(
                               <Cell key={i} fill={d.mid>mcResult.bac?"url(#histRisk)":"url(#histSafe)"}/>
                             ))}
                           </Bar>
-                          <Line yAxisId="right" type="monotone" dataKey="cumPct" name="تراكمي %" stroke="#8b5cf6" strokeWidth={2.5} dot={false} activeDot={{r:4}}/>
+                          {compareMode && cmpMc && <Bar yAxisId="left" dataKey="cmpCount" name={mcSnapshots.B?.label||"B"} fill="url(#histCmp)" radius={[4,4,0,0]} fillOpacity={0.75}/>}
+                          <Line yAxisId="right" type="monotone" dataKey="cumPct" name="تراكمي A %" stroke="#8b5cf6" strokeWidth={2.5} dot={false} activeDot={{r:4}}/>
                         </ComposedChart>
                       </ResponsiveContainer>
                       </div>
@@ -3265,6 +3403,36 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
                         <span style={{padding:"3px 8px",borderRadius:12,background:"#8b5cf620",color:"#8b5cf6",fontWeight:700}}>📊 IQR: {fmt(iqrLow)} → {fmt(iqrHigh)}</span>
                         <span style={{padding:"3px 8px",borderRadius:12,background:"#6366f120",color:"#6366f1",fontWeight:700}}>🎯 VaR (P90-Mean): {fmt(vaR)}</span>
                       </div>
+
+                      {/* Statistical glossary + quick interpretation */}
+                      <details style={{marginTop:10,padding:"8px 10px",background:darkMode?"#0b1224":"#fefce8",border:"1px solid #fde68a",borderRadius:7,fontSize:11}}>
+                        <summary style={{cursor:"pointer",fontWeight:800,color:"#a16207"}}>📖 شرح المؤشرات الإحصائية وتفسير القراءة الحالية</summary>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:10,lineHeight:1.7}}>
+                          <div title="Inter-Quartile Range — عرض النطاق الذي يغطي 80% من السيناريوهات بين P10 و P90">
+                            <b style={{color:"#8b5cf6"}}>IQR (P10↔P90):</b><br/>
+                            <span style={{color:"#6b7280"}}>عرض نطاق الثقة 80% — كلما اتسع كلما زاد عدم اليقين.</span><br/>
+                            <span style={{fontFamily:"monospace",color:"#8b5cf6"}}>= {fmt(iqrHigh-iqrLow)} ({((iqrHigh-iqrLow)/mcResult.bac*100).toFixed(1)}% من BAC)</span>
+                          </div>
+                          <div title="Value at Risk — حجم التعرض الإضافي في الذيل العلوي للتوزيع">
+                            <b style={{color:"#6366f1"}}>VaR (P90 − Mean):</b><br/>
+                            <span style={{color:"#6b7280"}}>التعرض الإضافي للمخاطر فوق المتوسط في أسوأ 10%.</span><br/>
+                            <span style={{fontFamily:"monospace",color:"#6366f1"}}>= {fmt(vaR)} ({(vaR/mcResult.bac*100).toFixed(1)}% من BAC)</span>
+                          </div>
+                          <div title="Cumulative Distribution Function — احتمال أن لا يتجاوز EAC قيمة معينة">
+                            <b style={{color:"#a855f7"}}>CDF (المنحنى البنفسجي):</b><br/>
+                            <span style={{color:"#6b7280"}}>نسبة المحاكاة التي EAC فيها ≤ القيمة المقابلة على المحور.</span><br/>
+                            <span style={{fontFamily:"monospace",color:"#a855f7"}}>عند BAC: ~{(100-mcResult.probOverBudget).toFixed(1)}%</span>
+                          </div>
+                          <div title="Box-Muller — مولّد عشوائي يستنسخ توزيعاً طبيعياً حول CPI/SPI الحاليتين">
+                            <b style={{color:"#10b981"}}>📌 التفسير السريع:</b><br/>
+                            <span style={{color:"#6b7280"}}>
+                              {overBudgetPct>50?"الغالبية تتجاوز BAC — تدخل عاجل مطلوب.":
+                               overBudgetPct>20?"احتمال محسوس للتجاوز — راقب وحضّر خطة تخفيف.":
+                               "الوضع آمن نسبياً — استمر بالضوابط الحالية."}
+                            </span>
+                          </div>
+                        </div>
+                      </details>
                     </Card>
 
                     <Card>
@@ -3297,11 +3465,11 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
                         </tbody>
                         <tfoot>
                           <tr style={{background:"#8b5cf615"}}>
-                            <td style={{padding:"7px 8px",fontWeight:800,color:"#8b5cf6"}}>IQR (P10↔P90)</td>
+                            <td title="Inter-Quartile Range = P90 - P10 — عرض النطاق الذي يحتوي 80% من السيناريوهات" style={{padding:"7px 8px",fontWeight:800,color:"#8b5cf6",cursor:"help"}}>IQR (P10↔P90) ⓘ</td>
                             <td colSpan={2} style={{padding:"7px 8px",textAlign:"end",fontFamily:"monospace",fontWeight:800,color:"#8b5cf6"}}>{fmt(iqrHigh-iqrLow)}</td>
                           </tr>
                           <tr style={{background:"#6366f115"}}>
-                            <td style={{padding:"7px 8px",fontWeight:800,color:"#6366f1"}}>VaR (P90 − Mean)</td>
+                            <td title="Value at Risk = P90 - Mean — حجم التعرض في ذيل التوزيع فوق المتوسط" style={{padding:"7px 8px",fontWeight:800,color:"#6366f1",cursor:"help"}}>VaR (P90 − Mean) ⓘ</td>
                             <td colSpan={2} style={{padding:"7px 8px",textAlign:"end",fontFamily:"monospace",fontWeight:800,color:"#6366f1"}}>{fmt(vaR)}</td>
                           </tr>
                           <tr style={{background:overBudgetPct>50?"#ef444420":overBudgetPct>20?"#f59e0b20":"#10b98120"}}>
@@ -3314,6 +3482,16 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
                         <b>ETC P50:</b> {fmt(mcResult.etc.p50)} • <b>P90:</b> {fmt(mcResult.etc.p90)}<br/>
                         <b>المدة P50:</b> {mcResult.dur.p50.toFixed(1)} شهر • <b>P90:</b> {mcResult.dur.p90.toFixed(1)} شهر
                       </div>
+
+                      {/* Compare summary when active */}
+                      {compareMode && cmpMc && (
+                        <div style={{marginTop:10,padding:"8px 10px",background:"#fef3c7",border:"1px solid #fcd34d",borderRadius:7,fontSize:10,lineHeight:1.7}}>
+                          <div style={{fontWeight:800,color:"#a16207",marginBottom:4}}>🔀 مقارنة A vs B</div>
+                          <div>P50: <b style={{color:"#6366f1"}}>{fmt(mcResult.eac.p50)}</b> → <b style={{color:"#f59e0b"}}>{fmt(cmpMc.eac.p50)}</b> ({((cmpMc.eac.p50-mcResult.eac.p50)/mcResult.eac.p50*100).toFixed(1)}%)</div>
+                          <div>P90: <b style={{color:"#6366f1"}}>{fmt(mcResult.eac.p90)}</b> → <b style={{color:"#f59e0b"}}>{fmt(cmpMc.eac.p90)}</b></div>
+                          <div>احتمال التجاوز: <b style={{color:"#6366f1"}}>{mcResult.probOverBudget}%</b> → <b style={{color:"#f59e0b"}}>{cmpMc.probOverBudget}%</b></div>
+                        </div>
+                      )}
                     </Card>
                   </div>
                     );
