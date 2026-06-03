@@ -2472,9 +2472,29 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
       </div>
 
       {/* ═══ MAIN ═══ */}
-      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-        {/* Header — redesigned: unified buttons, grouped, with More menu */}
-        <div style={{background:"var(--gradient-hero)",padding:"12px 20px 0",color:"hsl(var(--primary-foreground))",flexShrink:0,boxShadow:"var(--shadow-md)",borderBottom:"1px solid hsla(0,0%,100%,.08)",position:"relative",overflow:"hidden"}}>
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflowY:"auto",overflowX:"hidden",position:"relative"}}>
+        {/* Responsive header rules (RTL-aware, only affects header chrome) */}
+        <style>{`
+          @media (max-width: 760px){
+            .cc-header-row{flex-direction:column;align-items:stretch !important;gap:8px !important}
+            .cc-header-actions{justify-content:flex-end;gap:4px !important}
+            .cc-header-actions button, .cc-header-actions summary{font-size:10.5px !important;padding:5px 8px !important;height:28px !important}
+            .cc-header-title{font-size:14.5px !important}
+            .cc-header-breadcrumb{font-size:10px !important;gap:5px !important}
+            .cc-header-pad{padding:8px 12px 0 !important}
+            .cc-tab-btn{padding:6px 10px !important;font-size:10.5px !important}
+          }
+          .cc-header-btn:focus-visible, .cc-header-actions summary:focus-visible, .cc-header-select:focus-visible{outline:2px solid hsl(var(--accent));outline-offset:2px;border-radius:8px}
+          @keyframes ccLoadBar{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+        `}</style>
+        {/* Header — sticky, a11y-enhanced, responsive */}
+        <header role="banner" aria-label="رأس صفحة التحكم في التكلفة" className="cc-header-pad" style={{background:"var(--gradient-hero)",padding:"12px 20px 0",color:"hsl(var(--primary-foreground))",flexShrink:0,boxShadow:"var(--shadow-md)",borderBottom:"1px solid hsla(0,0%,100%,.08)",position:"sticky",top:0,zIndex:50,overflow:"hidden"}}>
+          {loadingItems&&(
+            <div role="progressbar" aria-label="جاري تحميل بيانات المشروع" aria-busy="true" style={{position:"absolute",top:0,insetInlineStart:0,right:0,height:3,overflow:"hidden",width:"100%",background:"hsla(0,0%,100%,.08)",zIndex:2}}>
+              <div style={{height:"100%",width:"40%",background:"linear-gradient(90deg,transparent,hsl(var(--accent)),transparent)",animation:"ccLoadBar 1.2s linear infinite"}}/>
+            </div>
+          )}
+
           <div aria-hidden style={{position:"absolute",insetInlineStart:-60,top:-60,width:240,height:240,background:"radial-gradient(circle,hsl(var(--accent)/.18),transparent 70%)",pointerEvents:"none"}}/>
           {(() => {
             const btnBase={background:"hsla(0,0%,100%,.08)",color:"#fff",border:"1px solid hsla(0,0%,100%,.18)",borderRadius:8,padding:"6px 10px",fontWeight:600,cursor:"pointer",fontSize:11,height:30,display:"inline-flex",alignItems:"center",gap:5,whiteSpace:"nowrap",transition:"background .15s,border-color .15s,transform .15s",backdropFilter:"blur(6px)"};
