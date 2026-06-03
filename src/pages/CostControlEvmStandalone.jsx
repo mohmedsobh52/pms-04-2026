@@ -2292,19 +2292,28 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
   // ── Keyboard shortcuts ──
   useEffect(()=>{
     const handler=e=>{
+      const tag=e.target&&e.target.tagName;
+      const inField=["INPUT","TEXTAREA","SELECT"].includes(tag);
       if(e.ctrlKey||e.metaKey){
         if(e.key==="k"){e.preventDefault();setShowGlobalSearch(p=>!p);}
         if(e.key==="d"){e.preventDefault();setDarkMode(p=>!p);}
         if(e.key==="p"){e.preventDefault();window.print();}
         if(e.key==="e"){e.preventDefault();exportExcelFull(acts,kpi,cf,risks,issues,resources,project);}
       }
+      if(e.altKey&&!e.ctrlKey&&!e.metaKey){
+        const k=(e.key||"").toLowerCase();
+        if(k==="p"){e.preventDefault();const el=document.getElementById("hdr-project-select");if(el){el.focus();try{el.size&&(el.size=1);}catch(_){}}}
+        if(k==="s"){e.preventDefault();setAutoSyncAC(v=>{const nv=!v;toast.info(nv?"✅ Auto-Sync مفعّل":"⏸ Auto-Sync متوقف");return nv;});}
+        if(k==="c"){e.preventDefault();setDensity(d=>d==="compact"?"comfortable":"compact");}
+        if(k==="n"){e.preventDefault();setShowNotif(p=>!p);}
+      }
       if(e.key==="Escape"){setShowGlobalSearch(false);setShowNotif(false);setShortcutsModal(false);setKpiDrill(null);}
-      if(e.key==="?"&&!e.ctrlKey&&!e.metaKey&&!["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName)){e.preventDefault();setShortcutsModal(p=>!p);}
-
+      if(e.key==="?"&&!e.ctrlKey&&!e.metaKey&&!inField){e.preventDefault();setShortcutsModal(p=>!p);}
     };
     window.addEventListener("keydown",handler);
     return()=>window.removeEventListener("keydown",handler);
   },[acts,kpi,cf,risks,issues,resources,project]);
+
 
   // ── Budget Revision / Contingency ──
   const [contingency,setContingency]=useState({amount:5000000,used:1200000,approved:true});
@@ -2472,9 +2481,31 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
       </div>
 
       {/* ═══ MAIN ═══ */}
-      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-        {/* Header — redesigned: unified buttons, grouped, with More menu */}
-        <div style={{background:"var(--gradient-hero)",padding:"12px 20px 0",color:"hsl(var(--primary-foreground))",flexShrink:0,boxShadow:"var(--shadow-md)",borderBottom:"1px solid hsla(0,0%,100%,.08)",position:"relative",overflow:"hidden"}}>
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflowY:"auto",overflowX:"hidden",position:"relative"}}>
+        {/* Responsive header rules (RTL-aware, only affects header chrome) */}
+        <style>{`
+          @media (max-width: 760px){
+            .cc-header-row{flex-direction:column;align-items:stretch !important;gap:8px !important}
+            .cc-header-actions{justify-content:flex-end;gap:4px !important}
+            .cc-header-actions button, .cc-header-actions summary{font-size:10.5px !important;padding:5px 8px !important;height:28px !important}
+            .cc-header-title{font-size:14.5px !important}
+            .cc-header-breadcrumb{font-size:10px !important;gap:5px !important}
+            .cc-header-pad{padding:8px 12px 0 !important}
+            .cc-tab-btn{padding:6px 10px !important;font-size:10.5px !important}
+          }
+          .cc-header-btn:focus-visible, .cc-header-actions summary:focus-visible, .cc-header-select:focus-visible{outline:2px solid hsl(var(--accent));outline-offset:2px;border-radius:8px}
+          @keyframes ccLoadBar{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+          @keyframes spin{to{transform:rotate(360deg)}}
+
+        `}</style>
+        {/* Header — sticky, a11y-enhanced, responsive */}
+        <header role="banner" aria-label="رأس صفحة التحكم في التكلفة" className="cc-header-pad" style={{background:"var(--gradient-hero)",padding:"12px 20px 0",color:"hsl(var(--primary-foreground))",flexShrink:0,boxShadow:"var(--shadow-md)",borderBottom:"1px solid hsla(0,0%,100%,.08)",position:"sticky",top:0,zIndex:50,overflow:"hidden"}}>
+          {loadingItems&&(
+            <div role="progressbar" aria-label="جاري تحميل بيانات المشروع" aria-busy="true" style={{position:"absolute",top:0,insetInlineStart:0,right:0,height:3,overflow:"hidden",width:"100%",background:"hsla(0,0%,100%,.08)",zIndex:2}}>
+              <div style={{height:"100%",width:"40%",background:"linear-gradient(90deg,transparent,hsl(var(--accent)),transparent)",animation:"ccLoadBar 1.2s linear infinite"}}/>
+            </div>
+          )}
+
           <div aria-hidden style={{position:"absolute",insetInlineStart:-60,top:-60,width:240,height:240,background:"radial-gradient(circle,hsl(var(--accent)/.18),transparent 70%)",pointerEvents:"none"}}/>
           {(() => {
             const btnBase={background:"hsla(0,0%,100%,.08)",color:"#fff",border:"1px solid hsla(0,0%,100%,.18)",borderRadius:8,padding:"6px 10px",fontWeight:600,cursor:"pointer",fontSize:11,height:30,display:"inline-flex",alignItems:"center",gap:5,whiteSpace:"nowrap",transition:"background .15s,border-color .15s,transform .15s",backdropFilter:"blur(6px)"};
@@ -2485,37 +2516,45 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
             const ddPanel={position:"absolute",top:"calc(100% + 6px)",insetInlineEnd:0,background:darkMode?"#1e293b":"#fff",border:`1px solid ${darkMode?"#334155":"#e5e7eb"}`,borderRadius:10,boxShadow:"0 14px 36px rgba(0,0,0,.22)",minWidth:210,zIndex:120,padding:6,display:"flex",flexDirection:"column",gap:1};
             const ddItem={background:"transparent",border:"none",textAlign:"start",padding:"8px 11px",borderRadius:7,cursor:"pointer",fontSize:12,color:darkMode?"#f1f5f9":"#1a1a2e",fontWeight:600,display:"flex",alignItems:"center",gap:8};
             return (
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,gap:14,position:"relative",zIndex:1}}>
+          <div className="cc-header-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,gap:14,position:"relative",zIndex:1}}>
             <div style={{minWidth:0,flex:1,display:"flex",flexDirection:"column",gap:5}}>
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                <h1 style={{margin:0,fontSize:17,fontWeight:900,display:"inline-flex",alignItems:"center",gap:8,letterSpacing:.2,lineHeight:1.1}}>
-                  <span style={{width:5,height:20,background:"linear-gradient(180deg,hsl(var(--accent)),hsl(var(--accent)/.6))",borderRadius:3,display:"inline-block",boxShadow:"0 0 12px hsl(var(--accent)/.5)"}}/>
+                <h1 className="cc-header-title" style={{margin:0,fontSize:17,fontWeight:900,display:"inline-flex",alignItems:"center",gap:8,letterSpacing:.2,lineHeight:1.1}}>
+                  <span aria-hidden="true" style={{width:5,height:20,background:"linear-gradient(180deg,hsl(var(--accent)),hsl(var(--accent)/.6))",borderRadius:3,display:"inline-block",boxShadow:"0 0 12px hsl(var(--accent)/.5)"}}/>
                   Cost Control Report
                 </h1>
-                <span style={{background:"hsla(0,0%,100%,.12)",border:"1px solid hsla(0,0%,100%,.16)",borderRadius:999,padding:"2px 9px",fontSize:10,fontWeight:700,display:"inline-flex",alignItems:"center",gap:4}}>📋 {filtered.length} نشاط</span>
-                {alerts.length>0&&<span style={{background:alerts.filter(a=>a.t==="c").length>0?"hsl(var(--destructive))":"hsl(var(--accent))",color:"#fff",borderRadius:999,padding:"2px 9px",fontSize:10,fontWeight:800,boxShadow:"0 2px 8px hsla(0,0%,0%,.3)",display:"inline-flex",alignItems:"center",gap:4}}>⚠ {alerts.length} تنبيه</span>}
+                <span aria-label={`عدد الأنشطة ${filtered.length}`} style={{background:"hsla(0,0%,100%,.12)",border:"1px solid hsla(0,0%,100%,.16)",borderRadius:999,padding:"2px 9px",fontSize:10,fontWeight:700,display:"inline-flex",alignItems:"center",gap:4}}>📋 {filtered.length} نشاط</span>
+                {alerts.length>0&&<span role="status" aria-live="polite" aria-label={`${alerts.length} تنبيه`} style={{background:alerts.filter(a=>a.t==="c").length>0?"hsl(var(--destructive))":"hsl(var(--accent))",color:"#fff",borderRadius:999,padding:"2px 9px",fontSize:10,fontWeight:800,boxShadow:"0 2px 8px hsla(0,0%,0%,.3)",display:"inline-flex",alignItems:"center",gap:4}}>⚠ {alerts.length} تنبيه</span>}
+                {loadingItems&&<span role="status" aria-live="polite" style={{background:"hsla(0,0%,100%,.14)",border:"1px solid hsla(0,0%,100%,.2)",borderRadius:999,padding:"2px 9px",fontSize:10,fontWeight:700,display:"inline-flex",alignItems:"center",gap:5}}><span aria-hidden="true" style={{width:9,height:9,border:"2px solid hsla(0,0%,100%,.4)",borderTopColor:"#fff",borderRadius:"50%",display:"inline-block",animation:"spin .8s linear infinite"}}/> جارٍ التحميل…</span>}
               </div>
-              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",fontSize:10.5,opacity:.9,direction:"rtl"}}>
-                <span style={{fontWeight:700}}>{project.name}</span>
-                <span style={{opacity:.4}}>·</span>
-                <span style={{fontFamily:"monospace",background:"hsla(0,0%,100%,.08)",padding:"1px 6px",borderRadius:4,fontSize:10}}>{project.number}</span>
-                <span style={{opacity:.4}}>·</span>
-                <span style={{opacity:.8}}>{project.client}</span>
+              <nav aria-label="مسار المشروع" className="cc-header-breadcrumb" style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",fontSize:10.5,opacity:.9,direction:"rtl"}}>
+                <ol style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",listStyle:"none",margin:0,padding:0}}>
+                  <li><span style={{fontWeight:700}}>{project.name}</span></li>
+                  <li aria-hidden="true" style={{opacity:.4}}>·</li>
+                  <li><span style={{fontFamily:"monospace",background:"hsla(0,0%,100%,.08)",padding:"1px 6px",borderRadius:4,fontSize:10}}>{project.number}</span></li>
+                  <li aria-hidden="true" style={{opacity:.4}}>·</li>
+                  <li aria-current="page"><span style={{opacity:.85}}>{project.client}</span></li>
+                </ol>
                 {projectsList.length>0&&(
-                  <select value={linkedProjectId||""} onChange={e=>{const id=e.target.value;const p=projectsList.find(x=>x.id===id);if(p)loadProjectFromDb(p);}}
-                    title="تبديل سريع للمشروع المرتبط"
-                    style={{marginInlineStart:4,background:"hsla(0,0%,100%,.1)",color:"#fff",border:"1px solid hsla(0,0%,100%,.22)",borderRadius:6,padding:"2px 8px",fontSize:10.5,fontWeight:600,outline:"none",maxWidth:220,cursor:"pointer",height:24}}>
-                    <option value="" style={{color:"#1a1a2e"}}>📂 تبديل المشروع...</option>
-                    {projectsList.map(p=><option key={p.id} value={p.id} style={{color:"#1a1a2e"}}>{p.name||"بدون اسم"}</option>)}
-                  </select>
+                  <label style={{display:"inline-flex",alignItems:"center",gap:5,marginInlineStart:4}}>
+                    <span className="sr-only" style={{position:"absolute",width:1,height:1,overflow:"hidden",clip:"rect(0 0 0 0)"}}>تبديل المشروع</span>
+                    <select id="hdr-project-select" className="cc-header-select" value={linkedProjectId||""} disabled={loadingItems}
+                      onChange={e=>{const id=e.target.value;const p=projectsList.find(x=>x.id===id);if(p&&!loadingItems)loadProjectFromDb(p);}}
+                      aria-label="تبديل المشروع المرتبط" title="تبديل المشروع (Alt+P)"
+                      style={{background:"hsla(0,0%,100%,.1)",color:"#fff",border:"1px solid hsla(0,0%,100%,.22)",borderRadius:6,padding:"2px 8px",fontSize:10.5,fontWeight:600,outline:"none",maxWidth:220,cursor:loadingItems?"wait":"pointer",height:24,opacity:loadingItems?.6:1}}>
+                      <option value="" style={{color:"#1a1a2e"}}>📂 تبديل المشروع... (Alt+P)</option>
+                      {projectsList.map(p=><option key={p.id} value={p.id} style={{color:"#1a1a2e"}}>{p.name||"بدون اسم"}</option>)}
+                    </select>
+                  </label>
                 )}
-              </div>
+              </nav>
             </div>
 
-            <div style={{display:"flex",gap:5,flexShrink:0,flexWrap:"wrap",alignItems:"center"}}>
+            <div role="toolbar" aria-label="إجراءات سريعة" className="cc-header-actions" style={{display:"flex",gap:5,flexShrink:0,flexWrap:"wrap",alignItems:"center"}}>
               {/* Group 1: Search + Notifications */}
               <div style={{position:"relative"}}>
-                <button onClick={()=>setShowGlobalSearch(p=>!p)} title="بحث عام (Ctrl+K)" style={btnBase}>🔍 <span>بحث</span></button>
+                <button className="cc-header-btn" onClick={()=>setShowGlobalSearch(p=>!p)} aria-label="فتح البحث العام" aria-expanded={showGlobalSearch} aria-haspopup="dialog" title="بحث عام (Ctrl+K)" style={btnBase}>🔍 <span>بحث</span></button>
+
                 {showGlobalSearch&&(
                   <div style={{position:"absolute",top:36,insetInlineEnd:0,width:320,background:darkMode?"#1e293b":"#fff",borderRadius:10,boxShadow:"0 20px 40px rgba(0,0,0,.3)",zIndex:200,border:`1px solid ${darkMode?"#334155":"#e5e7eb"}`,overflow:"hidden"}}>
                     <input autoFocus value={globalSearch} onChange={e=>setGlobalSearch(e.target.value)} placeholder="ابحث في الأنشطة والمخاطر والمراحل..."
@@ -2539,10 +2578,11 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
               </div>
 
               <div style={{position:"relative"}}>
-                <button onClick={()=>setShowNotif(p=>!p)} title="الإشعارات"
+                <button className="cc-header-btn" onClick={()=>setShowNotif(p=>!p)} aria-label={`الإشعارات${unreadCount>0?` (${unreadCount} غير مقروء)`:""}`} aria-expanded={showNotif} aria-haspopup="menu" title="الإشعارات"
                   style={{...btnIcon,background:unreadCount>0?"hsla(0,84%,60%,.28)":btnIcon.background,borderColor:unreadCount>0?"hsla(0,84%,60%,.5)":btnIcon.borderColor,position:"relative"}}>
-                  🔔{unreadCount>0&&<span style={{position:"absolute",top:-4,insetInlineEnd:-4,background:"hsl(var(--destructive))",color:"#fff",borderRadius:999,fontSize:9,fontWeight:900,padding:"1px 5px",minWidth:16,textAlign:"center",border:"1.5px solid hsla(0,0%,0%,.25)"}}>{unreadCount}</span>}
+                  🔔{unreadCount>0&&<span aria-hidden="true" style={{position:"absolute",top:-4,insetInlineEnd:-4,background:"hsl(var(--destructive))",color:"#fff",borderRadius:999,fontSize:9,fontWeight:900,padding:"1px 5px",minWidth:16,textAlign:"center",border:"1.5px solid hsla(0,0%,0%,.25)"}}>{unreadCount}</span>}
                 </button>
+
                 {showNotif&&(
                   <div style={{position:"absolute",top:36,insetInlineEnd:0,width:300,background:darkMode?"#1e293b":"#fff",borderRadius:10,boxShadow:"0 20px 40px rgba(0,0,0,.3)",zIndex:200,border:`1px solid ${darkMode?"#334155":"#e5e7eb"}`,overflow:"hidden"}}>
                     <div style={{padding:"10px 14px",borderBottom:`1px solid ${darkMode?"#334155":"#f0f0f0"}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -2568,46 +2608,48 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
               <span style={divider}/>
 
               {/* Group 2: Data I/O */}
-              <button onClick={()=>setImportModal(true)} title="استيراد BOQ / جدول Primavera (XER) / Excel / PDF / CSV" style={btnBase}>📂 <span>استيراد</span></button>
+              <button className="cc-header-btn" onClick={()=>setImportModal(true)} disabled={loadingItems} aria-label="استيراد بيانات" title="استيراد BOQ / Primavera (XER) / Excel / PDF / CSV" style={{...btnBase,opacity:loadingItems?.6:1,cursor:loadingItems?"wait":"pointer"}}>📂 <span>استيراد</span></button>
 
               <details style={{position:"relative"}}>
-                <summary style={{...btnSuccess,listStyle:"none",userSelect:"none"}}>📥 <span>تصدير</span> ▾</summary>
-                <div style={ddPanel}>
-                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;exportExcelFull(acts,kpi,cf,risks,issues,resources,project);}} style={ddItem}>📊 Excel كامل</button>
-                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;exportCSV(acts,kpi,project);toast.success("تم تصدير CSV");}} style={ddItem}>📄 CSV (البيانات الحالية)</button>
-                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;exportPDF();}} style={ddItem}>📑 PDF</button>
-                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;window.print();}} style={ddItem}>🖨️ طباعة</button>
+                <summary className="cc-header-btn" aria-label="قائمة التصدير" aria-haspopup="menu" title="خيارات التصدير" style={{...btnSuccess,listStyle:"none",userSelect:"none"}}>📥 <span>تصدير</span> ▾</summary>
+                <div role="menu" style={ddPanel}>
+                  <button role="menuitem" onClick={(e)=>{e.currentTarget.closest("details").open=false;exportExcelFull(acts,kpi,cf,risks,issues,resources,project);}} style={ddItem}>📊 Excel كامل</button>
+                  <button role="menuitem" onClick={(e)=>{e.currentTarget.closest("details").open=false;exportCSV(acts,kpi,project);toast.success("تم تصدير CSV");}} style={ddItem}>📄 CSV (البيانات الحالية)</button>
+                  <button role="menuitem" onClick={(e)=>{e.currentTarget.closest("details").open=false;exportPDF();}} style={ddItem}>📑 PDF</button>
+                  <button role="menuitem" onClick={(e)=>{e.currentTarget.closest("details").open=false;window.print();}} style={ddItem}>🖨️ طباعة</button>
                 </div>
               </details>
 
               <details style={{position:"relative"}}>
-                <summary style={{...(autoSyncAC?btnSuccess:btnBase),listStyle:"none",userSelect:"none",cursor:syncingAC?"wait":"pointer",opacity:syncingAC?.7:1}}>
+                <summary className="cc-header-btn" aria-label={`مزامنة AC ${autoSyncAC?"تلقائية مفعّلة":"يدوية"}`} aria-pressed={autoSyncAC} aria-haspopup="menu" title="مزامنة AC من شهادات التقدم (Alt+S لتبديل التلقائي)" style={{...(autoSyncAC?btnSuccess:btnBase),listStyle:"none",userSelect:"none",cursor:syncingAC?"wait":"pointer",opacity:syncingAC?.7:1}}>
                   {syncingAC?"⏳":autoSyncAC?"🟢":"🔁"} <span>مزامنة AC{autoSyncAC?" · Auto":""}</span> ▾
                 </summary>
-                <div style={ddPanel}>
-                  <button disabled={syncingAC} onClick={(e)=>{e.currentTarget.closest("details").open=false;syncACFromCertificates();}} style={{...ddItem,opacity:syncingAC?.6:1,cursor:syncingAC?"wait":"pointer"}}>{syncingAC?"⏳ جاري المزامنة...":"🔁 مزامنة الآن"}</button>
-                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;setAutoSyncAC(v=>{const nv=!v;toast.info(nv?"✅ تفعيل المزامنة التلقائية كل 5 دقائق":"⏸ إيقاف المزامنة التلقائية");return nv;});}} style={ddItem}>{autoSyncAC?"⏸ إيقاف Auto-Sync":"🟢 تفعيل Auto-Sync (كل 5د)"}</button>
+                <div role="menu" style={ddPanel}>
+                  <button role="menuitem" disabled={syncingAC||loadingItems} onClick={(e)=>{e.currentTarget.closest("details").open=false;syncACFromCertificates();}} style={{...ddItem,opacity:(syncingAC||loadingItems)?.6:1,cursor:(syncingAC||loadingItems)?"wait":"pointer"}}>{syncingAC?"⏳ جاري المزامنة...":"🔁 مزامنة الآن"}</button>
+                  <button role="menuitemcheckbox" aria-checked={autoSyncAC} onClick={(e)=>{e.currentTarget.closest("details").open=false;setAutoSyncAC(v=>{const nv=!v;toast.info(nv?"✅ تفعيل المزامنة التلقائية كل 5 دقائق":"⏸ إيقاف المزامنة التلقائية");return nv;});}} style={ddItem}>{autoSyncAC?"⏸ إيقاف Auto-Sync (Alt+S)":"🟢 تفعيل Auto-Sync (Alt+S)"}</button>
                 </div>
               </details>
 
-              <button onClick={()=>setAddModal(true)} style={btnPrimary} title="إضافة نشاط جديد">＋ <span>نشاط</span></button>
+              <button className="cc-header-btn" onClick={()=>setAddModal(true)} disabled={loadingItems} style={{...btnPrimary,opacity:loadingItems?.6:1,cursor:loadingItems?"wait":"pointer"}} aria-label="إضافة نشاط جديد" title="إضافة نشاط جديد">＋ <span>نشاط</span></button>
+
 
               <span style={divider}/>
 
               {/* Group 3: More menu (utilities) */}
               <details style={{position:"relative"}}>
-                <summary style={{...btnIcon,listStyle:"none",userSelect:"none"}} title="المزيد">⋯</summary>
-                <div style={ddPanel}>
-                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;const n=prompt("اسم السيناريو:");if(n)saveScenarioToDb(n);}} style={ddItem}>☁️ حفظ السيناريو</button>
-                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;setScenariosModal(true);fetchDbScenarios();}} style={ddItem}>📚 تحميل سيناريو</button>
+                <summary className="cc-header-btn" aria-label="قائمة المزيد" aria-haspopup="menu" title="المزيد" style={{...btnIcon,listStyle:"none",userSelect:"none"}}>⋯</summary>
+                <div role="menu" style={ddPanel}>
+                  <button role="menuitem" onClick={(e)=>{e.currentTarget.closest("details").open=false;const n=prompt("اسم السيناريو:");if(n)saveScenarioToDb(n);}} style={ddItem}>☁️ حفظ السيناريو</button>
+                  <button role="menuitem" onClick={(e)=>{e.currentTarget.closest("details").open=false;setScenariosModal(true);fetchDbScenarios();}} style={ddItem}>📚 تحميل سيناريو</button>
                   <div style={{height:1,background:darkMode?"#334155":"#eee",margin:"4px 2px"}}/>
-                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;setDensity(d=>d==="compact"?"comfortable":"compact");}} style={ddItem}>{density==="compact"?"⊞ وضع مريح":"⊟ وضع مضغوط"}</button>
-                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;setDarkMode(d=>!d);}} style={ddItem}>{darkMode?"☀️ الوضع الفاتح":"🌙 الوضع الداكن"}</button>
+                  <button role="menuitemcheckbox" aria-checked={density!=="compact"} onClick={(e)=>{e.currentTarget.closest("details").open=false;setDensity(d=>d==="compact"?"comfortable":"compact");}} style={ddItem} title="Alt+C">{density==="compact"?"⊞ وضع مريح (Alt+C)":"⊟ وضع مضغوط (Alt+C)"}</button>
+                  <button role="menuitemcheckbox" aria-checked={darkMode} onClick={(e)=>{e.currentTarget.closest("details").open=false;setDarkMode(d=>!d);}} style={ddItem} title="Ctrl+D">{darkMode?"☀️ الوضع الفاتح (Ctrl+D)":"🌙 الوضع الداكن (Ctrl+D)"}</button>
                   <div style={{height:1,background:darkMode?"#334155":"#eee",margin:"4px 2px"}}/>
-                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;setThreshModal(true);}} style={ddItem}>⚙️ إعدادات الحدود</button>
-                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;setShortcutsModal(true);}} style={ddItem}>❓ اختصارات لوحة المفاتيح</button>
+                  <button role="menuitem" onClick={(e)=>{e.currentTarget.closest("details").open=false;setThreshModal(true);}} style={ddItem}>⚙️ إعدادات الحدود</button>
+                  <button role="menuitem" onClick={(e)=>{e.currentTarget.closest("details").open=false;setShortcutsModal(true);}} style={ddItem}>❓ اختصارات لوحة المفاتيح (?)</button>
                 </div>
               </details>
+
             </div>
           </div>
             );
@@ -2628,7 +2670,8 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
               {alerts.map((a,i)=><span key={i} style={{fontSize:11,fontWeight:600,color:a.t==="c"?"#fecaca":"#fde68a",display:"flex",alignItems:"center",gap:3}}>{a.t==="c"?"🔴":"🟡"} {a.msg}</span>)}
             </div>
           )}
-        </div>
+        </header>
+
 
         {timeMetrics.valid&&(
           <div style={{background:timeMetrics.overdue?"hsl(var(--destructive)/.08)":(darkMode?"#0f172a":"hsl(var(--card))"),borderBottom:`1px solid ${timeMetrics.overdue?"hsl(var(--destructive)/.3)":"hsl(var(--border))"}`,padding:"8px 20px",flexShrink:0}}>
@@ -5225,14 +5268,17 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:12}}>
           {[
             ["Ctrl + K","البحث العام / Command Palette"],
-            ["Ctrl + S","حفظ السيناريو الحالي"],
+            ["Ctrl + D","تبديل الوضع الليلي"],
+            ["Ctrl + E","تصدير Excel كامل"],
             ["Ctrl + P","طباعة التقرير"],
+            ["Alt + P","تبديل المشروع المرتبط (Focus)"],
+            ["Alt + S","تفعيل/إيقاف Auto-Sync لـ AC"],
+            ["Alt + C","تبديل وضع الكثافة (مضغوط/مريح)"],
+            ["Alt + N","فتح/إغلاق الإشعارات"],
             ["Esc","إغلاق النوافذ المنبثقة"],
             ["?","عرض هذه القائمة"],
-            ["انقر على KPI","فتح Drill-down التفصيلي"],
-            ["⊟ / ⊞","تبديل كثافة العرض"],
-            ["🌙 / ☀️","تبديل الوضع الليلي"],
           ].map(([k,d])=>(
+
             <div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"hsl(var(--muted))",border:"1px solid hsl(var(--border))",borderRadius:8}}>
               <span style={{color:"hsl(var(--muted-foreground))",fontSize:11}}>{d}</span>
               <kbd style={{background:"hsl(var(--background))",border:"1px solid hsl(var(--border))",borderRadius:5,padding:"2px 8px",fontFamily:"monospace",fontSize:11,fontWeight:700,color:"hsl(var(--primary))"}}>{k}</kbd>
