@@ -2626,18 +2626,19 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
 
               {/* Group 3: More menu (utilities) */}
               <details style={{position:"relative"}}>
-                <summary style={{...btnIcon,listStyle:"none",userSelect:"none"}} title="المزيد">⋯</summary>
-                <div style={ddPanel}>
-                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;const n=prompt("اسم السيناريو:");if(n)saveScenarioToDb(n);}} style={ddItem}>☁️ حفظ السيناريو</button>
-                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;setScenariosModal(true);fetchDbScenarios();}} style={ddItem}>📚 تحميل سيناريو</button>
+                <summary className="cc-header-btn" aria-label="قائمة المزيد" aria-haspopup="menu" title="المزيد" style={{...btnIcon,listStyle:"none",userSelect:"none"}}>⋯</summary>
+                <div role="menu" style={ddPanel}>
+                  <button role="menuitem" onClick={(e)=>{e.currentTarget.closest("details").open=false;const n=prompt("اسم السيناريو:");if(n)saveScenarioToDb(n);}} style={ddItem}>☁️ حفظ السيناريو</button>
+                  <button role="menuitem" onClick={(e)=>{e.currentTarget.closest("details").open=false;setScenariosModal(true);fetchDbScenarios();}} style={ddItem}>📚 تحميل سيناريو</button>
                   <div style={{height:1,background:darkMode?"#334155":"#eee",margin:"4px 2px"}}/>
-                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;setDensity(d=>d==="compact"?"comfortable":"compact");}} style={ddItem}>{density==="compact"?"⊞ وضع مريح":"⊟ وضع مضغوط"}</button>
-                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;setDarkMode(d=>!d);}} style={ddItem}>{darkMode?"☀️ الوضع الفاتح":"🌙 الوضع الداكن"}</button>
+                  <button role="menuitemcheckbox" aria-checked={density!=="compact"} onClick={(e)=>{e.currentTarget.closest("details").open=false;setDensity(d=>d==="compact"?"comfortable":"compact");}} style={ddItem} title="Alt+C">{density==="compact"?"⊞ وضع مريح (Alt+C)":"⊟ وضع مضغوط (Alt+C)"}</button>
+                  <button role="menuitemcheckbox" aria-checked={darkMode} onClick={(e)=>{e.currentTarget.closest("details").open=false;setDarkMode(d=>!d);}} style={ddItem} title="Ctrl+D">{darkMode?"☀️ الوضع الفاتح (Ctrl+D)":"🌙 الوضع الداكن (Ctrl+D)"}</button>
                   <div style={{height:1,background:darkMode?"#334155":"#eee",margin:"4px 2px"}}/>
-                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;setThreshModal(true);}} style={ddItem}>⚙️ إعدادات الحدود</button>
-                  <button onClick={(e)=>{e.currentTarget.closest("details").open=false;setShortcutsModal(true);}} style={ddItem}>❓ اختصارات لوحة المفاتيح</button>
+                  <button role="menuitem" onClick={(e)=>{e.currentTarget.closest("details").open=false;setThreshModal(true);}} style={ddItem}>⚙️ إعدادات الحدود</button>
+                  <button role="menuitem" onClick={(e)=>{e.currentTarget.closest("details").open=false;setShortcutsModal(true);}} style={ddItem}>❓ اختصارات لوحة المفاتيح (?)</button>
                 </div>
               </details>
+
             </div>
           </div>
             );
