@@ -2474,35 +2474,42 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
       {/* ═══ MAIN ═══ */}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
         {/* Header — redesigned: unified buttons, grouped, with More menu */}
-        <div style={{background:"var(--gradient-hero)",padding:"10px 18px 0",color:"hsl(var(--primary-foreground))",flexShrink:0,boxShadow:"var(--shadow-md)",borderBottom:"1px solid hsla(0,0%,100%,.08)"}}>
+        <div style={{background:"var(--gradient-hero)",padding:"12px 20px 0",color:"hsl(var(--primary-foreground))",flexShrink:0,boxShadow:"var(--shadow-md)",borderBottom:"1px solid hsla(0,0%,100%,.08)",position:"relative",overflow:"hidden"}}>
+          <div aria-hidden style={{position:"absolute",insetInlineStart:-60,top:-60,width:240,height:240,background:"radial-gradient(circle,hsl(var(--accent)/.18),transparent 70%)",pointerEvents:"none"}}/>
           {(() => {
-            const btnBase={background:"hsla(0,0%,100%,.08)",color:"#fff",border:"1px solid hsla(0,0%,100%,.18)",borderRadius:8,padding:"6px 10px",fontWeight:600,cursor:"pointer",fontSize:11,height:30,display:"inline-flex",alignItems:"center",gap:5,whiteSpace:"nowrap",transition:"background .15s,border-color .15s"};
-            const btnPrimary={...btnBase,background:"hsl(var(--accent))",color:"hsl(var(--accent-foreground))",border:"1px solid hsla(0,0%,100%,.25)",fontWeight:700};
+            const btnBase={background:"hsla(0,0%,100%,.08)",color:"#fff",border:"1px solid hsla(0,0%,100%,.18)",borderRadius:8,padding:"6px 10px",fontWeight:600,cursor:"pointer",fontSize:11,height:30,display:"inline-flex",alignItems:"center",gap:5,whiteSpace:"nowrap",transition:"background .15s,border-color .15s,transform .15s",backdropFilter:"blur(6px)"};
+            const btnPrimary={...btnBase,background:"hsl(var(--accent))",color:"hsl(var(--accent-foreground))",border:"1px solid hsla(0,0%,100%,.25)",fontWeight:700,boxShadow:"0 4px 12px hsla(0,0%,0%,.25)"};
             const btnSuccess={...btnBase,background:"hsl(var(--success))",color:"hsl(var(--success-foreground))",border:"1px solid hsla(0,0%,100%,.2)",fontWeight:700};
             const btnIcon={...btnBase,padding:"6px 9px",fontSize:13,minWidth:30,justifyContent:"center"};
             const divider={width:1,height:22,background:"hsla(0,0%,100%,.18)",alignSelf:"center",margin:"0 2px"};
             const ddPanel={position:"absolute",top:"calc(100% + 6px)",insetInlineEnd:0,background:darkMode?"#1e293b":"#fff",border:`1px solid ${darkMode?"#334155":"#e5e7eb"}`,borderRadius:10,boxShadow:"0 14px 36px rgba(0,0,0,.22)",minWidth:210,zIndex:120,padding:6,display:"flex",flexDirection:"column",gap:1};
             const ddItem={background:"transparent",border:"none",textAlign:"start",padding:"8px 11px",borderRadius:7,cursor:"pointer",fontSize:12,color:darkMode?"#f1f5f9":"#1a1a2e",fontWeight:600,display:"flex",alignItems:"center",gap:8};
             return (
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8,gap:14}}>
-            <div style={{minWidth:0,flex:1}}>
-              <h1 style={{margin:0,fontSize:16,fontWeight:900,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",letterSpacing:.2}}>
-                <span style={{display:"inline-flex",alignItems:"center",gap:7}}>
-                  <span style={{width:5,height:18,background:"hsl(var(--accent))",borderRadius:3,display:"inline-block"}}/>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,gap:14,position:"relative",zIndex:1}}>
+            <div style={{minWidth:0,flex:1,display:"flex",flexDirection:"column",gap:5}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <h1 style={{margin:0,fontSize:17,fontWeight:900,display:"inline-flex",alignItems:"center",gap:8,letterSpacing:.2,lineHeight:1.1}}>
+                  <span style={{width:5,height:20,background:"linear-gradient(180deg,hsl(var(--accent)),hsl(var(--accent)/.6))",borderRadius:3,display:"inline-block",boxShadow:"0 0 12px hsl(var(--accent)/.5)"}}/>
                   Cost Control Report
-                </span>
-                <span style={{background:"hsla(0,0%,100%,.14)",borderRadius:999,padding:"2px 9px",fontSize:10,fontWeight:700}}>{filtered.length} أنشطة</span>
-                {alerts.filter(a=>a.t==="c").length>0&&<span style={{background:"hsl(var(--destructive))",borderRadius:999,padding:"2px 9px",fontSize:10,fontWeight:800,boxShadow:"0 0 0 2px hsla(0,0%,100%,.08)"}}>⚠ {alerts.length} تنبيه</span>}
-              </h1>
-              <p style={{margin:"3px 0 0",fontSize:10,opacity:.65,direction:"rtl"}}>{project.name} · {project.number} · {project.client}</p>
-              {projectsList.length>0&&(
-                <select value={linkedProjectId||""} onChange={e=>{const id=e.target.value;const p=projectsList.find(x=>x.id===id);if(p)loadProjectFromDb(p);}}
-                  title="تبديل سريع للمشروع المرتبط"
-                  style={{marginTop:5,background:"hsla(0,0%,100%,.1)",color:"#fff",border:"1px solid hsla(0,0%,100%,.22)",borderRadius:7,padding:"3px 9px",fontSize:11,fontWeight:600,outline:"none",maxWidth:320,cursor:"pointer"}}>
-                  <option value="" style={{color:"#1a1a2e"}}>📂 اختر مشروعاً محفوظاً...</option>
-                  {projectsList.map(p=><option key={p.id} value={p.id} style={{color:"#1a1a2e"}}>{p.name||"بدون اسم"}</option>)}
-                </select>
-              )}
+                </h1>
+                <span style={{background:"hsla(0,0%,100%,.12)",border:"1px solid hsla(0,0%,100%,.16)",borderRadius:999,padding:"2px 9px",fontSize:10,fontWeight:700,display:"inline-flex",alignItems:"center",gap:4}}>📋 {filtered.length} نشاط</span>
+                {alerts.length>0&&<span style={{background:alerts.filter(a=>a.t==="c").length>0?"hsl(var(--destructive))":"hsl(var(--accent))",color:"#fff",borderRadius:999,padding:"2px 9px",fontSize:10,fontWeight:800,boxShadow:"0 2px 8px hsla(0,0%,0%,.3)",display:"inline-flex",alignItems:"center",gap:4}}>⚠ {alerts.length} تنبيه</span>}
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",fontSize:10.5,opacity:.9,direction:"rtl"}}>
+                <span style={{fontWeight:700}}>{project.name}</span>
+                <span style={{opacity:.4}}>·</span>
+                <span style={{fontFamily:"monospace",background:"hsla(0,0%,100%,.08)",padding:"1px 6px",borderRadius:4,fontSize:10}}>{project.number}</span>
+                <span style={{opacity:.4}}>·</span>
+                <span style={{opacity:.8}}>{project.client}</span>
+                {projectsList.length>0&&(
+                  <select value={linkedProjectId||""} onChange={e=>{const id=e.target.value;const p=projectsList.find(x=>x.id===id);if(p)loadProjectFromDb(p);}}
+                    title="تبديل سريع للمشروع المرتبط"
+                    style={{marginInlineStart:4,background:"hsla(0,0%,100%,.1)",color:"#fff",border:"1px solid hsla(0,0%,100%,.22)",borderRadius:6,padding:"2px 8px",fontSize:10.5,fontWeight:600,outline:"none",maxWidth:220,cursor:"pointer",height:24}}>
+                    <option value="" style={{color:"#1a1a2e"}}>📂 تبديل المشروع...</option>
+                    {projectsList.map(p=><option key={p.id} value={p.id} style={{color:"#1a1a2e"}}>{p.name||"بدون اسم"}</option>)}
+                  </select>
+                )}
+              </div>
             </div>
 
             <div style={{display:"flex",gap:5,flexShrink:0,flexWrap:"wrap",alignItems:"center"}}>
