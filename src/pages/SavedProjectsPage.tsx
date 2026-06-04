@@ -168,55 +168,33 @@ export default function SavedProjectsPage() {
       const savedProjects = savedProjectsRes.data || [];
       const projectDataList = projectDataRes.data || [];
 
-      // Fetch live totals from project_items (reflects edited prices after import)
-      const projectIds = savedProjects.map((p: any) => p.id);
-      const itemTotals = new Map<string, { count: number; total: number }>();
-      if (projectIds.length) {
-        const { data: itemsRows } = await supabase
-          .from("project_items")
-          .select("project_id, quantity, unit_price, total_price")
-          .in("project_id", projectIds);
-        (itemsRows || []).forEach((r: any) => {
-          const cur = itemTotals.get(r.project_id) || { count: 0, total: 0 };
-          const line = Number(r.total_price) || (Number(r.quantity) || 0) * (Number(r.unit_price) || 0);
-          cur.count += 1;
-          cur.total += line;
-          itemTotals.set(r.project_id, cur);
-        });
-      }
-
-      // Merge projects - use Map to avoid duplicates
+      // Phase 1: render immediately with summary/analysis totals + loading flag
       const projectMap = new Map<string, ProjectData>();
-
-      // Add saved_projects first (prioritize)
       savedProjects.forEach((p: any) => {
         const analysisData = p.analysis_data as any;
         const items = Array.isArray(analysisData?.items) ? analysisData.items : [];
-        const computedTotal = items.reduce(
-          (s: number, it: any) =>
-            s + (Number(it?.total_price) || (Number(it?.quantity) || 0) * (Number(it?.unit_price) || 0)),
-          0
-        );
         const summaryTotal = Number(analysisData?.summary?.total_value) || 0;
-        const live = itemTotals.get(p.id);
-        const liveTotal = live?.total || 0;
-        const liveCount = live?.count || 0;
+        const fallbackTotal = resolveProjectTotal({
+          liveTotal: 0,
+          analysisItems: items,
+          summaryTotal,
+        });
         projectMap.set(p.id, {
           id: p.id,
           name: p.name,
           file_name: p.file_name,
           analysis_data: p.analysis_data,
           wbs_data: p.wbs_data,
-          items_count: liveCount || items.length || analysisData?.summary?.total_items || 0,
-          total_value: liveTotal > 0 ? liveTotal : (computedTotal > 0 ? computedTotal : summaryTotal),
+          items_count: items.length || analysisData?.summary?.total_items || 0,
+          total_value: fallbackTotal,
           currency: analysisData?.summary?.currency || 'SAR',
           created_at: p.created_at,
           updated_at: p.updated_at,
+          totals_loading: true,
+          has_items: undefined,
         });
       });
 
-
-      // Add project_data if not already in map
       projectDataList.forEach((p: any) => {
         if (!projectMap.has(p.id)) {
           projectMap.set(p.id, {
@@ -230,15 +208,50 @@ export default function SavedProjectsPage() {
             currency: p.currency || 'SAR',
             created_at: p.created_at,
             updated_at: p.updated_at,
+            totals_loading: false,
+            has_items: (p.items_count || 0) > 0,
           });
         }
       });
 
-      // Convert map to array and sort by created_at
       const allProjects = Array.from(projectMap.values())
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
       setProjects(allProjects);
+
+      // Phase 2: fetch live totals from project_items in background and patch
+      const projectIds = savedProjects.map((p: any) => p.id);
+      if (projectIds.length) {
+        try {
+          const { data: itemsRows, error: itemsErr } = await supabase
+            .from("project_items")
+            .select("project_id, quantity, unit_price, total_price")
+            .in("project_id", projectIds);
+          if (itemsErr) throw itemsErr;
+          const itemTotals = aggregateProjectItems((itemsRows || []) as any);
+          setProjects(prev => prev.map(p => {
+            if (!projectIds.includes(p.id)) return p;
+            const live = itemTotals.get(p.id);
+            const analysisItems = Array.isArray(p.analysis_data?.items) ? p.analysis_data.items : [];
+            const summaryTotal = Number(p.analysis_data?.summary?.total_value) || 0;
+            const total = resolveProjectTotal({
+              liveTotal: live?.total || 0,
+              analysisItems,
+              summaryTotal,
+            });
+            return {
+              ...p,
+              items_count: live?.count || p.items_count || 0,
+              total_value: total,
+              totals_loading: false,
+              has_items: (live?.count || 0) > 0 || (p.items_count || 0) > 0,
+            };
+          }));
+        } catch (e) {
+          // Mark loading as done even on failure so UI doesn't spin forever
+          setProjects(prev => prev.map(p => ({ ...p, totals_loading: false })));
+        }
+      }
+
     } catch (error: any) {
       console.error("Error fetching projects:", error);
       setFetchError(error?.message || "Failed to load projects");
