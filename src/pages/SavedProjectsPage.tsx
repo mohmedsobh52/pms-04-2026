@@ -50,6 +50,12 @@ import {
 } from "@/components/ui/dialog";
 import { prefetchRoute } from "@/lib/prefetch-routes";
 import { PaginationControls } from "@/components/ui/pagination-controls";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  aggregateProjectItems,
+  resolveProjectTotal,
+  formatCurrency,
+} from "@/lib/project-totals";
 
 interface ProjectData {
   id: string;
