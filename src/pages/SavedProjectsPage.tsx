@@ -1109,11 +1109,21 @@ export default function SavedProjectsPage() {
                       <DollarSign className="w-3 h-3" />
                       {isArabic ? "القيمة" : "Value"}
                     </div>
-                    <p className="font-semibold text-primary">
-                      {(project.total_value || 0).toLocaleString()} {project.currency || 'SAR'}
-                    </p>
+                    {project.totals_loading ? (
+                      <Skeleton className="h-5 w-24" />
+                    ) : (project.total_value || 0) > 0 ? (
+                      <p className="font-semibold text-primary" title={String(project.total_value || 0)}>
+                        {formatCurrency(project.total_value, project.currency || 'SAR', isArabic)}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">
+                        {project.has_items === false
+                          ? (isArabic ? "لا توجد بنود مسعّرة" : "No priced items")
+                          : (isArabic ? "بدون قيمة" : "No value")}
+                      </p>
+                    )}
                   </div>
-                </div>
+
 
                 {/* Date */}
                 <div className="flex items-center gap-1 text-xs text-muted-foreground mb-4">
