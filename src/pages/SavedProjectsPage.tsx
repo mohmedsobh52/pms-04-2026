@@ -160,6 +160,23 @@ export default function SavedProjectsPage() {
       const savedProjects = savedProjectsRes.data || [];
       const projectDataList = projectDataRes.data || [];
 
+      // Fetch live totals from project_items (reflects edited prices after import)
+      const projectIds = savedProjects.map((p: any) => p.id);
+      const itemTotals = new Map<string, { count: number; total: number }>();
+      if (projectIds.length) {
+        const { data: itemsRows } = await supabase
+          .from("project_items")
+          .select("project_id, quantity, unit_price, total_price")
+          .in("project_id", projectIds);
+        (itemsRows || []).forEach((r: any) => {
+          const cur = itemTotals.get(r.project_id) || { count: 0, total: 0 };
+          const line = Number(r.total_price) || (Number(r.quantity) || 0) * (Number(r.unit_price) || 0);
+          cur.count += 1;
+          cur.total += line;
+          itemTotals.set(r.project_id, cur);
+        });
+      }
+
       // Merge projects - use Map to avoid duplicates
       const projectMap = new Map<string, ProjectData>();
 
@@ -173,14 +190,17 @@ export default function SavedProjectsPage() {
           0
         );
         const summaryTotal = Number(analysisData?.summary?.total_value) || 0;
+        const live = itemTotals.get(p.id);
+        const liveTotal = live?.total || 0;
+        const liveCount = live?.count || 0;
         projectMap.set(p.id, {
           id: p.id,
           name: p.name,
           file_name: p.file_name,
           analysis_data: p.analysis_data,
           wbs_data: p.wbs_data,
-          items_count: items.length || analysisData?.summary?.total_items || 0,
-          total_value: computedTotal > 0 ? computedTotal : summaryTotal,
+          items_count: liveCount || items.length || analysisData?.summary?.total_items || 0,
+          total_value: liveTotal > 0 ? liveTotal : (computedTotal > 0 ? computedTotal : summaryTotal),
           currency: analysisData?.summary?.currency || 'SAR',
           created_at: p.created_at,
           updated_at: p.updated_at,
