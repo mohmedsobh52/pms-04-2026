@@ -1308,10 +1308,21 @@ export default function SavedProjectsPage() {
                   </div>
                   <div className="p-3 rounded-lg bg-green-500/5">
                     <p className="text-xs text-muted-foreground">{isArabic ? "القيمة الإجمالية" : "Total Value"}</p>
-                    <p className="font-semibold text-lg text-green-600">
-                      {(selectedProject?.total_value || 0).toLocaleString()} {selectedProject?.currency || 'SAR'}
-                    </p>
+                    {selectedProject?.totals_loading ? (
+                      <Skeleton className="h-6 w-32 mt-1" />
+                    ) : (selectedProject?.total_value || 0) > 0 ? (
+                      <p className="font-semibold text-lg text-green-600">
+                        {formatCurrency(selectedProject?.total_value, selectedProject?.currency || 'SAR', isArabic)}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">
+                        {selectedProject?.has_items === false
+                          ? (isArabic ? "لا توجد بنود مسعّرة" : "No priced items")
+                          : (isArabic ? "بدون قيمة" : "No value")}
+                      </p>
+                    )}
                   </div>
+
                   <div className="p-3 rounded-lg bg-accent/5">
                     <p className="text-xs text-muted-foreground">{isArabic ? "تاريخ الإنشاء" : "Created"}</p>
                     <p className="font-semibold">
