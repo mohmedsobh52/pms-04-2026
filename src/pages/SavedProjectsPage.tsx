@@ -62,6 +62,8 @@ interface ProjectData {
   currency: string | null;
   created_at: string;
   updated_at: string;
+  totals_loading?: boolean;
+  has_items?: boolean;
 }
 
 interface ProjectItem {
