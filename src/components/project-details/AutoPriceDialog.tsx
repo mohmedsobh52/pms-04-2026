@@ -120,6 +120,7 @@ function AutoPriceDialogComponent({
   const [pendingChunks, setPendingChunks] = useState<PendingChunk[]>([]);
   const [candidatePool, setCandidatePool] = useState<AICandidate[]>([]);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
 
   const { materials, findMatchingPrice } = useMaterialPrices();
   const { laborRates } = useLaborRates();
