@@ -1,51 +1,38 @@
-# Harden GlobalSearch Context & Add Safety Nets
+## الهدف
+عند تسعير بنود BOQ بالذكاء الاصطناعي، يبحث النظام أولاً داخل **البيانات التاريخية** (`historical_pricing_files`) و**عروض الأسعار** (`price_quotations.ai_analysis.items`) قبل اللجوء لمكتبة الأسعار العامة، ويُظهر للمستخدم المصدر والثقة لكل بند.
 
-## Current State
-- `src/contexts/GlobalSearchContext.tsx` already returns a `noopGlobalSearch` fallback when used outside the provider, with a `console.warn`.
-- `App.tsx` wraps routes inside `<GlobalSearchProvider>` and there is a top-level `<ErrorBoundary>`.
-- No tests exist for `GlobalSearch`.
+## الخطوات
 
-## Changes
+### 1) Edge Function جديدة: `ai-price-from-history`
+- المدخلات: `items[]` (id, description, unit, category) + `isArabic`
+- يستخرج المرشحين من حساب المستخدم:
+  - `historical_pricing_files.items` → كل بند مع `description / unit / unit_price / project_name / project_date`
+  - `price_quotations` حيث `status='analyzed'` → كل سطر داخل `ai_analysis.items` مع `supplier_name / quotation_date`
+- يستدعي Gemini عبر Lovable AI Gateway (tool-calling) لإرجاع لكل بند:
+  `{ itemId, source: 'historical'|'quotation'|null, sourceId, sourceLabel, unitPrice, confidence (0-100), reason }`
+- ثقة ≥ 95 فقط عند التطابق شبه المؤكد، وإلا `null`.
 
-### 1. Dev-only warning + breadcrumb logging — `src/contexts/GlobalSearchContext.tsx`
-- Gate the existing `console.warn` inside `useGlobalSearch` behind `import.meta.env.DEV` (silent in production).
-- Add a small in-memory breadcrumb buffer (max 20 entries) recording:
-  - Provider mount/unmount (`GlobalSearchProvider mounted/unmounted`)
-  - Each `useGlobalSearch` call site that hits the fallback (with stack trace tail)
-- Expose `__getGlobalSearchBreadcrumbs()` on `window` in dev for debugging.
-- Add a `useEffect` runtime check inside `GlobalSearchProviderInternal` that logs a single confirmation breadcrumb on mount.
+### 2) مكون UI جديد: تبويب "تسعير من السجلات" داخل `AutoPriceDialog`
+- زر تشغيل: "بحث في التاريخي والعروض"
+- يعرض جدول النتائج:
+  - وصف البند | السعر المقترح | المصدر (شارة ملوّنة: 📚 تاريخي / 📄 عرض سعر) | اسم المشروع/المورد + التاريخ | شريط ثقة + السبب
+  - Checkbox لكل صف + "تطبيق المحدد"
+- الفلاتر: حد أدنى للثقة (افتراضي 80)، المصدر (الكل/تاريخي/عروض).
+- البنود غير المتطابقة → عرضها كقائمة "بدون مطابقة" مع اقتراح تمريرها إلى `ai-auto-price` (مكتبة الأسعار) كـ fallback بضغطة زر.
 
-### 2. Single source enforcement
-- Confirm `src/hooks/useGlobalSearch.tsx` is a pure re-export of the context (already true).
-- Add a top-of-file comment in `GlobalSearchContext.tsx` warning against duplicating the context.
-- Add a module-level `globalThis.__GLOBAL_SEARCH_CONTEXT_INSTANCES__` counter — if it ever exceeds 1, log an error in dev. This catches duplicate context instances caused by case-insensitive imports or path drift.
+### 3) التطبيق على البنود
+- عند الضغط على "تطبيق": تحديث `item_costs.ai_suggested_rate` للبنود المختارة + كتابة سطر في `analysis_audit_logs` بـ `action='ai_price_from_history'` يحتوي على المصدر.
 
-### 3. Page-level error boundary for GlobalSearch
-- `GlobalSearch` is rendered once in `App.tsx`. Wrap it in its own `<ErrorBoundary>` with a minimal `fallback={null}` so any future hook throw inside the search palette never blanks the whole app:
-  ```tsx
-  <ErrorBoundary fallback={null}>
-    <GlobalSearch />
-  </ErrorBoundary>
-  ```
-- Same treatment for `<CommandPalette />`.
+### 4) عرض سريع داخل صف البند
+- Tooltip تحت السعر المقترح يوضح: "مصدر السعر: عرض المورد X بتاريخ Y" أو "مشروع Z السابق".
 
-### 4. Tests — `src/components/GlobalSearch.test.tsx`
-Set up vitest + React Testing Library if not configured (per the testing-setup guide):
-- Add devDeps: `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `jsdom`.
-- Add `vitest.config.ts` and `src/test/setup.ts`.
+## ملاحظات تقنية
+- إعادة استخدام نمط chunking (40 عنصر / طلب) من `ai-auto-price`.
+- تقليم المرشحين إلى 400 (الأحدث أولاً) لتقليل تكلفة الـ prompt.
+- العملة الافتراضية SAR — تحويلات العملة خارج نطاق هذه المرحلة.
+- لا تغييرات على schema (نقرأ فقط من جداول قائمة).
 
-Test cases:
-1. **With provider**: render `<MemoryRouter><GlobalSearchProvider><GlobalSearch /></GlobalSearchProvider></MemoryRouter>` — expect no throw, command dialog mounts.
-2. **Without provider**: render `<MemoryRouter><GlobalSearch /></MemoryRouter>` — expect no throw, fallback no-op state used, dialog renders closed.
-3. **Hook fallback**: render a tiny consumer calling `useGlobalSearch()` outside provider — expect it to return the noop object (not throw).
-
-## Files Touched
-- edit `src/contexts/GlobalSearchContext.tsx`
-- edit `src/App.tsx` (wrap GlobalSearch + CommandPalette in ErrorBoundary)
-- create `src/components/GlobalSearch.test.tsx`
-- create `vitest.config.ts`, `src/test/setup.ts` (if missing)
-- update `package.json` devDependencies + `tsconfig.app.json` types
-
-## Out of Scope
-- Refactoring search content/data sources.
-- Changing the public API of `useGlobalSearch`.
+## الملفات المتأثرة
+- جديد: `supabase/functions/ai-price-from-history/index.ts`
+- تعديل: `src/components/project-details/AutoPriceDialog.tsx` (إضافة Tab)
+- جديد: `src/components/project-details/PriceFromHistoryTab.tsx`

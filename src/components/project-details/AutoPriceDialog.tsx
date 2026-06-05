@@ -39,6 +39,7 @@ import { useMaterialPrices } from "@/hooks/useMaterialPrices";
 import { useLaborRates } from "@/hooks/useLaborRates";
 import { useEquipmentRates } from "@/hooks/useEquipmentRates";
 import { ProjectItem } from "./types";
+import { PriceFromHistoryDialog } from "./PriceFromHistoryDialog";
 
 interface AutoPriceDialogProps {
   isOpen: boolean;
@@ -120,6 +121,7 @@ function AutoPriceDialogComponent({
   const [pendingChunks, setPendingChunks] = useState<PendingChunk[]>([]);
   const [candidatePool, setCandidatePool] = useState<AICandidate[]>([]);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
 
   const { materials, findMatchingPrice } = useMaterialPrices();
   const { laborRates } = useLaborRates();
@@ -610,17 +612,40 @@ function AutoPriceDialogComponent({
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            {isArabic ? "التسعير التلقائي" : "Auto Pricing"}
-          </DialogTitle>
-          <DialogDescription>
-            {isArabic
-              ? "تسعير البنود تلقائياً من مكتبة الأسعار المحلية (مواد، عمالة، معدات)"
-              : "Automatically price items from local library (materials, labor, equipment)"
-            }
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <DialogTitle className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />
+                {isArabic ? "التسعير التلقائي" : "Auto Pricing"}
+              </DialogTitle>
+              <DialogDescription>
+                {isArabic
+                  ? "تسعير البنود تلقائياً من مكتبة الأسعار المحلية (مواد، عمالة، معدات)"
+                  : "Automatically price items from local library (materials, labor, equipment)"
+                }
+              </DialogDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowHistoryDialog(true)}
+              className="gap-2 shrink-0"
+            >
+              <History className="w-4 h-4" />
+              {isArabic ? "تسعير من السجلات والعروض" : "Price from History & Quotes"}
+            </Button>
+          </div>
         </DialogHeader>
+
+        <PriceFromHistoryDialog
+          isOpen={showHistoryDialog}
+          onClose={() => setShowHistoryDialog(false)}
+          items={items}
+          onApplyPricing={onApplyPricing}
+          isArabic={isArabic}
+          currency={currency}
+        />
+
 
         <ScrollArea className="flex-1 -mx-6 px-6">
         <div className="space-y-4 py-4">
