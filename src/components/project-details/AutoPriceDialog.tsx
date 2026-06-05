@@ -39,6 +39,7 @@ import { useMaterialPrices } from "@/hooks/useMaterialPrices";
 import { useLaborRates } from "@/hooks/useLaborRates";
 import { useEquipmentRates } from "@/hooks/useEquipmentRates";
 import { ProjectItem } from "./types";
+import { PriceFromHistoryDialog } from "./PriceFromHistoryDialog";
 
 interface AutoPriceDialogProps {
   isOpen: boolean;
