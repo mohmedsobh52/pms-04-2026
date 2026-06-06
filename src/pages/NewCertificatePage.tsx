@@ -71,6 +71,16 @@ const NewCertificatePage = () => {
   const [loadingItems, setLoadingItems] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // NEW: VAT, penalty, MOS, additional deductions, attachments, approval
+  const [formVatPct, setFormVatPct] = useState(15);
+  const [formDelayPenalty, setFormDelayPenalty] = useState(0);
+  const [formMosAmount, setFormMosAmount] = useState(0);
+  const [formMosPct, setFormMosPct] = useState(80);
+  const [additionalDeductions, setAdditionalDeductions] = useState<{ name: string; amount: number }[]>([]);
+  const [attachments, setAttachments] = useState<{ name: string; url: string; size: number }[]>([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState<string>("draft");
+
   const [availableContracts, setAvailableContracts] = useState<ContractOption[]>([]);
   const [previousCertsSummary, setPreviousCertsSummary] = useState<PreviousCertsSummary | null>(null);
   const [advancePercentage, setAdvancePercentage] = useState(0);
@@ -80,7 +90,17 @@ const NewCertificatePage = () => {
   const previousWorkDone = useMemo(() => formItems.reduce((s, i) => s + (i.previous_quantity * i.unit_price), 0), [formItems]);
   const totalWorkDone = currentWorkDone + previousWorkDone;
   const retentionAmount = (currentWorkDone * formRetention) / 100;
-  const netAmount = currentWorkDone - retentionAmount - formAdvanceDeduction - formOtherDeductions;
+  const mosPayableAmount = useMemo(() => (formMosAmount * formMosPct) / 100, [formMosAmount, formMosPct]);
+  const additionalDeductionsTotal = useMemo(() => additionalDeductions.reduce((s, d) => s + (Number(d.amount) || 0), 0), [additionalDeductions]);
+  const netBeforeVat = currentWorkDone + mosPayableAmount - retentionAmount - formAdvanceDeduction - formOtherDeductions - formDelayPenalty - additionalDeductionsTotal;
+  const vatAmount = useMemo(() => Math.max(0, netBeforeVat) * (formVatPct / 100), [netBeforeVat, formVatPct]);
+  const netAmount = netBeforeVat + vatAmount;
+
+  // Completion vs contract
+  const cumulativeWorkDone = (previousCertsSummary?.totalWorkDone || 0) + currentWorkDone;
+  const completionPct = selectedContractValue && selectedContractValue > 0
+    ? Math.min(100, (cumulativeWorkDone / selectedContractValue) * 100)
+    : 0;
 
   useEffect(() => {
     if (user) fetchInitialData();
