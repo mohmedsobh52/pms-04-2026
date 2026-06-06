@@ -236,7 +236,14 @@ const NewCertificatePage = () => {
         total_work_done: totalWorkDone, previous_work_done: previousWorkDone, current_work_done: currentWorkDone,
         retention_percentage: formRetention, retention_amount: retentionAmount,
         advance_deduction: formAdvanceDeduction, other_deductions: formOtherDeductions,
-        net_amount: netAmount, status: "draft", notes: formNotes || null
+        vat_percentage: formVatPct, vat_amount: vatAmount,
+        delay_penalty: formDelayPenalty,
+        materials_on_site_amount: formMosAmount, materials_on_site_percentage: formMosPct,
+        additional_deductions: additionalDeductions as any,
+        attachments: attachments as any,
+        approval_status: approvalStatus,
+        approval_history: [{ status: approvalStatus, at: new Date().toISOString(), by: user.id }] as any,
+        net_amount: netAmount, status: approvalStatus === "approved" ? "approved" : "draft", notes: formNotes || null
       }).select().single();
       if (certError) throw certError;
       const itemsToInsert = formItems.filter(i => i.current_quantity > 0).map(i => ({
