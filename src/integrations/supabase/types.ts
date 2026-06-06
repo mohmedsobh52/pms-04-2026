@@ -3332,6 +3332,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_shared_view: {
+        Args: { _share_code: string }
+        Returns: undefined
+      }
       save_project_with_items: {
         Args: {
           _analysis_data: Json
