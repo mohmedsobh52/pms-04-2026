@@ -14,9 +14,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import {
   FileText, Building2, ArrowLeft,
-  Calendar, Percent, FileCheck, Link2, AlertCircle
+  Calendar, Percent, FileCheck, Link2, AlertCircle,
+  Receipt, AlertTriangle, Package, Plus, Trash2, Paperclip, Upload, X, CheckCircle2
 } from "lucide-react";
 
 interface CertificateItem {
@@ -68,6 +71,16 @@ const NewCertificatePage = () => {
   const [loadingItems, setLoadingItems] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // NEW: VAT, penalty, MOS, additional deductions, attachments, approval
+  const [formVatPct, setFormVatPct] = useState(15);
+  const [formDelayPenalty, setFormDelayPenalty] = useState(0);
+  const [formMosAmount, setFormMosAmount] = useState(0);
+  const [formMosPct, setFormMosPct] = useState(80);
+  const [additionalDeductions, setAdditionalDeductions] = useState<{ name: string; amount: number }[]>([]);
+  const [attachments, setAttachments] = useState<{ name: string; url: string; size: number }[]>([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState<string>("draft");
+
   const [availableContracts, setAvailableContracts] = useState<ContractOption[]>([]);
   const [previousCertsSummary, setPreviousCertsSummary] = useState<PreviousCertsSummary | null>(null);
   const [advancePercentage, setAdvancePercentage] = useState(0);
@@ -77,7 +90,17 @@ const NewCertificatePage = () => {
   const previousWorkDone = useMemo(() => formItems.reduce((s, i) => s + (i.previous_quantity * i.unit_price), 0), [formItems]);
   const totalWorkDone = currentWorkDone + previousWorkDone;
   const retentionAmount = (currentWorkDone * formRetention) / 100;
-  const netAmount = currentWorkDone - retentionAmount - formAdvanceDeduction - formOtherDeductions;
+  const mosPayableAmount = useMemo(() => (formMosAmount * formMosPct) / 100, [formMosAmount, formMosPct]);
+  const additionalDeductionsTotal = useMemo(() => additionalDeductions.reduce((s, d) => s + (Number(d.amount) || 0), 0), [additionalDeductions]);
+  const netBeforeVat = currentWorkDone + mosPayableAmount - retentionAmount - formAdvanceDeduction - formOtherDeductions - formDelayPenalty - additionalDeductionsTotal;
+  const vatAmount = useMemo(() => Math.max(0, netBeforeVat) * (formVatPct / 100), [netBeforeVat, formVatPct]);
+  const netAmount = netBeforeVat + vatAmount;
+
+  // Completion vs contract
+  const cumulativeWorkDone = (previousCertsSummary?.totalWorkDone || 0) + currentWorkDone;
+  const completionPct = selectedContractValue && selectedContractValue > 0
+    ? Math.min(100, (cumulativeWorkDone / selectedContractValue) * 100)
+    : 0;
 
   useEffect(() => {
     if (user) fetchInitialData();
@@ -195,6 +218,22 @@ const NewCertificatePage = () => {
     }));
   };
 
+  const handleUploadAttachment = async (file: File) => {
+    if (!user?.id || !file) return;
+    setUploadingAttachment(true);
+    try {
+      const path = `${user.id}/certificates/${Date.now()}-${file.name}`;
+      const { error } = await supabase.storage.from("project-files").upload(path, file, { upsert: false });
+      if (error) throw error;
+      const { data: signed } = await supabase.storage.from("project-files").createSignedUrl(path, 60 * 60 * 24 * 365);
+      setAttachments(prev => [...prev, { name: file.name, url: signed?.signedUrl || path, size: file.size }]);
+      toast.success(isArabic ? "تم رفع المرفق" : "Attachment uploaded");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(isArabic ? "فشل رفع المرفق" : "Upload failed");
+    } finally { setUploadingAttachment(false); }
+  };
+
   const handleCreateCertificate = async () => {
     if (!user?.id || !formProjectId || !formContractor) {
       toast.error(isArabic ? "يرجى اختيار المشروع والمقاول" : "Select project and contractor");
@@ -213,7 +252,14 @@ const NewCertificatePage = () => {
         total_work_done: totalWorkDone, previous_work_done: previousWorkDone, current_work_done: currentWorkDone,
         retention_percentage: formRetention, retention_amount: retentionAmount,
         advance_deduction: formAdvanceDeduction, other_deductions: formOtherDeductions,
-        net_amount: netAmount, status: "draft", notes: formNotes || null
+        vat_percentage: formVatPct, vat_amount: vatAmount,
+        delay_penalty: formDelayPenalty,
+        materials_on_site_amount: formMosAmount, materials_on_site_percentage: formMosPct,
+        additional_deductions: additionalDeductions as any,
+        attachments: attachments as any,
+        approval_status: approvalStatus,
+        approval_history: [{ status: approvalStatus, at: new Date().toISOString(), by: user.id }] as any,
+        net_amount: netAmount, status: approvalStatus === "approved" ? "approved" : "draft", notes: formNotes || null
       }).select().single();
       if (certError) throw certError;
       const itemsToInsert = formItems.filter(i => i.current_quantity > 0).map(i => ({
@@ -409,6 +455,62 @@ const NewCertificatePage = () => {
 
           <Separator />
 
+          {/* Completion vs Contract */}
+          {selectedContractValue && selectedContractValue > 0 && (
+            <Card className="border-primary/30">
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <span className="flex items-center gap-2"><FileCheck className="h-4 w-4 text-primary" />{isArabic ? "نسبة الإنجاز التراكمي" : "Cumulative Completion"}</span>
+                  <Badge variant={completionPct > 90 ? "destructive" : completionPct > 70 ? "default" : "secondary"}>
+                    {completionPct.toFixed(2)}%
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-2">
+                <Progress value={completionPct} className="h-2" />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{isArabic ? "المنجز:" : "Done:"} <span className="font-semibold text-foreground">{formatCurrency(cumulativeWorkDone)}</span></span>
+                  <span>{isArabic ? "قيمة العقد:" : "Contract:"} <span className="font-semibold text-foreground">{formatCurrency(selectedContractValue)}</span></span>
+                  <span>{isArabic ? "المتبقي:" : "Remaining:"} <span className="font-semibold text-foreground">{formatCurrency(Math.max(0, selectedContractValue - cumulativeWorkDone))}</span></span>
+                </div>
+                {completionPct >= 95 && (
+                  <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 p-2 rounded">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    {isArabic ? "تنبيه: اقتربت من حد قيمة العقد. راجع الأوامر التغييرية." : "Warning: nearing contract value. Review variation orders."}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Materials on Site */}
+          <Card className="border-amber-200 dark:border-amber-900">
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Package className="h-4 w-4 text-amber-600" />
+                {isArabic ? "مواد بالموقع (M.O.S)" : "Materials on Site (M.O.S)"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs">{isArabic ? "قيمة المواد بالموقع" : "Materials value"}</Label>
+                  <Input type="number" value={formMosAmount} onChange={e => setFormMosAmount(parseFloat(e.target.value) || 0)} />
+                </div>
+                <div>
+                  <Label className="text-xs">{isArabic ? "نسبة الصرف %" : "Payable %"}</Label>
+                  <Input type="number" value={formMosPct} onChange={e => setFormMosPct(parseFloat(e.target.value) || 0)} max={100} />
+                </div>
+                <div>
+                  <Label className="text-xs">{isArabic ? "المستحق إضافة" : "Add to amount"}</Label>
+                  <div className="h-10 flex items-center px-3 rounded-md border bg-muted text-sm font-semibold text-amber-700">
+                    +{formatCurrency(mosPayableAmount)}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Deductions */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -432,20 +534,136 @@ const NewCertificatePage = () => {
             </div>
           </div>
 
+          {/* Delay penalty + VAT */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="flex items-center gap-1 text-destructive">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {isArabic ? "غرامة التأخير (LD)" : "Delay Penalty (LD)"}
+              </Label>
+              <Input type="number" value={formDelayPenalty} onChange={e => setFormDelayPenalty(parseFloat(e.target.value) || 0)} />
+            </div>
+            <div>
+              <Label className="flex items-center gap-1">
+                <Receipt className="h-3.5 w-3.5" />
+                {isArabic ? "ضريبة القيمة المضافة %" : "VAT %"}
+              </Label>
+              <Input type="number" value={formVatPct} onChange={e => setFormVatPct(parseFloat(e.target.value) || 0)} />
+            </div>
+          </div>
+
+          {/* Additional named deductions */}
+          <Card>
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-sm flex items-center justify-between">
+                <span>{isArabic ? "خصومات إضافية مسماة" : "Additional Named Deductions"}</span>
+                <Button type="button" size="sm" variant="outline" onClick={() => setAdditionalDeductions(p => [...p, { name: "", amount: 0 }])}>
+                  <Plus className="h-3.5 w-3.5 mr-1" />{isArabic ? "إضافة" : "Add"}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-2">
+              {additionalDeductions.length === 0 && (
+                <p className="text-xs text-muted-foreground">{isArabic ? "أضف خصومات إضافية مثل: تأمينات، كهرباء، مياه، عُهد…" : "Add custom deductions e.g. insurance, electricity, water…"}</p>
+              )}
+              {additionalDeductions.map((d, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <Input placeholder={isArabic ? "اسم الخصم" : "Deduction name"} value={d.name}
+                    onChange={e => setAdditionalDeductions(p => p.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
+                  <Input type="number" placeholder="0" className="w-40" value={d.amount}
+                    onChange={e => setAdditionalDeductions(p => p.map((x, j) => j === i ? { ...x, amount: parseFloat(e.target.value) || 0 } : x))} />
+                  <Button type="button" size="icon" variant="ghost" onClick={() => setAdditionalDeductions(p => p.filter((_, j) => j !== i))}>
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
           {/* Summary */}
           <Card className="bg-muted/50">
             <CardContent className="pt-4 space-y-2">
               <div className="flex justify-between"><span>{isArabic ? "الأعمال الحالية" : "Current Work Done"}</span><span className="font-bold">{formatCurrency(currentWorkDone)}</span></div>
               <div className="flex justify-between"><span>{isArabic ? "الأعمال السابقة" : "Previous Work Done"}</span><span>{formatCurrency(previousWorkDone)}</span></div>
               <div className="flex justify-between"><span>{isArabic ? "إجمالي الأعمال" : "Total Work Done"}</span><span>{formatCurrency(totalWorkDone)}</span></div>
+              {mosPayableAmount > 0 && <div className="flex justify-between text-amber-700"><span>{isArabic ? "مواد بالموقع" : "Materials on Site"} ({formMosPct}%)</span><span>+{formatCurrency(mosPayableAmount)}</span></div>}
               <Separator />
               <div className="flex justify-between text-destructive"><span>{isArabic ? "الاحتجاز" : "Retention"} ({formRetention}%)</span><span>-{formatCurrency(retentionAmount)}</span></div>
               {formAdvanceDeduction > 0 && <div className="flex justify-between text-destructive"><span>{isArabic ? "خصم دفعة مقدمة" : "Advance"}{advancePercentage > 0 ? ` (${advancePercentage}%)` : ''}</span><span>-{formatCurrency(formAdvanceDeduction)}</span></div>}
               {formOtherDeductions > 0 && <div className="flex justify-between text-destructive"><span>{isArabic ? "خصومات أخرى" : "Other"}</span><span>-{formatCurrency(formOtherDeductions)}</span></div>}
+              {formDelayPenalty > 0 && <div className="flex justify-between text-destructive"><span>{isArabic ? "غرامة تأخير" : "Delay Penalty"}</span><span>-{formatCurrency(formDelayPenalty)}</span></div>}
+              {additionalDeductions.map((d, i) => d.amount > 0 && (
+                <div key={i} className="flex justify-between text-destructive text-sm">
+                  <span>{d.name || (isArabic ? "خصم" : "Deduction")}</span>
+                  <span>-{formatCurrency(d.amount)}</span>
+                </div>
+              ))}
+              <Separator />
+              <div className="flex justify-between font-semibold"><span>{isArabic ? "الصافي قبل الضريبة" : "Net before VAT"}</span><span>{formatCurrency(netBeforeVat)}</span></div>
+              {formVatPct > 0 && <div className="flex justify-between text-blue-700"><span>{isArabic ? "ضريبة القيمة المضافة" : "VAT"} ({formVatPct}%)</span><span>+{formatCurrency(vatAmount)}</span></div>}
               <Separator />
               <div className="flex justify-between text-lg font-bold"><span>{isArabic ? "صافي المستحق" : "Net Amount"}</span><span className="text-primary">{formatCurrency(netAmount)}</span></div>
             </CardContent>
           </Card>
+
+          {/* Attachments */}
+          <Card>
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Paperclip className="h-4 w-4" />
+                {isArabic ? "المرفقات" : "Attachments"}
+                <span className="text-xs text-muted-foreground font-normal">({isArabic ? "كشوف حصر، صور موقع، موافقات استشاري…" : "measurement sheets, site photos, consultant approvals…"})</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Input type="file" disabled={uploadingAttachment}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) { handleUploadAttachment(f); e.target.value = ""; } }} />
+                {uploadingAttachment && <span className="text-xs text-muted-foreground"><Upload className="h-3.5 w-3.5 inline animate-pulse mr-1" />{isArabic ? "جاري الرفع..." : "Uploading..."}</span>}
+              </div>
+              {attachments.length > 0 && (
+                <div className="space-y-1 mt-2">
+                  {attachments.map((a, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs bg-muted/50 px-2 py-1.5 rounded">
+                      <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate flex items-center gap-1">
+                        <Paperclip className="h-3 w-3" />{a.name}
+                      </a>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">{(a.size / 1024).toFixed(1)} KB</span>
+                        <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => setAttachments(p => p.filter((_, j) => j !== i))}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Approval Workflow */}
+          <Card className="border-primary/20">
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-primary" />
+                {isArabic ? "مرحلة الاعتماد" : "Approval Stage"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <Select value={approvalStatus} onValueChange={setApprovalStatus}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="draft">{isArabic ? "مسودة" : "Draft"}</SelectItem>
+                  <SelectItem value="site_engineer">{isArabic ? "مراجعة مهندس الموقع" : "Site Engineer Review"}</SelectItem>
+                  <SelectItem value="project_manager">{isArabic ? "مراجعة مدير المشروع" : "Project Manager Review"}</SelectItem>
+                  <SelectItem value="consultant">{isArabic ? "مراجعة الاستشاري" : "Consultant Review"}</SelectItem>
+                  <SelectItem value="finance">{isArabic ? "مراجعة المالية" : "Finance Review"}</SelectItem>
+                  <SelectItem value="approved">{isArabic ? "معتمد" : "Approved"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+
 
           <div>
             <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>

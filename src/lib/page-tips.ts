@@ -149,6 +149,21 @@ const tipEntries: TipEntry[] = [
     ],
   },
   {
+    pattern: /^\/progress-certificates\/new$/,
+    tips: [
+      { en: "Pick the project, then contractor — the linked contract loads automatically with its retention % and advance %.", ar: "اختر المشروع ثم المقاول — يتم تحميل العقد المرتبط تلقائيًا بنسبة الاحتجاز ودفعة المقدم." },
+      { en: "Previous Work Done is auto-calculated from approved/paid certificates; Current Qty is what you bill this period.", ar: "تُحسب الأعمال السابقة تلقائيًا من المستخلصات المعتمدة/المدفوعة؛ والكمية الحالية هي ما تطالب به في هذه الفترة." },
+      { en: "Retention is held on current work only; once the project reaches 50% completion you may release half (per contract).", ar: "الاحتجاز يُخصم على الأعمال الحالية فقط؛ عند بلوغ المشروع 50% يحق الإفراج عن نصفه (حسب العقد)." },
+      { en: "Advance Deduction is auto-computed as a % of current work; override manually if needed.", ar: "خصم الدفعة المقدمة يُحسب تلقائيًا كنسبة من الأعمال الحالية؛ يمكنك تعديله يدويًا." },
+      { en: "Materials on Site (M.O.S) are paid at the agreed % (commonly 70–80%) and deducted in subsequent certs.", ar: "المواد بالموقع تُصرف بالنسبة المتفق عليها (عادة 70-80%) وتُخصم في المستخلصات اللاحقة." },
+      { en: "Add Delay Penalty (LD) when actual progress is behind schedule per the contract LD clause.", ar: "أضف غرامة التأخير عند تأخر التقدم الفعلي عن البرنامج وفق بند الغرامات بالعقد." },
+      { en: "VAT (15% in KSA) is applied on the Net before VAT — taxable amount after retention & deductions.", ar: "ضريبة القيمة المضافة 15% تُحسب على الصافي قبل الضريبة بعد الاحتجاز والخصومات." },
+      { en: "Attach measurement sheets, site photos, and consultant approvals to speed up the review cycle.", ar: "أرفق كشوف الحصر وصور الموقع وموافقات الاستشاري لتسريع دورة المراجعة." },
+      { en: "Track approval stages: Site Engineer → Project Manager → Consultant → Finance.", ar: "تتبع مراحل الاعتماد: مهندس الموقع ← مدير المشروع ← الاستشاري ← المالية." },
+      { en: "Watch cumulative completion % vs contract value — alert when nearing the variation limit.", ar: "راقب نسبة الإنجاز التراكمي مقارنة بقيمة العقد — تنبيه عند الاقتراب من حد الأوامر التغييرية." },
+    ],
+  },
+  {
     pattern: /^\/$/,
     tips: [
       { en: "Welcome! Start by creating a new project or uploading a BOQ file.", ar: "مرحبًا! ابدأ بإنشاء مشروع جديد أو رفع ملف جدول كميات." },
