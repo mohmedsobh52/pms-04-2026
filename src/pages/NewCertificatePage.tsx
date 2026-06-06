@@ -14,9 +14,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import {
   FileText, Building2, ArrowLeft,
-  Calendar, Percent, FileCheck, Link2, AlertCircle
+  Calendar, Percent, FileCheck, Link2, AlertCircle,
+  Receipt, AlertTriangle, Package, Plus, Trash2, Paperclip, Upload, X, CheckCircle2
 } from "lucide-react";
 
 interface CertificateItem {
