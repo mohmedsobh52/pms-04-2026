@@ -2190,13 +2190,20 @@ export type Database = {
       }
       progress_certificates: {
         Row: {
+          additional_deductions: Json | null
           advance_deduction: number | null
+          approval_history: Json | null
+          approval_status: string | null
+          attachments: Json | null
           certificate_number: number
           contract_id: string | null
           contractor_name: string
           created_at: string
           current_work_done: number | null
+          delay_penalty: number | null
           id: string
+          materials_on_site_amount: number | null
+          materials_on_site_percentage: number | null
           net_amount: number | null
           notes: string | null
           other_deductions: number | null
@@ -2210,15 +2217,24 @@ export type Database = {
           total_work_done: number | null
           updated_at: string
           user_id: string
+          vat_amount: number | null
+          vat_percentage: number | null
         }
         Insert: {
+          additional_deductions?: Json | null
           advance_deduction?: number | null
+          approval_history?: Json | null
+          approval_status?: string | null
+          attachments?: Json | null
           certificate_number?: number
           contract_id?: string | null
           contractor_name: string
           created_at?: string
           current_work_done?: number | null
+          delay_penalty?: number | null
           id?: string
+          materials_on_site_amount?: number | null
+          materials_on_site_percentage?: number | null
           net_amount?: number | null
           notes?: string | null
           other_deductions?: number | null
@@ -2232,15 +2248,24 @@ export type Database = {
           total_work_done?: number | null
           updated_at?: string
           user_id: string
+          vat_amount?: number | null
+          vat_percentage?: number | null
         }
         Update: {
+          additional_deductions?: Json | null
           advance_deduction?: number | null
+          approval_history?: Json | null
+          approval_status?: string | null
+          attachments?: Json | null
           certificate_number?: number
           contract_id?: string | null
           contractor_name?: string
           created_at?: string
           current_work_done?: number | null
+          delay_penalty?: number | null
           id?: string
+          materials_on_site_amount?: number | null
+          materials_on_site_percentage?: number | null
           net_amount?: number | null
           notes?: string | null
           other_deductions?: number | null
@@ -2254,6 +2279,8 @@ export type Database = {
           total_work_done?: number | null
           updated_at?: string
           user_id?: string
+          vat_amount?: number | null
+          vat_percentage?: number | null
         }
         Relationships: [
           {
