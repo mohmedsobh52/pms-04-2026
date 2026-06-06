@@ -218,6 +218,22 @@ const NewCertificatePage = () => {
     }));
   };
 
+  const handleUploadAttachment = async (file: File) => {
+    if (!user?.id || !file) return;
+    setUploadingAttachment(true);
+    try {
+      const path = `${user.id}/certificates/${Date.now()}-${file.name}`;
+      const { error } = await supabase.storage.from("project-files").upload(path, file, { upsert: false });
+      if (error) throw error;
+      const { data: signed } = await supabase.storage.from("project-files").createSignedUrl(path, 60 * 60 * 24 * 365);
+      setAttachments(prev => [...prev, { name: file.name, url: signed?.signedUrl || path, size: file.size }]);
+      toast.success(isArabic ? "تم رفع المرفق" : "Attachment uploaded");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(isArabic ? "فشل رفع المرفق" : "Upload failed");
+    } finally { setUploadingAttachment(false); }
+  };
+
   const handleCreateCertificate = async () => {
     if (!user?.id || !formProjectId || !formContractor) {
       toast.error(isArabic ? "يرجى اختيار المشروع والمقاول" : "Select project and contractor");
