@@ -60,6 +60,7 @@ const PricingAccuracyPage = lazy(() => import("./pages/PricingAccuracyPage"));
 const PartnerDetailsPage = lazy(() => import("./pages/PartnerDetailsPage"));
 const ProgressCertificatesPage = lazy(() => import("./pages/ProgressCertificatesPage"));
 const NewCertificatePage = lazy(() => import("./pages/NewCertificatePage"));
+const CertificatesComparePage = lazy(() => import("./pages/CertificatesComparePage"));
 const ResourcesDashboardPage = lazy(() => import("./pages/ResourcesDashboardPage"));
 const DebugBreadcrumbsPage = lazy(() => import("./pages/DebugBreadcrumbsPage"));
 const queryClient = new QueryClient({
