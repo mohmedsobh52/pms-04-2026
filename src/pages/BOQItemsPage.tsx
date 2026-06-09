@@ -231,8 +231,40 @@ const BOQItemsPage = () => {
               {(analysisData as any)?.file_name || (isArabic ? "غير محدد" : "Untitled")}
             </p>
           </div>
-        </div>
       </div>
+
+      {/* Bulk AI Pricing */}
+      {items.some((i: any) => !Number(i.unit_price) || Number(i.unit_price) <= 0) && (
+        <div className="mb-4 flex justify-end">
+          <BulkAIPriceButton
+            isArabic={isArabic}
+            items={items.map((i: any) => ({
+              id: String(i.item_number || i.id),
+              description: i.description || "",
+              unit: i.unit,
+              category: i.category,
+              unit_price: i.unit_price,
+            }))}
+            onApply={async (updates) => {
+              const updated = items.map((i: any) => {
+                const id = String(i.item_number || i.id);
+                const price = updates[id];
+                if (price) {
+                  return {
+                    ...i,
+                    unit_price: price,
+                    total_price: (Number(i.quantity) || 1) * price,
+                    ai_priced: true,
+                  };
+                }
+                return i;
+              });
+              setAnalysisData({ ...(analysisData as any), items: updated });
+            }}
+          />
+        </div>
+      )}
+
 
       <AnalysisResults
         data={analysisData}
