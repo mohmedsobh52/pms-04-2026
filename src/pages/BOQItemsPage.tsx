@@ -11,6 +11,7 @@ import { Upload, FolderOpen, FileSpreadsheet, Clock, ChevronRight } from "lucide
 import { BOQUploadDialog } from "@/components/project-details/BOQUploadDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BulkAIPriceButton } from "@/components/pricing/BulkAIPriceButton";
 
 const BOQItemsPage = () => {
   const { analysisData, wbsData, setAnalysisData } = useAnalysisData();
