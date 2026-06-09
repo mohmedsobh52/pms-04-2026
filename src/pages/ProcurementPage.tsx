@@ -22,6 +22,9 @@ const ProcurementContracts = lazy(() =>
 const ProcurementResourcesSchedule = lazy(() =>
   import("@/components/ProcurementResourcesSchedule").then((m) => ({ default: m.ProcurementResourcesSchedule }))
 );
+const SupplierComparisonTable = lazy(() =>
+  import("@/components/procurement/SupplierComparisonTable").then((m) => ({ default: m.SupplierComparisonTable }))
+);
 
 const TabFallback = () => <SuspenseFallback />;
 
