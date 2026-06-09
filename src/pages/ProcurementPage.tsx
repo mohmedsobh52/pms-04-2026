@@ -240,6 +240,12 @@ const ProcurementPage = () => {
             </Suspense>
           </TabsContent>
 
+          <TabsContent value="compare">
+            <Suspense fallback={<TabFallback />}>
+              <SupplierComparisonTable isArabic={isArabic} />
+            </Suspense>
+          </TabsContent>
+
           <TabsContent value="contracts">
             <Suspense fallback={<TabFallback />}>
               <ProcurementContracts />
