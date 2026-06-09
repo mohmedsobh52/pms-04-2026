@@ -22,6 +22,9 @@ const ProcurementContracts = lazy(() =>
 const ProcurementResourcesSchedule = lazy(() =>
   import("@/components/ProcurementResourcesSchedule").then((m) => ({ default: m.ProcurementResourcesSchedule }))
 );
+const SupplierComparisonTable = lazy(() =>
+  import("@/components/procurement/SupplierComparisonTable").then((m) => ({ default: m.SupplierComparisonTable }))
+);
 
 const TabFallback = () => <SuspenseFallback />;
 
@@ -195,7 +198,7 @@ const ProcurementPage = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
             <TabsTrigger value="partners" className="gap-2">
               <Building2 className="w-4 h-4" />
               <span className="hidden sm:inline">
@@ -206,6 +209,12 @@ const ProcurementPage = () => {
               <Package className="w-4 h-4" />
               <span className="hidden sm:inline">
                 {isArabic ? "المشتريات" : "Procurement"}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="compare" className="gap-2">
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">
+                {isArabic ? "مقارنة موردين" : "Compare"}
               </span>
             </TabsTrigger>
             <TabsTrigger value="contracts" className="gap-2">
@@ -228,6 +237,12 @@ const ProcurementPage = () => {
                 items={analysisData?.items || []}
                 currency={analysisData?.summary?.currency || "SAR"}
               />
+            </Suspense>
+          </TabsContent>
+
+          <TabsContent value="compare">
+            <Suspense fallback={<TabFallback />}>
+              <SupplierComparisonTable isArabic={isArabic} />
             </Suspense>
           </TabsContent>
 

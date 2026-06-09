@@ -60,6 +60,7 @@ const PricingAccuracyPage = lazy(() => import("./pages/PricingAccuracyPage"));
 const PartnerDetailsPage = lazy(() => import("./pages/PartnerDetailsPage"));
 const ProgressCertificatesPage = lazy(() => import("./pages/ProgressCertificatesPage"));
 const NewCertificatePage = lazy(() => import("./pages/NewCertificatePage"));
+const CertificatesComparePage = lazy(() => import("./pages/CertificatesComparePage"));
 const ResourcesDashboardPage = lazy(() => import("./pages/ResourcesDashboardPage"));
 const DebugBreadcrumbsPage = lazy(() => import("./pages/DebugBreadcrumbsPage"));
 const queryClient = new QueryClient({
@@ -151,6 +152,7 @@ const App = () => (
                         <Route path="/pricing-accuracy" element={<PricingAccuracyPage />} />
                         <Route path="/progress-certificates" element={<ProgressCertificatesPage />} />
                         <Route path="/progress-certificates/new" element={<NewCertificatePage />} />
+                        <Route path="/progress-certificates/compare" element={<CertificatesComparePage />} />
                         <Route path="/debug/breadcrumbs" element={<DebugBreadcrumbsPage />} />
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />
