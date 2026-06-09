@@ -40,6 +40,14 @@ interface Certificate {
   status: string;
   notes: string | null;
   created_at: string;
+  vat_percentage?: number | null;
+  vat_amount?: number | null;
+  delay_penalty?: number | null;
+  materials_on_site_amount?: number | null;
+  materials_on_site_percentage?: number | null;
+  additional_deductions?: any;
+  attachments?: any;
+  approval_status?: string | null;
 }
 
 interface CertificateItem {
