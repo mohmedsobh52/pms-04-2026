@@ -358,10 +358,36 @@ const ProgressCertificatesPage = () => {
                 <Card className="bg-muted/50">
                   <CardContent className="pt-4 space-y-2 text-sm">
                     <div className="flex justify-between"><span>{isArabic ? "الأعمال الحالية" : "Current Work"}</span><span className="font-bold">{formatCurrency(viewingCertificate.current_work_done)}</span></div>
+                    {Number(viewingCertificate.materials_on_site_amount) > 0 && (
+                      <div className="flex justify-between text-blue-600"><span>{isArabic ? `مواد بالموقع (${viewingCertificate.materials_on_site_percentage || 0}%)` : `Materials on Site (${viewingCertificate.materials_on_site_percentage || 0}%)`}</span><span>+{formatCurrency((Number(viewingCertificate.materials_on_site_amount)||0) * (Number(viewingCertificate.materials_on_site_percentage)||0) / 100)}</span></div>
+                    )}
                     <div className="flex justify-between text-destructive"><span>{isArabic ? "الاحتجاز" : "Retention"}</span><span>-{formatCurrency(viewingCertificate.retention_amount)}</span></div>
                     {viewingCertificate.advance_deduction > 0 && <div className="flex justify-between text-destructive"><span>{isArabic ? "خصم مقدم" : "Advance"}</span><span>-{formatCurrency(viewingCertificate.advance_deduction)}</span></div>}
+                    {Number(viewingCertificate.delay_penalty) > 0 && <div className="flex justify-between text-destructive"><span>{isArabic ? "غرامة تأخير" : "Delay Penalty"}</span><span>-{formatCurrency(Number(viewingCertificate.delay_penalty))}</span></div>}
+                    {viewingCertificate.other_deductions > 0 && <div className="flex justify-between text-destructive"><span>{isArabic ? "خصومات أخرى" : "Other Deductions"}</span><span>-{formatCurrency(viewingCertificate.other_deductions)}</span></div>}
+                    {Array.isArray(viewingCertificate.additional_deductions) && viewingCertificate.additional_deductions.map((d: any, i: number) => (
+                      Number(d?.amount) > 0 ? (
+                        <div key={i} className="flex justify-between text-destructive"><span>{d.name || (isArabic ? "خصم" : "Deduction")}</span><span>-{formatCurrency(Number(d.amount))}</span></div>
+                      ) : null
+                    ))}
+                    {Number(viewingCertificate.vat_amount) > 0 && (
+                      <div className="flex justify-between text-emerald-700"><span>{isArabic ? `ضريبة القيمة المضافة (${viewingCertificate.vat_percentage || 15}%)` : `VAT (${viewingCertificate.vat_percentage || 15}%)`}</span><span>+{formatCurrency(Number(viewingCertificate.vat_amount))}</span></div>
+                    )}
                     <Separator />
                     <div className="flex justify-between text-lg font-bold"><span>{isArabic ? "صافي المستحق" : "Net Amount"}</span><span className="text-primary">{formatCurrency(viewingCertificate.net_amount)}</span></div>
+                    {viewingCertificate.approval_status && (
+                      <div className="flex justify-between text-xs text-muted-foreground pt-2"><span>{isArabic ? "حالة الاعتماد" : "Approval Status"}</span><span className="font-medium">{viewingCertificate.approval_status}</span></div>
+                    )}
+                    {Array.isArray(viewingCertificate.attachments) && viewingCertificate.attachments.length > 0 && (
+                      <div className="pt-2 border-t">
+                        <div className="text-xs text-muted-foreground mb-1">{isArabic ? "المرفقات" : "Attachments"}:</div>
+                        <ul className="text-xs space-y-1">
+                          {viewingCertificate.attachments.map((a: any, i: number) => (
+                            <li key={i}><a href={a.url} target="_blank" rel="noreferrer" className="text-primary hover:underline">{a.name}</a></li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
