@@ -20,6 +20,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { addPDFLetterheadHeader, addPDFLetterheadFooterWithQR } from "@/lib/letterhead-utils";
 import { ColorLegend } from "@/components/ui/color-code";
+import { SCurveChart } from "@/components/certificates/SCurveChart";
 
 interface Certificate {
   id: string;
