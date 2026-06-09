@@ -231,7 +231,10 @@ const BOQItemsPage = () => {
               {(analysisData as any)?.file_name || (isArabic ? "غير محدد" : "Untitled")}
             </p>
           </div>
+        </div>
       </div>
+
+
 
       {/* Bulk AI Pricing */}
       {items.some((i: any) => !Number(i.unit_price) || Number(i.unit_price) <= 0) && (
