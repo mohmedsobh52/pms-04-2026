@@ -266,6 +266,19 @@ const ProgressCertificatesPage = () => {
           </Select>
         </div>
 
+        {/* S-Curve cumulative progress */}
+        {filtered.length > 0 && (
+          <SCurveChart
+            certificates={filtered.map(c => ({
+              id: c.id,
+              certificate_number: c.certificate_number,
+              period_to: c.period_to,
+              current_work_done: c.current_work_done,
+            }))}
+            isArabic={isArabic}
+          />
+        )}
+
         {/* Certificates Table */}
         <Card>
           <CardHeader><CardTitle>{isArabic ? "قائمة المستخلصات" : "Certificates List"}</CardTitle></CardHeader>
