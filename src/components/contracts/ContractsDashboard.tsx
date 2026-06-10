@@ -12,6 +12,7 @@ import { format, subMonths, startOfMonth } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import { EmptyState } from "@/components/ui/page-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ContractHealthPanel } from "./ContractHealthPanel";
 
 interface Contract {
   id: string;
@@ -199,6 +200,9 @@ export const ContractsDashboard = () => {
         </Card>
       ) : (
         <>
+          {/* Per-contract health: spending bar + expiry alert */}
+          <ContractHealthPanel contracts={contracts} isArabic={isArabic} />
+
           {/* Charts Row 1 */}
           <div className="grid md:grid-cols-2 gap-6">
             <ChartCard title={isArabic ? "توزيع العقود حسب الحالة" : "Contracts by Status"}>
