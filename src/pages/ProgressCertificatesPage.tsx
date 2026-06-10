@@ -133,6 +133,94 @@ const ProgressCertificatesPage = () => {
     }
   };
 
+  const handleExportMonthlyReport = async () => {
+    try {
+      if (filtered.length === 0) {
+        toast.info(isArabic ? "لا توجد مستخلصات" : "No certificates available");
+        return;
+      }
+      // Group by YYYY-MM of period_to (fallback to created_at)
+      const groups = new Map<string, Certificate[]>();
+      filtered.forEach(c => {
+        const d = c.period_to || c.created_at;
+        const key = d ? d.substring(0, 7) : "unknown";
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(c);
+      });
+      const keys = Array.from(groups.keys()).sort();
+
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.width;
+      let y = addPDFLetterheadHeader(doc);
+      y += 4;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(30, 64, 175);
+      doc.text(isArabic ? "تقرير المستخلصات الشهري المجمع" : "Monthly Consolidated Certificates Report", pageWidth / 2, y, { align: 'center' });
+      y += 8;
+      doc.setFontSize(10); doc.setTextColor(100);
+      doc.text(`${new Date().toLocaleDateString(isArabic ? 'ar-SA' : 'en-US')}`, pageWidth / 2, y, { align: 'center' });
+      y += 8;
+
+      const fmtNum = (v: number) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+      let grandNet = 0, grandWork = 0, grandCount = 0;
+
+      for (const key of keys) {
+        const items = groups.get(key)!;
+        const monthLabel = key === "unknown" ? (isArabic ? "غير محدد" : "Unknown") : key;
+        const sumNet = items.reduce((s, c) => s + (c.net_amount || 0), 0);
+        const sumWork = items.reduce((s, c) => s + (c.current_work_done || 0), 0);
+        grandNet += sumNet; grandWork += sumWork; grandCount += items.length;
+
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(30, 64, 175);
+        doc.text(`${monthLabel}  —  ${items.length} ${isArabic ? "مستخلص" : "certs"}`, 15, y); y += 4;
+
+        autoTable(doc, {
+          startY: y,
+          head: [[
+            "#",
+            isArabic ? "المقاول" : "Contractor",
+            isArabic ? "الفترة" : "Period",
+            isArabic ? "الحالة" : "Status",
+            isArabic ? "أعمال حالية" : "Current",
+            isArabic ? "صافي" : "Net",
+          ]],
+          body: items.map(c => [
+            c.certificate_number,
+            c.contractor_name || "-",
+            `${c.period_from || '-'} → ${c.period_to || '-'}`,
+            c.status,
+            fmtNum(c.current_work_done),
+            fmtNum(c.net_amount),
+          ]),
+          theme: 'grid',
+          styles: { fontSize: 8, cellPadding: 1.8 },
+          headStyles: { fillColor: [30, 64, 175], textColor: 255 },
+          foot: [[
+            "", "", "", isArabic ? "إجمالي" : "Subtotal",
+            fmtNum(sumWork), fmtNum(sumNet)
+          ]],
+          footStyles: { fillColor: [240, 245, 255], textColor: 30, fontStyle: 'bold' },
+          margin: { left: 10, right: 10 },
+        });
+        y = (doc as any).lastAutoTable.finalY + 6;
+        if (y > 250) { doc.addPage(); y = 20; }
+      }
+
+      // Grand totals
+      y += 4;
+      doc.setDrawColor(30, 64, 175); doc.setLineWidth(0.5); doc.line(15, y, pageWidth - 15, y); y += 7;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(30, 64, 175);
+      doc.text(isArabic ? "الإجمالي الكلي" : "Grand Total", 20, y);
+      doc.text(`${grandCount} ${isArabic ? "مستخلص" : "certs"}  |  ${fmtNum(grandWork)}  |  ${fmtNum(grandNet)} SAR`, pageWidth - 20, y, { align: 'right' });
+
+      await addPDFLetterheadFooterWithQR(doc, 1, 1);
+      doc.save(`monthly-certificates-${new Date().toISOString().split('T')[0]}.pdf`);
+      toast.success(isArabic ? "تم تصدير التقرير الشهري" : "Monthly report exported");
+    } catch (e) {
+      console.error(e);
+      toast.error(isArabic ? "فشل تصدير التقرير" : "Export failed");
+    }
+  };
+
   const handleExportPDF = async (cert: Certificate, items: CertificateItem[]) => {
     try {
       const doc = new jsPDF('p', 'mm', 'a4');
