@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { 
   FileText, Plus, Building2, DollarSign, TrendingUp,
-  Trash2, Eye, Edit, Download
+  Trash2, Eye, Edit, Download, FileBarChart
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
