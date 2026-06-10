@@ -25,6 +25,9 @@ const ProcurementResourcesSchedule = lazy(() =>
 const SupplierComparisonTable = lazy(() =>
   import("@/components/procurement/SupplierComparisonTable").then((m) => ({ default: m.SupplierComparisonTable }))
 );
+const ProcurementWorkflowStatus = lazy(() =>
+  import("@/components/procurement/ProcurementWorkflowStatus").then((m) => ({ default: m.ProcurementWorkflowStatus }))
+);
 
 const TabFallback = () => <SuspenseFallback />;
 
@@ -195,6 +198,10 @@ const ProcurementPage = () => {
         })()}
 
         <ColorLegend type="status" isArabic={isArabic} />
+
+        <Suspense fallback={null}>
+          <ProcurementWorkflowStatus isArabic={isArabic} />
+        </Suspense>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
