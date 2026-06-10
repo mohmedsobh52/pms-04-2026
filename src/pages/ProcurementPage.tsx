@@ -199,6 +199,10 @@ const ProcurementPage = () => {
 
         <ColorLegend type="status" isArabic={isArabic} />
 
+        <Suspense fallback={null}>
+          <ProcurementWorkflowStatus isArabic={isArabic} />
+        </Suspense>
+
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
