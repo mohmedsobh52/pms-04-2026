@@ -25,6 +25,9 @@ const ProcurementResourcesSchedule = lazy(() =>
 const SupplierComparisonTable = lazy(() =>
   import("@/components/procurement/SupplierComparisonTable").then((m) => ({ default: m.SupplierComparisonTable }))
 );
+const ProcurementWorkflowStatus = lazy(() =>
+  import("@/components/procurement/ProcurementWorkflowStatus").then((m) => ({ default: m.ProcurementWorkflowStatus }))
+);
 
 const TabFallback = () => <SuspenseFallback />;
 
