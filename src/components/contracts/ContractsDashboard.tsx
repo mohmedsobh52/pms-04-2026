@@ -12,6 +12,7 @@ import { format, subMonths, startOfMonth } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import { EmptyState } from "@/components/ui/page-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ContractHealthPanel } from "./ContractHealthPanel";
 
 interface Contract {
   id: string;
