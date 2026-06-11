@@ -3,6 +3,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { PageLayout } from '@/components/PageLayout';
 import { NavigationBar } from '@/components/NavigationBar';
 import { PricingAccuracyTab } from '@/components/tender/PricingAccuracyTab';
+import { MarketPositionChart } from '@/components/pricing/MarketPositionChart';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -184,6 +185,8 @@ const PricingAccuracyPage: React.FC = () => {
             </CardContent>
           </Card>
         </div>
+
+        <MarketPositionChart isArabic={isArabic} />
 
         <PricingAccuracyTab isArabic={isArabic} />
       </div>
