@@ -12,6 +12,7 @@ import { BOQUploadDialog } from "@/components/project-details/BOQUploadDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BulkAIPriceButton } from "@/components/pricing/BulkAIPriceButton";
+import { PriceAnomalyDetector } from "@/components/pricing/PriceAnomalyDetector";
 
 const BOQItemsPage = () => {
   const { analysisData, wbsData, setAnalysisData } = useAnalysisData();
@@ -267,6 +268,13 @@ const BOQItemsPage = () => {
           />
         </div>
       )}
+
+      {/* Statistical outlier detection on priced items */}
+      <div className="mb-4">
+        <PriceAnomalyDetector items={items} isArabic={isArabic} />
+      </div>
+
+
 
 
       <AnalysisResults
