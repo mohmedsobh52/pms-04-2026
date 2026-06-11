@@ -13,6 +13,7 @@ import { ar, enUS } from "date-fns/locale";
 import { EmptyState } from "@/components/ui/page-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ContractHealthPanel } from "./ContractHealthPanel";
+import { ActiveWarrantiesTracker } from "./ActiveWarrantiesTracker";
 
 interface Contract {
   id: string;
@@ -202,6 +203,9 @@ export const ContractsDashboard = () => {
         <>
           {/* Per-contract health: spending bar + expiry alert */}
           <ContractHealthPanel contracts={contracts} isArabic={isArabic} />
+
+          {/* Cross-contract active warranties */}
+          <ActiveWarrantiesTracker isArabic={isArabic} />
 
           {/* Charts Row 1 */}
           <div className="grid md:grid-cols-2 gap-6">
