@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/ui/page-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ContractHealthPanel } from "./ContractHealthPanel";
 import { ActiveWarrantiesTracker } from "./ActiveWarrantiesTracker";
+import { CashFlowForecast } from "./CashFlowForecast";
 
 interface Contract {
   id: string;
@@ -206,6 +207,10 @@ export const ContractsDashboard = () => {
 
           {/* Cross-contract active warranties */}
           <ActiveWarrantiesTracker isArabic={isArabic} />
+
+          {/* 6-month cash flow forecast */}
+          <CashFlowForecast />
+
 
           {/* Charts Row 1 */}
           <div className="grid md:grid-cols-2 gap-6">
