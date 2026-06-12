@@ -28,6 +28,9 @@ const SupplierComparisonTable = lazy(() =>
 const ProcurementWorkflowStatus = lazy(() =>
   import("@/components/procurement/ProcurementWorkflowStatus").then((m) => ({ default: m.ProcurementWorkflowStatus }))
 );
+const ProcurementLeadTimeRisk = lazy(() =>
+  import("@/components/procurement/ProcurementLeadTimeRisk").then((m) => ({ default: m.ProcurementLeadTimeRisk }))
+);
 
 const TabFallback = () => <SuspenseFallback />;
 
@@ -201,6 +204,10 @@ const ProcurementPage = () => {
 
         <Suspense fallback={null}>
           <ProcurementWorkflowStatus isArabic={isArabic} />
+        </Suspense>
+
+        <Suspense fallback={null}>
+          <ProcurementLeadTimeRisk isArabic={isArabic} />
         </Suspense>
 
         {/* Tabs */}
