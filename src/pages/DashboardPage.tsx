@@ -12,6 +12,9 @@ const MainDashboard = lazy(() =>
 const MainDashboardOverview = lazy(() =>
   import("@/components/MainDashboardOverview").then((m) => ({ default: m.MainDashboardOverview }))
 );
+const ActionCenter = lazy(() =>
+  import("@/components/dashboard/ActionCenter").then((m) => ({ default: m.ActionCenter }))
+);
 
 const Fallback = () => <SuspenseFallback size="lg" />;
 
@@ -33,6 +36,11 @@ const DashboardPage = () => {
   return (
     <PageLayout>
       <ColorLegend type="status" isArabic={isArabic} className="mb-4" />
+      <div className="mb-4">
+        <Suspense fallback={null}>
+          <ActionCenter />
+        </Suspense>
+      </div>
       <Suspense fallback={<Fallback />}>
         <MainDashboard
           onLoadProject={(loadedAnalysis, loadedWbs) => {
