@@ -18,6 +18,9 @@ const ActionCenter = lazy(() =>
 const ProjectHealthScore = lazy(() =>
   import("@/components/dashboard/ProjectHealthScore").then((m) => ({ default: m.ProjectHealthScore }))
 );
+const CashOutflowForecast = lazy(() =>
+  import("@/components/dashboard/CashOutflowForecast").then((m) => ({ default: m.CashOutflowForecast }))
+);
 
 const Fallback = () => <SuspenseFallback size="lg" />;
 
@@ -45,6 +48,11 @@ const DashboardPage = () => {
         </Suspense>
         <Suspense fallback={null}>
           <ActionCenter />
+        </Suspense>
+      </div>
+      <div className="mb-4">
+        <Suspense fallback={null}>
+          <CashOutflowForecast />
         </Suspense>
       </div>
       <Suspense fallback={<Fallback />}>
