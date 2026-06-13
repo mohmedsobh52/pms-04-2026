@@ -15,6 +15,9 @@ const MainDashboardOverview = lazy(() =>
 const ActionCenter = lazy(() =>
   import("@/components/dashboard/ActionCenter").then((m) => ({ default: m.ActionCenter }))
 );
+const ProjectHealthScore = lazy(() =>
+  import("@/components/dashboard/ProjectHealthScore").then((m) => ({ default: m.ProjectHealthScore }))
+);
 
 const Fallback = () => <SuspenseFallback size="lg" />;
 
@@ -36,7 +39,10 @@ const DashboardPage = () => {
   return (
     <PageLayout>
       <ColorLegend type="status" isArabic={isArabic} className="mb-4" />
-      <div className="mb-4">
+      <div className="mb-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Suspense fallback={null}>
+          <ProjectHealthScore />
+        </Suspense>
         <Suspense fallback={null}>
           <ActionCenter />
         </Suspense>
