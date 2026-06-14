@@ -30,6 +30,9 @@ const TopRisksPanel = lazy(() =>
 const ProcurementPipeline = lazy(() =>
   import("@/components/dashboard/ProcurementPipeline").then((m) => ({ default: m.ProcurementPipeline }))
 );
+const ContractsExpiryPanel = lazy(() =>
+  import("@/components/dashboard/ContractsExpiryPanel").then((m) => ({ default: m.ContractsExpiryPanel }))
+);
 
 const Fallback = () => <SuspenseFallback size="lg" />;
 
@@ -75,6 +78,11 @@ const DashboardPage = () => {
         </Suspense>
         <Suspense fallback={null}>
           <ProcurementPipeline />
+        </Suspense>
+      </div>
+      <div className="mb-4">
+        <Suspense fallback={null}>
+          <ContractsExpiryPanel />
         </Suspense>
       </div>
       <Suspense fallback={<Fallback />}>
