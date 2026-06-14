@@ -27,6 +27,9 @@ const RecentActivityFeed = lazy(() =>
 const TopRisksPanel = lazy(() =>
   import("@/components/dashboard/TopRisksPanel").then((m) => ({ default: m.TopRisksPanel }))
 );
+const ProcurementPipeline = lazy(() =>
+  import("@/components/dashboard/ProcurementPipeline").then((m) => ({ default: m.ProcurementPipeline }))
+);
 
 const Fallback = () => <SuspenseFallback size="lg" />;
 
@@ -66,9 +69,12 @@ const DashboardPage = () => {
           <RecentActivityFeed />
         </Suspense>
       </div>
-      <div className="mb-4">
+      <div className="mb-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Suspense fallback={null}>
           <TopRisksPanel />
+        </Suspense>
+        <Suspense fallback={null}>
+          <ProcurementPipeline />
         </Suspense>
       </div>
       <Suspense fallback={<Fallback />}>
