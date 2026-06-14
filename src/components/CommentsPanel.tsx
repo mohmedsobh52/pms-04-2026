@@ -110,18 +110,20 @@ export function CommentsPanel({ shareCode, items = [], analysisCreatorEmail, ana
       // Save author name for future
       localStorage.setItem('commentAuthorName', authorName);
 
-      const { error } = await supabase
-        .from('analysis_comments')
-        .insert({
-          share_code: shareCode,
-          author_name: authorName.trim(),
-          comment_text: commentText.trim(),
-          item_id: selectedItem || null,
-          comment_type: selectedItem ? 'item' : 'general',
-          parent_id: replyingTo || null,
-        });
+      const { data, error } = await supabase.rpc('add_shared_comment', {
+        _share_code: shareCode,
+        _author_name: authorName.trim(),
+        _comment_text: commentText.trim(),
+        _item_id: selectedItem || null,
+        _comment_type: selectedItem ? 'item' : 'general',
+        _parent_id: replyingTo || null,
+      });
 
       if (error) throw error;
+
+      if (data) {
+        setComments(prev => [...prev, data as Comment]);
+      }
 
       // Send email notification (fire and forget)
       sendEmailNotification(commentText.trim(), authorName.trim());
@@ -129,7 +131,7 @@ export function CommentsPanel({ shareCode, items = [], analysisCreatorEmail, ana
       setCommentText('');
       setSelectedItem('');
       setReplyingTo(null);
-      
+
       toast({
         title: "Comment Added",
         description: "Your comment has been posted",
