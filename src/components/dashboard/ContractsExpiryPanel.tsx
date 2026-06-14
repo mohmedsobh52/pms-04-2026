@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileSignature, ChevronRight, CalendarClock } from "lucide-react";
-import { computeContractExpiryAlert } from "@/lib/contract-alerts";
+import { computeContractExpiryAlert, levelBadgeVariant, type AlertLevel } from "@/lib/contract-alerts";
 
 interface ContractRow {
   id: string;
@@ -18,17 +18,10 @@ interface ContractRow {
   status: string | null;
 }
 
-const levelStyle: Record<string, string> = {
-  expired: "bg-destructive/15 text-destructive border-destructive/30",
-  "30": "bg-destructive/15 text-destructive border-destructive/30",
-  "60": "bg-orange-500/15 text-orange-600 border-orange-500/30 dark:text-orange-400",
-  "90": "bg-yellow-500/15 text-yellow-700 border-yellow-500/30 dark:text-yellow-400",
-};
-
 export const ContractsExpiryPanel = () => {
   const { user } = useAuth();
   const { isArabic } = useLanguage();
-  const [rows, setRows] = useState<Array<ContractRow & { _days: number; _level: string }>>([]);
+  const [rows, setRows] = useState<Array<ContractRow & { _days: number; _level: AlertLevel; _label: string }>>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -45,10 +38,15 @@ export const ContractsExpiryPanel = () => {
       if (cancelled) return;
       const mapped = (data || [])
         .map((c) => {
-          const a = computeContractExpiryAlert(c.end_date);
-          return { ...c, _days: a?.daysRemaining ?? 9999, _level: a?.level ?? "none" };
+          const a = computeContractExpiryAlert(c.end_date, isArabic);
+          return {
+            ...c,
+            _days: a.daysLeft ?? 9999,
+            _level: a.level,
+            _label: isArabic ? a.label : a.labelEn,
+          };
         })
-        .filter((c) => c._level !== "none")
+        .filter((c) => ["info", "warning", "critical", "expired"].includes(c._level))
         .sort((a, b) => a._days - b._days)
         .slice(0, 5);
       setRows(mapped);
@@ -57,7 +55,7 @@ export const ContractsExpiryPanel = () => {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, isArabic]);
 
   return (
     <Card className="bg-card/70 backdrop-blur-sm border-border/60">
@@ -95,10 +93,8 @@ export const ContractsExpiryPanel = () => {
                   {c.contract_number} • {c.contractor_name || "—"}
                 </p>
               </div>
-              <Badge variant="outline" className={`shrink-0 ${levelStyle[c._level] || ""}`}>
-                {c._level === "expired"
-                  ? isArabic ? "منتهٍ" : "Expired"
-                  : isArabic ? `${c._days} يوم` : `${c._days}d`}
+              <Badge variant={levelBadgeVariant(c._level)} className="shrink-0 whitespace-nowrap">
+                {c._label}
               </Badge>
             </Link>
           ))
