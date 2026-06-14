@@ -51,13 +51,10 @@ export function CommentsPanel({ shareCode, items = [], analysisCreatorEmail, ana
       setIsLoading(true);
       try {
         const { data, error } = await supabase
-          .from('analysis_comments')
-          .select('*')
-          .eq('share_code', shareCode)
-          .order('created_at', { ascending: true });
+          .rpc('get_shared_comments', { _share_code: shareCode });
 
         if (error) throw error;
-        setComments(data || []);
+        setComments((data as Comment[]) || []);
       } catch (error) {
         console.error('Error fetching comments:', error);
       } finally {
@@ -67,38 +64,9 @@ export function CommentsPanel({ shareCode, items = [], analysisCreatorEmail, ana
 
     fetchComments();
 
-    // Subscribe to realtime updates
-    const channel = supabase
-      .channel(`comments-${shareCode}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'analysis_comments',
-          filter: `share_code=eq.${shareCode}`
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setComments(prev => [...prev, payload.new as Comment]);
-            if (payload.new.author_name !== authorName) {
-              toast({
-                title: "New Comment",
-                description: `${payload.new.author_name} added a comment`,
-              });
-            }
-          } else if (payload.eventType === 'DELETE') {
-            setComments(prev => prev.filter(c => c.id !== payload.old.id));
-          } else if (payload.eventType === 'UPDATE') {
-            setComments(prev => prev.map(c => c.id === payload.new.id ? payload.new as Comment : c));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // Poll for updates (realtime not available without direct table SELECT access)
+    const interval = setInterval(fetchComments, 15000);
+    return () => clearInterval(interval);
   }, [shareCode, authorName, toast]);
 
   // Send email notification
@@ -142,18 +110,20 @@ export function CommentsPanel({ shareCode, items = [], analysisCreatorEmail, ana
       // Save author name for future
       localStorage.setItem('commentAuthorName', authorName);
 
-      const { error } = await supabase
-        .from('analysis_comments')
-        .insert({
-          share_code: shareCode,
-          author_name: authorName.trim(),
-          comment_text: commentText.trim(),
-          item_id: selectedItem || null,
-          comment_type: selectedItem ? 'item' : 'general',
-          parent_id: replyingTo || null,
-        });
+      const { data, error } = await supabase.rpc('add_shared_comment', {
+        _share_code: shareCode,
+        _author_name: authorName.trim(),
+        _comment_text: commentText.trim(),
+        _item_id: selectedItem || null,
+        _comment_type: selectedItem ? 'item' : 'general',
+        _parent_id: replyingTo || null,
+      });
 
       if (error) throw error;
+
+      if (data) {
+        setComments(prev => [...prev, data as Comment]);
+      }
 
       // Send email notification (fire and forget)
       sendEmailNotification(commentText.trim(), authorName.trim());
@@ -161,7 +131,7 @@ export function CommentsPanel({ shareCode, items = [], analysisCreatorEmail, ana
       setCommentText('');
       setSelectedItem('');
       setReplyingTo(null);
-      
+
       toast({
         title: "Comment Added",
         description: "Your comment has been posted",
@@ -180,12 +150,13 @@ export function CommentsPanel({ shareCode, items = [], analysisCreatorEmail, ana
 
   const markAsResolved = async (commentId: string) => {
     try {
-      const { error } = await supabase
-        .from('analysis_comments')
-        .update({ is_resolved: true })
-        .eq('id', commentId);
+      const { error } = await supabase.rpc('resolve_shared_comment', {
+        _comment_id: commentId,
+        _share_code: shareCode,
+      });
 
       if (error) throw error;
+      setComments(prev => prev.map(c => c.id === commentId ? { ...c, is_resolved: true } : c));
     } catch (error) {
       console.error('Error resolving comment:', error);
     }

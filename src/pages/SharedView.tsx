@@ -42,48 +42,21 @@ export default function SharedView() {
   const fetchSharedAnalysis = async () => {
     try {
       const { data, error: fetchError } = await supabase
-        .from('shared_analyses')
-        .select('*')
-        .eq('share_code', shareCode)
-        .single();
+        .rpc('get_shared_analysis', { _share_code: shareCode! });
 
-      if (fetchError) {
-        if (fetchError.code === 'PGRST116') {
-          setError("Share link not found or has expired");
-        } else {
-          throw fetchError;
-        }
+      if (fetchError) throw fetchError;
+
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row) {
+        setError("Share link not found, expired, or revoked");
         return;
       }
 
-      if (!data) {
-        setError("Share link not found");
-        return;
-      }
-
-      // Check if expired
-      if (new Date(data.expires_at) < new Date()) {
-        setError("This share link has expired");
-        return;
-      }
-
-      // Check if active
-      if (!data.is_active) {
-        setError("This share link has been revoked");
-        return;
-      }
-
-      setSharedData(data);
-
-      // Increment viewer count
-      await supabase
-        .from('shared_analyses')
-        .update({ viewer_count: (data.viewer_count || 0) + 1 })
-        .eq('share_code', shareCode);
+      setSharedData(row as SharedAnalysis);
 
       toast({
         title: "Viewing shared analysis",
-        description: data.file_name ? `File: ${data.file_name}` : "BOQ Analysis",
+        description: row.file_name ? `File: ${row.file_name}` : "BOQ Analysis",
       });
     } catch (err: any) {
       console.error("Error fetching shared analysis:", err);

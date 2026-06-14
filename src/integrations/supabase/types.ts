@@ -2556,7 +2556,7 @@ export type Database = {
           min_price: number | null
           unit: string | null
           updated_at: string | null
-          user_id: string | null
+          user_id: string
           year: number | null
         }
         Insert: {
@@ -2571,7 +2571,7 @@ export type Database = {
           min_price?: number | null
           unit?: string | null
           updated_at?: string | null
-          user_id?: string | null
+          user_id?: string
           year?: number | null
         }
         Update: {
@@ -2586,7 +2586,7 @@ export type Database = {
           min_price?: number | null
           unit?: string | null
           updated_at?: string | null
-          user_id?: string | null
+          user_id?: string
           year?: number | null
         }
         Relationships: []
@@ -3352,6 +3352,75 @@ export type Database = {
       }
     }
     Functions: {
+      add_shared_comment: {
+        Args: {
+          _author_email?: string
+          _author_name: string
+          _comment_text: string
+          _comment_type?: string
+          _item_id?: string
+          _parent_id?: string
+          _share_code: string
+        }
+        Returns: {
+          author_email: string | null
+          author_name: string
+          comment_text: string
+          comment_type: string | null
+          created_at: string | null
+          id: string
+          is_resolved: boolean | null
+          item_id: string | null
+          parent_id: string | null
+          session_id: string | null
+          share_code: string
+          updated_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "analysis_comments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      get_shared_analysis: {
+        Args: { _share_code: string }
+        Returns: {
+          analysis_data: Json
+          created_at: string
+          created_by: string
+          expires_at: string
+          file_name: string
+          id: string
+          is_active: boolean
+          share_code: string
+          viewer_count: number
+          wbs_data: Json
+        }[]
+      }
+      get_shared_comments: {
+        Args: { _share_code: string }
+        Returns: {
+          author_email: string | null
+          author_name: string
+          comment_text: string
+          comment_type: string | null
+          created_at: string | null
+          id: string
+          is_resolved: boolean | null
+          item_id: string | null
+          parent_id: string | null
+          session_id: string | null
+          share_code: string
+          updated_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "analysis_comments"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -3361,6 +3430,10 @@ export type Database = {
       }
       increment_shared_view: {
         Args: { _share_code: string }
+        Returns: undefined
+      }
+      resolve_shared_comment: {
+        Args: { _comment_id: string; _share_code: string }
         Returns: undefined
       }
       save_project_with_items: {
