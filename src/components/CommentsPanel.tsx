@@ -150,12 +150,13 @@ export function CommentsPanel({ shareCode, items = [], analysisCreatorEmail, ana
 
   const markAsResolved = async (commentId: string) => {
     try {
-      const { error } = await supabase
-        .from('analysis_comments')
-        .update({ is_resolved: true })
-        .eq('id', commentId);
+      const { error } = await supabase.rpc('resolve_shared_comment', {
+        _comment_id: commentId,
+        _share_code: shareCode,
+      });
 
       if (error) throw error;
+      setComments(prev => prev.map(c => c.id === commentId ? { ...c, is_resolved: true } : c));
     } catch (error) {
       console.error('Error resolving comment:', error);
     }
