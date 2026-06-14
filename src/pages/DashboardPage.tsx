@@ -24,6 +24,9 @@ const CashOutflowForecast = lazy(() =>
 const RecentActivityFeed = lazy(() =>
   import("@/components/dashboard/RecentActivityFeed").then((m) => ({ default: m.RecentActivityFeed }))
 );
+const TopRisksPanel = lazy(() =>
+  import("@/components/dashboard/TopRisksPanel").then((m) => ({ default: m.TopRisksPanel }))
+);
 
 const Fallback = () => <SuspenseFallback size="lg" />;
 
