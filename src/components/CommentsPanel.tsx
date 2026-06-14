@@ -51,13 +51,10 @@ export function CommentsPanel({ shareCode, items = [], analysisCreatorEmail, ana
       setIsLoading(true);
       try {
         const { data, error } = await supabase
-          .from('analysis_comments')
-          .select('*')
-          .eq('share_code', shareCode)
-          .order('created_at', { ascending: true });
+          .rpc('get_shared_comments', { _share_code: shareCode });
 
         if (error) throw error;
-        setComments(data || []);
+        setComments((data as Comment[]) || []);
       } catch (error) {
         console.error('Error fetching comments:', error);
       } finally {
@@ -67,38 +64,9 @@ export function CommentsPanel({ shareCode, items = [], analysisCreatorEmail, ana
 
     fetchComments();
 
-    // Subscribe to realtime updates
-    const channel = supabase
-      .channel(`comments-${shareCode}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'analysis_comments',
-          filter: `share_code=eq.${shareCode}`
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setComments(prev => [...prev, payload.new as Comment]);
-            if (payload.new.author_name !== authorName) {
-              toast({
-                title: "New Comment",
-                description: `${payload.new.author_name} added a comment`,
-              });
-            }
-          } else if (payload.eventType === 'DELETE') {
-            setComments(prev => prev.filter(c => c.id !== payload.old.id));
-          } else if (payload.eventType === 'UPDATE') {
-            setComments(prev => prev.map(c => c.id === payload.new.id ? payload.new as Comment : c));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // Poll for updates (realtime not available without direct table SELECT access)
+    const interval = setInterval(fetchComments, 15000);
+    return () => clearInterval(interval);
   }, [shareCode, authorName, toast]);
 
   // Send email notification
