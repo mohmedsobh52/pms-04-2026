@@ -33,6 +33,12 @@ const ProcurementPipeline = lazy(() =>
 const ContractsExpiryPanel = lazy(() =>
   import("@/components/dashboard/ContractsExpiryPanel").then((m) => ({ default: m.ContractsExpiryPanel }))
 );
+const WarrantiesTracker = lazy(() =>
+  import("@/components/dashboard/WarrantiesTracker").then((m) => ({ default: m.WarrantiesTracker }))
+);
+const PricingAccuracyWidget = lazy(() =>
+  import("@/components/dashboard/PricingAccuracyWidget").then((m) => ({ default: m.PricingAccuracyWidget }))
+);
 
 const Fallback = () => <SuspenseFallback size="lg" />;
 
@@ -80,9 +86,17 @@ const DashboardPage = () => {
           <ProcurementPipeline />
         </Suspense>
       </div>
-      <div className="mb-4">
+      <div className="mb-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Suspense fallback={null}>
           <ContractsExpiryPanel />
+        </Suspense>
+        <Suspense fallback={null}>
+          <WarrantiesTracker />
+        </Suspense>
+      </div>
+      <div className="mb-4">
+        <Suspense fallback={null}>
+          <PricingAccuracyWidget />
         </Suspense>
       </div>
       <Suspense fallback={<Fallback />}>
