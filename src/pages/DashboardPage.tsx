@@ -39,6 +39,9 @@ const WarrantiesTracker = lazy(() =>
 const PricingAccuracyWidget = lazy(() =>
   import("@/components/dashboard/PricingAccuracyWidget").then((m) => ({ default: m.PricingAccuracyWidget }))
 );
+const OverduePaymentsPanel = lazy(() =>
+  import("@/components/dashboard/OverduePaymentsPanel").then((m) => ({ default: m.OverduePaymentsPanel }))
+);
 
 const Fallback = () => <SuspenseFallback size="lg" />;
 
@@ -94,7 +97,10 @@ const DashboardPage = () => {
           <WarrantiesTracker />
         </Suspense>
       </div>
-      <div className="mb-4">
+      <div className="mb-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Suspense fallback={null}>
+          <OverduePaymentsPanel />
+        </Suspense>
         <Suspense fallback={null}>
           <PricingAccuracyWidget />
         </Suspense>
