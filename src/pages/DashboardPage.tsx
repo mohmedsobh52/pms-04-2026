@@ -45,6 +45,9 @@ const OverduePaymentsPanel = lazy(() =>
 const RiskHeatmapWidget = lazy(() =>
   import("@/components/dashboard/RiskHeatmapWidget").then((m) => ({ default: m.RiskHeatmapWidget }))
 );
+const QuotationsStatusWidget = lazy(() =>
+  import("@/components/dashboard/QuotationsStatusWidget").then((m) => ({ default: m.QuotationsStatusWidget }))
+);
 
 const Fallback = () => <SuspenseFallback size="lg" />;
 
@@ -108,9 +111,12 @@ const DashboardPage = () => {
           <PricingAccuracyWidget />
         </Suspense>
       </div>
-      <div className="mb-4">
+      <div className="mb-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Suspense fallback={null}>
           <RiskHeatmapWidget />
+        </Suspense>
+        <Suspense fallback={null}>
+          <QuotationsStatusWidget />
         </Suspense>
       </div>
       <Suspense fallback={<Fallback />}>
