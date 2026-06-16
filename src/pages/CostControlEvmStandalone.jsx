@@ -2962,9 +2962,41 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
             <Card style={{padding:0,overflow:"hidden",marginBottom:12}}>
               <div style={{padding:"10px 16px",background:"linear-gradient(135deg,hsl(var(--primary)/.08),hsl(var(--accent)/.08))",borderBottom:`1px solid hsl(var(--border))`,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
                 <div style={{fontSize:11,color:darkMode?"#cbd5e1":"#475569",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                  <span>📅 <b>{project.startDate||"غير محدد"}</b> → <b>{project.endDate||"—"}</b></span>
+                  <span>📅</span>
+                  <label style={{display:"flex",alignItems:"center",gap:4}}>
+                    <span style={{color:"hsl(var(--muted-foreground))"}}>من</span>
+                    <input
+                      type="text"
+                      placeholder="yyyy-MM-dd"
+                      value={project.startDate||""}
+                      onChange={e=>setProject(p=>recomputeProjectDates({...p,startDate:e.target.value,lockedField:"endDate"}))}
+                      style={{width:118,padding:"4px 6px",fontSize:11,fontFamily:"monospace",borderRadius:5,border:`1px solid ${darkMode?"#475569":"#cbd5e1"}`,background:darkMode?"#0f172a":"#fff",color:darkMode?"#f1f5f9":"#0f172a"}}
+                    />
+                  </label>
+                  <span style={{color:"hsl(var(--muted-foreground))"}}>→</span>
+                  <label style={{display:"flex",alignItems:"center",gap:4}}>
+                    <span style={{color:"hsl(var(--muted-foreground))"}}>إلى</span>
+                    <input
+                      type="text"
+                      placeholder="yyyy-MM-dd"
+                      value={project.endDate||""}
+                      onChange={e=>setProject(p=>recomputeProjectDates({...p,endDate:e.target.value,lockedField:"startDate"}))}
+                      style={{width:118,padding:"4px 6px",fontSize:11,fontFamily:"monospace",borderRadius:5,border:`1px solid ${darkMode?"#475569":"#cbd5e1"}`,background:darkMode?"#0f172a":"#fff",color:darkMode?"#f1f5f9":"#0f172a"}}
+                    />
+                  </label>
                   <span style={{color:"hsl(var(--muted-foreground))"}}>·</span>
-                  <span>المدة: <b>{project.duration||"—"} شهر</b></span>
+                  <label style={{display:"flex",alignItems:"center",gap:4}}>
+                    <span>المدة:</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={120}
+                      value={project.duration||""}
+                      onChange={e=>setProject(p=>recomputeProjectDates({...p,duration:e.target.value,lockedField:"endDate"}))}
+                      style={{width:56,padding:"4px 6px",fontSize:11,fontFamily:"monospace",borderRadius:5,border:`1px solid ${darkMode?"#475569":"#cbd5e1"}`,background:darkMode?"#0f172a":"#fff",color:darkMode?"#f1f5f9":"#0f172a",textAlign:"center"}}
+                    />
+                    <span>شهر</span>
+                  </label>
                   <span style={{color:"hsl(var(--muted-foreground))"}}>·</span>
                   <span>BAC: <b>{fmtM((kpi.bac||0)/1e6)}</b></span>
                 </div>
