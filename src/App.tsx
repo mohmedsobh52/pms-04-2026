@@ -122,6 +122,7 @@ const App = () => (
                         <Route path="/cost-analysis" element={<CostAnalysisPage />} />
                         <Route path="/changelog" element={<Changelog />} />
                         <Route path="/admin/versions" element={<AdminVersions />} />
+                        <Route path="/admin" element={<AdminDashboardPage />} />
                         {/* Separate pages for each section */}
                         <Route path="/dashboard" element={<DashboardPage />} />
                         <Route path="/items" element={<BOQItemsPage />} />
