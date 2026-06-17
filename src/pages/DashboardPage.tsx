@@ -48,6 +48,8 @@ const RiskHeatmapWidget = lazy(() =>
 const QuotationsStatusWidget = lazy(() =>
   import("@/components/dashboard/QuotationsStatusWidget").then((m) => ({ default: m.QuotationsStatusWidget }))
 );
+const AdminDashboardPage = lazy(() => import("./AdminDashboardPage"));
+
 
 const Fallback = () => <SuspenseFallback size="lg" />;
 
