@@ -29,6 +29,7 @@ const About = lazy(() => import("./pages/About"));
 const CostAnalysisPage = lazy(() => import("./pages/CostAnalysisPage"));
 const Changelog = lazy(() => import("./pages/Changelog"));
 const AdminVersions = lazy(() => import("./pages/AdminVersions"));
+const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const ProcurementPage = lazy(() => import("./pages/ProcurementPage"));
@@ -121,6 +122,7 @@ const App = () => (
                         <Route path="/cost-analysis" element={<CostAnalysisPage />} />
                         <Route path="/changelog" element={<Changelog />} />
                         <Route path="/admin/versions" element={<AdminVersions />} />
+                        <Route path="/admin" element={<AdminDashboardPage />} />
                         {/* Separate pages for each section */}
                         <Route path="/dashboard" element={<DashboardPage />} />
                         <Route path="/items" element={<BOQItemsPage />} />
