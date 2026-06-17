@@ -29,6 +29,7 @@ const About = lazy(() => import("./pages/About"));
 const CostAnalysisPage = lazy(() => import("./pages/CostAnalysisPage"));
 const Changelog = lazy(() => import("./pages/Changelog"));
 const AdminVersions = lazy(() => import("./pages/AdminVersions"));
+const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const ProcurementPage = lazy(() => import("./pages/ProcurementPage"));
