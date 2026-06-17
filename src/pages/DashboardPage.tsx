@@ -48,6 +48,8 @@ const RiskHeatmapWidget = lazy(() =>
 const QuotationsStatusWidget = lazy(() =>
   import("@/components/dashboard/QuotationsStatusWidget").then((m) => ({ default: m.QuotationsStatusWidget }))
 );
+const AdminDashboardPage = lazy(() => import("./AdminDashboardPage"));
+
 
 const Fallback = () => <SuspenseFallback size="lg" />;
 
@@ -68,7 +70,11 @@ const DashboardPage = () => {
 
   return (
     <PageLayout>
-      <ColorLegend type="status" isArabic={isArabic} className="mb-4" />
+      <Suspense fallback={<Fallback />}>
+        <AdminDashboardPage />
+      </Suspense>
+      <ColorLegend type="status" isArabic={isArabic} className="mb-4 mt-6" />
+
       <div className="mb-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Suspense fallback={null}>
           <ProjectHealthScore />
