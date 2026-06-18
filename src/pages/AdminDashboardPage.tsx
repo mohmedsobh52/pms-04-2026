@@ -167,6 +167,124 @@ const AdminDashboardPage = () => {
       } else {
         setLatest([]);
       }
+
+      // Financial overview + status distribution
+      try {
+        const { data: allProjects } = await supabase
+          .from("project_data")
+          .select("total_value");
+        const projectsValue = (allProjects || []).reduce(
+          (s: number, r: any) => s + (Number(r.total_value) || 0),
+          0
+        );
+
+        const { data: allContracts } = await supabase
+          .from("contracts")
+          .select("contract_value,status");
+        const contractsValue = (allContracts || []).reduce(
+          (s: number, r: any) => s + (Number(r.contract_value) || 0),
+          0
+        );
+        const statusCount: Record<string, number> = {};
+        (allContracts || []).forEach((c: any) => {
+          const k = c.status || "unknown";
+          statusCount[k] = (statusCount[k] || 0) + 1;
+        });
+        const palette = ["#10b981", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6", "#64748b"];
+        setStatusDist(
+          Object.entries(statusCount).map(([name, value], i) => ({
+            name,
+            value,
+            color: palette[i % palette.length],
+          }))
+        );
+
+        const { data: allQuotations } = await supabase
+          .from("price_quotations")
+          .select("total_amount");
+        const quotationsValue = (allQuotations || []).reduce(
+          (s: number, r: any) => s + (Number(r.total_amount) || 0),
+          0
+        );
+
+        const { count: risksCount } = await supabase
+          .from("risks" as any)
+          .select("id", { count: "exact", head: true })
+          .neq("status", "closed");
+
+        setFinancial({
+          projectsValue,
+          contractsValue,
+          quotationsValue,
+          pendingRisks: risksCount ?? 0,
+        });
+      } catch (e) {
+        console.warn("financial overview failed", e);
+      }
+
+      // Projects over last 6 months
+      try {
+        const since = new Date();
+        since.setMonth(since.getMonth() - 5);
+        since.setDate(1);
+        const { data: createdProjects } = await supabase
+          .from("saved_projects")
+          .select("id,created_at")
+          .gte("created_at", since.toISOString());
+
+        const { data: createdValues } = await supabase
+          .from("project_data")
+          .select("id,total_value,created_at")
+          .gte("created_at", since.toISOString());
+        const valuesById = new Map((createdValues || []).map((p: any) => [p.id, Number(p.total_value) || 0]));
+
+        const buckets = new Map<string, { projects: number; value: number }>();
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date();
+          d.setMonth(d.getMonth() - i);
+          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+          buckets.set(k, { projects: 0, value: 0 });
+        }
+        (createdProjects || []).forEach((p: any) => {
+          const d = new Date(p.created_at);
+          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+          const b = buckets.get(k);
+          if (b) {
+            b.projects += 1;
+            b.value += valuesById.get(p.id) || 0;
+          }
+        });
+        const months = isArabic
+          ? ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
+          : ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        setTimeSeries(
+          Array.from(buckets.entries()).map(([k, v]) => {
+            const m = parseInt(k.split("-")[1], 10) - 1;
+            return { month: months[m], projects: v.projects, value: v.value };
+          })
+        );
+      } catch (e) {
+        console.warn("time series failed", e);
+      }
+
+      // Recent activity
+      try {
+        const { data: logs } = await supabase
+          .from("analysis_audit_logs" as any)
+          .select("id,action,created_at,project_id")
+          .order("created_at", { ascending: false })
+          .limit(6);
+        setActivity(
+          (logs || []).map((l: any) => ({
+            id: l.id,
+            action: l.action,
+            created_at: l.created_at,
+            project: l.project_id,
+          }))
+        );
+      } catch (e) {
+        console.warn("activity failed", e);
+      }
     } catch (e: any) {
       console.error(e);
       toast({
