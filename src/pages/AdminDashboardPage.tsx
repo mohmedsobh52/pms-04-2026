@@ -98,6 +98,15 @@ const AdminDashboardPage = () => {
   });
   const [latest, setLatest] = useState<LatestProject[]>([]);
   const [notifCount, setNotifCount] = useState(0);
+  const [financial, setFinancial] = useState({
+    projectsValue: 0,
+    contractsValue: 0,
+    quotationsValue: 0,
+    pendingRisks: 0,
+  });
+  const [timeSeries, setTimeSeries] = useState<{ month: string; projects: number; value: number }[]>([]);
+  const [statusDist, setStatusDist] = useState<{ name: string; value: number; color: string }[]>([]);
+  const [activity, setActivity] = useState<{ id: string; action: string; created_at: string; project?: string | null }[]>([]);
 
   useEffect(() => {
     if (!user) return;
