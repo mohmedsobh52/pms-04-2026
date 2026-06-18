@@ -24,7 +24,25 @@ import {
   Users2,
   History,
   Loader2,
+  TrendingUp,
+  Wallet,
+  AlertTriangle,
+  HardDrive,
+  CheckCircle2,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +98,15 @@ const AdminDashboardPage = () => {
   });
   const [latest, setLatest] = useState<LatestProject[]>([]);
   const [notifCount, setNotifCount] = useState(0);
+  const [financial, setFinancial] = useState({
+    projectsValue: 0,
+    contractsValue: 0,
+    quotationsValue: 0,
+    pendingRisks: 0,
+  });
+  const [timeSeries, setTimeSeries] = useState<{ month: string; projects: number; value: number }[]>([]);
+  const [statusDist, setStatusDist] = useState<{ name: string; value: number; color: string }[]>([]);
+  const [activity, setActivity] = useState<{ id: string; action: string; created_at: string; project?: string | null }[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -139,6 +166,124 @@ const AdminDashboardPage = () => {
         );
       } else {
         setLatest([]);
+      }
+
+      // Financial overview + status distribution
+      try {
+        const { data: allProjects } = await supabase
+          .from("project_data")
+          .select("total_value");
+        const projectsValue = (allProjects || []).reduce(
+          (s: number, r: any) => s + (Number(r.total_value) || 0),
+          0
+        );
+
+        const { data: allContracts } = await supabase
+          .from("contracts")
+          .select("contract_value,status");
+        const contractsValue = (allContracts || []).reduce(
+          (s: number, r: any) => s + (Number(r.contract_value) || 0),
+          0
+        );
+        const statusCount: Record<string, number> = {};
+        (allContracts || []).forEach((c: any) => {
+          const k = c.status || "unknown";
+          statusCount[k] = (statusCount[k] || 0) + 1;
+        });
+        const palette = ["#10b981", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6", "#64748b"];
+        setStatusDist(
+          Object.entries(statusCount).map(([name, value], i) => ({
+            name,
+            value,
+            color: palette[i % palette.length],
+          }))
+        );
+
+        const { data: allQuotations } = await supabase
+          .from("price_quotations")
+          .select("total_amount");
+        const quotationsValue = (allQuotations || []).reduce(
+          (s: number, r: any) => s + (Number(r.total_amount) || 0),
+          0
+        );
+
+        const { count: risksCount } = await supabase
+          .from("risks" as any)
+          .select("id", { count: "exact", head: true })
+          .neq("status", "closed");
+
+        setFinancial({
+          projectsValue,
+          contractsValue,
+          quotationsValue,
+          pendingRisks: risksCount ?? 0,
+        });
+      } catch (e) {
+        console.warn("financial overview failed", e);
+      }
+
+      // Projects over last 6 months
+      try {
+        const since = new Date();
+        since.setMonth(since.getMonth() - 5);
+        since.setDate(1);
+        const { data: createdProjects } = await supabase
+          .from("saved_projects")
+          .select("id,created_at")
+          .gte("created_at", since.toISOString());
+
+        const { data: createdValues } = await supabase
+          .from("project_data")
+          .select("id,total_value,created_at")
+          .gte("created_at", since.toISOString());
+        const valuesById = new Map((createdValues || []).map((p: any) => [p.id, Number(p.total_value) || 0]));
+
+        const buckets = new Map<string, { projects: number; value: number }>();
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date();
+          d.setMonth(d.getMonth() - i);
+          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+          buckets.set(k, { projects: 0, value: 0 });
+        }
+        (createdProjects || []).forEach((p: any) => {
+          const d = new Date(p.created_at);
+          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+          const b = buckets.get(k);
+          if (b) {
+            b.projects += 1;
+            b.value += valuesById.get(p.id) || 0;
+          }
+        });
+        const months = isArabic
+          ? ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
+          : ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        setTimeSeries(
+          Array.from(buckets.entries()).map(([k, v]) => {
+            const m = parseInt(k.split("-")[1], 10) - 1;
+            return { month: months[m], projects: v.projects, value: v.value };
+          })
+        );
+      } catch (e) {
+        console.warn("time series failed", e);
+      }
+
+      // Recent activity
+      try {
+        const { data: logs } = await supabase
+          .from("analysis_audit_logs" as any)
+          .select("id,action,created_at,project_id")
+          .order("created_at", { ascending: false })
+          .limit(6);
+        setActivity(
+          (logs || []).map((l: any) => ({
+            id: l.id,
+            action: l.action,
+            created_at: l.created_at,
+            project: l.project_id,
+          }))
+        );
+      } catch (e) {
+        console.warn("activity failed", e);
       }
     } catch (e: any) {
       console.error(e);
@@ -312,6 +457,144 @@ const AdminDashboardPage = () => {
             );
           })}
         </div>
+
+        {/* Financial overview */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <Card className="p-4 border-l-4 border-l-emerald-500">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1.5">
+              <Wallet className="w-4 h-4 text-emerald-600" />
+              {isArabic ? "إجمالي قيمة المشاريع" : "Total Projects Value"}
+            </div>
+            <div className="text-xl font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
+              {fmtMoney(financial.projectsValue)}
+            </div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-violet-500">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1.5">
+              <FileSignature className="w-4 h-4 text-violet-600" />
+              {isArabic ? "إجمالي قيمة العقود" : "Total Contracts Value"}
+            </div>
+            <div className="text-xl font-bold tabular-nums text-violet-700 dark:text-violet-400">
+              {fmtMoney(financial.contractsValue)}
+            </div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-rose-500">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1.5">
+              <ClipboardList className="w-4 h-4 text-rose-600" />
+              {isArabic ? "قيمة عروض الأسعار" : "Quotations Value"}
+            </div>
+            <div className="text-xl font-bold tabular-nums text-rose-700 dark:text-rose-400">
+              {fmtMoney(financial.quotationsValue)}
+            </div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-amber-500">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600" />
+              {isArabic ? "مخاطر مفتوحة" : "Open Risks"}
+            </div>
+            <div className="text-xl font-bold tabular-nums text-amber-700 dark:text-amber-400">
+              {financial.pendingRisks}
+            </div>
+          </Card>
+        </div>
+
+        {/* Charts: trend + status distribution */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Card className="p-4 sm:p-5 lg:col-span-2">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="w-5 h-5 text-emerald-500" />
+              <h3 className="text-base font-semibold">
+                {isArabic ? "المشاريع خلال آخر 6 أشهر" : "Projects — Last 6 Months"}
+              </h3>
+            </div>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={timeSeries}>
+                  <defs>
+                    <linearGradient id="adminProjGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.45} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                  <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{
+                      background: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: 8,
+                    }}
+                  />
+                  <Area type="monotone" dataKey="projects" stroke="#10b981" strokeWidth={2} fill="url(#adminProjGrad)" name={isArabic ? "المشاريع" : "Projects"} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+
+          <Card className="p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <CheckCircle2 className="w-5 h-5 text-violet-500" />
+              <h3 className="text-base font-semibold">
+                {isArabic ? "توزيع حالات العقود" : "Contracts by Status"}
+              </h3>
+            </div>
+            <div className="h-64">
+              {statusDist.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                  {isArabic ? "لا توجد بيانات" : "No data"}
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={statusDist} dataKey="value" nameKey="name" innerRadius={45} outerRadius={80} paddingAngle={2}>
+                      {statusDist.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Tooltip
+                      contentStyle={{
+                        background: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: 8,
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        {/* Recent activity */}
+        <Card className="p-4 sm:p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <History className="w-5 h-5 text-blue-500" />
+            <h3 className="text-base font-semibold">
+              {isArabic ? "آخر النشاطات" : "Recent Activity"}
+            </h3>
+          </div>
+          {activity.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              {isArabic ? "لا يوجد نشاط بعد" : "No activity yet"}
+            </p>
+          ) : (
+            <div className="divide-y divide-border">
+              {activity.map((a) => (
+                <div key={a.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center shrink-0">
+                      <Activity className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <span className="text-sm font-medium truncate">{a.action}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">{fmtDate(a.created_at)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
 
         {/* Suggestions */}
         {visibleSuggestions.length > 0 && (
