@@ -458,6 +458,144 @@ const AdminDashboardPage = () => {
           })}
         </div>
 
+        {/* Financial overview */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <Card className="p-4 border-l-4 border-l-emerald-500">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1.5">
+              <Wallet className="w-4 h-4 text-emerald-600" />
+              {isArabic ? "إجمالي قيمة المشاريع" : "Total Projects Value"}
+            </div>
+            <div className="text-xl font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
+              {fmtMoney(financial.projectsValue)}
+            </div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-violet-500">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1.5">
+              <FileSignature className="w-4 h-4 text-violet-600" />
+              {isArabic ? "إجمالي قيمة العقود" : "Total Contracts Value"}
+            </div>
+            <div className="text-xl font-bold tabular-nums text-violet-700 dark:text-violet-400">
+              {fmtMoney(financial.contractsValue)}
+            </div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-rose-500">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1.5">
+              <ClipboardList className="w-4 h-4 text-rose-600" />
+              {isArabic ? "قيمة عروض الأسعار" : "Quotations Value"}
+            </div>
+            <div className="text-xl font-bold tabular-nums text-rose-700 dark:text-rose-400">
+              {fmtMoney(financial.quotationsValue)}
+            </div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-amber-500">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600" />
+              {isArabic ? "مخاطر مفتوحة" : "Open Risks"}
+            </div>
+            <div className="text-xl font-bold tabular-nums text-amber-700 dark:text-amber-400">
+              {financial.pendingRisks}
+            </div>
+          </Card>
+        </div>
+
+        {/* Charts: trend + status distribution */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Card className="p-4 sm:p-5 lg:col-span-2">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="w-5 h-5 text-emerald-500" />
+              <h3 className="text-base font-semibold">
+                {isArabic ? "المشاريع خلال آخر 6 أشهر" : "Projects — Last 6 Months"}
+              </h3>
+            </div>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={timeSeries}>
+                  <defs>
+                    <linearGradient id="adminProjGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.45} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                  <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{
+                      background: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: 8,
+                    }}
+                  />
+                  <Area type="monotone" dataKey="projects" stroke="#10b981" strokeWidth={2} fill="url(#adminProjGrad)" name={isArabic ? "المشاريع" : "Projects"} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+
+          <Card className="p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <CheckCircle2 className="w-5 h-5 text-violet-500" />
+              <h3 className="text-base font-semibold">
+                {isArabic ? "توزيع حالات العقود" : "Contracts by Status"}
+              </h3>
+            </div>
+            <div className="h-64">
+              {statusDist.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                  {isArabic ? "لا توجد بيانات" : "No data"}
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={statusDist} dataKey="value" nameKey="name" innerRadius={45} outerRadius={80} paddingAngle={2}>
+                      {statusDist.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Tooltip
+                      contentStyle={{
+                        background: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: 8,
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        {/* Recent activity */}
+        <Card className="p-4 sm:p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <History className="w-5 h-5 text-blue-500" />
+            <h3 className="text-base font-semibold">
+              {isArabic ? "آخر النشاطات" : "Recent Activity"}
+            </h3>
+          </div>
+          {activity.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              {isArabic ? "لا يوجد نشاط بعد" : "No activity yet"}
+            </p>
+          ) : (
+            <div className="divide-y divide-border">
+              {activity.map((a) => (
+                <div key={a.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center shrink-0">
+                      <Activity className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <span className="text-sm font-medium truncate">{a.action}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">{fmtDate(a.created_at)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
         {/* Suggestions */}
         {visibleSuggestions.length > 0 && (
           <Card className="bg-amber-50/60 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40 p-4 sm:p-5">
