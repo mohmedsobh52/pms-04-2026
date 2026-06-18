@@ -24,7 +24,25 @@ import {
   Users2,
   History,
   Loader2,
+  TrendingUp,
+  Wallet,
+  AlertTriangle,
+  HardDrive,
+  CheckCircle2,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
