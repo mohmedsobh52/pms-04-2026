@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { UserMenu } from "@/components/UserMenu";
+import { NotificationsCenter } from "@/components/NotificationsCenter";
 import { MobileNavDrawer } from "@/components/MobileNavDrawer";
 import { Button } from "@/components/ui/button";
 import {
