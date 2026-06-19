@@ -614,13 +614,38 @@ export default function CostControlReportPage() {
     const fetchProjects = async () => {
       setIsLoadingProjects(true);
       try {
-        const { data, error } = await supabase
-          .from('project_data')
-          .select('id, name, currency, total_value, items_count, created_at')
-          .order('created_at', { ascending: false });
-        
-        if (error) throw error;
-        setProjects(data || []);
+        // Merge from both tables so all saved projects appear (some live only in saved_projects)
+        const [{ data: pd, error: pdErr }, { data: sp, error: spErr }] = await Promise.all([
+          supabase
+            .from('project_data')
+            .select('id, name, currency, total_value, items_count, created_at')
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('saved_projects')
+            .select('id, name, created_at')
+            .order('created_at', { ascending: false }),
+        ]);
+        if (pdErr) throw pdErr;
+        if (spErr) throw spErr;
+
+        const byId = new Map<string, ProjectData>();
+        (pd || []).forEach((p: any) => byId.set(p.id, p));
+        (sp || []).forEach((p: any) => {
+          if (!byId.has(p.id)) {
+            byId.set(p.id, {
+              id: p.id,
+              name: p.name,
+              currency: null,
+              total_value: null,
+              items_count: null,
+              created_at: p.created_at,
+            });
+          }
+        });
+        const merged = Array.from(byId.values()).sort((a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        setProjects(merged);
       } catch (error) {
         console.error('Error fetching projects:', error);
         toast.error(isArabic ? 'فشل في تحميل المشاريع' : 'Failed to load projects');
@@ -628,9 +653,10 @@ export default function CostControlReportPage() {
         setIsLoadingProjects(false);
       }
     };
-    
+
     fetchProjects();
   }, [isArabic]);
+
 
   // React to URL projectId changes (deep links from project page)
   useEffect(() => {
