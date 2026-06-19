@@ -27,7 +27,8 @@ import {
   Building2, Zap, Wrench, PaintBucket, HardHat, Database, Loader2, Edit, Save, RefreshCw,
   Printer, FileText, AlertTriangle, LineChart as LineChartIcon, Check, X,
   Undo2, Redo2, Camera, Bookmark, Layers, Filter, GitCompare, Plus, ArrowLeft, Home, FolderOpen,
-  Share2, RotateCcw, Package, Users, Truck, Settings2, Bell, FileSignature, ShieldAlert, Sparkles, Briefcase, ClipboardList
+  Share2, RotateCcw, Package, Users, Truck, Settings2, Bell, FileSignature, ShieldAlert, Sparkles, Briefcase, ClipboardList,
+  Trash2, Copy, ExternalLink
 } from "lucide-react";
 import { PageSuggestions } from "@/components/PageSuggestions";
 import { exportCostControlPDF } from "@/lib/cost-control-pdf";
