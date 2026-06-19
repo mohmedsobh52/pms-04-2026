@@ -2766,7 +2766,7 @@ export default function CostControlReportPage() {
                   </TableHeader>
                   <TableBody>
                     {paginatedActivities.map((activity) => (
-                      <TableRow key={activity.sn} className="hover:bg-muted/30">
+                      <TableRow key={activity.sn} className="hover:bg-primary/5 even:bg-muted/20 transition-colors">
                         <TableCell className="text-center font-medium text-muted-foreground">
                           {activity.sn}
                         </TableCell>
