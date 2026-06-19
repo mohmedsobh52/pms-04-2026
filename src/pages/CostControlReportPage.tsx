@@ -2885,6 +2885,9 @@ export default function CostControlReportPage() {
               </CardContent>
             </Card>
           </div>
+          </div>
+
+
 
 
           {/* Section: Details */}
