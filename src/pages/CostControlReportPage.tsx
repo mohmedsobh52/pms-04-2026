@@ -2146,6 +2146,12 @@ export default function CostControlReportPage() {
                             <span className="inline-flex items-center gap-0.5 tabular-nums"><DollarSign className="h-3 w-3" />{(p.total_value/1000).toFixed(0)}k</span>
                           )}
                           <span className="tabular-nums">{new Date(p.created_at).toLocaleDateString(isArabic ? 'ar' : 'en', { month: 'short', day: 'numeric' })}</span>
+                          {(() => { const d = getProjectElapsedDays(p.id); return d >= 0 ? (
+                            <span className="inline-flex items-center gap-0.5 tabular-nums text-primary/80" title={isArabic ? "أيام منقضية منذ البداية" : "Days elapsed since start"}>
+                              <CalendarIcon className="h-3 w-3" />{d}{isArabic ? "ي" : "d"}
+                            </span>
+                          ) : null; })()}
+
                         </div>
                       </div>
                       {isActive && (
