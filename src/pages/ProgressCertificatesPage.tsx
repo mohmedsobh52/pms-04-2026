@@ -1,5 +1,5 @@
 import { PageSuggestions } from "@/components/PageSuggestions";
-import { Plus, Upload, Search, GitCompare, Sparkles, Grid3x3, TrendingUp, FileSignature, FileText, Bell, BookmarkPlus, Download, Link2, Star, Users, History } from "lucide-react";
+import { Upload, Search, GitCompare, Sparkles, Grid3x3, FileSignature, Bell, BookmarkPlus, Link2, Star, Users, History } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
