@@ -2599,6 +2599,18 @@ export default function CostControlReportPage() {
                     {isArabic ? "طباعة" : "Print"}
                   </Button>
                 </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-full gap-1"
+                  onClick={handleExportVisualPDF}
+                  disabled={isExportingVisualPDF}
+                  title={isArabic ? "تصدير PDF بصري يشمل الرسومات وبطاقة المدة" : "Export visual PDF with charts and duration card"}
+                >
+                  {isExportingVisualPDF ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                  {isArabic ? "PDF بصري (رسومات + مدة)" : "Visual PDF (charts + duration)"}
+                </Button>
+
                 {useRealData && selectedProjectId && (
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" className="flex-1 gap-1"
