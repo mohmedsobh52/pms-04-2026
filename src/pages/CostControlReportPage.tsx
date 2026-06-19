@@ -1754,7 +1754,23 @@ export default function CostControlReportPage() {
         </span>
       </div>
 
+      <PageSuggestions
+        pageKey="cost-control-report"
+        suggestions={[
+          { id: "pick-project", labelAr: "اختر مشروعاً محفوظاً", labelEn: "Pick a saved project", icon: FolderOpen, tone: "emerald", to: "/projects", show: !selectedProjectId },
+          { id: "set-baseline", labelAr: "حفظ خط أساس جديد", labelEn: "Save new baseline", icon: Bookmark, tone: "violet", onClick: () => setBaselineDialogOpen?.(true), show: !!selectedProjectId },
+          { id: "thresholds", labelAr: "ضبط حدود التنبيه (CPI/SPI)", labelEn: "Tune CPI/SPI thresholds", icon: Settings2, tone: "amber", onClick: () => setThresholdsDialogOpen?.(true), show: !!selectedProjectId },
+          { id: "resource-levelling", labelAr: "موازنة الموارد", labelEn: "Resource levelling", icon: Layers, tone: "teal", onClick: () => setResourceLevellingOpen(true), show: !!selectedProjectId },
+          { id: "export-pdf", labelAr: "تصدير تقرير PDF", labelEn: "Export PDF report", icon: Printer, tone: "sky", onClick: () => setExportDialogOpen(true), show: !!selectedProjectId },
+          { id: "certificates", labelAr: "ربط بشهادات الإنجاز", labelEn: "Open progress certificates", icon: FileSignature, tone: "emerald", to: `/progress-certificates${selectedProjectId ? `?projectId=${selectedProjectId}`:""}` },
+          { id: "risks", labelAr: "سجل المخاطر", labelEn: "Risk register", icon: ShieldAlert, tone: "rose", to: `/risk${selectedProjectId ? `?projectId=${selectedProjectId}`:""}` },
+          { id: "executive", labelAr: "الملخص التنفيذي", labelEn: "Executive summary", icon: Sparkles, tone: "violet", to: "/executive-summary" },
+          { id: "compare", labelAr: "مقارنة المشاريع", labelEn: "Compare projects", icon: GitCompare, tone: "sky", to: "/projects/compare" },
+        ]}
+      />
+
       <div className="flex gap-6 min-h-[calc(100vh-200px)]">
+
         {/* Left Sidebar */}
         <aside className="w-72 shrink-0 space-y-4">
           {/* Discipline Filter */}
