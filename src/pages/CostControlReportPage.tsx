@@ -2658,29 +2658,49 @@ export default function CostControlReportPage() {
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
           </div>
 
-          {/* Main Chart */}
-          <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <BarChart3 className="h-5 w-5 text-primary" />
-                {isArabic ? "تحليل القيمة المكتسبة حسب التخصص" : "Earned Value Analysis by Discipline"}
-                {useRealData && selectedProject && (
-                  <Badge variant="outline" className="ml-2">
-                    {selectedProject.name}
-                  </Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[350px]">
-                <Chart type="bar" data={chartData} options={createChartOptions(isArabic)} />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* S-Curve & CPI/SPI Trend */}
+          {/* Pair 1: Main Chart + Cashflow */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
+            <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg hover:shadow-xl transition-shadow">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <BarChart3 className="h-4 w-4 text-primary" />
+                  {isArabic ? "تحليل القيمة المكتسبة حسب التخصص" : "Earned Value by Discipline"}
+                  {useRealData && selectedProject && (
+                    <Badge variant="outline" className="ml-2 text-[10px]">
+                      {selectedProject.name}
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  <Chart type="bar" data={chartData} options={createChartOptions(isArabic)} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg hover:shadow-xl transition-shadow">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <DollarSign className="h-4 w-4 text-primary" />
+                  {isArabic ? "التدفق النقدي التراكمي (PV / AC / EV)" : "Cumulative Cashflow (PV / AC / EV)"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  <Chart type="bar" data={cashflowData} options={{
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: "top" as const, labels: { usePointStyle: true, font: { size: 11 } } } },
+                    scales: { y: { beginAtZero: true, title: { display: true, text: isArabic ? "مليون" : "Millions" } } },
+                  }} />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Pair 2: S-Curve + CPI/SPI */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg hover:shadow-xl transition-shadow">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <LineChartIcon className="h-4 w-4 text-primary" />
@@ -2688,12 +2708,12 @@ export default function CostControlReportPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[280px]">
+                <div className="h-[300px]">
                   <Chart type="line" data={sCurveData} options={createChartOptions(isArabic)} />
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
+            <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg hover:shadow-xl transition-shadow">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Activity className="h-4 w-4 text-primary" />
@@ -2701,7 +2721,7 @@ export default function CostControlReportPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[280px]">
+                <div className="h-[300px]">
                   <Chart type="line" data={cpiSpiTrendData} options={{
                     responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { position: "top" as const, labels: { usePointStyle: true, font: { size: 11 } } } },
@@ -2712,24 +2732,6 @@ export default function CostControlReportPage() {
             </Card>
           </div>
 
-          {/* Cashflow Chart */}
-          <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <DollarSign className="h-4 w-4 text-primary" />
-                {isArabic ? "التدفق النقدي التراكمي (PV / AC / EV)" : "Cumulative Cashflow (PV / AC / EV)"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <Chart type="bar" data={cashflowData} options={{
-                  responsive: true, maintainAspectRatio: false,
-                  plugins: { legend: { position: "top" as const, labels: { usePointStyle: true, font: { size: 11 } } } },
-                  scales: { y: { beginAtZero: true, title: { display: true, text: isArabic ? "مليون" : "Millions" } } },
-                }} />
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Section: Details */}
           <div className="flex items-center gap-3 pt-4">
