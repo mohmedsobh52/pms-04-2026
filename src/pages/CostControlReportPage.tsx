@@ -2329,7 +2329,71 @@ export default function CostControlReportPage() {
           </div>
 
 
+          {/* Project Start Date + Duration */}
+          <Card className="bg-card/95 backdrop-blur border-border/50 shadow-md">
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                    <CalendarIcon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <Label htmlFor="cc-start-date" className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      {isArabic ? "تاريخ بداية المشروع" : "Project Start Date"}
+                    </Label>
+                    <Input
+                      id="cc-start-date"
+                      type="date"
+                      value={projectStartDate}
+                      onChange={(e) => handleStartDateChange(e.target.value)}
+                      placeholder="yyyy-MM-dd"
+                      className="h-8 mt-1 w-44 text-sm tabular-nums"
+                    />
+                  </div>
+                </div>
+
+                <div className="h-10 w-px bg-border/60 hidden md:block" />
+
+                {projectDuration ? (
+                  projectDuration.future ? (
+                    <div className="text-sm text-muted-foreground">
+                      {isArabic ? "تاريخ البداية في المستقبل" : "Start date is in the future"}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                        {isArabic ? "المدة المنقضية" : "Elapsed Duration"}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 min-w-[64px] text-center">
+                          <div className="text-lg font-bold tabular-nums text-emerald-600 leading-none">{projectDuration.years}</div>
+                          <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{isArabic ? "سنة" : "Years"}</div>
+                        </div>
+                        <div className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 min-w-[64px] text-center">
+                          <div className="text-lg font-bold tabular-nums text-amber-600 leading-none">{projectDuration.months}</div>
+                          <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{isArabic ? "شهر" : "Months"}</div>
+                        </div>
+                        <div className="px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/30 min-w-[64px] text-center">
+                          <div className="text-lg font-bold tabular-nums text-blue-600 leading-none">{projectDuration.days}</div>
+                          <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{isArabic ? "يوم" : "Days"}</div>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[11px] tabular-nums">
+                        {isArabic ? `${projectDuration.totalDays} يوم إجمالاً` : `${projectDuration.totalDays} days total`}
+                      </Badge>
+                    </div>
+                  )
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    {isArabic ? "أدخل تاريخ البداية لحساب المدة" : "Enter start date to compute duration"}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Section: Overview */}
+
           <div className="flex items-center gap-3 pt-2">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
             <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground flex items-center gap-1.5">
