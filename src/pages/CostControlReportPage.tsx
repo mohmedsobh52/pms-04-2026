@@ -38,6 +38,7 @@ import { ResourceLevellingDialog } from "@/components/cost-control/ResourceLevel
 import { CostControlEnhancements } from "@/components/cost-control/CostControlEnhancements";
 import { BoqAddMenu } from "@/components/cost-control/BoqAddMenu";
 import SavedBoqPanel from "@/components/cost-control/SavedBoqPanel";
+import CashFlowPanel from "@/components/cost-control/CashFlowPanel";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -549,14 +550,21 @@ export default function CostControlReportPage() {
 
   // Project start date (per-project, persisted)
   const startDateKey = `cc:startDate:${selectedProjectId || 'default'}`;
+  const endDateKey = `cc:endDate:${selectedProjectId || 'default'}`;
   const [projectStartDate, setProjectStartDate] = useState<string>("");
+  const [projectEndDate, setProjectEndDate] = useState<string>("");
   useEffect(() => {
     try { setProjectStartDate(localStorage.getItem(startDateKey) || ""); } catch { setProjectStartDate(""); }
-  }, [startDateKey]);
+    try { setProjectEndDate(localStorage.getItem(endDateKey) || ""); } catch { setProjectEndDate(""); }
+  }, [startDateKey, endDateKey]);
   const handleStartDateChange = useCallback((val: string) => {
     setProjectStartDate(val);
     try { val ? localStorage.setItem(startDateKey, val) : localStorage.removeItem(startDateKey); } catch {}
   }, [startDateKey]);
+  const handleEndDateChange = useCallback((val: string) => {
+    setProjectEndDate(val);
+    try { val ? localStorage.setItem(endDateKey, val) : localStorage.removeItem(endDateKey); } catch {}
+  }, [endDateKey]);
   const projectDuration = useMemo(() => {
     if (!projectStartDate) return null;
     const start = new Date(projectStartDate);
@@ -2470,6 +2478,20 @@ export default function CostControlReportPage() {
                   </div>
                 </div>
 
+                <div>
+                  <Label htmlFor="cc-end-date" className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    {isArabic ? "تاريخ نهاية المشروع" : "Project End Date"}
+                  </Label>
+                  <Input
+                    id="cc-end-date"
+                    type="date"
+                    value={projectEndDate}
+                    onChange={(e) => handleEndDateChange(e.target.value)}
+                    placeholder="yyyy-MM-dd"
+                    className="h-8 mt-1 w-44 text-sm tabular-nums"
+                  />
+                </div>
+
                 <div className="h-10 w-px bg-border/60 hidden md:block" />
 
                 {projectDuration ? (
@@ -2548,6 +2570,26 @@ export default function CostControlReportPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Cash Flow Panel */}
+          {selectedProjectId && projectStartDate && projectEndDate && (() => {
+            const proj = projects.find(p => p.id === selectedProjectId);
+            const itemsTotal = projectItems.reduce(
+              (sum, i: any) => sum + Number(i.total_price || Number(i.quantity || 0) * Number(i.unit_price || 0)),
+              0
+            );
+            const totalValue = itemsTotal > 0 ? itemsTotal : Number(proj?.total_value || 0);
+            return (
+              <CashFlowPanel
+                isArabic={isArabic}
+                startDate={projectStartDate}
+                endDate={projectEndDate}
+                totalValue={totalValue}
+                currency={proj?.currency}
+                projectName={proj?.name}
+              />
+            );
+          })()}
 
           {/* Section: Overview */}
 
