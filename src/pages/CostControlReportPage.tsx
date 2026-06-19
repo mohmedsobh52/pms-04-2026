@@ -2587,6 +2587,7 @@ export default function CostControlReportPage() {
                 totalValue={totalValue}
                 currency={proj?.currency}
                 projectName={proj?.name}
+                projectId={selectedProjectId}
               />
             );
           })()}
