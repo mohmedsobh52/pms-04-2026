@@ -29,6 +29,7 @@ import {
   AlertTriangle,
   HardDrive,
   CheckCircle2,
+  GitCompare,
 } from "lucide-react";
 import {
   ResponsiveContainer,
