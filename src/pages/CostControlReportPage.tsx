@@ -1994,9 +1994,9 @@ export default function CostControlReportPage() {
                 </div>
               )}
 
-              </div>
             </div>
           </div>
+
 
           {/* KPI Section (capturable for PNG export) */}
           <div ref={kpiSectionRef} className="space-y-4 bg-background rounded-2xl">
