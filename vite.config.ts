@@ -22,18 +22,28 @@ export default defineConfig(({ mode }) => ({
   build: {
     target: 'esnext',
     minify: mode === 'production' ? 'esbuild' : false,
-    // Strip console.log/debugger in production for smaller bundles & cleaner runtime
     ...(mode === 'production' && {
       esbuildOptions: { drop: ['console', 'debugger'] },
     }),
     rollupOptions: {
       output: {
-        // Split heavy vendor libs into separate chunks for better caching & parallel loading
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select', '@radix-ui/react-tabs'],
+          'ui-vendor': [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-select',
+            '@radix-ui/react-tabs',
+            '@radix-ui/react-popover',
+            '@radix-ui/react-tooltip',
+          ],
           'chart-vendor': ['recharts'],
           'query-vendor': ['@tanstack/react-query'],
+          'pdf-vendor': ['jspdf', 'jspdf-autotable'],
+          'excel-vendor': ['xlsx', 'exceljs'],
+          'docx-vendor': ['docx'],
+          'date-vendor': ['date-fns'],
+          'supabase-vendor': ['@supabase/supabase-js'],
         },
       },
     },
