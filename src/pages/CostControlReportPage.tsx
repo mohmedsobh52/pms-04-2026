@@ -518,6 +518,22 @@ export default function CostControlReportPage() {
   const [isDeletingProject, setIsDeletingProject] = useState(false);
   const [savedProjectsSearch, setSavedProjectsSearch] = useState("");
   const [savedProjectsCollapsed, setSavedProjectsCollapsed] = useState(false);
+  const [savedProjectsSort, setSavedProjectsSort] = useState<"recent"|"name"|"duration_desc"|"duration_asc"|"days_min">("recent");
+  const [savedProjectsMinDays, setSavedProjectsMinDays] = useState<number>(0);
+  const getProjectStart = useCallback((id: string): Date | null => {
+    try {
+      const v = localStorage.getItem(`cc:startDate:${id}`);
+      if (!v) return null;
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? null : d;
+    } catch { return null; }
+  }, []);
+  const getProjectElapsedDays = useCallback((id: string): number => {
+    const s = getProjectStart(id);
+    if (!s) return -1;
+    return Math.max(0, Math.floor((Date.now() - s.getTime()) / 86400000));
+  }, [getProjectStart]);
+
   const [pinnedProjectIds, setPinnedProjectIds] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("cc:pinnedProjects") || "[]"); } catch { return []; }
   });
