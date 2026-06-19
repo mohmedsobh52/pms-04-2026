@@ -1686,6 +1686,58 @@ export default function CostControlReportPage() {
     }
   }, [isArabic, totals, filteredActivities, alerts, projects, selectedProjectId]);
 
+  const handleExportVisualPDF = useCallback(async () => {
+    setIsExportingVisualPDF(true);
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margin = 24;
+      const projName = projects.find(p => p.id === selectedProjectId)?.name || (isArabic ? "تقرير مراقبة التكاليف" : "Cost Control Report");
+
+      // Title page
+      pdf.setFontSize(20);
+      pdf.text(projName, margin, margin + 20);
+      pdf.setFontSize(11);
+      pdf.setTextColor(120);
+      pdf.text(new Date().toLocaleString(isArabic ? "ar" : "en"), margin, margin + 38);
+      pdf.setTextColor(0);
+
+      const addSection = async (el: HTMLElement | null, label: string) => {
+        if (!el) return;
+        const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+        const imgData = canvas.toDataURL("image/png");
+        const imgW = pageW - margin * 2;
+        const imgH = (canvas.height * imgW) / canvas.width;
+        pdf.addPage();
+        pdf.setFontSize(13);
+        pdf.text(label, margin, margin + 4);
+        let drawH = imgH;
+        let drawW = imgW;
+        if (drawH > pageH - margin * 2 - 20) {
+          drawH = pageH - margin * 2 - 20;
+          drawW = (canvas.width * drawH) / canvas.height;
+        }
+        pdf.addImage(imgData, "PNG", margin, margin + 16, drawW, drawH);
+      };
+
+      await addSection(durationCardRef.current, isArabic ? "مدة المشروع" : "Project Duration");
+      await addSection(kpiSectionRef.current, isArabic ? "مؤشرات الأداء" : "KPIs");
+      await addSection(chartsSectionRef.current, isArabic ? "الرسومات والتحليل" : "Charts & Analysis");
+
+      const safe = projName.replace(/[^\w\u0600-\u06FF\-]+/g, "_").slice(0, 60);
+      pdf.save(`${safe}_visual_${new Date().toISOString().slice(0,10)}.pdf`);
+      toast.success(isArabic ? "تم تصدير PDF بصري" : "Visual PDF exported");
+    } catch (e) {
+      console.error(e);
+      toast.error(isArabic ? "فشل التصدير" : "Export failed");
+    } finally {
+      setIsExportingVisualPDF(false);
+    }
+  }, [isArabic, projects, selectedProjectId]);
+
+
   const handleExportExcel = useCallback(async () => {
     setIsExporting(true);
     try {
