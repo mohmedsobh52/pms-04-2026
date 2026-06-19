@@ -2922,7 +2922,7 @@ export default function CostControlReportPage() {
 
           <div ref={chartsSectionRef} className="space-y-4">
           {/* Pair 1: Main Chart + Cashflow */}
-          <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg hover:shadow-xl transition-shadow">
               <CardHeader className="pb-2">
@@ -2963,7 +2963,7 @@ export default function CostControlReportPage() {
           </div>
 
           {/* Pair 2: S-Curve + CPI/SPI */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg hover:shadow-xl transition-shadow">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
