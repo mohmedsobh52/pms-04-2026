@@ -2014,6 +2014,9 @@ export default function CostControlReportPage() {
                         <Copy className="h-3 w-3" />
                         {isArabic ? "مشاركة" : "Share"}
                       </Button>
+                      <Button size="sm" variant="ghost" className={`h-7 w-7 p-0 ${isPinned ? "text-amber-500" : "text-muted-foreground"}`} onClick={() => togglePinned(p.id)} title={isPinned ? (isArabic ? "إزالة التثبيت" : "Unpin") : (isArabic ? "تثبيت" : "Pin")}>
+                        <Bookmark className={`h-3.5 w-3.5 ${isPinned ? "fill-current" : ""}`} />
+                      </Button>
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-500/10" onClick={() => setPendingDeleteProject(p)} title={isArabic ? "حذف من المحفوظات" : "Delete from saved"}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
