@@ -2291,8 +2291,19 @@ export default function CostControlReportPage() {
           </div>
 
 
+          {/* Section: Overview */}
+          <div className="flex items-center gap-3 pt-2">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground flex items-center gap-1.5">
+              <Gauge className="h-3.5 w-3.5 text-primary" />
+              {isArabic ? "نظرة عامة على الأداء" : "Performance Overview"}
+            </h2>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+          </div>
+
           {/* KPI Section (capturable for PNG export) */}
           <div ref={kpiSectionRef} className="space-y-4 bg-background rounded-2xl">
+
           {/* KPI Grid Row 1 */}
           <div className="grid grid-cols-5 gap-4">
             {kpiRow1.map((kpi) => (
