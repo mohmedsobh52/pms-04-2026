@@ -1,5 +1,5 @@
 import { PageSuggestions } from "@/components/PageSuggestions";
-import { Plus, Upload, Search, GitCompare, Sparkles, Grid3x3, TrendingUp, FileSignature, FileText, Bell, BookmarkPlus, Download, Link2, Star, Users, History } from "lucide-react";
+import { Plus, Upload, Search, GitCompare, Grid3x3, TrendingUp, Bell, BookmarkPlus, Download, Link2, History } from "lucide-react";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { PageLayout } from "@/components/PageLayout";
