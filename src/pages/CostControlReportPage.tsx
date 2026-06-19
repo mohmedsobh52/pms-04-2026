@@ -2724,10 +2724,11 @@ export default function CostControlReportPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto max-h-[640px]">
                 <Table>
-                  <TableHeader className="bg-muted/50 sticky top-0">
-                    <TableRow>
+                  <TableHeader className="bg-muted/80 backdrop-blur-md sticky top-0 z-10 shadow-sm">
+                    <TableRow className="border-b-2 border-border/70">
+
                       <TableHead className="w-12 text-center cursor-pointer hover:bg-muted/80" onClick={() => handleSort('sn')}>
                         # <ArrowUpDown className="inline h-3 w-3 ml-1" />
                       </TableHead>
