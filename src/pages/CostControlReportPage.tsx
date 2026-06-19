@@ -28,7 +28,7 @@ import {
   Printer, FileText, AlertTriangle, LineChart as LineChartIcon, Check, X,
   Undo2, Redo2, Camera, Bookmark, Layers, Filter, GitCompare, Plus, ArrowLeft, Home, FolderOpen,
   Share2, RotateCcw, Package, Users, Truck, Settings2, Bell, FileSignature, ShieldAlert, Sparkles, Briefcase, ClipboardList,
-  Trash2, Copy, ExternalLink
+  Trash2, Copy, ExternalLink, Gauge
 } from "lucide-react";
 import { PageSuggestions } from "@/components/PageSuggestions";
 import { exportCostControlPDF } from "@/lib/cost-control-pdf";
@@ -2291,8 +2291,19 @@ export default function CostControlReportPage() {
           </div>
 
 
+          {/* Section: Overview */}
+          <div className="flex items-center gap-3 pt-2">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground flex items-center gap-1.5">
+              <Gauge className="h-3.5 w-3.5 text-primary" />
+              {isArabic ? "نظرة عامة على الأداء" : "Performance Overview"}
+            </h2>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+          </div>
+
           {/* KPI Section (capturable for PNG export) */}
           <div ref={kpiSectionRef} className="space-y-4 bg-background rounded-2xl">
+
           {/* KPI Grid Row 1 */}
           <div className="grid grid-cols-5 gap-4">
             {kpiRow1.map((kpi) => (
@@ -2630,6 +2641,16 @@ export default function CostControlReportPage() {
             </Card>
           )}
 
+          {/* Section: Analytics */}
+          <div className="flex items-center gap-3 pt-4">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground flex items-center gap-1.5">
+              <BarChart3 className="h-3.5 w-3.5 text-primary" />
+              {isArabic ? "الرسومات والتحليل" : "Charts & Analysis"}
+            </h2>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+          </div>
+
           {/* Main Chart */}
           <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
             <CardHeader className="pb-2">
@@ -2703,7 +2724,18 @@ export default function CostControlReportPage() {
             </CardContent>
           </Card>
 
+          {/* Section: Details */}
+          <div className="flex items-center gap-3 pt-4">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground flex items-center gap-1.5">
+              <FileSpreadsheet className="h-3.5 w-3.5 text-primary" />
+              {isArabic ? "تفاصيل الأنشطة" : "Activity Details"}
+            </h2>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+          </div>
+
           <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
+
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-lg">
