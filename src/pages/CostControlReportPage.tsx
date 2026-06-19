@@ -1953,9 +1953,50 @@ export default function CostControlReportPage() {
                     {projectItems.length} {isArabic ? "بند من المشروع" : "BOQ Items"}
                   </Badge>
                 )}
+
+                {/* Quick refresh */}
+                {selectedProjectId && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 text-white hover:bg-white/10 gap-1"
+                    onClick={() => { setUseRealData(false); setTimeout(() => setUseRealData(true), 50); }}
+                    title={isArabic ? "تحديث البيانات" : "Refresh data"}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    {isArabic ? "تحديث" : "Refresh"}
+                  </Button>
+                )}
               </div>
+
+              {/* Recent projects quick-pick */}
+              {!isLoadingProjects && projects.length > 0 && (
+                <div className="mt-3 flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-white/70 shrink-0">
+                    {isArabic ? "مشاريع حديثة:" : "Recent:"}
+                  </span>
+                  {projects.slice(0, 5).map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => { setSelectedProjectId(p.id); setUseRealData(true); }}
+                      className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
+                        selectedProjectId === p.id
+                          ? "bg-white text-primary border-white font-medium"
+                          : "bg-white/10 text-white/90 border-white/20 hover:bg-white/20"
+                      }`}
+                    >
+                      <span className="max-w-[140px] truncate inline-block align-middle">{p.name}</span>
+                    </button>
+                  ))}
+                  {projects.length > 5 && (
+                    <span className="text-xs text-white/60">+{projects.length - 5}</span>
+                  )}
+                </div>
+              )}
+
             </div>
           </div>
+
 
           {/* KPI Section (capturable for PNG export) */}
           <div ref={kpiSectionRef} className="space-y-4 bg-background rounded-2xl">
