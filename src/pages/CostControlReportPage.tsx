@@ -1769,7 +1769,42 @@ export default function CostControlReportPage() {
         ]}
       />
 
+      {!selectedProjectId && !isLoadingProjects && (
+        <Card className="mb-4 border-amber-300/50 bg-gradient-to-br from-amber-50/60 to-emerald-50/60 dark:from-amber-950/20 dark:to-emerald-950/20">
+          <CardContent className="p-4 flex items-center gap-3 flex-wrap">
+            <div className="h-10 w-10 rounded-full bg-amber-400/15 ring-1 ring-amber-400/30 flex items-center justify-center shrink-0">
+              <Database className="h-5 w-5 text-amber-600" />
+            </div>
+            <div className="flex-1 min-w-[220px]">
+              <div className="font-semibold text-sm">
+                {isArabic ? "لم يتم اختيار مشروع" : "No project selected"}
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {isArabic
+                  ? "اختر مشروعاً محفوظاً لعرض بيانات EVM الحقيقية، أو تابع باستخدام بيانات العينة."
+                  : "Pick a saved project to load real EVM data, or continue with sample data."}
+              </div>
+            </div>
+            <Button size="sm" asChild className="gap-1.5">
+              <Link to="/projects"><FolderOpen className="h-3.5 w-3.5" />{isArabic ? "تصفح المشاريع" : "Browse projects"}</Link>
+            </Button>
+            {projects.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => { setSelectedProjectId(projects[0].id); setUseRealData(true); }}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {isArabic ? `فتح: ${projects[0].name}` : `Open: ${projects[0].name}`}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex gap-6 min-h-[calc(100vh-200px)]">
+
 
         {/* Left Sidebar */}
         <aside className="w-72 shrink-0 space-y-4">
