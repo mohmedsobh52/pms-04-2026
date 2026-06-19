@@ -2419,28 +2419,67 @@ export default function CostControlReportPage() {
                       {isArabic ? "تاريخ البداية في المستقبل" : "Start date is in the future"}
                     </div>
                   ) : (
+                    <TooltipProvider delayDuration={150}>
                     <div className="flex items-center gap-3 flex-wrap">
                       <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                         {isArabic ? "المدة المنقضية" : "Elapsed Duration"}
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 min-w-[64px] text-center">
-                          <div className="text-lg font-bold tabular-nums text-emerald-600 leading-none">{projectDuration.years}</div>
-                          <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{isArabic ? "سنة" : "Years"}</div>
-                        </div>
-                        <div className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 min-w-[64px] text-center">
-                          <div className="text-lg font-bold tabular-nums text-amber-600 leading-none">{projectDuration.months}</div>
-                          <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{isArabic ? "شهر" : "Months"}</div>
-                        </div>
-                        <div className="px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/30 min-w-[64px] text-center">
-                          <div className="text-lg font-bold tabular-nums text-blue-600 leading-none">{projectDuration.days}</div>
-                          <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{isArabic ? "يوم" : "Days"}</div>
-                        </div>
+                        <UITooltip>
+                          <TooltipTrigger asChild>
+                            <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 min-w-[64px] text-center cursor-help">
+                              <div className="text-lg font-bold tabular-nums text-emerald-600 leading-none">{projectDuration.years}</div>
+                              <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{isArabic ? "سنة" : "Years"}</div>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-[260px] text-xs">
+                            {isArabic
+                              ? "عدد السنوات الكاملة من تاريخ البداية حتى اليوم. يُحسب بفرق السنة مع تعديل إذا لم يكتمل الشهر/اليوم."
+                              : "Whole years between start date and today, adjusted when month/day hasn't completed yet."}
+                          </TooltipContent>
+                        </UITooltip>
+                        <UITooltip>
+                          <TooltipTrigger asChild>
+                            <div className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 min-w-[64px] text-center cursor-help">
+                              <div className="text-lg font-bold tabular-nums text-amber-600 leading-none">{projectDuration.months}</div>
+                              <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{isArabic ? "شهر" : "Months"}</div>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-[260px] text-xs">
+                            {isArabic
+                              ? "الأشهر المتبقية بعد طرح السنوات الكاملة. إذا كان اليوم الحالي أصغر من يوم البداية يتم خصم شهر وإعادة احتساب الأيام."
+                              : "Remaining months after subtracting whole years. If today's day < start day, one month is rolled back and days are recalculated."}
+                          </TooltipContent>
+                        </UITooltip>
+                        <UITooltip>
+                          <TooltipTrigger asChild>
+                            <div className="px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/30 min-w-[64px] text-center cursor-help">
+                              <div className="text-lg font-bold tabular-nums text-blue-600 leading-none">{projectDuration.days}</div>
+                              <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{isArabic ? "يوم" : "Days"}</div>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-[260px] text-xs">
+                            {isArabic
+                              ? "الأيام المتبقية بعد السنوات والأشهر، باستخدام عدد أيام الشهر السابق عند الحاجة."
+                              : "Remaining days after years and months, using the previous month's day count when needed."}
+                          </TooltipContent>
+                        </UITooltip>
                       </div>
-                      <Badge variant="outline" className="text-[11px] tabular-nums">
-                        {isArabic ? `${projectDuration.totalDays} يوم إجمالاً` : `${projectDuration.totalDays} days total`}
-                      </Badge>
+                      <UITooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className="text-[11px] tabular-nums cursor-help">
+                            {isArabic ? `${projectDuration.totalDays} يوم إجمالاً` : `${projectDuration.totalDays} days total`}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-[260px] text-xs">
+                          {isArabic
+                            ? "إجمالي الأيام = (تاريخ اليوم − تاريخ البداية) ÷ 86,400,000 مللي ثانية، مع تقريب لأسفل."
+                            : "Total days = (today − start) ÷ 86,400,000 ms, floored."}
+                        </TooltipContent>
+                      </UITooltip>
                     </div>
+                    </TooltipProvider>
+
                   )
                 ) : (
                   <div className="text-sm text-muted-foreground">
