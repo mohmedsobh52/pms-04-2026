@@ -1827,20 +1827,22 @@ export default function CostControlReportPage() {
   }, [allActivities, activitySearch]);
 
   // KPI Cards data
+  const bacRef = Math.max(totals.pv, totals.ev, totals.ac, totals.eacByPert, totals.etc, 1);
   const kpiRow1 = [
-    { label: "PV", labelAr: "القيمة المخططة", value: formatValue(totals.pv), icon: Target, color: "from-blue-500 to-blue-600" },
-    { label: "EV", labelAr: "القيمة المكتسبة", value: formatValue(totals.ev), icon: TrendingUp, color: "from-emerald-500 to-emerald-600" },
-    { label: "AC", labelAr: "التكلفة الفعلية", value: formatValue(totals.ac), icon: DollarSign, color: "from-amber-500 to-orange-500" },
-    { label: "EAC BY PERT", labelAr: "التقدير عند الإنتهاء", value: formatValue(totals.eacByPert), icon: BarChart3, color: "from-purple-500 to-purple-600" },
-    { label: "ETC", labelAr: "التقدير للإنتهاء", value: formatValue(totals.etc), icon: Activity, color: "from-rose-500 to-rose-600" },
+    { label: "PV", labelAr: "القيمة المخططة", value: formatValue(totals.pv), icon: Target, color: "from-blue-500 to-blue-600", ratio: totals.pv / bacRef, tone: "blue" },
+    { label: "EV", labelAr: "القيمة المكتسبة", value: formatValue(totals.ev), icon: TrendingUp, color: "from-emerald-500 to-emerald-600", ratio: totals.ev / bacRef, tone: "emerald" },
+    { label: "AC", labelAr: "التكلفة الفعلية", value: formatValue(totals.ac), icon: DollarSign, color: "from-amber-500 to-orange-500", ratio: totals.ac / bacRef, tone: "amber" },
+    { label: "EAC BY PERT", labelAr: "التقدير عند الإنتهاء", value: formatValue(totals.eacByPert), icon: BarChart3, color: "from-purple-500 to-purple-600", ratio: totals.eacByPert / bacRef, tone: "violet" },
+    { label: "ETC", labelAr: "التقدير للإنتهاء", value: formatValue(totals.etc), icon: Activity, color: "from-rose-500 to-rose-600", ratio: totals.etc / bacRef, tone: "rose" },
   ];
 
   const kpiRow2 = [
-    { label: "SPI", labelAr: "مؤشر الجدول", value: totals.spi.toFixed(2), status: getIndexStatus(totals.spi) },
-    { label: "Progress %", labelAr: "نسبة الإنجاز", value: totals.progress.toFixed(0) + "%", status: "neutral" },
-    { label: "CPI", labelAr: "مؤشر التكلفة", value: totals.cpi.toFixed(2), status: getIndexStatus(totals.cpi) },
-    { label: "TCPI", labelAr: "مؤشر الأداء", value: totals.tcpi.toFixed(2), status: totals.tcpi <= 1.0 ? "success" : "warning" },
+    { label: "SPI", labelAr: "مؤشر الجدول", value: totals.spi.toFixed(2), status: getIndexStatus(totals.spi), pct: Math.min(100, Math.max(0, totals.spi * 100)) },
+    { label: "Progress %", labelAr: "نسبة الإنجاز", value: totals.progress.toFixed(0) + "%", status: "neutral" as const, pct: Math.min(100, Math.max(0, totals.progress)) },
+    { label: "CPI", labelAr: "مؤشر التكلفة", value: totals.cpi.toFixed(2), status: getIndexStatus(totals.cpi), pct: Math.min(100, Math.max(0, totals.cpi * 100)) },
+    { label: "TCPI", labelAr: "مؤشر الأداء", value: totals.tcpi.toFixed(2), status: totals.tcpi <= 1.0 ? "success" as const : "warning" as const, pct: Math.min(100, Math.max(0, totals.tcpi * 100)) },
   ];
+
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
 
@@ -2294,18 +2296,28 @@ export default function CostControlReportPage() {
           {/* KPI Grid Row 1 */}
           <div className="grid grid-cols-5 gap-4">
             {kpiRow1.map((kpi) => (
-              <Card key={kpi.label} className="bg-card/95 backdrop-blur border-border/50 hover:shadow-lg transition-all overflow-hidden group">
+              <Card key={kpi.label} className="bg-card/95 backdrop-blur border-border/50 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 overflow-hidden group">
                 <CardContent className="p-4 relative">
                   <div className={`absolute inset-0 bg-gradient-to-br ${kpi.color} opacity-0 group-hover:opacity-5 transition-opacity`} />
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                       {isArabic ? kpi.labelAr : kpi.label}
                     </span>
-                    <div className={`p-1.5 rounded-lg bg-gradient-to-br ${kpi.color}`}>
+                    <div className={`p-1.5 rounded-lg bg-gradient-to-br ${kpi.color} shadow-sm`}>
                       <kpi.icon className="h-3.5 w-3.5 text-white" />
                     </div>
                   </div>
-                  <p className="text-2xl font-bold tracking-tight">{kpi.value}</p>
+                  <p className="text-2xl font-bold tracking-tight tabular-nums font-display">{kpi.value}</p>
+                  {/* Sparkline-style ratio bar */}
+                  <div className="mt-3 h-1.5 w-full bg-muted/50 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full bg-gradient-to-r ${kpi.color} rounded-full transition-[width] duration-700 ease-out`}
+                      style={{ width: `${Math.max(4, Math.min(100, kpi.ratio * 100))}%` }}
+                    />
+                  </div>
+                  <p className="mt-1.5 text-[10px] text-muted-foreground tabular-nums">
+                    {(kpi.ratio * 100).toFixed(0)}% {isArabic ? "من المرجع" : "of ref"}
+                  </p>
                 </CardContent>
               </Card>
             ))}
@@ -2313,20 +2325,47 @@ export default function CostControlReportPage() {
 
           {/* KPI Grid Row 2 */}
           <div className="grid grid-cols-5 gap-4">
-            {kpiRow2.map((kpi) => (
-              <Card key={kpi.label} className="bg-card/95 backdrop-blur border-border/50 hover:shadow-lg transition-shadow">
-                <CardContent className="p-4">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    {isArabic ? kpi.labelAr : kpi.label}
-                  </span>
-                  <div className="mt-2">
-                    <Badge className={`text-lg font-bold px-3 py-1 ${getStatusColor(kpi.status)}`}>
-                      {kpi.value}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            {kpiRow2.map((kpi) => {
+              const ringColor =
+                kpi.status === "success" ? "hsl(160 70% 45%)" :
+                kpi.status === "warning" ? "hsl(38 90% 55%)" :
+                kpi.status === "danger" ? "hsl(0 75% 60%)" :
+                "hsl(var(--primary))";
+              const circ = 2 * Math.PI * 16;
+              const offset = circ - (kpi.pct / 100) * circ;
+              return (
+                <Card key={kpi.label} className="bg-card/95 backdrop-blur border-border/50 hover:shadow-lg transition-all">
+                  <CardContent className="p-4 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                        {isArabic ? kpi.labelAr : kpi.label}
+                      </span>
+                      <div className="mt-1.5">
+                        <Badge className={`text-lg font-bold px-2.5 py-0.5 ${getStatusColor(kpi.status)}`}>
+                          {kpi.value}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="relative w-12 h-12 shrink-0">
+                      <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                        <circle cx="18" cy="18" r="16" fill="none" stroke="hsl(var(--muted))" strokeWidth="3" />
+                        <circle
+                          cx="18" cy="18" r="16" fill="none"
+                          stroke={ringColor} strokeWidth="3" strokeLinecap="round"
+                          strokeDasharray={circ}
+                          strokeDashoffset={offset}
+                          style={{ transition: "stroke-dashoffset 700ms ease-out" }}
+                        />
+                      </svg>
+                      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tabular-nums text-foreground">
+                        {Math.round(kpi.pct)}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+
             <Card className="bg-card/95 backdrop-blur border-border/50 flex items-center justify-center hover:shadow-lg transition-shadow">
               <CardContent className="p-4 w-full space-y-2">
                 <Button 
@@ -2685,10 +2724,11 @@ export default function CostControlReportPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto max-h-[640px]">
                 <Table>
-                  <TableHeader className="bg-muted/50 sticky top-0">
-                    <TableRow>
+                  <TableHeader className="bg-muted/80 backdrop-blur-md sticky top-0 z-10 shadow-sm">
+                    <TableRow className="border-b-2 border-border/70">
+
                       <TableHead className="w-12 text-center cursor-pointer hover:bg-muted/80" onClick={() => handleSort('sn')}>
                         # <ArrowUpDown className="inline h-3 w-3 ml-1" />
                       </TableHead>
@@ -2726,7 +2766,7 @@ export default function CostControlReportPage() {
                   </TableHeader>
                   <TableBody>
                     {paginatedActivities.map((activity) => (
-                      <TableRow key={activity.sn} className="hover:bg-muted/30">
+                      <TableRow key={activity.sn} className="hover:bg-primary/5 even:bg-muted/20 transition-colors">
                         <TableCell className="text-center font-medium text-muted-foreground">
                           {activity.sn}
                         </TableCell>
