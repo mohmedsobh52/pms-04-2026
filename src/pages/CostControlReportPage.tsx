@@ -1827,20 +1827,22 @@ export default function CostControlReportPage() {
   }, [allActivities, activitySearch]);
 
   // KPI Cards data
+  const bacRef = Math.max(totals.pv, totals.ev, totals.ac, totals.eacByPert, totals.etc, 1);
   const kpiRow1 = [
-    { label: "PV", labelAr: "القيمة المخططة", value: formatValue(totals.pv), icon: Target, color: "from-blue-500 to-blue-600" },
-    { label: "EV", labelAr: "القيمة المكتسبة", value: formatValue(totals.ev), icon: TrendingUp, color: "from-emerald-500 to-emerald-600" },
-    { label: "AC", labelAr: "التكلفة الفعلية", value: formatValue(totals.ac), icon: DollarSign, color: "from-amber-500 to-orange-500" },
-    { label: "EAC BY PERT", labelAr: "التقدير عند الإنتهاء", value: formatValue(totals.eacByPert), icon: BarChart3, color: "from-purple-500 to-purple-600" },
-    { label: "ETC", labelAr: "التقدير للإنتهاء", value: formatValue(totals.etc), icon: Activity, color: "from-rose-500 to-rose-600" },
+    { label: "PV", labelAr: "القيمة المخططة", value: formatValue(totals.pv), icon: Target, color: "from-blue-500 to-blue-600", ratio: totals.pv / bacRef, tone: "blue" },
+    { label: "EV", labelAr: "القيمة المكتسبة", value: formatValue(totals.ev), icon: TrendingUp, color: "from-emerald-500 to-emerald-600", ratio: totals.ev / bacRef, tone: "emerald" },
+    { label: "AC", labelAr: "التكلفة الفعلية", value: formatValue(totals.ac), icon: DollarSign, color: "from-amber-500 to-orange-500", ratio: totals.ac / bacRef, tone: "amber" },
+    { label: "EAC BY PERT", labelAr: "التقدير عند الإنتهاء", value: formatValue(totals.eacByPert), icon: BarChart3, color: "from-purple-500 to-purple-600", ratio: totals.eacByPert / bacRef, tone: "violet" },
+    { label: "ETC", labelAr: "التقدير للإنتهاء", value: formatValue(totals.etc), icon: Activity, color: "from-rose-500 to-rose-600", ratio: totals.etc / bacRef, tone: "rose" },
   ];
 
   const kpiRow2 = [
-    { label: "SPI", labelAr: "مؤشر الجدول", value: totals.spi.toFixed(2), status: getIndexStatus(totals.spi) },
-    { label: "Progress %", labelAr: "نسبة الإنجاز", value: totals.progress.toFixed(0) + "%", status: "neutral" },
-    { label: "CPI", labelAr: "مؤشر التكلفة", value: totals.cpi.toFixed(2), status: getIndexStatus(totals.cpi) },
-    { label: "TCPI", labelAr: "مؤشر الأداء", value: totals.tcpi.toFixed(2), status: totals.tcpi <= 1.0 ? "success" : "warning" },
+    { label: "SPI", labelAr: "مؤشر الجدول", value: totals.spi.toFixed(2), status: getIndexStatus(totals.spi), pct: Math.min(100, Math.max(0, totals.spi * 100)) },
+    { label: "Progress %", labelAr: "نسبة الإنجاز", value: totals.progress.toFixed(0) + "%", status: "neutral" as const, pct: Math.min(100, Math.max(0, totals.progress)) },
+    { label: "CPI", labelAr: "مؤشر التكلفة", value: totals.cpi.toFixed(2), status: getIndexStatus(totals.cpi), pct: Math.min(100, Math.max(0, totals.cpi * 100)) },
+    { label: "TCPI", labelAr: "مؤشر الأداء", value: totals.tcpi.toFixed(2), status: totals.tcpi <= 1.0 ? "success" as const : "warning" as const, pct: Math.min(100, Math.max(0, totals.tcpi * 100)) },
   ];
+
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
 
