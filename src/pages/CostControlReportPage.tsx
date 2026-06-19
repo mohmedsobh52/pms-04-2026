@@ -514,6 +514,19 @@ export default function CostControlReportPage() {
   const [useRealData, setUseRealData] = useState(!!urlProjectId);
   const [pendingDeleteProject, setPendingDeleteProject] = useState<ProjectData | null>(null);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
+  const [savedProjectsSearch, setSavedProjectsSearch] = useState("");
+  const [savedProjectsCollapsed, setSavedProjectsCollapsed] = useState(false);
+  const [pinnedProjectIds, setPinnedProjectIds] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("cc:pinnedProjects") || "[]"); } catch { return []; }
+  });
+  const togglePinned = useCallback((id: string) => {
+    setPinnedProjectIds((prev) => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+      try { localStorage.setItem("cc:pinnedProjects", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+
 
   const refetchProjects = useCallback(async () => {
     setIsLoadingProjects(true);
