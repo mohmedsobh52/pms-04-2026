@@ -75,6 +75,14 @@ const ProcurementPage = () => {
 
   return (
     <PageLayout>
+      <PageSuggestions
+        pageKey="procurement"
+        suggestions={[
+          { id: "compare", labelAr: "قارن أسعار الموردين تلقائياً", labelEn: "Auto-compare supplier prices", icon: GitCompare, tone: "violet", to: "/procurement?tab=compare" },
+          { id: "quotations", labelAr: "ارفع عروض أسعار جديدة", labelEn: "Upload new quotations", icon: Upload, tone: "emerald", to: "/quotations" },
+          { id: "subs", labelAr: "أضف مقاول من الباطن", labelEn: "Add a subcontractor", icon: Users, tone: "amber", to: "/subcontractors" },
+        ]}
+      />
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">

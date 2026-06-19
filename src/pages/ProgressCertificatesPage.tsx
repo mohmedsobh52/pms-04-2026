@@ -298,6 +298,14 @@ const ProgressCertificatesPage = () => {
 
   return (
     <PageLayout>
+      <PageSuggestions
+        pageKey="certificates"
+        suggestions={[
+          { id: "new", labelAr: "أنشئ مستخلصاً جديداً", labelEn: "Create a new certificate", icon: Plus, tone: "emerald", to: "/progress-certificates/new" },
+          { id: "compare", labelAr: "قارن المستخلصات", labelEn: "Compare certificates", icon: GitCompare, tone: "violet", to: "/progress-certificates/compare" },
+          { id: "contracts", labelAr: "اربط بالعقود لمتابعة المالية", labelEn: "Link to contracts for financials", icon: FileSignature, tone: "amber", to: "/contracts" },
+        ]}
+      />
       <div className="container mx-auto p-4 md:p-6 space-y-6" dir={isArabic ? "rtl" : "ltr"}>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>

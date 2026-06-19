@@ -238,6 +238,14 @@ const ContractsPage = () => {
 
   return (
     <PageLayout>
+      <PageSuggestions
+        pageKey="contracts"
+        suggestions={[
+          { id: "new", labelAr: "أضف عقداً جديداً", labelEn: "Add a new contract", icon: Plus, tone: "emerald", to: "/contracts?new=1" },
+          { id: "expiry", labelAr: "اضبط تنبيهات انتهاء العقود", labelEn: "Configure expiry alerts", icon: Bell, tone: "amber", to: "/contracts?tab=alerts" },
+          { id: "certs", labelAr: "ربط العقود بالمستخلصات", labelEn: "Link contracts to certificates", icon: FileText, tone: "violet", to: "/progress-certificates" },
+        ]}
+      />
       <div className="space-y-6">
         {/* Page Header */}
         <div className="flex items-start justify-between gap-3 flex-wrap">
