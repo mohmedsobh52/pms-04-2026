@@ -2812,6 +2812,15 @@ export default function CostControlReportPage() {
                   </Badge>
                 )}
 
+                {/* Add BOQ */}
+                {selectedProjectId && (
+                  <BoqAddMenu
+                    projectId={selectedProjectId}
+                    isArabic={isArabic}
+                    onAdded={() => { setUseRealData(false); setTimeout(() => setUseRealData(true), 50); }}
+                  />
+                )}
+
                 {/* Export Options */}
                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setExportDialogOpen(true)}>
                   <Settings2 className="h-3 w-3" />{isArabic ? "خيارات التصدير" : "Export options"}
