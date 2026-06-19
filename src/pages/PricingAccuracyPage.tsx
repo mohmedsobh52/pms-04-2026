@@ -1,3 +1,5 @@
+import { PageSuggestions } from "@/components/PageSuggestions";
+import { Plus, Upload, Search, GitCompare, Sparkles, Grid3x3, TrendingUp, FileSignature, FileText, Bell, BookmarkPlus, Download, Link2, Star, Users, History } from "lucide-react";
 import React, { useEffect, useState } from 'react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { PageLayout } from '@/components/PageLayout';
