@@ -732,6 +732,23 @@ export default function CostControlReportPage() {
     })();
   }, [selectedProjectId]);
 
+  // Keyboard shortcuts (Ctrl/Cmd + B/E/R/P)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      const k = e.key.toLowerCase();
+      if (k === "b") { e.preventDefault(); selectedProjectId && setBaselineDialogOpen(true); }
+      else if (k === "e") { e.preventDefault(); selectedProjectId && setExportDialogOpen(true); }
+      else if (k === "r" && e.shiftKey) { e.preventDefault(); if (selectedProjectId) { setUseRealData(false); setTimeout(() => setUseRealData(true), 50); } }
+      else if (k === "k") { e.preventDefault(); document.querySelector<HTMLElement>('[data-cc-project-trigger]')?.click(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedProjectId]);
+
+
   // ===== Per-project filter persistence (localStorage + URL) =====
   const filterStorageKey = selectedProjectId ? `cc:filters:${selectedProjectId}` : null;
 
