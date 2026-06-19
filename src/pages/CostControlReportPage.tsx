@@ -2386,7 +2386,8 @@ export default function CostControlReportPage() {
 
 
           {/* Project Start Date + Duration */}
-          <Card className="bg-card/95 backdrop-blur border-border/50 shadow-md">
+          <Card ref={durationCardRef} className="bg-card/95 backdrop-blur border-border/50 shadow-md">
+
             <CardContent className="p-4">
               <div className="flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-2">
