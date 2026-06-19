@@ -527,6 +527,37 @@ export default function CostControlReportPage() {
     });
   }, []);
 
+  // Project start date (per-project, persisted)
+  const startDateKey = `cc:startDate:${selectedProjectId || 'default'}`;
+  const [projectStartDate, setProjectStartDate] = useState<string>("");
+  useEffect(() => {
+    try { setProjectStartDate(localStorage.getItem(startDateKey) || ""); } catch { setProjectStartDate(""); }
+  }, [startDateKey]);
+  const handleStartDateChange = useCallback((val: string) => {
+    setProjectStartDate(val);
+    try { val ? localStorage.setItem(startDateKey, val) : localStorage.removeItem(startDateKey); } catch {}
+  }, [startDateKey]);
+  const projectDuration = useMemo(() => {
+    if (!projectStartDate) return null;
+    const start = new Date(projectStartDate);
+    if (isNaN(start.getTime())) return null;
+    const today = new Date();
+    if (start > today) return { years: 0, months: 0, days: 0, totalDays: 0, future: true };
+    let years = today.getFullYear() - start.getFullYear();
+    let months = today.getMonth() - start.getMonth();
+    let days = today.getDate() - start.getDate();
+    if (days < 0) {
+      months -= 1;
+      const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+      days += prevMonth.getDate();
+    }
+    if (months < 0) { years -= 1; months += 12; }
+    const totalDays = Math.floor((today.getTime() - start.getTime()) / 86400000);
+    return { years, months, days, totalDays, future: false };
+  }, [projectStartDate]);
+
+
+
 
   const refetchProjects = useCallback(async () => {
     setIsLoadingProjects(true);
