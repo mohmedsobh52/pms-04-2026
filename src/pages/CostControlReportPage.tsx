@@ -1895,7 +1895,7 @@ export default function CostControlReportPage() {
               <div className="mt-4 flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-2">
                   <Database className="h-4 w-4" />
-                  <Select value={selectedProjectId || ''} onValueChange={setSelectedProjectId}>
+                  <Select value={selectedProjectId || ''} onValueChange={(v) => { setSelectedProjectId(v); setUseRealData(true); }}>
                     <SelectTrigger className="w-[280px] bg-white/10 border-white/20 text-white">
                       <SelectValue placeholder={isArabic ? "اختر مشروع..." : "Select Project..."} />
                     </SelectTrigger>
