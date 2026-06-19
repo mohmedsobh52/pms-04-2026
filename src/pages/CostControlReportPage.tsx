@@ -2072,6 +2072,11 @@ export default function CostControlReportPage() {
                   />
                 )}
 
+                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={refetchProjects} title={isArabic ? "تحديث القائمة" : "Refresh list"}>
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+
+
                 <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setSavedProjectsCollapsed(v => !v)} title={savedProjectsCollapsed ? (isArabic ? "توسيع" : "Expand") : (isArabic ? "طي" : "Collapse")}>
                   {savedProjectsCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5 rotate-90" />}
                 </Button>
