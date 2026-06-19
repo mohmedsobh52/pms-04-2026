@@ -2051,9 +2051,27 @@ export default function CostControlReportPage() {
                     className="h-7 pl-7 w-40 text-xs"
                   />
                 </div>
-                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={refetchProjects} title={isArabic ? "تحديث القائمة" : "Refresh list"}>
-                  <RefreshCw className="h-3.5 w-3.5" />
-                </Button>
+                <Select value={savedProjectsSort} onValueChange={(v: any) => setSavedProjectsSort(v)}>
+                  <SelectTrigger className="h-7 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="recent">{isArabic ? "الأحدث" : "Recent"}</SelectItem>
+                    <SelectItem value="name">{isArabic ? "الاسم" : "Name"}</SelectItem>
+                    <SelectItem value="duration_desc">{isArabic ? "المدة (الأطول)" : "Duration (longest)"}</SelectItem>
+                    <SelectItem value="duration_asc">{isArabic ? "المدة (الأقصر)" : "Duration (shortest)"}</SelectItem>
+                    <SelectItem value="days_min">{isArabic ? "حد أدنى للأيام" : "Min days filter"}</SelectItem>
+                  </SelectContent>
+                </Select>
+                {savedProjectsSort === "days_min" && (
+                  <Input
+                    type="number"
+                    min={0}
+                    value={savedProjectsMinDays}
+                    onChange={(e) => setSavedProjectsMinDays(Math.max(0, Number(e.target.value) || 0))}
+                    className="h-7 w-20 text-xs tabular-nums"
+                    placeholder={isArabic ? "≥ أيام" : "≥ days"}
+                  />
+                )}
+
                 <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setSavedProjectsCollapsed(v => !v)} title={savedProjectsCollapsed ? (isArabic ? "توسيع" : "Expand") : (isArabic ? "طي" : "Collapse")}>
                   {savedProjectsCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5 rotate-90" />}
                 </Button>
