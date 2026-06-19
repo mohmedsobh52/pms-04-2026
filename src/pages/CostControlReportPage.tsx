@@ -37,6 +37,7 @@ import { exportCostControlPDF } from "@/lib/cost-control-pdf";
 import { ResourceLevellingDialog } from "@/components/cost-control/ResourceLevellingDialog";
 import { CostControlEnhancements } from "@/components/cost-control/CostControlEnhancements";
 import { BoqAddMenu } from "@/components/cost-control/BoqAddMenu";
+import SavedBoqPanel from "@/components/cost-control/SavedBoqPanel";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -3009,6 +3010,25 @@ export default function CostControlReportPage() {
 
 
 
+
+          {/* Saved BOQ list (from project_items) */}
+          {useRealData && selectedProjectId && projectItems.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 pt-4">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+                <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground flex items-center gap-1.5">
+                  <FileSpreadsheet className="h-3.5 w-3.5 text-primary" />
+                  {isArabic ? "قائمة الكميات المحفوظة" : "Saved BOQ"}
+                </h2>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+              </div>
+              <SavedBoqPanel
+                items={projectItems as any}
+                isArabic={isArabic}
+                projectName={projects.find(p => p.id === selectedProjectId)?.name}
+              />
+            </div>
+          )}
 
           {/* Section: Details */}
           <div className="flex items-center gap-3 pt-4">
