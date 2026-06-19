@@ -28,7 +28,7 @@ import {
   Printer, FileText, AlertTriangle, LineChart as LineChartIcon, Check, X,
   Undo2, Redo2, Camera, Bookmark, Layers, Filter, GitCompare, Plus, ArrowLeft, Home, FolderOpen,
   Share2, RotateCcw, Package, Users, Truck, Settings2, Bell, FileSignature, ShieldAlert, Sparkles, Briefcase, ClipboardList,
-  Trash2, Copy, ExternalLink, Gauge
+  Trash2, Copy, ExternalLink, Gauge, Calendar as CalendarIcon
 } from "lucide-react";
 import { PageSuggestions } from "@/components/PageSuggestions";
 import { exportCostControlPDF } from "@/lib/cost-control-pdf";
@@ -526,6 +526,37 @@ export default function CostControlReportPage() {
       return next;
     });
   }, []);
+
+  // Project start date (per-project, persisted)
+  const startDateKey = `cc:startDate:${selectedProjectId || 'default'}`;
+  const [projectStartDate, setProjectStartDate] = useState<string>("");
+  useEffect(() => {
+    try { setProjectStartDate(localStorage.getItem(startDateKey) || ""); } catch { setProjectStartDate(""); }
+  }, [startDateKey]);
+  const handleStartDateChange = useCallback((val: string) => {
+    setProjectStartDate(val);
+    try { val ? localStorage.setItem(startDateKey, val) : localStorage.removeItem(startDateKey); } catch {}
+  }, [startDateKey]);
+  const projectDuration = useMemo(() => {
+    if (!projectStartDate) return null;
+    const start = new Date(projectStartDate);
+    if (isNaN(start.getTime())) return null;
+    const today = new Date();
+    if (start > today) return { years: 0, months: 0, days: 0, totalDays: 0, future: true };
+    let years = today.getFullYear() - start.getFullYear();
+    let months = today.getMonth() - start.getMonth();
+    let days = today.getDate() - start.getDate();
+    if (days < 0) {
+      months -= 1;
+      const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+      days += prevMonth.getDate();
+    }
+    if (months < 0) { years -= 1; months += 12; }
+    const totalDays = Math.floor((today.getTime() - start.getTime()) / 86400000);
+    return { years, months, days, totalDays, future: false };
+  }, [projectStartDate]);
+
+
 
 
   const refetchProjects = useCallback(async () => {
@@ -2298,7 +2329,71 @@ export default function CostControlReportPage() {
           </div>
 
 
+          {/* Project Start Date + Duration */}
+          <Card className="bg-card/95 backdrop-blur border-border/50 shadow-md">
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                    <CalendarIcon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <Label htmlFor="cc-start-date" className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      {isArabic ? "تاريخ بداية المشروع" : "Project Start Date"}
+                    </Label>
+                    <Input
+                      id="cc-start-date"
+                      type="date"
+                      value={projectStartDate}
+                      onChange={(e) => handleStartDateChange(e.target.value)}
+                      placeholder="yyyy-MM-dd"
+                      className="h-8 mt-1 w-44 text-sm tabular-nums"
+                    />
+                  </div>
+                </div>
+
+                <div className="h-10 w-px bg-border/60 hidden md:block" />
+
+                {projectDuration ? (
+                  projectDuration.future ? (
+                    <div className="text-sm text-muted-foreground">
+                      {isArabic ? "تاريخ البداية في المستقبل" : "Start date is in the future"}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                        {isArabic ? "المدة المنقضية" : "Elapsed Duration"}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 min-w-[64px] text-center">
+                          <div className="text-lg font-bold tabular-nums text-emerald-600 leading-none">{projectDuration.years}</div>
+                          <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{isArabic ? "سنة" : "Years"}</div>
+                        </div>
+                        <div className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 min-w-[64px] text-center">
+                          <div className="text-lg font-bold tabular-nums text-amber-600 leading-none">{projectDuration.months}</div>
+                          <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{isArabic ? "شهر" : "Months"}</div>
+                        </div>
+                        <div className="px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/30 min-w-[64px] text-center">
+                          <div className="text-lg font-bold tabular-nums text-blue-600 leading-none">{projectDuration.days}</div>
+                          <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{isArabic ? "يوم" : "Days"}</div>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[11px] tabular-nums">
+                        {isArabic ? `${projectDuration.totalDays} يوم إجمالاً` : `${projectDuration.totalDays} days total`}
+                      </Badge>
+                    </div>
+                  )
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    {isArabic ? "أدخل تاريخ البداية لحساب المدة" : "Enter start date to compute duration"}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Section: Overview */}
+
           <div className="flex items-center gap-3 pt-2">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
             <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground flex items-center gap-1.5">
@@ -2658,29 +2753,49 @@ export default function CostControlReportPage() {
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
           </div>
 
-          {/* Main Chart */}
-          <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <BarChart3 className="h-5 w-5 text-primary" />
-                {isArabic ? "تحليل القيمة المكتسبة حسب التخصص" : "Earned Value Analysis by Discipline"}
-                {useRealData && selectedProject && (
-                  <Badge variant="outline" className="ml-2">
-                    {selectedProject.name}
-                  </Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[350px]">
-                <Chart type="bar" data={chartData} options={createChartOptions(isArabic)} />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* S-Curve & CPI/SPI Trend */}
+          {/* Pair 1: Main Chart + Cashflow */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
+            <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg hover:shadow-xl transition-shadow">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <BarChart3 className="h-4 w-4 text-primary" />
+                  {isArabic ? "تحليل القيمة المكتسبة حسب التخصص" : "Earned Value by Discipline"}
+                  {useRealData && selectedProject && (
+                    <Badge variant="outline" className="ml-2 text-[10px]">
+                      {selectedProject.name}
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  <Chart type="bar" data={chartData} options={createChartOptions(isArabic)} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg hover:shadow-xl transition-shadow">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <DollarSign className="h-4 w-4 text-primary" />
+                  {isArabic ? "التدفق النقدي التراكمي (PV / AC / EV)" : "Cumulative Cashflow (PV / AC / EV)"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  <Chart type="bar" data={cashflowData} options={{
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: "top" as const, labels: { usePointStyle: true, font: { size: 11 } } } },
+                    scales: { y: { beginAtZero: true, title: { display: true, text: isArabic ? "مليون" : "Millions" } } },
+                  }} />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Pair 2: S-Curve + CPI/SPI */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg hover:shadow-xl transition-shadow">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <LineChartIcon className="h-4 w-4 text-primary" />
@@ -2688,12 +2803,12 @@ export default function CostControlReportPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[280px]">
+                <div className="h-[300px]">
                   <Chart type="line" data={sCurveData} options={createChartOptions(isArabic)} />
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
+            <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg hover:shadow-xl transition-shadow">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Activity className="h-4 w-4 text-primary" />
@@ -2701,7 +2816,7 @@ export default function CostControlReportPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[280px]">
+                <div className="h-[300px]">
                   <Chart type="line" data={cpiSpiTrendData} options={{
                     responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { position: "top" as const, labels: { usePointStyle: true, font: { size: 11 } } } },
@@ -2712,24 +2827,6 @@ export default function CostControlReportPage() {
             </Card>
           </div>
 
-          {/* Cashflow Chart */}
-          <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <DollarSign className="h-4 w-4 text-primary" />
-                {isArabic ? "التدفق النقدي التراكمي (PV / AC / EV)" : "Cumulative Cashflow (PV / AC / EV)"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <Chart type="bar" data={cashflowData} options={{
-                  responsive: true, maintainAspectRatio: false,
-                  plugins: { legend: { position: "top" as const, labels: { usePointStyle: true, font: { size: 11 } } } },
-                  scales: { y: { beginAtZero: true, title: { display: true, text: isArabic ? "مليون" : "Millions" } } },
-                }} />
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Section: Details */}
           <div className="flex items-center gap-3 pt-4">
