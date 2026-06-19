@@ -1979,42 +1979,48 @@ export default function CostControlReportPage() {
 
                   <div
                     key={p.id}
-                    className={`group relative rounded-lg border p-3 transition-all cursor-pointer ${
+                    className={`group relative rounded-xl border p-3.5 transition-all duration-300 cursor-pointer overflow-hidden ${
                       isActive
-                        ? "border-primary ring-2 ring-primary/30 bg-primary/5"
-                        : "border-border/60 hover:border-primary/50 hover:bg-muted/30"
+                        ? "border-primary/60 ring-2 ring-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 shadow-md"
+                        : "border-border/60 hover:border-primary/40 hover:bg-muted/40 hover:-translate-y-0.5 hover:shadow-md"
                     }`}
                     onClick={() => openProject(p.id)}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === "Enter") openProject(p.id); }}
                   >
-                    <div className="flex items-start gap-2 mb-2">
-                      <div className={`h-8 w-8 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                        <Briefcase className="h-4 w-4" />
+                    {isPinned && (
+                      <div className="absolute top-0 right-0 w-0 h-0 border-t-[20px] border-t-amber-400 border-l-[20px] border-l-transparent rtl:right-auto rtl:left-0 rtl:border-l-0 rtl:border-r-[20px] rtl:border-r-amber-400" />
+                    )}
+                    <div className="flex items-start gap-2.5 mb-2.5">
+                      <div className={`relative h-10 w-10 rounded-lg flex items-center justify-center shrink-0 transition-colors ${isActive ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"}`}>
+                        <Briefcase className="h-4.5 w-4.5" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold truncate" title={p.name}>{p.name}</div>
-                        <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5 flex-wrap">
+                        <div className="text-sm font-semibold truncate leading-tight" title={p.name}>{p.name}</div>
+                        <div className="text-[10px] text-muted-foreground flex items-center gap-2 mt-1 flex-wrap">
                           {p.items_count != null && (
-                            <span className="inline-flex items-center gap-1"><ClipboardList className="h-3 w-3" />{p.items_count}</span>
+                            <span className="inline-flex items-center gap-0.5"><ClipboardList className="h-3 w-3" />{p.items_count}</span>
                           )}
                           {p.total_value != null && p.total_value > 0 && (
-                            <span className="inline-flex items-center gap-1"><DollarSign className="h-3 w-3" />{(p.total_value/1000).toFixed(0)}k</span>
+                            <span className="inline-flex items-center gap-0.5 tabular-nums"><DollarSign className="h-3 w-3" />{(p.total_value/1000).toFixed(0)}k</span>
                           )}
-                          <span>{new Date(p.created_at).toLocaleDateString(isArabic ? 'ar' : 'en')}</span>
+                          <span className="tabular-nums">{new Date(p.created_at).toLocaleDateString(isArabic ? 'ar' : 'en', { month: 'short', day: 'numeric' })}</span>
                         </div>
                       </div>
-                      {isActive && <Check className="h-4 w-4 text-primary shrink-0" />}
+                      {isActive && (
+                        <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center shrink-0">
+                          <Check className="h-3 w-3 text-primary-foreground" />
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1 -mx-1" onClick={(e) => e.stopPropagation()}>
-                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1 flex-1" onClick={() => openProject(p.id)} title={isArabic ? "فتح المشروع" : "Open project"}>
+                    <div className="flex items-center gap-1 -mx-1 pt-2 border-t border-border/40" onClick={(e) => e.stopPropagation()}>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px] gap-1 flex-1 hover:bg-primary/10 hover:text-primary" onClick={() => openProject(p.id)} title={isArabic ? "فتح المشروع" : "Open project"}>
                         <ExternalLink className="h-3 w-3" />
                         {isArabic ? "فتح" : "Open"}
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1" onClick={() => shareProjectLink(p.id)} title={isArabic ? "نسخ رابط المشاركة" : "Copy share link"}>
-                        <Copy className="h-3 w-3" />
-                        {isArabic ? "مشاركة" : "Share"}
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => shareProjectLink(p.id)} title={isArabic ? "نسخ رابط المشاركة" : "Copy share link"}>
+                        <Copy className="h-3.5 w-3.5" />
                       </Button>
                       <Button size="sm" variant="ghost" className={`h-7 w-7 p-0 ${isPinned ? "text-amber-500" : "text-muted-foreground"}`} onClick={() => togglePinned(p.id)} title={isPinned ? (isArabic ? "إزالة التثبيت" : "Unpin") : (isArabic ? "تثبيت" : "Pin")}>
                         <Bookmark className={`h-3.5 w-3.5 ${isPinned ? "fill-current" : ""}`} />
@@ -2025,6 +2031,7 @@ export default function CostControlReportPage() {
                     </div>
                   </div>
                 );
+
                     })}
                   </div>
                 )}
