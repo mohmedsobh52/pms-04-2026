@@ -2571,6 +2571,26 @@ export default function CostControlReportPage() {
             </CardContent>
           </Card>
 
+          {/* Cash Flow Panel */}
+          {selectedProjectId && projectStartDate && projectEndDate && (() => {
+            const proj = projects.find(p => p.id === selectedProjectId);
+            const itemsTotal = projectItems.reduce(
+              (sum, i: any) => sum + Number(i.total_price || Number(i.quantity || 0) * Number(i.unit_price || 0)),
+              0
+            );
+            const totalValue = itemsTotal > 0 ? itemsTotal : Number(proj?.total_value || 0);
+            return (
+              <CashFlowPanel
+                isArabic={isArabic}
+                startDate={projectStartDate}
+                endDate={projectEndDate}
+                totalValue={totalValue}
+                currency={proj?.currency}
+                projectName={proj?.name}
+              />
+            );
+          })()}
+
           {/* Section: Overview */}
 
           <div className="flex items-center gap-3 pt-2">
