@@ -2641,6 +2641,16 @@ export default function CostControlReportPage() {
             </Card>
           )}
 
+          {/* Section: Analytics */}
+          <div className="flex items-center gap-3 pt-4">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground flex items-center gap-1.5">
+              <BarChart3 className="h-3.5 w-3.5 text-primary" />
+              {isArabic ? "الرسومات والتحليل" : "Charts & Analysis"}
+            </h2>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+          </div>
+
           {/* Main Chart */}
           <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
             <CardHeader className="pb-2">
