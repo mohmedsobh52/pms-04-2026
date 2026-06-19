@@ -642,6 +642,10 @@ export default function CostControlReportPage() {
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [isExportingPNG, setIsExportingPNG] = useState(false);
   const kpiSectionRef = useRef<HTMLDivElement>(null);
+  const chartsSectionRef = useRef<HTMLDivElement>(null);
+  const durationCardRef = useRef<HTMLDivElement>(null);
+  const [isExportingVisualPDF, setIsExportingVisualPDF] = useState(false);
+
 
   // Threshold settings (CPI/SPI/EAC overrun %/TCPI)
   const [thresholds, setThresholds] = useState({
