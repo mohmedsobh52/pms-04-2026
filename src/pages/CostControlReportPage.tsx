@@ -2085,13 +2085,25 @@ export default function CostControlReportPage() {
           </CardHeader>
           {!savedProjectsCollapsed && (() => {
             const q = savedProjectsSearch.trim().toLowerCase();
-            const filtered = projects.filter(p => !q || p.name.toLowerCase().includes(q) || p.id.includes(q));
+            let filtered = projects.filter(p => !q || p.name.toLowerCase().includes(q) || p.id.includes(q));
+            if (savedProjectsSort === "days_min" && savedProjectsMinDays > 0) {
+              filtered = filtered.filter(p => getProjectElapsedDays(p.id) >= savedProjectsMinDays);
+            }
             const sorted = [...filtered].sort((a, b) => {
               const ap = pinnedProjectIds.includes(a.id) ? 0 : 1;
               const bp = pinnedProjectIds.includes(b.id) ? 0 : 1;
               if (ap !== bp) return ap - bp;
+              if (savedProjectsSort === "name") return a.name.localeCompare(b.name);
+              if (savedProjectsSort === "duration_desc" || savedProjectsSort === "duration_asc") {
+                const da = getProjectElapsedDays(a.id);
+                const db = getProjectElapsedDays(b.id);
+                const aHas = da >= 0, bHas = db >= 0;
+                if (aHas !== bHas) return aHas ? -1 : 1;
+                return savedProjectsSort === "duration_desc" ? db - da : da - db;
+              }
               return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
             });
+
             return (
               <CardContent className="pt-0">
                 {sorted.length === 0 ? (
