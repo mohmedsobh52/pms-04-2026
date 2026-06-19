@@ -2020,11 +2020,15 @@ export default function CostControlReportPage() {
                     </div>
                   </div>
                 );
-              })}
-            </div>
-          </CardContent>
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            );
+          })()}
         </Card>
       )}
+
 
       <AlertDialog open={!!pendingDeleteProject} onOpenChange={(o) => !o && setPendingDeleteProject(null)}>
         <AlertDialogContent>
