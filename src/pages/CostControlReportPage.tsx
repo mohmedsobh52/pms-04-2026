@@ -17,6 +17,8 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { createWorkbook, addJsonSheet, downloadWorkbook } from "@/lib/exceljs-utils";
@@ -516,6 +518,22 @@ export default function CostControlReportPage() {
   const [isDeletingProject, setIsDeletingProject] = useState(false);
   const [savedProjectsSearch, setSavedProjectsSearch] = useState("");
   const [savedProjectsCollapsed, setSavedProjectsCollapsed] = useState(false);
+  const [savedProjectsSort, setSavedProjectsSort] = useState<"recent"|"name"|"duration_desc"|"duration_asc"|"days_min">("recent");
+  const [savedProjectsMinDays, setSavedProjectsMinDays] = useState<number>(0);
+  const getProjectStart = useCallback((id: string): Date | null => {
+    try {
+      const v = localStorage.getItem(`cc:startDate:${id}`);
+      if (!v) return null;
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? null : d;
+    } catch { return null; }
+  }, []);
+  const getProjectElapsedDays = useCallback((id: string): number => {
+    const s = getProjectStart(id);
+    if (!s) return -1;
+    return Math.max(0, Math.floor((Date.now() - s.getTime()) / 86400000));
+  }, [getProjectStart]);
+
   const [pinnedProjectIds, setPinnedProjectIds] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("cc:pinnedProjects") || "[]"); } catch { return []; }
   });
@@ -642,6 +660,10 @@ export default function CostControlReportPage() {
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [isExportingPNG, setIsExportingPNG] = useState(false);
   const kpiSectionRef = useRef<HTMLDivElement>(null);
+  const chartsSectionRef = useRef<HTMLDivElement>(null);
+  const durationCardRef = useRef<HTMLDivElement>(null);
+  const [isExportingVisualPDF, setIsExportingVisualPDF] = useState(false);
+
 
   // Threshold settings (CPI/SPI/EAC overrun %/TCPI)
   const [thresholds, setThresholds] = useState({
@@ -1682,6 +1704,58 @@ export default function CostControlReportPage() {
     }
   }, [isArabic, totals, filteredActivities, alerts, projects, selectedProjectId]);
 
+  const handleExportVisualPDF = useCallback(async () => {
+    setIsExportingVisualPDF(true);
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margin = 24;
+      const projName = projects.find(p => p.id === selectedProjectId)?.name || (isArabic ? "تقرير مراقبة التكاليف" : "Cost Control Report");
+
+      // Title page
+      pdf.setFontSize(20);
+      pdf.text(projName, margin, margin + 20);
+      pdf.setFontSize(11);
+      pdf.setTextColor(120);
+      pdf.text(new Date().toLocaleString(isArabic ? "ar" : "en"), margin, margin + 38);
+      pdf.setTextColor(0);
+
+      const addSection = async (el: HTMLElement | null, label: string) => {
+        if (!el) return;
+        const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+        const imgData = canvas.toDataURL("image/png");
+        const imgW = pageW - margin * 2;
+        const imgH = (canvas.height * imgW) / canvas.width;
+        pdf.addPage();
+        pdf.setFontSize(13);
+        pdf.text(label, margin, margin + 4);
+        let drawH = imgH;
+        let drawW = imgW;
+        if (drawH > pageH - margin * 2 - 20) {
+          drawH = pageH - margin * 2 - 20;
+          drawW = (canvas.width * drawH) / canvas.height;
+        }
+        pdf.addImage(imgData, "PNG", margin, margin + 16, drawW, drawH);
+      };
+
+      await addSection(durationCardRef.current, isArabic ? "مدة المشروع" : "Project Duration");
+      await addSection(kpiSectionRef.current, isArabic ? "مؤشرات الأداء" : "KPIs");
+      await addSection(chartsSectionRef.current, isArabic ? "الرسومات والتحليل" : "Charts & Analysis");
+
+      const safe = projName.replace(/[^\w\u0600-\u06FF\-]+/g, "_").slice(0, 60);
+      pdf.save(`${safe}_visual_${new Date().toISOString().slice(0,10)}.pdf`);
+      toast.success(isArabic ? "تم تصدير PDF بصري" : "Visual PDF exported");
+    } catch (e) {
+      console.error(e);
+      toast.error(isArabic ? "فشل التصدير" : "Export failed");
+    } finally {
+      setIsExportingVisualPDF(false);
+    }
+  }, [isArabic, projects, selectedProjectId]);
+
+
   const handleExportExcel = useCallback(async () => {
     setIsExporting(true);
     try {
@@ -1977,9 +2051,32 @@ export default function CostControlReportPage() {
                     className="h-7 pl-7 w-40 text-xs"
                   />
                 </div>
+                <Select value={savedProjectsSort} onValueChange={(v: any) => setSavedProjectsSort(v)}>
+                  <SelectTrigger className="h-7 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="recent">{isArabic ? "الأحدث" : "Recent"}</SelectItem>
+                    <SelectItem value="name">{isArabic ? "الاسم" : "Name"}</SelectItem>
+                    <SelectItem value="duration_desc">{isArabic ? "المدة (الأطول)" : "Duration (longest)"}</SelectItem>
+                    <SelectItem value="duration_asc">{isArabic ? "المدة (الأقصر)" : "Duration (shortest)"}</SelectItem>
+                    <SelectItem value="days_min">{isArabic ? "حد أدنى للأيام" : "Min days filter"}</SelectItem>
+                  </SelectContent>
+                </Select>
+                {savedProjectsSort === "days_min" && (
+                  <Input
+                    type="number"
+                    min={0}
+                    value={savedProjectsMinDays}
+                    onChange={(e) => setSavedProjectsMinDays(Math.max(0, Number(e.target.value) || 0))}
+                    className="h-7 w-20 text-xs tabular-nums"
+                    placeholder={isArabic ? "≥ أيام" : "≥ days"}
+                  />
+                )}
+
                 <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={refetchProjects} title={isArabic ? "تحديث القائمة" : "Refresh list"}>
                   <RefreshCw className="h-3.5 w-3.5" />
                 </Button>
+
+
                 <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setSavedProjectsCollapsed(v => !v)} title={savedProjectsCollapsed ? (isArabic ? "توسيع" : "Expand") : (isArabic ? "طي" : "Collapse")}>
                   {savedProjectsCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5 rotate-90" />}
                 </Button>
@@ -1988,13 +2085,25 @@ export default function CostControlReportPage() {
           </CardHeader>
           {!savedProjectsCollapsed && (() => {
             const q = savedProjectsSearch.trim().toLowerCase();
-            const filtered = projects.filter(p => !q || p.name.toLowerCase().includes(q) || p.id.includes(q));
+            let filtered = projects.filter(p => !q || p.name.toLowerCase().includes(q) || p.id.includes(q));
+            if (savedProjectsSort === "days_min" && savedProjectsMinDays > 0) {
+              filtered = filtered.filter(p => getProjectElapsedDays(p.id) >= savedProjectsMinDays);
+            }
             const sorted = [...filtered].sort((a, b) => {
               const ap = pinnedProjectIds.includes(a.id) ? 0 : 1;
               const bp = pinnedProjectIds.includes(b.id) ? 0 : 1;
               if (ap !== bp) return ap - bp;
+              if (savedProjectsSort === "name") return a.name.localeCompare(b.name);
+              if (savedProjectsSort === "duration_desc" || savedProjectsSort === "duration_asc") {
+                const da = getProjectElapsedDays(a.id);
+                const db = getProjectElapsedDays(b.id);
+                const aHas = da >= 0, bHas = db >= 0;
+                if (aHas !== bHas) return aHas ? -1 : 1;
+                return savedProjectsSort === "duration_desc" ? db - da : da - db;
+              }
               return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
             });
+
             return (
               <CardContent className="pt-0">
                 {sorted.length === 0 ? (
@@ -2037,6 +2146,12 @@ export default function CostControlReportPage() {
                             <span className="inline-flex items-center gap-0.5 tabular-nums"><DollarSign className="h-3 w-3" />{(p.total_value/1000).toFixed(0)}k</span>
                           )}
                           <span className="tabular-nums">{new Date(p.created_at).toLocaleDateString(isArabic ? 'ar' : 'en', { month: 'short', day: 'numeric' })}</span>
+                          {(() => { const d = getProjectElapsedDays(p.id); return d >= 0 ? (
+                            <span className="inline-flex items-center gap-0.5 tabular-nums text-primary/80" title={isArabic ? "أيام منقضية منذ البداية" : "Days elapsed since start"}>
+                              <CalendarIcon className="h-3 w-3" />{d}{isArabic ? "ي" : "d"}
+                            </span>
+                          ) : null; })()}
+
                         </div>
                       </div>
                       {isActive && (
@@ -2330,7 +2445,8 @@ export default function CostControlReportPage() {
 
 
           {/* Project Start Date + Duration */}
-          <Card className="bg-card/95 backdrop-blur border-border/50 shadow-md">
+          <Card ref={durationCardRef} className="bg-card/95 backdrop-blur border-border/50 shadow-md">
+
             <CardContent className="p-4">
               <div className="flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-2">
@@ -2360,28 +2476,67 @@ export default function CostControlReportPage() {
                       {isArabic ? "تاريخ البداية في المستقبل" : "Start date is in the future"}
                     </div>
                   ) : (
+                    <TooltipProvider delayDuration={150}>
                     <div className="flex items-center gap-3 flex-wrap">
                       <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                         {isArabic ? "المدة المنقضية" : "Elapsed Duration"}
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 min-w-[64px] text-center">
-                          <div className="text-lg font-bold tabular-nums text-emerald-600 leading-none">{projectDuration.years}</div>
-                          <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{isArabic ? "سنة" : "Years"}</div>
-                        </div>
-                        <div className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 min-w-[64px] text-center">
-                          <div className="text-lg font-bold tabular-nums text-amber-600 leading-none">{projectDuration.months}</div>
-                          <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{isArabic ? "شهر" : "Months"}</div>
-                        </div>
-                        <div className="px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/30 min-w-[64px] text-center">
-                          <div className="text-lg font-bold tabular-nums text-blue-600 leading-none">{projectDuration.days}</div>
-                          <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{isArabic ? "يوم" : "Days"}</div>
-                        </div>
+                        <UITooltip>
+                          <TooltipTrigger asChild>
+                            <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 min-w-[64px] text-center cursor-help">
+                              <div className="text-lg font-bold tabular-nums text-emerald-600 leading-none">{projectDuration.years}</div>
+                              <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{isArabic ? "سنة" : "Years"}</div>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-[260px] text-xs">
+                            {isArabic
+                              ? "عدد السنوات الكاملة من تاريخ البداية حتى اليوم. يُحسب بفرق السنة مع تعديل إذا لم يكتمل الشهر/اليوم."
+                              : "Whole years between start date and today, adjusted when month/day hasn't completed yet."}
+                          </TooltipContent>
+                        </UITooltip>
+                        <UITooltip>
+                          <TooltipTrigger asChild>
+                            <div className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 min-w-[64px] text-center cursor-help">
+                              <div className="text-lg font-bold tabular-nums text-amber-600 leading-none">{projectDuration.months}</div>
+                              <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{isArabic ? "شهر" : "Months"}</div>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-[260px] text-xs">
+                            {isArabic
+                              ? "الأشهر المتبقية بعد طرح السنوات الكاملة. إذا كان اليوم الحالي أصغر من يوم البداية يتم خصم شهر وإعادة احتساب الأيام."
+                              : "Remaining months after subtracting whole years. If today's day < start day, one month is rolled back and days are recalculated."}
+                          </TooltipContent>
+                        </UITooltip>
+                        <UITooltip>
+                          <TooltipTrigger asChild>
+                            <div className="px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/30 min-w-[64px] text-center cursor-help">
+                              <div className="text-lg font-bold tabular-nums text-blue-600 leading-none">{projectDuration.days}</div>
+                              <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{isArabic ? "يوم" : "Days"}</div>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-[260px] text-xs">
+                            {isArabic
+                              ? "الأيام المتبقية بعد السنوات والأشهر، باستخدام عدد أيام الشهر السابق عند الحاجة."
+                              : "Remaining days after years and months, using the previous month's day count when needed."}
+                          </TooltipContent>
+                        </UITooltip>
                       </div>
-                      <Badge variant="outline" className="text-[11px] tabular-nums">
-                        {isArabic ? `${projectDuration.totalDays} يوم إجمالاً` : `${projectDuration.totalDays} days total`}
-                      </Badge>
+                      <UITooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className="text-[11px] tabular-nums cursor-help">
+                            {isArabic ? `${projectDuration.totalDays} يوم إجمالاً` : `${projectDuration.totalDays} days total`}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-[260px] text-xs">
+                          {isArabic
+                            ? "إجمالي الأيام = (تاريخ اليوم − تاريخ البداية) ÷ 86,400,000 مللي ثانية، مع تقريب لأسفل."
+                            : "Total days = (today − start) ÷ 86,400,000 ms, floored."}
+                        </TooltipContent>
+                      </UITooltip>
                     </div>
+                    </TooltipProvider>
+
                   )
                 ) : (
                   <div className="text-sm text-muted-foreground">
@@ -2501,6 +2656,18 @@ export default function CostControlReportPage() {
                     {isArabic ? "طباعة" : "Print"}
                   </Button>
                 </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-full gap-1"
+                  onClick={handleExportVisualPDF}
+                  disabled={isExportingVisualPDF}
+                  title={isArabic ? "تصدير PDF بصري يشمل الرسومات وبطاقة المدة" : "Export visual PDF with charts and duration card"}
+                >
+                  {isExportingVisualPDF ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                  {isArabic ? "PDF بصري (رسومات + مدة)" : "Visual PDF (charts + duration)"}
+                </Button>
+
                 {useRealData && selectedProjectId && (
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" className="flex-1 gap-1"
@@ -2753,8 +2920,10 @@ export default function CostControlReportPage() {
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
           </div>
 
+          <div ref={chartsSectionRef} className="space-y-4">
           {/* Pair 1: Main Chart + Cashflow */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-4">
+
             <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg hover:shadow-xl transition-shadow">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -2826,6 +2995,9 @@ export default function CostControlReportPage() {
               </CardContent>
             </Card>
           </div>
+          </div>
+
+
 
 
           {/* Section: Details */}
