@@ -550,14 +550,21 @@ export default function CostControlReportPage() {
 
   // Project start date (per-project, persisted)
   const startDateKey = `cc:startDate:${selectedProjectId || 'default'}`;
+  const endDateKey = `cc:endDate:${selectedProjectId || 'default'}`;
   const [projectStartDate, setProjectStartDate] = useState<string>("");
+  const [projectEndDate, setProjectEndDate] = useState<string>("");
   useEffect(() => {
     try { setProjectStartDate(localStorage.getItem(startDateKey) || ""); } catch { setProjectStartDate(""); }
-  }, [startDateKey]);
+    try { setProjectEndDate(localStorage.getItem(endDateKey) || ""); } catch { setProjectEndDate(""); }
+  }, [startDateKey, endDateKey]);
   const handleStartDateChange = useCallback((val: string) => {
     setProjectStartDate(val);
     try { val ? localStorage.setItem(startDateKey, val) : localStorage.removeItem(startDateKey); } catch {}
   }, [startDateKey]);
+  const handleEndDateChange = useCallback((val: string) => {
+    setProjectEndDate(val);
+    try { val ? localStorage.setItem(endDateKey, val) : localStorage.removeItem(endDateKey); } catch {}
+  }, [endDateKey]);
   const projectDuration = useMemo(() => {
     if (!projectStartDate) return null;
     const start = new Date(projectStartDate);
