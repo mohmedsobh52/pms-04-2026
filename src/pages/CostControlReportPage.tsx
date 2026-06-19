@@ -2478,6 +2478,20 @@ export default function CostControlReportPage() {
                   </div>
                 </div>
 
+                <div>
+                  <Label htmlFor="cc-end-date" className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    {isArabic ? "تاريخ نهاية المشروع" : "Project End Date"}
+                  </Label>
+                  <Input
+                    id="cc-end-date"
+                    type="date"
+                    value={projectEndDate}
+                    onChange={(e) => handleEndDateChange(e.target.value)}
+                    placeholder="yyyy-MM-dd"
+                    className="h-8 mt-1 w-44 text-sm tabular-nums"
+                  />
+                </div>
+
                 <div className="h-10 w-px bg-border/60 hidden md:block" />
 
                 {projectDuration ? (
