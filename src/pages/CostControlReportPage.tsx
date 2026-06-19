@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { exportCostControlPDF } from "@/lib/cost-control-pdf";
 import { ResourceLevellingDialog } from "@/components/cost-control/ResourceLevellingDialog";
+import { CostControlEnhancements } from "@/components/cost-control/CostControlEnhancements";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -2895,6 +2896,23 @@ export default function CostControlReportPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ===== Advanced insights, recommendations, drivers & burn-rate ===== */}
+      <CostControlEnhancements
+        activities={filteredActivities}
+        totals={{
+          pv: totals.pv,
+          ev: totals.ev,
+          ac: totals.ac,
+          cv: totals.cv,
+          sv: totals.sv,
+          cpi: totals.cpi,
+          spi: totals.spi,
+          bac: totals.pv,
+          eac: totals.eacByPert,
+        }}
+        isArabic={isArabic}
+      />
     </PageLayout>
   );
 }
