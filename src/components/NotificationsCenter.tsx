@@ -43,23 +43,21 @@ export function NotificationsCenter() {
     (async () => {
       const now = new Date();
       const in60 = new Date(now.getTime() + 60 * 86400 * 1000).toISOString();
+      const sb = supabase as any;
       const [contracts, certs, risks] = await Promise.all([
-        supabase
-          .from("contracts")
+        sb.from("contracts")
           .select("id,contract_number,project_name,end_date")
           .eq("user_id", user.id)
           .lte("end_date", in60)
           .gte("end_date", now.toISOString())
           .limit(10),
-        supabase
-          .from("progress_certificates")
+        sb.from("progress_certificates")
           .select("id,certificate_number,project_name,status,created_at")
           .eq("user_id", user.id)
           .eq("status", "draft")
           .order("created_at", { ascending: false })
           .limit(10),
-        supabase
-          .from("risks")
+        sb.from("risks")
           .select("id,title,severity,created_at")
           .eq("user_id", user.id)
           .in("severity", ["high", "critical"])
