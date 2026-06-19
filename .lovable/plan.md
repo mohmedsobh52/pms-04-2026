@@ -1,61 +1,63 @@
-## تحديث شامل للبرنامج
+# خطة التحديث الشامل للبرنامج
 
-نطاق ضخم، سننفذه في جولة واحدة عبر 4 وحدات. كل تحسين مُختصر ومركز على القيمة المباشرة.
-
----
-
-### 1. المستخلصات (Progress Certificates)
-
-- **مقارنة بين المستخلصات**: شاشة مقارنة جنباً إلى جنب لمستخلصين أو أكثر لنفس المشروع (الكميات/المبالغ/التقدم).
-- **منحنى التقدم التراكمي (S-Curve)**: رسم بياني يعرض الأعمال التراكمية مقابل قيمة العقد عبر الزمن.
-- **تقرير شهري مجمع PDF**: تجميع كل مستخلصات شهر معين في تقرير واحد مع إجماليات.
-- **تنبيه تجاوز قيمة العقد**: تحذير عند اقتراب المستخلص من 95% من قيمة العقد.
-
-### 2. العقود (Contracts)
-
-- **تنبيهات الانتهاء التلقائية**: إشعار قبل انتهاء العقد بـ 30/60/90 يوم.
-- **ربط بالمستخلصات**: عرض إجمالي المدفوع والمستحق من المستخلصات في كارت العقد.
-- **متابعة الضمانات**: قائمة الضمانات النشطة مع تواريخ الانتهاء.
-- **شريط تقدم مالي**: يعرض نسبة الصرف من قيمة العقد.
-
-### 3. المشتريات وعروض الأسعار (Procurement & Quotations)
-
-- **مقارنة موردين تلقائية**: جدول يقارن أسعار نفس البند من موردين مختلفين مع ترشيح "الأفضل سعراً".
-- **حالة طلب الشراء**: مسار workflow (مسودة → طلب عرض → اختيار → أمر شراء → استلام).
-- **توصية AI**: اقتراح أفضل مورد بناءً على السعر والجودة والتاريخ.
-
-### 4. التسعير والذكاء الاصطناعي
-
-- **تسعير دفعة كاملة (Bulk AI Pricing)**: تسعير جميع البنود غير المسعّرة بنقرة واحدة باستخدام البيانات التاريخية + عروض الأسعار.
-- **مؤشر دقة التسعير**: نسبة ثقة لكل سعر مقترح (مرتفعة/متوسطة/منخفضة).
-- **مقارنة سعرك بالسوق**: رسم beat/at/below market لكل بند.
+النطاق كبير، سننفذه على 4 محاور متوازية مع الالتزام بـ **Emerald Prestige** والـ Sora/Manrope.
 
 ---
 
-### تفاصيل تقنية
+## 1) تحسينات بصرية وتصميم
 
-- **جداول جديدة**: لا توجد. الميزات تستخدم الجداول الحالية (`progress_certificates`, `contracts`, `procurement_items`, `price_quotations`, `pricing_history`).
-- **Edge Functions جديدة**:
-  - `bulk-ai-pricing`: تسعير دفعة كاملة (يستخدم Lovable AI Gateway + `google/gemini-3-flash-preview`).
-  - `recommend-supplier`: توصية AI لأفضل مورد.
-- **مكونات جديدة**:
-  - `src/components/certificates/CertificatesCompare.tsx`
-  - `src/components/certificates/SCurveChart.tsx`
-  - `src/components/contracts/ContractFinancialBar.tsx`
-  - `src/components/procurement/SupplierComparisonTable.tsx`
-  - `src/components/pricing/BulkAIPriceButton.tsx`
-- **مكتبة مساعدة**: `src/lib/contract-alerts.ts` لحساب الأيام المتبقية.
-- **تكامل realtime**: المستخلصات الجديدة تُحدّث تلقائياً شريط التقدم في صفحة العقد.
+- **توحيد بطاقات الإحصاءات** عبر كل الشاشات (Dashboard, Procurement, Contracts, Quotations, EVM) بنمط واحد: gradient ناعم، حدّ ذهبي خفيف، أيقونة دائرية ملوّنة، أرقام بـ Sora.
+- **Header موحّد** بظل أعمق + شريط تقدم متحرك أعلى الصفحة عند التحميل.
+- **Empty states** أنيقة مع SVG مخصص بدل النص الجاف على الشاشات: المستخلصات، الموردين، المخاطر، الجدولة.
+- **تحسين الجداول**: صفوف بـ hover ذهبي خفيف، sticky header، zebra ناعم، badges حالة موحّدة.
+- **Skeleton loaders** بدل spinners عشوائية في الصفحات الثقيلة.
 
-### الترتيب التنفيذي
+## 2) إضافة ميزات ناقصة
 
-1. المستخلصات (الأهم وفقاً للسياق الأخير).
-2. العقود (يعتمد على بيانات المستخلصات).
-3. المشتريات + Edge Function `recommend-supplier`.
-4. التسعير AI + Edge Function `bulk-ai-pricing`.
+- **شاشة "ملخص تنفيذي" `/executive-summary`**: KPIs + اتجاهات + تنبيهات حرجة، تُطبع PDF.
+- **مركز إشعارات موحّد** (Bell في الـ Header) يجمع: عقود قاربت الانتهاء، مستخلصات معلّقة، مخاطر عالية، مهام متأخرة.
+- **بحث عالمي محسّن (Ctrl+K)**: نتائج مجمّعة بحسب الوحدة (مشاريع، عقود، بنود، موردين).
+- **مقارنة مشاريع** `/projects/compare`: اختيار مشروعين+ ومقارنة القيمة/المدة/التقدم/EVM.
+- **تصدير شامل**: زر "تصدير كامل المشروع" يجمع BOQ + المستخلصات + العقود + المخاطر في ملف ZIP.
+- **سجل النشاط لكل مشروع** (Activity Timeline) في صفحة تفاصيل المشروع.
 
-### خارج النطاق
+## 3) تحسين الأداء
 
+- **Code-splitting أعمق**: تقسيم Recharts/jspdf/xlsx إلى chunks منفصلة عبر `manualChunks` في vite.config.
+- **React Query staleTime/gcTime موحّد** (60s/5m) لتقليل refetch.
+- **Virtualization** للجداول الطويلة (BOQ Items, Pricing History) عبر `@tanstack/react-virtual`.
+- **Debounce للبحث** على كل شاشات الفلترة (300ms).
+- **Memoization** لمكونات Dashboard الثقيلة (`React.memo` + `useMemo` للحسابات).
+- **Lazy hydration** للـ widgets خارج viewport عبر `useInView` الموجود.
+
+## 4) إصلاح أخطاء ومشاكل أمنية
+
+- تشغيل **security scan** كامل وحل ما يظهر.
+- **تفعيل HIBP** (Leaked Password Protection) عبر `configure_auth`.
+- مراجعة جميع جداول `public.*` للتأكد من `GRANT` صحيح + RLS مفعّل.
+- **Zod validation** على جميع نماذج الإدخال الرئيسية (Contracts, Quotations, BOQ Items).
+- إصلاح أي تحذيرات React/TypeScript ظاهرة في console.
+
+---
+
+## التفاصيل التقنية
+
+| المحور | الملفات الجديدة | الملفات المعدّلة |
+|---|---|---|
+| تصميم | `src/components/ui/stat-card.tsx`, `src/components/ui/empty-state.tsx`, `src/components/ui/skeleton-table.tsx` | كل صفحات `src/pages/*` التي تعرض stats/جداول |
+| ميزات | `src/pages/ExecutiveSummaryPage.tsx`, `src/pages/ProjectsComparePage.tsx`, `src/components/NotificationsCenter.tsx`, `src/lib/full-project-export.ts` | `App.tsx`, `UnifiedHeader.tsx`, `NavigationBar.tsx` |
+| أداء | — | `vite.config.ts`, hooks، صفحات الجداول الكبيرة |
+| أمان | migration GRANTs + RLS audit | `configure_auth` (HIBP), schemas zod في النماذج |
+
+## الترتيب التنفيذي
+
+1. الأمان أولاً (scan + HIBP + grants) — لا يكسر UI.
+2. الأداء (vite chunks + react-query defaults) — مكاسب فورية.
+3. مكونات UI الموحّدة (StatCard, EmptyState, SkeletonTable) ثم تطبيقها تدريجياً.
+4. الميزات الجديدة (Executive Summary, Notifications Center, Compare, Export).
+
+## خارج النطاق
+
+- إعادة تصميم كامل لنظام الألوان (نلتزم بـ Emerald Prestige).
 - تغيير نظام المصادقة أو الأدوار.
-- إعادة تصميم الواجهة العامة (نلتزم بـ Emerald Prestige).
-- ميزات لم تُذكر في الاستبيان (الموارد، EVM، إلخ).
+- ميزات backend جديدة بخلاف ما ذُكر.

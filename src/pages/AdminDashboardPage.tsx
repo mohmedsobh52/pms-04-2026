@@ -29,6 +29,7 @@ import {
   AlertTriangle,
   HardDrive,
   CheckCircle2,
+  GitCompare,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -644,6 +645,14 @@ const AdminDashboardPage = () => {
           <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate("/admin/versions")}>
             <History className="w-4 h-4" />
             {isArabic ? "سجل النشاط والإصدارات" : "Activity Log"}
+          </Button>
+          <Button variant="default" size="sm" className="gap-2" onClick={() => navigate("/executive-summary")}>
+            <TrendingUp className="w-4 h-4" />
+            {isArabic ? "الملخص التنفيذي" : "Executive Summary"}
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate("/projects/compare")}>
+            <GitCompare className="w-4 h-4" />
+            {isArabic ? "مقارنة المشاريع" : "Compare Projects"}
           </Button>
         </div>
 

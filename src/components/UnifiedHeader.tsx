@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { UserMenu } from "@/components/UserMenu";
+import { NotificationsCenter } from "@/components/NotificationsCenter";
 import { MobileNavDrawer } from "@/components/MobileNavDrawer";
 import { Button } from "@/components/ui/button";
 import {
@@ -259,7 +260,10 @@ export function UnifiedHeader({ showQuickNav = true }: UnifiedHeaderProps) {
           {authLoading ? (
             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
           ) : user ? (
-            <UserMenu />
+            <>
+              <NotificationsCenter />
+              <UserMenu />
+            </>
           ) : (
             <Link to="/auth">
               <Button size="sm" className="gap-2 h-9">
