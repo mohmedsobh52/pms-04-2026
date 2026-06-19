@@ -36,6 +36,7 @@ import { PageSuggestions } from "@/components/PageSuggestions";
 import { exportCostControlPDF } from "@/lib/cost-control-pdf";
 import { ResourceLevellingDialog } from "@/components/cost-control/ResourceLevellingDialog";
 import { CostControlEnhancements } from "@/components/cost-control/CostControlEnhancements";
+import { BoqAddMenu } from "@/components/cost-control/BoqAddMenu";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -2809,6 +2810,15 @@ export default function CostControlReportPage() {
                     <span className="max-w-[100px] truncate">{activeBaseline.name}</span>
                     <button onClick={clearBaseline} className="hover:text-destructive ml-1"><X className="h-3 w-3" /></button>
                   </Badge>
+                )}
+
+                {/* Add BOQ */}
+                {selectedProjectId && (
+                  <BoqAddMenu
+                    projectId={selectedProjectId}
+                    isArabic={isArabic}
+                    onAdded={() => { setUseRealData(false); setTimeout(() => setUseRealData(true), 50); }}
+                  />
                 )}
 
                 {/* Export Options */}
