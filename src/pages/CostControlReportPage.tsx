@@ -1908,7 +1908,104 @@ export default function CostControlReportPage() {
         </Card>
       )}
 
+      {/* Saved Projects — prominent picker with actions */}
+      {!isLoadingProjects && projects.length > 0 && (
+        <Card className="mb-4 bg-card/95 backdrop-blur border-border/50 shadow-md">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <FolderOpen className="h-4 w-4 text-primary" />
+              {isArabic ? "المشاريع المحفوظة" : "Saved Projects"}
+              <Badge variant="secondary" className="text-xs">{projects.length}</Badge>
+              {selectedProjectId && (
+                <Badge className="ml-auto bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px]">
+                  {isArabic ? "نشط" : "Active"}
+                </Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
+              {projects.map((p) => {
+                const isActive = selectedProjectId === p.id;
+                return (
+                  <div
+                    key={p.id}
+                    className={`group relative rounded-lg border p-3 transition-all cursor-pointer ${
+                      isActive
+                        ? "border-primary ring-2 ring-primary/30 bg-primary/5"
+                        : "border-border/60 hover:border-primary/50 hover:bg-muted/30"
+                    }`}
+                    onClick={() => openProject(p.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === "Enter") openProject(p.id); }}
+                  >
+                    <div className="flex items-start gap-2 mb-2">
+                      <div className={`h-8 w-8 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                        <Briefcase className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold truncate" title={p.name}>{p.name}</div>
+                        <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5 flex-wrap">
+                          {p.items_count != null && (
+                            <span className="inline-flex items-center gap-1"><ClipboardList className="h-3 w-3" />{p.items_count}</span>
+                          )}
+                          {p.total_value != null && p.total_value > 0 && (
+                            <span className="inline-flex items-center gap-1"><DollarSign className="h-3 w-3" />{(p.total_value/1000).toFixed(0)}k</span>
+                          )}
+                          <span>{new Date(p.created_at).toLocaleDateString(isArabic ? 'ar' : 'en')}</span>
+                        </div>
+                      </div>
+                      {isActive && <Check className="h-4 w-4 text-primary shrink-0" />}
+                    </div>
+                    <div className="flex items-center gap-1 -mx-1" onClick={(e) => e.stopPropagation()}>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1 flex-1" onClick={() => openProject(p.id)} title={isArabic ? "فتح المشروع" : "Open project"}>
+                        <ExternalLink className="h-3 w-3" />
+                        {isArabic ? "فتح" : "Open"}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1" onClick={() => shareProjectLink(p.id)} title={isArabic ? "نسخ رابط المشاركة" : "Copy share link"}>
+                        <Copy className="h-3 w-3" />
+                        {isArabic ? "مشاركة" : "Share"}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-500/10" onClick={() => setPendingDeleteProject(p)} title={isArabic ? "حذف من المحفوظات" : "Delete from saved"}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <AlertDialog open={!!pendingDeleteProject} onOpenChange={(o) => !o && setPendingDeleteProject(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{isArabic ? "حذف المشروع من المحفوظات؟" : "Delete project from saved?"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isArabic
+                ? `سيتم حذف "${pendingDeleteProject?.name ?? ''}" نهائياً من قائمة المشاريع المحفوظة. لا يمكن التراجع عن هذا الإجراء.`
+                : `"${pendingDeleteProject?.name ?? ''}" will be permanently removed from your saved projects. This cannot be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingProject}>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmDeleteProject(); }}
+              disabled={isDeletingProject}
+              className="bg-rose-600 hover:bg-rose-700 focus:ring-rose-600"
+            >
+              {isDeletingProject
+                ? (isArabic ? "جارٍ الحذف..." : "Deleting...")
+                : (isArabic ? "حذف نهائياً" : "Delete permanently")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="flex gap-6 min-h-[calc(100vh-200px)]">
+
 
 
         {/* Left Sidebar */}
