@@ -37,6 +37,7 @@ import { exportCostControlPDF } from "@/lib/cost-control-pdf";
 import { ResourceLevellingDialog } from "@/components/cost-control/ResourceLevellingDialog";
 import { CostControlEnhancements } from "@/components/cost-control/CostControlEnhancements";
 import { BoqAddMenu } from "@/components/cost-control/BoqAddMenu";
+import SavedBoqPanel from "@/components/cost-control/SavedBoqPanel";
 import {
   Chart as ChartJS,
   CategoryScale,
