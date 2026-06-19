@@ -514,6 +514,19 @@ export default function CostControlReportPage() {
   const [useRealData, setUseRealData] = useState(!!urlProjectId);
   const [pendingDeleteProject, setPendingDeleteProject] = useState<ProjectData | null>(null);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
+  const [savedProjectsSearch, setSavedProjectsSearch] = useState("");
+  const [savedProjectsCollapsed, setSavedProjectsCollapsed] = useState(false);
+  const [pinnedProjectIds, setPinnedProjectIds] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("cc:pinnedProjects") || "[]"); } catch { return []; }
+  });
+  const togglePinned = useCallback((id: string) => {
+    setPinnedProjectIds((prev) => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+      try { localStorage.setItem("cc:pinnedProjects", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+
 
   const refetchProjects = useCallback(async () => {
     setIsLoadingProjects(true);
@@ -1912,22 +1925,56 @@ export default function CostControlReportPage() {
       {!isLoadingProjects && projects.length > 0 && (
         <Card className="mb-4 bg-card/95 backdrop-blur border-border/50 shadow-md">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2 flex-wrap">
               <FolderOpen className="h-4 w-4 text-primary" />
               {isArabic ? "المشاريع المحفوظة" : "Saved Projects"}
               <Badge variant="secondary" className="text-xs">{projects.length}</Badge>
               {selectedProjectId && (
-                <Badge className="ml-auto bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px]">
+                <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px]">
                   {isArabic ? "نشط" : "Active"}
                 </Badge>
               )}
+              <div className="ml-auto flex items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    value={savedProjectsSearch}
+                    onChange={(e) => setSavedProjectsSearch(e.target.value)}
+                    placeholder={isArabic ? "بحث..." : "Search..."}
+                    className="h-7 pl-7 w-40 text-xs"
+                  />
+                </div>
+                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={refetchProjects} title={isArabic ? "تحديث القائمة" : "Refresh list"}>
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setSavedProjectsCollapsed(v => !v)} title={savedProjectsCollapsed ? (isArabic ? "توسيع" : "Expand") : (isArabic ? "طي" : "Collapse")}>
+                  {savedProjectsCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5 rotate-90" />}
+                </Button>
+              </div>
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
-              {projects.map((p) => {
-                const isActive = selectedProjectId === p.id;
-                return (
+          {!savedProjectsCollapsed && (() => {
+            const q = savedProjectsSearch.trim().toLowerCase();
+            const filtered = projects.filter(p => !q || p.name.toLowerCase().includes(q) || p.id.includes(q));
+            const sorted = [...filtered].sort((a, b) => {
+              const ap = pinnedProjectIds.includes(a.id) ? 0 : 1;
+              const bp = pinnedProjectIds.includes(b.id) ? 0 : 1;
+              if (ap !== bp) return ap - bp;
+              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            });
+            return (
+              <CardContent className="pt-0">
+                {sorted.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-muted-foreground">
+                    {isArabic ? "لا توجد نتائج" : "No matches"}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
+                    {sorted.map((p) => {
+                      const isActive = selectedProjectId === p.id;
+                      const isPinned = pinnedProjectIds.includes(p.id);
+                      return (
+
                   <div
                     key={p.id}
                     className={`group relative rounded-lg border p-3 transition-all cursor-pointer ${
@@ -1967,17 +2014,24 @@ export default function CostControlReportPage() {
                         <Copy className="h-3 w-3" />
                         {isArabic ? "مشاركة" : "Share"}
                       </Button>
+                      <Button size="sm" variant="ghost" className={`h-7 w-7 p-0 ${isPinned ? "text-amber-500" : "text-muted-foreground"}`} onClick={() => togglePinned(p.id)} title={isPinned ? (isArabic ? "إزالة التثبيت" : "Unpin") : (isArabic ? "تثبيت" : "Pin")}>
+                        <Bookmark className={`h-3.5 w-3.5 ${isPinned ? "fill-current" : ""}`} />
+                      </Button>
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-500/10" onClick={() => setPendingDeleteProject(p)} title={isArabic ? "حذف من المحفوظات" : "Delete from saved"}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </div>
                 );
-              })}
-            </div>
-          </CardContent>
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            );
+          })()}
         </Card>
       )}
+
 
       <AlertDialog open={!!pendingDeleteProject} onOpenChange={(o) => !o && setPendingDeleteProject(null)}>
         <AlertDialogContent>
