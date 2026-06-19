@@ -1,3 +1,5 @@
+import { PageSuggestions } from "@/components/PageSuggestions";
+import { Plus, Upload, Search, GitCompare, Sparkles, Grid3x3, TrendingUp, FileSignature, FileText, Bell, BookmarkPlus, Download, Link2, Star, Users, History } from "lucide-react";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { PageLayout } from "@/components/PageLayout";
@@ -75,6 +77,14 @@ const ProcurementPage = () => {
 
   return (
     <PageLayout>
+      <PageSuggestions
+        pageKey="procurement"
+        suggestions={[
+          { id: "compare", labelAr: "قارن أسعار الموردين تلقائياً", labelEn: "Auto-compare supplier prices", icon: GitCompare, tone: "violet", to: "/procurement?tab=compare" },
+          { id: "quotations", labelAr: "ارفع عروض أسعار جديدة", labelEn: "Upload new quotations", icon: Upload, tone: "emerald", to: "/quotations" },
+          { id: "subs", labelAr: "أضف مقاول من الباطن", labelEn: "Add a subcontractor", icon: Users, tone: "amber", to: "/subcontractors" },
+        ]}
+      />
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">

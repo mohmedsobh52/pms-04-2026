@@ -1,3 +1,5 @@
+import { PageSuggestions } from "@/components/PageSuggestions";
+import { Plus, Upload, Search, GitCompare, Sparkles, Grid3x3, TrendingUp, FileSignature, FileText, Bell, BookmarkPlus, Download, Link2, Star, Users, History } from "lucide-react";
 import React, { useEffect, useState } from 'react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { PageLayout } from '@/components/PageLayout';
@@ -88,6 +90,14 @@ const PricingAccuracyPage: React.FC = () => {
     <PageLayout>
       <div className="container mx-auto px-4 py-6 space-y-6" dir={isArabic ? 'rtl' : 'ltr'}>
         <NavigationBar showBreadcrumbs />
+        <PageSuggestions
+          pageKey="pricing-accuracy"
+          suggestions={[
+            { id: "bulk", labelAr: "سعّر البنود غير المسعّرة دفعة واحدة بالذكاء الاصطناعي", labelEn: "Bulk-price unpriced items with AI", icon: Sparkles, tone: "violet", to: "/items" },
+            { id: "history", labelAr: "افحص الأسعار التاريخية", labelEn: "Browse historical pricing", icon: History, tone: "emerald", to: "/historical-pricing" },
+            { id: "market", labelAr: "قارن أسعارك بالسوق", labelEn: "Compare your rates to market", icon: TrendingUp, tone: "amber", to: "/material-prices?tab=web" },
+          ]}
+        />
         <ColorLegend type="priority" isArabic={isArabic} />
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           {cards.map((c) => (

@@ -1,3 +1,5 @@
+import { PageSuggestions } from "@/components/PageSuggestions";
+import { Plus, Upload, Search, GitCompare, Sparkles, Grid3x3, TrendingUp, FileSignature, FileText, Bell, BookmarkPlus, Download, Link2, Star, Users, History } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { SuspenseFallback } from "@/components/ui/loading-states";
 const RiskManagement = lazy(() =>
@@ -107,6 +109,14 @@ const RiskPage = () => {
 
   return (
     <PageLayout>
+      <PageSuggestions
+        pageKey="risk"
+        suggestions={[
+          { id: "add", labelAr: "سجّل مخاطرة جديدة", labelEn: "Log a new risk", icon: Plus, tone: "rose", to: "/risk?new=1" },
+          { id: "matrix", labelAr: "اعرض مصفوفة المخاطر", labelEn: "View risk matrix", icon: Grid3x3, tone: "amber", to: "/risk?tab=matrix" },
+          { id: "exec", labelAr: "اعرض الملخص التنفيذي", labelEn: "Open executive summary", icon: TrendingUp, tone: "emerald", to: "/executive-summary" },
+        ]}
+      />
       <div className="space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           {cards.map((s, i) => {

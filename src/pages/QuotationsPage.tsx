@@ -1,3 +1,5 @@
+import { PageSuggestions } from "@/components/PageSuggestions";
+import { Plus, Upload, Search, GitCompare, Sparkles, Grid3x3, TrendingUp, FileSignature, FileText, Bell, BookmarkPlus, Download, Link2, Star, Users, History } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { QuotationUpload } from "@/components/QuotationUpload";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -156,6 +158,14 @@ const QuotationsPage = () => {
   return (
     <PageLayout>
       <ErrorBoundary>
+        <PageSuggestions
+          pageKey="quotations"
+          suggestions={[
+            { id: "upload", labelAr: "ارفع عرض سعر جديد", labelEn: "Upload a new quotation", icon: Upload, tone: "emerald", to: "/quotations?upload=1" },
+            { id: "compare", labelAr: "قارن عدة عروض جنباً إلى جنب", labelEn: "Compare quotes side-by-side", icon: GitCompare, tone: "violet", to: "/procurement?tab=compare" },
+            { id: "ai", labelAr: "اطلب توصية الذكاء الاصطناعي", labelEn: "Get AI supplier recommendation", icon: Sparkles, tone: "amber", to: "/procurement?tab=compare" },
+          ]}
+        />
         <div className="space-y-4">
           {/* Quick Stats Bar */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">

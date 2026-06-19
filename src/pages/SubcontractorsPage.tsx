@@ -1,3 +1,5 @@
+import { PageSuggestions } from "@/components/PageSuggestions";
+import { Plus, Upload, Search, GitCompare, Sparkles, Grid3x3, TrendingUp, FileSignature, FileText, Bell, BookmarkPlus, Download, Link2, Star, Users, History } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { SubcontractorProgressDashboard } from "@/components/SubcontractorProgressDashboard";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
@@ -137,6 +139,14 @@ const SubcontractorsPage = () => {
 
   return (
     <PageLayout>
+      <PageSuggestions
+        pageKey="subcontractors"
+        suggestions={[
+          { id: "add", labelAr: "أضف مقاولاً من الباطن", labelEn: "Add a subcontractor", icon: Plus, tone: "emerald", to: "/subcontractors?new=1" },
+          { id: "assign", labelAr: "اربط مقاولاً بنشاط", labelEn: "Assign to an activity", icon: Link2, tone: "violet", to: "/subcontractors?tab=assignments" },
+          { id: "rate", labelAr: "قيّم أداء المقاولين", labelEn: "Rate contractor performance", icon: Star, tone: "amber", to: "/subcontractors?tab=performance" },
+        ]}
+      />
       <div className="space-y-6">
         {/* Page Header */}
         <div className="flex items-center gap-3">

@@ -1,3 +1,5 @@
+import { PageSuggestions } from "@/components/PageSuggestions";
+import { Plus, Upload, Search, GitCompare, Sparkles, Grid3x3, TrendingUp, FileSignature, FileText, Bell, BookmarkPlus, Download, Link2, Star, Users, History } from "lucide-react";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { PageLayout } from "@/components/PageLayout";
 import { SuspenseFallback, ErrorState } from "@/components/ui/loading-states";
@@ -98,6 +100,14 @@ const MaterialPricesPage = () => {
 
   return (
     <PageLayout>
+      <PageSuggestions
+        pageKey="material-prices"
+        suggestions={[
+          { id: "import", labelAr: "استيراد من Excel", labelEn: "Import from Excel", icon: Upload, tone: "emerald", to: "/material-prices?import=1" },
+          { id: "web", labelAr: "بحث ذكي عن أسعار السوق", labelEn: "Smart web price search", icon: Search, tone: "violet", to: "/material-prices?tab=web" },
+          { id: "suppliers", labelAr: "أضف مورد جديد", labelEn: "Add a new supplier", icon: Plus, tone: "amber", to: "/material-prices?tab=suppliers" },
+        ]}
+      />
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-bold">

@@ -1,3 +1,5 @@
+import { PageSuggestions } from "@/components/PageSuggestions";
+import { Plus, Upload, Search, GitCompare, Sparkles, Grid3x3, TrendingUp, FileSignature, FileText, Bell, BookmarkPlus, Download, Link2, Star, Users, History } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -298,6 +300,14 @@ const ProgressCertificatesPage = () => {
 
   return (
     <PageLayout>
+      <PageSuggestions
+        pageKey="certificates"
+        suggestions={[
+          { id: "new", labelAr: "أنشئ مستخلصاً جديداً", labelEn: "Create a new certificate", icon: Plus, tone: "emerald", to: "/progress-certificates/new" },
+          { id: "compare", labelAr: "قارن المستخلصات", labelEn: "Compare certificates", icon: GitCompare, tone: "violet", to: "/progress-certificates/compare" },
+          { id: "contracts", labelAr: "اربط بالعقود لمتابعة المالية", labelEn: "Link to contracts for financials", icon: FileSignature, tone: "amber", to: "/contracts" },
+        ]}
+      />
       <div className="container mx-auto p-4 md:p-6 space-y-6" dir={isArabic ? "rtl" : "ltr"}>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>

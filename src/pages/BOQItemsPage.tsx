@@ -1,3 +1,5 @@
+import { PageSuggestions } from "@/components/PageSuggestions";
+import { Plus, Upload, Search, GitCompare, Sparkles, Grid3x3, TrendingUp, FileSignature, FileText, Bell, BookmarkPlus, Download, Link2, Star, Users, History } from "lucide-react";
 import { useState, useEffect } from "react";
 import { AnalysisResults } from "@/components/AnalysisResults";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
@@ -189,6 +191,14 @@ const BOQItemsPage = () => {
   return (
     <PageLayout>
       <ColorLegend type="category" isArabic={isArabic} className="mb-4" />
+      <PageSuggestions
+        pageKey="boq-items"
+        suggestions={[
+          { id: "ai", labelAr: "سعّر البنود غير المسعّرة بالذكاء الاصطناعي", labelEn: "AI-price unpriced items", icon: Sparkles, tone: "violet", to: "/items?action=bulk-ai" },
+          { id: "template", labelAr: "احفظ كقالب لإعادة الاستخدام", labelEn: "Save as a reusable template", icon: BookmarkPlus, tone: "amber", to: "/templates" },
+          { id: "export", labelAr: "صدّر إلى Excel", labelEn: "Export to Excel", icon: Download, tone: "emerald", to: "/items?action=export" },
+        ]}
+      />
       {/* Quick Stats Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <div className="rounded-xl border border-border bg-card p-3 flex items-center gap-3">
