@@ -512,6 +512,67 @@ export default function CostControlReportPage() {
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [useRealData, setUseRealData] = useState(!!urlProjectId);
+  const [pendingDeleteProject, setPendingDeleteProject] = useState<ProjectData | null>(null);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
+
+  const refetchProjects = useCallback(async () => {
+    setIsLoadingProjects(true);
+    try {
+      const [{ data: pd }, { data: sp }] = await Promise.all([
+        supabase.from('project_data').select('id, name, currency, total_value, items_count, created_at').order('created_at', { ascending: false }),
+        supabase.from('saved_projects').select('id, name, created_at').order('created_at', { ascending: false }),
+      ]);
+      const byId = new Map<string, ProjectData>();
+      (pd || []).forEach((p: any) => byId.set(p.id, p));
+      (sp || []).forEach((p: any) => {
+        if (!byId.has(p.id)) byId.set(p.id, { id: p.id, name: p.name, currency: null, total_value: null, items_count: null, created_at: p.created_at });
+      });
+      setProjects(Array.from(byId.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+    } finally {
+      setIsLoadingProjects(false);
+    }
+  }, []);
+
+  const openProject = useCallback((id: string) => {
+    setSelectedProjectId(id);
+    setUseRealData(true);
+  }, []);
+
+  const shareProjectLink = useCallback(async (id: string) => {
+    const url = `${window.location.origin}/cost-control-report?projectId=${id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success(isArabic ? 'تم نسخ رابط المشروع' : 'Project link copied');
+    } catch {
+      toast.error(isArabic ? 'تعذر النسخ' : 'Copy failed');
+    }
+  }, [isArabic]);
+
+  const confirmDeleteProject = useCallback(async () => {
+    if (!pendingDeleteProject) return;
+    setIsDeletingProject(true);
+    try {
+      const pid = pendingDeleteProject.id;
+      // Delete from both tables (RLS will scope to owner). Children cascade.
+      await Promise.all([
+        supabase.from('saved_projects').delete().eq('id', pid),
+        supabase.from('project_data').delete().eq('id', pid),
+      ]);
+      toast.success(isArabic ? 'تم حذف المشروع' : 'Project deleted');
+      if (selectedProjectId === pid) {
+        setSelectedProjectId(null);
+        setUseRealData(false);
+        try { localStorage.removeItem('cc:lastProjectId'); } catch {}
+      }
+      setPendingDeleteProject(null);
+      await refetchProjects();
+    } catch (e: any) {
+      toast.error((isArabic ? 'فشل الحذف: ' : 'Delete failed: ') + (e?.message || ''));
+    } finally {
+      setIsDeletingProject(false);
+    }
+  }, [pendingDeleteProject, selectedProjectId, isArabic, refetchProjects]);
+
   
   // UI state
   const [disciplineSearch, setDisciplineSearch] = useState("");
