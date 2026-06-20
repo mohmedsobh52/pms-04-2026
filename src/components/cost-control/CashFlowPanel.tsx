@@ -480,9 +480,16 @@ export default function CashFlowPanel({
               <FileText className="h-3.5 w-3.5" />
               PDF
             </Button>
+            <Button size="sm" variant="ghost" className="h-8 gap-1" onClick={handleResetEvm}
+              disabled={!dataDate && !acStr && !pctStr}
+              title={isArabic ? "إعادة ضبط مدخلات EVM" : "Reset EVM inputs"}>
+              <RotateCcw className="h-3.5 w-3.5" />
+              {isArabic ? "تصفير" : "Reset"}
+            </Button>
           </div>
         </div>
       </CardHeader>
+
 
       <CardContent className="space-y-4">
         {!data ? (
