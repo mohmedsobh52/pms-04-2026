@@ -9,7 +9,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Calendar as CalendarIcon, Download, Wallet, Activity, AlertTriangle, FileText } from "lucide-react";
+import { Calendar as CalendarIcon, Download, Wallet, Activity, AlertTriangle, FileText, RotateCcw, ShieldCheck, ShieldAlert, ShieldX, Lightbulb } from "lucide-react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as RTooltip, Legend, ReferenceLine,
@@ -275,6 +275,60 @@ export default function CashFlowPanel({
 
   const cur = currency || (isArabic ? "ج.م" : "EGP");
 
+  // Overall project health from CPI & SPI
+  const health = useMemo(() => {
+    if (!evm) return null;
+    const cpi = evm.CPI, spi = evm.SPI;
+    if (cpi === 0 && spi === 0) return null;
+    const cost = cpi >= 1 ? "good" : cpi >= 0.9 ? "warn" : "bad";
+    const sched = spi >= 1 ? "good" : spi >= 0.9 ? "warn" : "bad";
+    const score = [cost, sched];
+    const level = score.includes("bad") ? "bad" : score.includes("warn") ? "warn" : "good";
+    const labelMap = {
+      good: isArabic ? "ضمن الأهداف" : "On Target",
+      warn: isArabic ? "يحتاج متابعة" : "Needs Attention",
+      bad:  isArabic ? "خارج المسار" : "Off Track",
+    } as const;
+    return { level, label: labelMap[level], cost, sched };
+  }, [evm, isArabic]);
+
+  // Auto recommendations based on indicators
+  const recommendations = useMemo(() => {
+    if (!evm) return [];
+    const recs: string[] = [];
+    if (evm.CPI > 0 && evm.CPI < 0.95) {
+      recs.push(isArabic
+        ? `تجاوز في التكلفة: CPI = ${evm.CPI.toFixed(2)}. راجع بنود الصرف وأعد تقدير EAC.`
+        : `Cost overrun: CPI = ${evm.CPI.toFixed(2)}. Review spending and re-estimate EAC.`);
+    }
+    if (evm.SPI > 0 && evm.SPI < 0.95) {
+      recs.push(isArabic
+        ? `تأخر في الجدول: SPI = ${evm.SPI.toFixed(2)}. أضف موارد على المسار الحرج أو أعد ترتيب الأنشطة.`
+        : `Schedule slippage: SPI = ${evm.SPI.toFixed(2)}. Add resources on critical path or re-sequence.`);
+    }
+    if (evm.VAC < 0) {
+      recs.push(isArabic
+        ? `تجاوز متوقع للموازنة بمقدار ${fmt(Math.abs(evm.VAC))} ${cur}. اطلب موافقة على تغيير الموازنة أو خفّض النطاق.`
+        : `Forecast over budget by ${fmt(Math.abs(evm.VAC))} ${cur}. Request budget change or descope.`);
+    }
+    if (evm.TCPI_BAC > 1.1) {
+      recs.push(isArabic
+        ? `TCPI→BAC = ${evm.TCPI_BAC.toFixed(2)} (صعب التحقيق). يُنصح بالتحوّل إلى EAC كهدف جديد.`
+        : `TCPI→BAC = ${evm.TCPI_BAC.toFixed(2)} (hard to achieve). Consider switching to EAC as the new target.`);
+    }
+    if (evm.CPI >= 1 && evm.SPI >= 1 && evm.VAC >= 0) {
+      recs.push(isArabic
+        ? "الأداء جيد — حافظ على نمط التنفيذ الحالي وراقب المخاطر الناشئة."
+        : "Healthy performance — maintain execution pattern and monitor emerging risks.");
+    }
+    return recs;
+  }, [evm, isArabic, cur]);
+
+  const handleResetEvm = () => {
+    setDataDate(""); setAcStr(""); setPctStr(""); setEacMethod("cpi");
+  };
+
+
   const handleExport = () => {
     if (!data) return;
     const rows = data.rows.map((r, i) => ({
@@ -341,6 +395,10 @@ export default function CashFlowPanel({
         [`EAC (${eacMethod})`, `${fmt(evm.EAC)} ${cur}`],
         ["ETC", `${fmt(evm.ETC)} ${cur}`],
         ["VAC", `${fmt(evm.VAC)} ${cur}`],
+        ["TCPI → BAC", evm.TCPI_BAC > 0 ? evm.TCPI_BAC.toFixed(3) : "-"],
+        ["TCPI → EAC", evm.TCPI_EAC > 0 ? evm.TCPI_EAC.toFixed(3) : "-"],
+        ["Forecast Finish", evm.finishDate || "-"],
+        ["Health", health?.label || "-"],
       ],
       styles: { fontSize: 9 },
       headStyles: { fillColor: [16, 122, 87] },
@@ -364,10 +422,21 @@ export default function CashFlowPanel({
       headStyles: { fillColor: [16, 122, 87] },
     });
 
+    if (recommendations.length > 0) {
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY + 6,
+        head: [["Recommendations"]],
+        body: recommendations.map((r) => [r]),
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: { fillColor: [180, 83, 9] },
+      });
+    }
+
     doc.save(`${projectName || "project"}-evm.pdf`);
   };
 
   const kpiClass = (good: boolean) => good ? "text-emerald-600" : "text-rose-600";
+
 
   const eacLabel = (m: EacMethod) => {
     if (m === "cpi") return isArabic ? "BAC / CPI (الأكثر شيوعًا)" : "BAC / CPI (typical)";
@@ -411,9 +480,16 @@ export default function CashFlowPanel({
               <FileText className="h-3.5 w-3.5" />
               PDF
             </Button>
+            <Button size="sm" variant="ghost" className="h-8 gap-1" onClick={handleResetEvm}
+              disabled={!dataDate && !acStr && !pctStr}
+              title={isArabic ? "إعادة ضبط مدخلات EVM" : "Reset EVM inputs"}>
+              <RotateCcw className="h-3.5 w-3.5" />
+              {isArabic ? "تصفير" : "Reset"}
+            </Button>
           </div>
         </div>
       </CardHeader>
+
 
       <CardContent className="space-y-4">
         {!data ? (
@@ -585,6 +661,52 @@ export default function CashFlowPanel({
                 </div>
               </div>
             )}
+
+            {/* Project Health Banner */}
+            {health && (
+              <div className={`rounded-lg border p-3 flex items-center gap-3 ${
+                health.level === "good"
+                  ? "bg-emerald-500/10 border-emerald-500/40"
+                  : health.level === "warn"
+                    ? "bg-amber-500/10 border-amber-500/40"
+                    : "bg-rose-500/10 border-rose-500/40"
+              }`}>
+                {health.level === "good" ? <ShieldCheck className="h-5 w-5 text-emerald-600" /> :
+                 health.level === "warn" ? <ShieldAlert className="h-5 w-5 text-amber-600" /> :
+                 <ShieldX className="h-5 w-5 text-rose-600" />}
+                <div className="flex-1">
+                  <div className="text-sm font-semibold">
+                    {isArabic ? "حالة المشروع: " : "Project Health: "}{health.label}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {isArabic ? "التكلفة" : "Cost"}: <span className={kpiClass(health.cost === "good")}>
+                      {health.cost === "good" ? (isArabic ? "جيد" : "Good") : health.cost === "warn" ? (isArabic ? "متوسط" : "Warn") : (isArabic ? "ضعيف" : "Poor")}
+                    </span>
+                    {" • "}
+                    {isArabic ? "الجدول" : "Schedule"}: <span className={kpiClass(health.sched === "good")}>
+                      {health.sched === "good" ? (isArabic ? "جيد" : "Good") : health.sched === "warn" ? (isArabic ? "متوسط" : "Warn") : (isArabic ? "ضعيف" : "Poor")}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Auto Recommendations */}
+            {recommendations.length > 0 && (
+              <div className="rounded-lg border bg-amber-500/5 border-amber-500/30 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Lightbulb className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm font-semibold">
+                    {isArabic ? "توصيات تلقائية" : "Auto Recommendations"}
+                  </span>
+                </div>
+                <ul className="list-disc ps-5 space-y-1 text-sm text-foreground/90">
+                  {recommendations.map((r, i) => <li key={i}>{r}</li>)}
+                </ul>
+              </div>
+            )}
+
+
 
 
 
