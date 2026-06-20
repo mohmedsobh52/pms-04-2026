@@ -422,10 +422,21 @@ export default function CashFlowPanel({
       headStyles: { fillColor: [16, 122, 87] },
     });
 
+    if (recommendations.length > 0) {
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY + 6,
+        head: [["Recommendations"]],
+        body: recommendations.map((r) => [r]),
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: { fillColor: [180, 83, 9] },
+      });
+    }
+
     doc.save(`${projectName || "project"}-evm.pdf`);
   };
 
   const kpiClass = (good: boolean) => good ? "text-emerald-600" : "text-rose-600";
+
 
   const eacLabel = (m: EacMethod) => {
     if (m === "cpi") return isArabic ? "BAC / CPI (الأكثر شيوعًا)" : "BAC / CPI (typical)";
