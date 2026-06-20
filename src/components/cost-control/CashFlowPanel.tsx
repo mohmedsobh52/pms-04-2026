@@ -9,7 +9,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Calendar as CalendarIcon, Download, Wallet, Activity, AlertTriangle, FileText } from "lucide-react";
+import { Calendar as CalendarIcon, Download, Wallet, Activity, AlertTriangle, FileText, RotateCcw, ShieldCheck, ShieldAlert, ShieldX, Lightbulb } from "lucide-react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as RTooltip, Legend, ReferenceLine,
