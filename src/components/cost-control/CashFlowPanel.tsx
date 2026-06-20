@@ -8,19 +8,23 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Calendar as CalendarIcon, Download, Wallet, Activity } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Calendar as CalendarIcon, Download, Wallet, Activity, AlertTriangle, FileText } from "lucide-react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as RTooltip, Legend, ReferenceLine,
 } from "recharts";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type DistMode = "linear" | "scurve" | "front" | "back";
+type EacMethod = "cpi" | "plan" | "composite" | "atypical";
 
 interface Props {
   isArabic: boolean;
-  startDate: string;     // yyyy-mm-dd
-  endDate: string;       // yyyy-mm-dd
+  startDate: string;
+  endDate: string;
   totalValue: number;
   currency?: string | null;
   projectName?: string | null;
@@ -50,7 +54,7 @@ function weightsFor(mode: DistMode, n: number): number[] {
   return arr.map((v) => v / s);
 }
 
-function monthsBetween(start: Date, end: Date): { label: string; year: number; month: number; key: string }[] {
+function monthsBetween(start: Date, end: Date) {
   const out: { label: string; year: number; month: number; key: string }[] = [];
   const d = new Date(start.getFullYear(), start.getMonth(), 1);
   const last = new Date(end.getFullYear(), end.getMonth(), 1);
@@ -70,8 +74,9 @@ export default function CashFlowPanel({
   isArabic, startDate, endDate, totalValue, currency, projectName, projectId,
 }: Props) {
   const [mode, setMode] = useState<DistMode>("scurve");
+  const [eacMethod, setEacMethod] = useState<EacMethod>("cpi");
+  const [monthFilter, setMonthFilter] = useState<string>("all");
 
-  // EVM inputs (persisted per project)
   const storageKey = projectId ? `cc:evm:${projectId}` : null;
   const [dataDate, setDataDate] = useState<string>("");
   const [acStr, setAcStr] = useState<string>("");
@@ -86,16 +91,17 @@ export default function CashFlowPanel({
         setDataDate(j.dataDate || "");
         setAcStr(j.ac ?? "");
         setPctStr(j.pct ?? "");
+        setEacMethod(j.eacMethod || "cpi");
       } else {
-        setDataDate(""); setAcStr(""); setPctStr("");
+        setDataDate(""); setAcStr(""); setPctStr(""); setEacMethod("cpi");
       }
     } catch { /* noop */ }
   }, [storageKey]);
 
   useEffect(() => {
     if (!storageKey) return;
-    localStorage.setItem(storageKey, JSON.stringify({ dataDate, ac: acStr, pct: pctStr }));
-  }, [storageKey, dataDate, acStr, pctStr]);
+    localStorage.setItem(storageKey, JSON.stringify({ dataDate, ac: acStr, pct: pctStr, eacMethod }));
+  }, [storageKey, dataDate, acStr, pctStr, eacMethod]);
 
   const data = useMemo(() => {
     if (!startDate || !endDate || !totalValue || totalValue <= 0) return null;
@@ -114,11 +120,62 @@ export default function CashFlowPanel({
     return { rows, totalMonths: months.length };
   }, [startDate, endDate, totalValue, mode]);
 
+  // Validation
+  const validation = useMemo(() => {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const hasAc = acStr.trim() !== "";
+    const hasPct = pctStr.trim() !== "";
+    const hasDate = dataDate.trim() !== "";
+
+    if (!hasDate || !hasAc || !hasPct) {
+      errors.push(isArabic
+        ? "أكمل جميع مدخلات EVM (تاريخ المتابعة، AC، نسبة الإنجاز) لتفعيل الحسابات."
+        : "Enter all EVM inputs (Data Date, AC, % Complete) to enable calculations.");
+    }
+    const pctNum = parseFloat(pctStr);
+    if (hasPct) {
+      if (isNaN(pctNum) || pctNum < 0 || pctNum > 100) {
+        errors.push(isArabic
+          ? "نسبة الإنجاز يجب أن تكون بين 0 و 100."
+          : "% Complete must be between 0 and 100.");
+      }
+    }
+    const acNum = parseFloat(acStr);
+    if (hasAc) {
+      if (isNaN(acNum) || acNum < 0) {
+        errors.push(isArabic ? "AC يجب أن تكون قيمة موجبة." : "AC must be a positive number.");
+      } else if (totalValue > 0 && acNum > totalValue * 3) {
+        warnings.push(isArabic
+          ? "AC تتجاوز 3 أضعاف الموازنة — تحقق من القيمة."
+          : "AC exceeds 3× the budget — please verify.");
+      }
+    }
+    if (hasDate) {
+      const dd = new Date(dataDate);
+      if (isNaN(dd.getTime())) {
+        errors.push(isArabic ? "تنسيق تاريخ المتابعة غير صحيح." : "Invalid Data Date format.");
+      } else if (startDate && endDate) {
+        const s = new Date(startDate), e = new Date(endDate);
+        if (dd < s || dd > e) {
+          warnings.push(isArabic
+            ? "تاريخ المتابعة خارج فترة المشروع."
+            : "Data Date is outside the project timeframe.");
+        }
+      }
+    }
+    if (hasPct && hasAc && totalValue > 0 && pctNum > 5 && acNum === 0) {
+      warnings.push(isArabic
+        ? "نسبة إنجاز > 0 مع AC = 0 — غير منطقي."
+        : "Progress > 0 with AC = 0 — inconsistent.");
+    }
+    return { errors, warnings, valid: errors.length === 0 };
+  }, [acStr, pctStr, dataDate, startDate, endDate, totalValue, isArabic]);
+
   // EVM calculations
   const evm = useMemo(() => {
-    if (!data) return null;
+    if (!data || !validation.valid) return null;
     const BAC = totalValue;
-    // resolve data date -> month index
     let idx = -1;
     if (dataDate) {
       const dd = new Date(dataDate);
@@ -126,7 +183,6 @@ export default function CashFlowPanel({
         const key = `${dd.getFullYear()}-${String(dd.getMonth() + 1).padStart(2, "0")}`;
         idx = data.rows.findIndex((r) => r.key === key);
         if (idx < 0) {
-          // fallback: nearest within range
           if (dd < new Date(startDate)) idx = 0;
           else if (dd > new Date(endDate)) idx = data.rows.length - 1;
         }
@@ -141,27 +197,66 @@ export default function CashFlowPanel({
     const SV = EV - PV;
     const CPI = AC > 0 ? EV / AC : 0;
     const SPI = PV > 0 ? EV / PV : 0;
-    const EAC = CPI > 0 ? BAC / CPI : 0;
+    let EAC = 0;
+    if (eacMethod === "cpi") {
+      EAC = CPI > 0 ? BAC / CPI : 0;
+    } else if (eacMethod === "plan") {
+      EAC = AC + (BAC - EV);
+    } else if (eacMethod === "composite") {
+      const denom = CPI * SPI;
+      EAC = denom > 0 ? AC + (BAC - EV) / denom : 0;
+    } else {
+      EAC = CPI > 0 ? AC + (BAC - EV) / CPI : 0;
+    }
     const ETC = Math.max(0, EAC - AC);
     const VAC = BAC - EAC;
     return { BAC, PV, EV, AC, CV, SV, CPI, SPI, EAC, ETC, VAC, idx, pct: pctNum, dataMonth: data.rows[idx]?.label };
-  }, [data, dataDate, acStr, pctStr, totalValue, startDate, endDate]);
+  }, [data, dataDate, acStr, pctStr, totalValue, startDate, endDate, eacMethod, validation.valid]);
 
-  // Chart data extended with PV/EV/AC overlays
-  const chartData = useMemo(() => {
+  // Monthly EVM rows (PV/EV/AC/CPI/SPI/ETC per month)
+  const evmRows = useMemo(() => {
     if (!data) return [];
+    const plannedRemainingTotal = evm
+      ? data.rows.slice(evm.idx + 1).reduce((a, b) => a + b.monthly, 0)
+      : 0;
     return data.rows.map((r, i) => {
-      const row: any = { ...r, pv: r.cumulative };
+      let ev = 0, ac = 0, cpi = 0, spi = 0, etc = 0, etcCurve: number | null = null;
       if (evm) {
         if (i <= evm.idx) {
-          // EV linearly distributed across months up to data date based on pct progress
-          row.ev = (evm.EV * (i + 1)) / (evm.idx + 1);
-          row.ac = (evm.AC * (i + 1)) / (evm.idx + 1);
+          const step = evm.idx + 1;
+          ev = (evm.EV * (i + 1)) / step;
+          ac = (evm.AC * (i + 1)) / step;
+          cpi = ac > 0 ? ev / ac : 0;
+          spi = r.cumulative > 0 ? ev / r.cumulative : 0;
+          etcCurve = i === evm.idx ? evm.AC : null;
+        } else if (plannedRemainingTotal > 0) {
+          const remainPlanned = data.rows.slice(evm.idx + 1, i + 1)
+            .reduce((a, b) => a + b.monthly, 0);
+          const projected = evm.AC + (evm.ETC * remainPlanned) / plannedRemainingTotal;
+          etc = projected;
+          etcCurve = projected;
+          cpi = evm.CPI;
+          spi = evm.SPI;
         }
       }
-      return row;
+      return {
+        i, label: r.label, key: r.key, monthly: r.monthly, pv: r.cumulative,
+        ev, ac, cpi, spi, etc, etcCurve,
+      };
     });
   }, [data, evm]);
+
+  const chartData = useMemo(() => evmRows.map((r) => ({
+    label: r.label, monthly: r.monthly, pv: r.pv,
+    ev: r.ev > 0 ? r.ev : null,
+    ac: r.ac > 0 ? r.ac : null,
+    etc: r.etcCurve,
+  })), [evmRows]);
+
+  const filteredEvmRows = useMemo(() => {
+    if (monthFilter === "all") return evmRows;
+    return evmRows.filter((r) => r.key === monthFilter);
+  }, [evmRows, monthFilter]);
 
   const fmt = (n: number) =>
     new Intl.NumberFormat(isArabic ? "ar-EG" : "en-US", { maximumFractionDigits: 0 }).format(n || 0);
@@ -171,37 +266,103 @@ export default function CashFlowPanel({
   const handleExport = () => {
     if (!data) return;
     const rows = data.rows.map((r, i) => ({
-      [isArabic ? "م" : "#"]: i + 1,
-      [isArabic ? "الشهر" : "Month"]: r.label,
-      [isArabic ? "النسبة %" : "Weight %"]: Number(r.pct.toFixed(2)),
-      [isArabic ? "الصرف الشهري" : "Monthly"]: Math.round(r.monthly),
-      [isArabic ? "التراكمي (PV)" : "Cumulative (PV)"]: Math.round(r.cumulative),
+      "#": i + 1,
+      Month: r.label,
+      "Weight %": Number(r.pct.toFixed(2)),
+      Monthly: Math.round(r.monthly),
+      "Cumulative (PV)": Math.round(r.cumulative),
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "CashFlow");
     if (evm) {
-      const evmRows = [
+      const evmSum = [
         { Metric: "BAC", Value: Math.round(evm.BAC) },
         { Metric: "PV",  Value: Math.round(evm.PV) },
         { Metric: "EV",  Value: Math.round(evm.EV) },
         { Metric: "AC",  Value: Math.round(evm.AC) },
-        { Metric: "CV (EV-AC)", Value: Math.round(evm.CV) },
-        { Metric: "SV (EV-PV)", Value: Math.round(evm.SV) },
+        { Metric: "CV",  Value: Math.round(evm.CV) },
+        { Metric: "SV",  Value: Math.round(evm.SV) },
         { Metric: "CPI", Value: Number(evm.CPI.toFixed(3)) },
         { Metric: "SPI", Value: Number(evm.SPI.toFixed(3)) },
-        { Metric: "EAC", Value: Math.round(evm.EAC) },
+        { Metric: `EAC (${eacMethod})`, Value: Math.round(evm.EAC) },
         { Metric: "ETC", Value: Math.round(evm.ETC) },
         { Metric: "VAC", Value: Math.round(evm.VAC) },
       ];
-      const ws2 = XLSX.utils.json_to_sheet(evmRows);
-      XLSX.utils.book_append_sheet(wb, ws2, "EVM");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(evmSum), "EVM");
+      const monthly = evmRows.map((r) => ({
+        Month: r.label,
+        Monthly: Math.round(r.monthly),
+        PV: Math.round(r.pv),
+        EV: Math.round(r.ev),
+        AC: Math.round(r.ac),
+        CPI: Number(r.cpi.toFixed(3)),
+        SPI: Number(r.spi.toFixed(3)),
+        ETC: Math.round(r.etc),
+      }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(monthly), "EVM-Monthly");
     }
     XLSX.writeFile(wb, `${projectName || "project"}-cashflow.xlsx`);
   };
 
-  const kpiClass = (good: boolean) =>
-    good ? "text-emerald-600" : "text-rose-600";
+  const handleExportPdf = () => {
+    if (!data || !evm) return;
+    const doc = new jsPDF({ orientation: "landscape" });
+    const title = `${projectName || "Project"} — Cash Flow & EVM`;
+    doc.setFontSize(14);
+    doc.text(title, 14, 14);
+    doc.setFontSize(10);
+    doc.text(`Period: ${startDate} → ${endDate}  |  BAC: ${fmt(evm.BAC)} ${cur}  |  Data Date: ${dataDate}`, 14, 21);
+
+    autoTable(doc, {
+      startY: 26,
+      head: [["Metric", "Value"]],
+      body: [
+        ["BAC", `${fmt(evm.BAC)} ${cur}`],
+        ["PV", `${fmt(evm.PV)} ${cur}`],
+        ["EV", `${fmt(evm.EV)} ${cur}`],
+        ["AC", `${fmt(evm.AC)} ${cur}`],
+        ["CV (EV-AC)", `${fmt(evm.CV)} ${cur}`],
+        ["SV (EV-PV)", `${fmt(evm.SV)} ${cur}`],
+        ["CPI", evm.CPI.toFixed(3)],
+        ["SPI", evm.SPI.toFixed(3)],
+        [`EAC (${eacMethod})`, `${fmt(evm.EAC)} ${cur}`],
+        ["ETC", `${fmt(evm.ETC)} ${cur}`],
+        ["VAC", `${fmt(evm.VAC)} ${cur}`],
+      ],
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [16, 122, 87] },
+      tableWidth: 90,
+    });
+
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 6,
+      head: [["Month", "Monthly", "PV", "EV", "AC", "CPI", "SPI", "ETC"]],
+      body: evmRows.map((r) => [
+        r.label,
+        fmt(r.monthly),
+        fmt(r.pv),
+        fmt(r.ev),
+        fmt(r.ac),
+        r.cpi ? r.cpi.toFixed(2) : "-",
+        r.spi ? r.spi.toFixed(2) : "-",
+        fmt(r.etc),
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [16, 122, 87] },
+    });
+
+    doc.save(`${projectName || "project"}-evm.pdf`);
+  };
+
+  const kpiClass = (good: boolean) => good ? "text-emerald-600" : "text-rose-600";
+
+  const eacLabel = (m: EacMethod) => {
+    if (m === "cpi") return isArabic ? "BAC / CPI (الأكثر شيوعًا)" : "BAC / CPI (typical)";
+    if (m === "plan") return isArabic ? "AC + (BAC − EV) — حسب الخطة" : "AC + (BAC − EV) — at plan";
+    if (m === "composite") return isArabic ? "AC + (BAC − EV)/(CPI×SPI) — مركّب" : "AC + (BAC − EV)/(CPI×SPI) — composite";
+    return isArabic ? "AC + (BAC − EV)/CPI — أداء حالي" : "AC + (BAC − EV)/CPI — current perf.";
+  };
 
   return (
     <Card className="bg-card/95 backdrop-blur border-border/50 shadow-lg">
@@ -217,14 +378,12 @@ export default function CashFlowPanel({
               </Badge>
             )}
           </CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Label className="text-xs text-muted-foreground">
-              {isArabic ? "نوع التوزيع:" : "Distribution:"}
+              {isArabic ? "التوزيع:" : "Distribution:"}
             </Label>
             <Select value={mode} onValueChange={(v) => setMode(v as DistMode)}>
-              <SelectTrigger className="h-8 w-36 text-xs">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="linear">{isArabic ? "خطي" : "Linear"}</SelectItem>
                 <SelectItem value="scurve">{isArabic ? "منحنى S" : "S-Curve"}</SelectItem>
@@ -234,7 +393,11 @@ export default function CashFlowPanel({
             </Select>
             <Button size="sm" variant="outline" className="h-8 gap-1" onClick={handleExport} disabled={!data}>
               <Download className="h-3.5 w-3.5" />
-              {isArabic ? "تصدير" : "Export"}
+              {isArabic ? "Excel" : "Excel"}
+            </Button>
+            <Button size="sm" variant="outline" className="h-8 gap-1" onClick={handleExportPdf} disabled={!evm}>
+              <FileText className="h-3.5 w-3.5" />
+              PDF
             </Button>
           </div>
         </div>
@@ -254,90 +417,92 @@ export default function CashFlowPanel({
               <div className="flex items-center gap-2 mb-2">
                 <Activity className="h-4 w-4 text-primary" />
                 <span className="text-sm font-semibold">
-                  {isArabic ? "مدخلات EVM (إدارة القيمة المكتسبة)" : "EVM Inputs"}
+                  {isArabic ? "مدخلات EVM" : "EVM Inputs"}
                 </span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div>
                   <Label className="text-xs text-muted-foreground">
-                    {isArabic ? "تاريخ المتابعة (Data Date)" : "Data Date"}
+                    {isArabic ? "تاريخ المتابعة" : "Data Date"}
                   </Label>
-                  <Input
-                    type="text"
-                    placeholder="yyyy-mm-dd"
-                    value={dataDate}
-                    onChange={(e) => setDataDate(e.target.value)}
-                    className="h-8 text-sm"
-                  />
+                  <Input type="text" placeholder="yyyy-mm-dd" value={dataDate}
+                    onChange={(e) => setDataDate(e.target.value)} className="h-8 text-sm" />
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">
-                    {isArabic ? "التكلفة الفعلية (AC)" : "Actual Cost (AC)"}
+                    {isArabic ? "AC التكلفة الفعلية" : "Actual Cost (AC)"}
                   </Label>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    placeholder="0"
-                    value={acStr}
-                    onChange={(e) => setAcStr(e.target.value)}
-                    className="h-8 text-sm tabular-nums"
-                  />
+                  <Input type="number" inputMode="decimal" placeholder="0" value={acStr}
+                    onChange={(e) => setAcStr(e.target.value)} className="h-8 text-sm tabular-nums" />
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">
-                    {isArabic ? "نسبة الإنجاز % (لحساب EV)" : "% Complete (for EV)"}
+                    {isArabic ? "نسبة الإنجاز %" : "% Complete"}
                   </Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    inputMode="decimal"
-                    placeholder="0"
-                    value={pctStr}
-                    onChange={(e) => setPctStr(e.target.value)}
-                    className="h-8 text-sm tabular-nums"
-                  />
+                  <Input type="number" min={0} max={100} inputMode="decimal" placeholder="0" value={pctStr}
+                    onChange={(e) => setPctStr(e.target.value)} className="h-8 text-sm tabular-nums" />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">
+                    {isArabic ? "طريقة EAC" : "EAC Method"}
+                  </Label>
+                  <Select value={eacMethod} onValueChange={(v) => setEacMethod(v as EacMethod)}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cpi">{eacLabel("cpi")}</SelectItem>
+                      <SelectItem value="plan">{eacLabel("plan")}</SelectItem>
+                      <SelectItem value="atypical">{eacLabel("atypical")}</SelectItem>
+                      <SelectItem value="composite">{eacLabel("composite")}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
+
+            {/* Validation alerts */}
+            {validation.errors.length > 0 && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>{isArabic ? "بيانات غير مكتملة" : "Incomplete data"}</AlertTitle>
+                <AlertDescription>
+                  <ul className="list-disc ps-5 text-sm">
+                    {validation.errors.map((m, i) => <li key={i}>{m}</li>)}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+            {validation.warnings.length > 0 && (
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>{isArabic ? "تحذير" : "Warning"}</AlertTitle>
+                <AlertDescription>
+                  <ul className="list-disc ps-5 text-sm">
+                    {validation.warnings.map((m, i) => <li key={i}>{m}</li>)}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* Summary KPIs */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="rounded-lg border bg-emerald-500/5 border-emerald-500/30 p-3">
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                  {isArabic ? "BAC إجمالي الموازنة" : "BAC"}
-                </div>
-                <div className="text-base font-bold text-emerald-600 tabular-nums">
-                  {fmt(totalValue)} {cur}
-                </div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">BAC</div>
+                <div className="text-base font-bold text-emerald-600 tabular-nums">{fmt(totalValue)} {cur}</div>
               </div>
               <div className="rounded-lg border bg-blue-500/5 border-blue-500/30 p-3">
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                  {isArabic ? "PV حتى تاريخ المتابعة" : "PV @ Data Date"}
-                </div>
-                <div className="text-base font-bold text-blue-600 tabular-nums">
-                  {fmt(evm?.PV || 0)} {cur}
-                </div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">PV @ DD</div>
+                <div className="text-base font-bold text-blue-600 tabular-nums">{fmt(evm?.PV || 0)} {cur}</div>
               </div>
               <div className="rounded-lg border bg-amber-500/5 border-amber-500/30 p-3">
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                  EV ({isArabic ? "القيمة المكتسبة" : "Earned"})
-                </div>
-                <div className="text-base font-bold text-amber-600 tabular-nums">
-                  {fmt(evm?.EV || 0)} {cur}
-                </div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">EV</div>
+                <div className="text-base font-bold text-amber-600 tabular-nums">{fmt(evm?.EV || 0)} {cur}</div>
               </div>
               <div className="rounded-lg border bg-violet-500/5 border-violet-500/30 p-3">
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                  AC ({isArabic ? "التكلفة الفعلية" : "Actual Cost"})
-                </div>
-                <div className="text-base font-bold text-violet-600 tabular-nums">
-                  {fmt(evm?.AC || 0)} {cur}
-                </div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">AC</div>
+                <div className="text-base font-bold text-violet-600 tabular-nums">{fmt(evm?.AC || 0)} {cur}</div>
               </div>
             </div>
 
-            {/* EVM Metrics */}
             {evm && (
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
                 <div className="rounded-md border p-2">
@@ -356,7 +521,7 @@ export default function CashFlowPanel({
                   <div className="text-[10px] uppercase text-muted-foreground">SPI</div>
                   <div className={`text-sm font-bold tabular-nums ${kpiClass(evm.SPI >= 1)}`}>{evm.SPI.toFixed(2)}</div>
                 </div>
-                <div className="rounded-md border p-2">
+                <div className="rounded-md border p-2" title={eacLabel(eacMethod)}>
                   <div className="text-[10px] uppercase text-muted-foreground">EAC</div>
                   <div className="text-sm font-bold tabular-nums">{fmt(evm.EAC)}</div>
                 </div>
@@ -390,18 +555,22 @@ export default function CashFlowPanel({
                     fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} opacity={0.55} />
                   <Line yAxisId="right" type="monotone" dataKey="pv"
                     name={isArabic ? "PV المخطط" : "PV (Planned)"}
-                    stroke="hsl(217 91% 60%)" strokeWidth={2.5}
-                    dot={{ r: 2 }} activeDot={{ r: 5 }} />
+                    stroke="hsl(217 91% 60%)" strokeWidth={2.5} dot={{ r: 2 }} activeDot={{ r: 5 }} />
                   {evm && evm.EV > 0 && (
                     <Line yAxisId="right" type="monotone" dataKey="ev"
                       name={isArabic ? "EV المكتسب" : "EV (Earned)"}
-                      stroke="hsl(38 92% 50%)" strokeWidth={2.5}
-                      dot={{ r: 2 }} activeDot={{ r: 5 }} connectNulls />
+                      stroke="hsl(38 92% 50%)" strokeWidth={2.5} dot={{ r: 2 }} activeDot={{ r: 5 }} connectNulls />
                   )}
                   {evm && evm.AC > 0 && (
                     <Line yAxisId="right" type="monotone" dataKey="ac"
                       name={isArabic ? "AC الفعلي" : "AC (Actual)"}
                       stroke="hsl(262 83% 58%)" strokeWidth={2.5} strokeDasharray="5 4"
+                      dot={{ r: 2 }} activeDot={{ r: 5 }} connectNulls />
+                  )}
+                  {evm && evm.ETC > 0 && (
+                    <Line yAxisId="right" type="monotone" dataKey="etc"
+                      name={isArabic ? "ETC المتوقع" : "ETC (Forecast)"}
+                      stroke="hsl(0 72% 51%)" strokeWidth={2.5} strokeDasharray="2 3"
                       dot={{ r: 2 }} activeDot={{ r: 5 }} connectNulls />
                   )}
                   {evm && evm.dataMonth && (
@@ -413,34 +582,60 @@ export default function CashFlowPanel({
               </ResponsiveContainer>
             </div>
 
-            <div className="overflow-x-auto max-h-[320px] border rounded-lg">
-              <Table>
-                <TableHeader className="bg-muted/80 backdrop-blur sticky top-0 z-10">
-                  <TableRow>
-                    <TableHead className="w-12 text-center">#</TableHead>
-                    <TableHead className="w-28">{isArabic ? "الشهر" : "Month"}</TableHead>
-                    <TableHead className="w-24 text-right">{isArabic ? "النسبة %" : "Weight %"}</TableHead>
-                    <TableHead className="w-32 text-right">{isArabic ? "صرف شهري" : "Monthly"}</TableHead>
-                    <TableHead className="w-32 text-right">PV</TableHead>
-                    <TableHead className="w-24 text-right">{isArabic ? "نسبة إنجاز" : "% Done"}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.rows.map((r, i) => (
-                    <TableRow key={i} className={`even:bg-muted/20 ${evm && i === evm.idx ? "bg-destructive/10" : ""}`}>
-                      <TableCell className="text-center text-muted-foreground">{i + 1}</TableCell>
-                      <TableCell className="font-medium text-sm">{r.label}</TableCell>
-                      <TableCell className="text-right tabular-nums">{r.pct.toFixed(2)}%</TableCell>
-                      <TableCell className="text-right tabular-nums">{fmt(r.monthly)}</TableCell>
-                      <TableCell className="text-right tabular-nums font-medium text-primary">{fmt(r.cumulative)}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {((r.cumulative / totalValue) * 100).toFixed(1)}%
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            {/* Monthly EVM table with filter */}
+            {evm && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-semibold">
+                    {isArabic ? "جدول EVM الشهري" : "Monthly EVM Breakdown"}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs text-muted-foreground">
+                      {isArabic ? "تصفية:" : "Filter:"}
+                    </Label>
+                    <Select value={monthFilter} onValueChange={setMonthFilter}>
+                      <SelectTrigger className="h-8 w-40 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{isArabic ? "كل الأشهر" : "All months"}</SelectItem>
+                        {evmRows.map((r) => (
+                          <SelectItem key={r.key} value={r.key}>{r.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="overflow-x-auto max-h-[320px] border rounded-lg">
+                  <Table>
+                    <TableHeader className="bg-muted/80 backdrop-blur sticky top-0 z-10">
+                      <TableRow>
+                        <TableHead className="w-28">{isArabic ? "الشهر" : "Month"}</TableHead>
+                        <TableHead className="text-right">{isArabic ? "صرف" : "Monthly"}</TableHead>
+                        <TableHead className="text-right">PV</TableHead>
+                        <TableHead className="text-right">EV</TableHead>
+                        <TableHead className="text-right">AC</TableHead>
+                        <TableHead className="text-right">CPI</TableHead>
+                        <TableHead className="text-right">SPI</TableHead>
+                        <TableHead className="text-right">ETC</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredEvmRows.map((r) => (
+                        <TableRow key={r.key} className={`even:bg-muted/20 ${r.i === evm.idx ? "bg-destructive/10" : ""}`}>
+                          <TableCell className="font-medium text-sm">{r.label}</TableCell>
+                          <TableCell className="text-right tabular-nums">{fmt(r.monthly)}</TableCell>
+                          <TableCell className="text-right tabular-nums text-blue-600">{fmt(r.pv)}</TableCell>
+                          <TableCell className="text-right tabular-nums text-amber-600">{r.ev > 0 ? fmt(r.ev) : "-"}</TableCell>
+                          <TableCell className="text-right tabular-nums text-violet-600">{r.ac > 0 ? fmt(r.ac) : "-"}</TableCell>
+                          <TableCell className={`text-right tabular-nums ${r.cpi ? kpiClass(r.cpi >= 1) : ""}`}>{r.cpi ? r.cpi.toFixed(2) : "-"}</TableCell>
+                          <TableCell className={`text-right tabular-nums ${r.spi ? kpiClass(r.spi >= 1) : ""}`}>{r.spi ? r.spi.toFixed(2) : "-"}</TableCell>
+                          <TableCell className="text-right tabular-nums text-rose-600">{r.etc > 0 ? fmt(r.etc) : "-"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
           </>
         )}
       </CardContent>
