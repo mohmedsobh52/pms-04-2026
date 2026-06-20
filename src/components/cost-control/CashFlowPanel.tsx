@@ -862,6 +862,85 @@ export default function CashFlowPanel({
                 </div>
               </div>
             )}
+
+            {/* EVM Snapshots / Trend */}
+            {snapshots.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-semibold flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                    {isArabic ? "اتجاه أداء EVM (لقطات محفوظة)" : "EVM Performance Trend (Snapshots)"}
+                    <Badge variant="outline" className="text-[10px]">{snapshots.length}</Badge>
+                  </div>
+                  <Button size="sm" variant="ghost" className="h-7 gap-1 text-rose-600" onClick={handleClearSnapshots}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                    {isArabic ? "مسح الكل" : "Clear all"}
+                  </Button>
+                </div>
+
+                {snapshots.length >= 2 && (
+                  <div className="h-56 w-full rounded-lg border bg-muted/20 p-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={snapshots.map((s) => ({
+                        label: s.dataDate || new Date(s.ts).toLocaleDateString("en-US", { month: "short", day: "2-digit" }),
+                        CPI: Number(s.CPI.toFixed(3)),
+                        SPI: Number(s.SPI.toFixed(3)),
+                      }))} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+                        <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                        <YAxis domain={[0, 'auto']} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                        <RTooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        <ReferenceLine y={1} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
+                        <Line type="monotone" dataKey="CPI" stroke="hsl(262 83% 58%)" strokeWidth={2.5} dot={{ r: 3 }} />
+                        <Line type="monotone" dataKey="SPI" stroke="hsl(38 92% 50%)" strokeWidth={2.5} dot={{ r: 3 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                <div className="overflow-x-auto max-h-[260px] border rounded-lg">
+                  <Table>
+                    <TableHeader className="bg-muted/80 backdrop-blur sticky top-0 z-10">
+                      <TableRow>
+                        <TableHead>{isArabic ? "تاريخ المتابعة" : "Data Date"}</TableHead>
+                        <TableHead className="text-right">% </TableHead>
+                        <TableHead className="text-right">PV</TableHead>
+                        <TableHead className="text-right">EV</TableHead>
+                        <TableHead className="text-right">AC</TableHead>
+                        <TableHead className="text-right">CPI</TableHead>
+                        <TableHead className="text-right">SPI</TableHead>
+                        <TableHead className="text-right">EAC</TableHead>
+                        <TableHead className="text-right">VAC</TableHead>
+                        <TableHead className="w-10"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {snapshots.map((s) => (
+                        <TableRow key={s.id} className="even:bg-muted/20">
+                          <TableCell className="font-medium text-sm">{s.dataDate || new Date(s.ts).toLocaleDateString()}</TableCell>
+                          <TableCell className="text-right tabular-nums">{s.pct.toFixed(1)}%</TableCell>
+                          <TableCell className="text-right tabular-nums text-blue-600">{fmt(s.PV)}</TableCell>
+                          <TableCell className="text-right tabular-nums text-amber-600">{fmt(s.EV)}</TableCell>
+                          <TableCell className="text-right tabular-nums text-violet-600">{fmt(s.AC)}</TableCell>
+                          <TableCell className={`text-right tabular-nums ${kpiClass(s.CPI >= 1)}`}>{s.CPI.toFixed(2)}</TableCell>
+                          <TableCell className={`text-right tabular-nums ${kpiClass(s.SPI >= 1)}`}>{s.SPI.toFixed(2)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{fmt(s.EAC)}</TableCell>
+                          <TableCell className={`text-right tabular-nums ${kpiClass(s.VAC >= 0)}`}>{fmt(s.VAC)}</TableCell>
+                          <TableCell>
+                            <Button size="icon" variant="ghost" className="h-6 w-6 text-rose-600"
+                              onClick={() => handleDeleteSnapshot(s.id)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
           </>
         )}
       </CardContent>
