@@ -531,6 +531,7 @@ export default function CashFlowPanel({
               title={isArabic ? "حفظ لقطة EVM للتاريخ الحالي" : "Save EVM snapshot for current date"}>
               <Camera className="h-3.5 w-3.5" />
               {isArabic ? "لقطة" : "Snapshot"}
+            </Button>
             <Button size="sm" variant="ghost" className="h-8 gap-1" onClick={handleResetEvm}
               disabled={!dataDate && !acStr && !pctStr}
               title={isArabic ? "إعادة ضبط مدخلات EVM" : "Reset EVM inputs"}>
