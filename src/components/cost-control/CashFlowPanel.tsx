@@ -270,6 +270,11 @@ export default function CashFlowPanel({
     return evmRows.filter((r) => r.key === monthFilter);
   }, [evmRows, monthFilter]);
 
+  const fmt = (n: number) =>
+    new Intl.NumberFormat(isArabic ? "ar-EG" : "en-US", { maximumFractionDigits: 0 }).format(n || 0);
+
+  const cur = currency || (isArabic ? "ج.م" : "EGP");
+
   // Overall project health from CPI & SPI
   const health = useMemo(() => {
     if (!evm) return null;
@@ -323,10 +328,6 @@ export default function CashFlowPanel({
     setDataDate(""); setAcStr(""); setPctStr(""); setEacMethod("cpi");
   };
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat(isArabic ? "ar-EG" : "en-US", { maximumFractionDigits: 0 }).format(n || 0);
-
-  const cur = currency || (isArabic ? "ج.م" : "EGP");
 
   const handleExport = () => {
     if (!data) return;
