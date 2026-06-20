@@ -82,6 +82,15 @@ export default function CashFlowPanel({
   const [acStr, setAcStr] = useState<string>("");
   const [pctStr, setPctStr] = useState<string>("");
 
+  // EVM snapshots (history) for trend analysis
+  type EvmSnapshot = {
+    id: string; ts: number; dataDate: string;
+    BAC: number; PV: number; EV: number; AC: number;
+    CPI: number; SPI: number; EAC: number; VAC: number; pct: number;
+  };
+  const snapshotsKey = projectId ? `cc:evm:snapshots:${projectId}` : null;
+  const [snapshots, setSnapshots] = useState<EvmSnapshot[]>([]);
+
   useEffect(() => {
     if (!storageKey) return;
     try {
@@ -96,12 +105,25 @@ export default function CashFlowPanel({
         setDataDate(""); setAcStr(""); setPctStr(""); setEacMethod("cpi");
       }
     } catch { /* noop */ }
-  }, [storageKey]);
+    if (snapshotsKey) {
+      try {
+        const raw = localStorage.getItem(snapshotsKey);
+        setSnapshots(raw ? JSON.parse(raw) : []);
+      } catch { setSnapshots([]); }
+    } else {
+      setSnapshots([]);
+    }
+  }, [storageKey, snapshotsKey]);
 
   useEffect(() => {
     if (!storageKey) return;
     localStorage.setItem(storageKey, JSON.stringify({ dataDate, ac: acStr, pct: pctStr, eacMethod }));
   }, [storageKey, dataDate, acStr, pctStr, eacMethod]);
+
+  useEffect(() => {
+    if (!snapshotsKey) return;
+    localStorage.setItem(snapshotsKey, JSON.stringify(snapshots));
+  }, [snapshotsKey, snapshots]);
 
   const data = useMemo(() => {
     if (!startDate || !endDate || !totalValue || totalValue <= 0) return null;
