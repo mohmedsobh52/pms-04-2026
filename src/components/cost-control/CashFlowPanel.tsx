@@ -270,6 +270,59 @@ export default function CashFlowPanel({
     return evmRows.filter((r) => r.key === monthFilter);
   }, [evmRows, monthFilter]);
 
+  // Overall project health from CPI & SPI
+  const health = useMemo(() => {
+    if (!evm) return null;
+    const cpi = evm.CPI, spi = evm.SPI;
+    if (cpi === 0 && spi === 0) return null;
+    const cost = cpi >= 1 ? "good" : cpi >= 0.9 ? "warn" : "bad";
+    const sched = spi >= 1 ? "good" : spi >= 0.9 ? "warn" : "bad";
+    const score = [cost, sched];
+    const level = score.includes("bad") ? "bad" : score.includes("warn") ? "warn" : "good";
+    const labelMap = {
+      good: isArabic ? "ضمن الأهداف" : "On Target",
+      warn: isArabic ? "يحتاج متابعة" : "Needs Attention",
+      bad:  isArabic ? "خارج المسار" : "Off Track",
+    } as const;
+    return { level, label: labelMap[level], cost, sched };
+  }, [evm, isArabic]);
+
+  // Auto recommendations based on indicators
+  const recommendations = useMemo(() => {
+    if (!evm) return [];
+    const recs: string[] = [];
+    if (evm.CPI > 0 && evm.CPI < 0.95) {
+      recs.push(isArabic
+        ? `تجاوز في التكلفة: CPI = ${evm.CPI.toFixed(2)}. راجع بنود الصرف وأعد تقدير EAC.`
+        : `Cost overrun: CPI = ${evm.CPI.toFixed(2)}. Review spending and re-estimate EAC.`);
+    }
+    if (evm.SPI > 0 && evm.SPI < 0.95) {
+      recs.push(isArabic
+        ? `تأخر في الجدول: SPI = ${evm.SPI.toFixed(2)}. أضف موارد على المسار الحرج أو أعد ترتيب الأنشطة.`
+        : `Schedule slippage: SPI = ${evm.SPI.toFixed(2)}. Add resources on critical path or re-sequence.`);
+    }
+    if (evm.VAC < 0) {
+      recs.push(isArabic
+        ? `تجاوز متوقع للموازنة بمقدار ${fmt(Math.abs(evm.VAC))} ${cur}. اطلب موافقة على تغيير الموازنة أو خفّض النطاق.`
+        : `Forecast over budget by ${fmt(Math.abs(evm.VAC))} ${cur}. Request budget change or descope.`);
+    }
+    if (evm.TCPI_BAC > 1.1) {
+      recs.push(isArabic
+        ? `TCPI→BAC = ${evm.TCPI_BAC.toFixed(2)} (صعب التحقيق). يُنصح بالتحوّل إلى EAC كهدف جديد.`
+        : `TCPI→BAC = ${evm.TCPI_BAC.toFixed(2)} (hard to achieve). Consider switching to EAC as the new target.`);
+    }
+    if (evm.CPI >= 1 && evm.SPI >= 1 && evm.VAC >= 0) {
+      recs.push(isArabic
+        ? "الأداء جيد — حافظ على نمط التنفيذ الحالي وراقب المخاطر الناشئة."
+        : "Healthy performance — maintain execution pattern and monitor emerging risks.");
+    }
+    return recs;
+  }, [evm, isArabic, cur]);
+
+  const handleResetEvm = () => {
+    setDataDate(""); setAcStr(""); setPctStr(""); setEacMethod("cpi");
+  };
+
   const fmt = (n: number) =>
     new Intl.NumberFormat(isArabic ? "ar-EG" : "en-US", { maximumFractionDigits: 0 }).format(n || 0);
 
