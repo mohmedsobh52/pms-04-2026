@@ -210,8 +210,20 @@ export default function CashFlowPanel({
     }
     const ETC = Math.max(0, EAC - AC);
     const VAC = BAC - EAC;
-    return { BAC, PV, EV, AC, CV, SV, CPI, SPI, EAC, ETC, VAC, idx, pct: pctNum, dataMonth: data.rows[idx]?.label };
+    // TCPI: efficiency required to finish within BAC or EAC
+    const TCPI_BAC = BAC - AC > 0 ? (BAC - EV) / (BAC - AC) : 0;
+    const TCPI_EAC = EAC - AC > 0 ? (BAC - EV) / (EAC - AC) : 0;
+    // Estimated finish date from SPI: stretch remaining months by 1/SPI
+    let finishDate: string | null = null;
+    if (SPI > 0 && data.rows[idx]) {
+      const remainingMonths = (data.rows.length - 1 - idx) / SPI;
+      const dd = new Date(dataDate || endDate);
+      const f = new Date(dd.getFullYear(), dd.getMonth() + Math.round(remainingMonths), 1);
+      finishDate = f.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    }
+    return { BAC, PV, EV, AC, CV, SV, CPI, SPI, EAC, ETC, VAC, TCPI_BAC, TCPI_EAC, finishDate, idx, pct: pctNum, dataMonth: data.rows[idx]?.label };
   }, [data, dataDate, acStr, pctStr, totalValue, startDate, endDate, eacMethod, validation.valid]);
+
 
   // Monthly EVM rows (PV/EV/AC/CPI/SPI/ETC per month)
   const evmRows = useMemo(() => {
