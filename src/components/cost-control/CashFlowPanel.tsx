@@ -662,6 +662,52 @@ export default function CashFlowPanel({
               </div>
             )}
 
+            {/* Project Health Banner */}
+            {health && (
+              <div className={`rounded-lg border p-3 flex items-center gap-3 ${
+                health.level === "good"
+                  ? "bg-emerald-500/10 border-emerald-500/40"
+                  : health.level === "warn"
+                    ? "bg-amber-500/10 border-amber-500/40"
+                    : "bg-rose-500/10 border-rose-500/40"
+              }`}>
+                {health.level === "good" ? <ShieldCheck className="h-5 w-5 text-emerald-600" /> :
+                 health.level === "warn" ? <ShieldAlert className="h-5 w-5 text-amber-600" /> :
+                 <ShieldX className="h-5 w-5 text-rose-600" />}
+                <div className="flex-1">
+                  <div className="text-sm font-semibold">
+                    {isArabic ? "حالة المشروع: " : "Project Health: "}{health.label}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {isArabic ? "التكلفة" : "Cost"}: <span className={kpiClass(health.cost === "good")}>
+                      {health.cost === "good" ? (isArabic ? "جيد" : "Good") : health.cost === "warn" ? (isArabic ? "متوسط" : "Warn") : (isArabic ? "ضعيف" : "Poor")}
+                    </span>
+                    {" • "}
+                    {isArabic ? "الجدول" : "Schedule"}: <span className={kpiClass(health.sched === "good")}>
+                      {health.sched === "good" ? (isArabic ? "جيد" : "Good") : health.sched === "warn" ? (isArabic ? "متوسط" : "Warn") : (isArabic ? "ضعيف" : "Poor")}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Auto Recommendations */}
+            {recommendations.length > 0 && (
+              <div className="rounded-lg border bg-amber-500/5 border-amber-500/30 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Lightbulb className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm font-semibold">
+                    {isArabic ? "توصيات تلقائية" : "Auto Recommendations"}
+                  </span>
+                </div>
+                <ul className="list-disc ps-5 space-y-1 text-sm text-foreground/90">
+                  {recommendations.map((r, i) => <li key={i}>{r}</li>)}
+                </ul>
+              </div>
+            )}
+
+
+
 
 
             <div className="h-80 w-full">
