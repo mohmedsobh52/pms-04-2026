@@ -210,8 +210,20 @@ export default function CashFlowPanel({
     }
     const ETC = Math.max(0, EAC - AC);
     const VAC = BAC - EAC;
-    return { BAC, PV, EV, AC, CV, SV, CPI, SPI, EAC, ETC, VAC, idx, pct: pctNum, dataMonth: data.rows[idx]?.label };
+    // TCPI: efficiency required to finish within BAC or EAC
+    const TCPI_BAC = BAC - AC > 0 ? (BAC - EV) / (BAC - AC) : 0;
+    const TCPI_EAC = EAC - AC > 0 ? (BAC - EV) / (EAC - AC) : 0;
+    // Estimated finish date from SPI: stretch remaining months by 1/SPI
+    let finishDate: string | null = null;
+    if (SPI > 0 && data.rows[idx]) {
+      const remainingMonths = (data.rows.length - 1 - idx) / SPI;
+      const dd = new Date(dataDate || endDate);
+      const f = new Date(dd.getFullYear(), dd.getMonth() + Math.round(remainingMonths), 1);
+      finishDate = f.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    }
+    return { BAC, PV, EV, AC, CV, SV, CPI, SPI, EAC, ETC, VAC, TCPI_BAC, TCPI_EAC, finishDate, idx, pct: pctNum, dataMonth: data.rows[idx]?.label };
   }, [data, dataDate, acStr, pctStr, totalValue, startDate, endDate, eacMethod, validation.valid]);
+
 
   // Monthly EVM rows (PV/EV/AC/CPI/SPI/ETC per month)
   const evmRows = useMemo(() => {
@@ -535,6 +547,46 @@ export default function CashFlowPanel({
                 </div>
               </div>
             )}
+
+            {evm && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-lg border bg-rose-500/5 border-rose-500/30 p-3" title={isArabic ? "الكفاءة المطلوبة لإنهاء المشروع ضمن BAC" : "Efficiency required to finish within BAC"}>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">TCPI → BAC</div>
+                  <div className={`text-base font-bold tabular-nums ${kpiClass(evm.TCPI_BAC > 0 && evm.TCPI_BAC <= 1.1)}`}>
+                    {evm.TCPI_BAC > 0 ? evm.TCPI_BAC.toFixed(3) : "-"}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {evm.TCPI_BAC > 1.1
+                      ? (isArabic ? "صعب التحقيق" : "Hard to achieve")
+                      : evm.TCPI_BAC > 1
+                        ? (isArabic ? "يحتاج تحسين أداء" : "Needs improvement")
+                        : (isArabic ? "قابل للتحقيق" : "Achievable")}
+                  </div>
+                </div>
+                <div className="rounded-lg border bg-orange-500/5 border-orange-500/30 p-3" title={isArabic ? "الكفاءة المطلوبة لإنهاء المشروع ضمن EAC" : "Efficiency required to finish within EAC"}>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">TCPI → EAC</div>
+                  <div className={`text-base font-bold tabular-nums ${kpiClass(evm.TCPI_EAC > 0 && evm.TCPI_EAC <= 1.1)}`}>
+                    {evm.TCPI_EAC > 0 ? evm.TCPI_EAC.toFixed(3) : "-"}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {isArabic ? "بناءً على التوقّع الحالي" : "Based on current forecast"}
+                  </div>
+                </div>
+                <div className="rounded-lg border bg-teal-500/5 border-teal-500/30 p-3" title={isArabic ? "تاريخ الإنجاز المتوقع وفق SPI الحالي" : "Forecast finish date based on SPI"}>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {isArabic ? "تاريخ الإنجاز المتوقع" : "Forecast Finish"}
+                  </div>
+                  <div className="text-base font-bold tabular-nums text-teal-600">
+                    {evm.finishDate || "-"}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {isArabic ? "وفق SPI الحالي" : "Per current SPI"}
+                  </div>
+                </div>
+              </div>
+            )}
+
+
 
             <div className="h-80 w-full">
               <ResponsiveContainer width="100%" height="100%">
