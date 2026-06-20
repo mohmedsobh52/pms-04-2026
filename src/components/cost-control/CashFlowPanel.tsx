@@ -350,6 +350,31 @@ export default function CashFlowPanel({
     setDataDate(""); setAcStr(""); setPctStr(""); setEacMethod("cpi");
   };
 
+  const handleSaveSnapshot = () => {
+    if (!evm) return;
+    const snap: EvmSnapshot = {
+      id: `${Date.now()}`, ts: Date.now(), dataDate: dataDate || "",
+      BAC: evm.BAC, PV: evm.PV, EV: evm.EV, AC: evm.AC,
+      CPI: evm.CPI, SPI: evm.SPI, EAC: evm.EAC, VAC: evm.VAC, pct: evm.pct,
+    };
+    setSnapshots((prev) => {
+      const filtered = prev.filter((s) => s.dataDate !== snap.dataDate);
+      return [...filtered, snap].sort((a, b) => (a.dataDate || "").localeCompare(b.dataDate || ""));
+    });
+  };
+
+  const handleDeleteSnapshot = (id: string) => {
+    setSnapshots((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const handleClearSnapshots = () => {
+    if (confirm(isArabic ? "حذف جميع اللقطات؟" : "Delete all snapshots?")) {
+      setSnapshots([]);
+    }
+  };
+
+
+
 
   const handleExport = () => {
     if (!data) return;
