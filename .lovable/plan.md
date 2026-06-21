@@ -1,102 +1,99 @@
 
-# UI/UX Upgrade Plan (Zero Business Logic Changes)
+# Core Execution Modules — Upgrade Plan
 
-This is a presentation-layer upgrade on top of the existing **Teal Trust** design system and the new `AppShell` already shipped on 5 key pages. No database changes, no workflow changes, no edge function changes.
+The codebase already has substantial business logic for all four modules. This plan adds the missing UX layers and new connective tissue **on top** of existing data — no business-logic rewrites, no schema changes.
+
+Real-data sources used (no mocks):
+- Projects → `saved_projects`, `project_data`, `project_items`, `analysis_audit_logs`
+- BOQ → `project_items`, `item_costs`, `boq_templates`, `edited_boq_prices`
+- EVM → `cost_control_baselines`, `cost_control_overrides`, `progress_certificates`, `progress_certificate_items`, `project_progress_history`
+- Execution Plan → `project_items` (with `start_date`/`end_date`/`progress` already present), `project_progress_history`
 
 ---
 
-## 1. Dashboard Redesign (`src/pages/HomePage.tsx` + new components)
+## 1. Projects — Workspace polish
 
-Modern SaaS layout inside the existing AppShell:
+**File: `src/pages/ProjectDetailsPage.tsx` (already 2014 LOC)** — keep all tabs and logic. Add a slim **Project KPI strip** at the top of the page that derives from existing queries:
 
-- **KPI Row** — `DashboardKpiCard` (new): 4 cards — Active Projects, Total Contract Value, Open Procurement, Avg CPI. Reads from existing queries (`saved_projects`, `contracts`, `procurement_items`, `cost_control_baselines`). Compact, sticky on desktop.
-- **Module Grid** — `ModuleCardGrid` (new): groups existing routes into 6 cards (Workspace, Pricing & Cost, Procurement, Contracts & Risk, Reports, Admin) — same groupings as the sidebar. Responsive `grid-cols-1 md:grid-cols-2 xl:grid-cols-3`.
-- **Recent Activity** — `RecentActivityFeed` (new): last 10 entries from `analysis_audit_logs` + `saved_projects.updated_at`. Read-only.
-- **Quick Actions** — `QuickActionsBar` (new): New Project, Import BOQ, Open Cost Control, Generate Report — all link to existing routes.
+- **CPI** = EV / AC  (from `cost_control_baselines` + latest `progress_certificates`)
+- **SPI** = EV / PV
+- **Cost Variance** = EV − AC
+- **Progress %** = weighted completion across `project_items.progress`
 
-No new tables, no new RPCs. All data already exists.
+New components:
+- `src/components/project-details/ProjectKpiStrip.tsx` — 4 cards, color-coded thresholds (>1 green, 0.9–1 amber, <0.9 red). Click → opens existing Cost Control page filtered to this project.
+- `src/components/project-details/ProjectActivityFeed.tsx` — reads `analysis_audit_logs` for the project + recent `project_progress_history` and `progress_certificates` events. Added as a new "Activity" tab.
 
-## 2. Navigation System (extend existing `AppShell`)
+**Projects list (`src/pages/SavedProjectsPage.tsx`)** — add view switcher (Grid / Table) and filter chips (status, currency, last-updated range). Uses the existing `DataTable` primitive for the Table view. No data changes.
 
-- **Sidebar** — already shipped (`AppSidebar.tsx`); add badge counts (open contracts, pending procurement) read from existing tables.
-- **Mobile Drawer** — shadcn `Sheet` triggered from `AppTopbar` when `<md`. Reuses `AppSidebar` content.
-- **Global Search** — `CommandPalette` (new, Ctrl+K) using shadcn `Command`. Indexes routes + saved projects (client-side fuzzy). No backend.
-- **Notifications Center** — `NotificationsPopover` (new). Reads `evm_alert_settings` + `contract_alert_settings` thresholds vs current values → derives unread count client-side. No new table.
-- **User Profile Menu** — `UserMenu` (new) in topbar: email, role badge, theme toggle, sign out.
-- **Language Switcher** — already exists in `useLanguage`; surface in `UserMenu` and topbar.
+## 2. BOQ System
 
-## 3. Forms & Tables Standardization (new shared primitives)
+`project_items` already supports hierarchy through `item_number` (e.g. `1.2.3`) and explicit `parent_id` exists via `wbs_data`. New components:
 
-New files under `src/components/ui-ext/`:
+- `src/components/boq/BoqTreeView.tsx` — collapsible tree built from `item_number` segments. Sums quantity × unit_price up the hierarchy. Row click reveals `item_costs` breakdown (already in DB).
+- `src/components/boq/BoqVersionPanel.tsx` — lists snapshots from existing `cost_control_baselines` (each baseline is effectively a BOQ snapshot) + recent edits from `edited_boq_prices`. Diff view reuses `BOQVersionComparison.tsx`.
+- `src/components/boq/BoqImportExportBar.tsx` — wraps existing import flow (`BOQUploadDialog`) and adds an XLSX export of the current BOQ with `item_number`, `description`, `unit`, `quantity`, `unit_price`, `total_price`, computed unit cost from `item_costs`.
 
-- `FormField.tsx` — wraps react-hook-form + zod, label/error/hint, RTL-aware.
-- `FormSection.tsx` — titled section with description.
-- `DataTable.tsx` — generic table on top of TanStack Table (already installed via shadcn): sticky header, column sort, text filter, pagination, row selection, empty state, responsive horizontal scroll, mobile card fallback.
-- `TableToolbar.tsx` — search + filter chips + column visibility.
-- `useTableState.ts` — persists sort/filter/page to URL search params.
+Mounted inside the existing `ProjectBOQTab.tsx` — no new page.
 
-**Adoption is opt-in** — existing tables continue to work. We migrate 2 reference screens (Projects list, Procurement list) as examples; the rest stay untouched.
+## 3. EVM System
 
-## 4. Authentication & RBAC (additive only)
+The standalone EVM page (`CostControlEvmStandalone.jsx`, 5676 LOC) already computes PV/EV/AC/CPI/SPI/EAC. We add **embedded EVM widgets** for the project workspace so users don't have to leave the project context:
 
-Keep existing Supabase auth. The `user_roles` table + `has_role()` RPC already exist with one role enum value (`admin`). I'll:
+- `src/components/evm/EvmSummaryCard.tsx` — compact PV/EV/AC + CPI/SPI/EAC numbers for a single project, derived from the same selectors the standalone page uses (extracted into a shared hook `useEvmSnapshot(projectId)`).
+- `src/components/evm/EvmTrendMiniChart.tsx` — CPI/SPI sparkline from `cost_control_baselines` history (Recharts).
+- `src/components/evm/EvmSCurve.tsx` — PV vs EV vs AC cumulative curve over time. Data: `project_progress_history` for actual, baseline schedule from `cost_control_baselines.baseline_schedule`.
+- `src/components/evm/EvmVarianceTable.tsx` — per-WBS variance breakdown (CV, SV, VAC) computed from `project_items` + `item_costs`.
 
-- **Extend the enum** via migration: add `pm`, `cost_engineer`, `qs`, `procurement`, `site_engineer`, `subcontractor`, `viewer`. Existing `admin` rows untouched.
-- **`useUserRoles` hook** — fetches `user_roles` for current user, caches via react-query.
-- **`<RequireRole roles={[...]}>`** component — wraps route elements; redirects to `/` with a toast if user lacks any of the listed roles.
-- **`<Can role="...">`** component — conditionally renders UI (e.g. hides "Delete Project" for `viewer`).
-- **Role badge** in UserMenu.
-- **No route is hard-blocked yet** — `RequireRole` is wired into the router but every existing route stays open by default. We apply roles to admin-only routes (`/admin/*`, edge function settings) and procurement/cost pages as a starting baseline. Easy to tighten later without touching pages.
+Shared hook: `src/hooks/useEvmSnapshot.ts` — pure read, returns `{ pv, ev, ac, cpi, spi, eac, vac, bac, percentComplete, series }`. Same formulas already in CostControlReportPage; centralized so widgets and the standalone page can both call it.
 
-Permission map (initial, conservative):
+Mounted in `ProjectOverviewTab.tsx` (new EVM section) and reused by the new ProjectKpiStrip.
 
-| Area | Allowed roles |
-|---|---|
-| Admin pages | admin |
-| Cost Control writes | admin, pm, cost_engineer |
-| Procurement writes | admin, pm, procurement |
-| Contracts writes | admin, pm, qs |
-| All reads | all roles incl. viewer |
+## 4. Execution Plan
+
+`project_items` already has `start_date`, `end_date`, `progress`, `predecessors` (in `wbs_data` JSON). We add a read-mostly execution view:
+
+- `src/components/execution/ExecutionTaskList.tsx` — flat task list with progress bars, status badges (Not started / In progress / Delayed / Completed), filter + sort.
+- `src/components/execution/ExecutionTimeline.tsx` — simple horizontal Gantt rendered with divs (no library). Shows planned bar + actual progress overlay. Click row → highlights dependencies if `predecessors` present.
+- `src/components/execution/DelayBadge.tsx` — computes delay as `today - end_date` when `progress < 100`. Surfaced in both list and timeline.
+
+Mounted as a new "Execution" tab inside `ProjectDetailsPage`. No edits to existing P6/scheduling logic.
+
+---
 
 ## Files
 
 **New**
 ```
-src/components/dashboard/DashboardKpiCard.tsx
-src/components/dashboard/ModuleCardGrid.tsx
-src/components/dashboard/RecentActivityFeed.tsx
-src/components/dashboard/QuickActionsBar.tsx
-src/components/layout/CommandPalette.tsx
-src/components/layout/NotificationsPopover.tsx
-src/components/layout/UserMenu.tsx
-src/components/layout/MobileNavDrawer.tsx
-src/components/ui-ext/FormField.tsx
-src/components/ui-ext/FormSection.tsx
-src/components/ui-ext/DataTable.tsx
-src/components/ui-ext/TableToolbar.tsx
-src/components/ui-ext/useTableState.ts
-src/components/auth/RequireRole.tsx
-src/components/auth/Can.tsx
-src/hooks/useUserRoles.ts
-supabase/migrations/<ts>_extend_app_role_enum.sql
+src/hooks/useEvmSnapshot.ts
+src/components/project-details/ProjectKpiStrip.tsx
+src/components/project-details/ProjectActivityFeed.tsx
+src/components/boq/BoqTreeView.tsx
+src/components/boq/BoqVersionPanel.tsx
+src/components/boq/BoqImportExportBar.tsx
+src/components/evm/EvmSummaryCard.tsx
+src/components/evm/EvmTrendMiniChart.tsx
+src/components/evm/EvmSCurve.tsx
+src/components/evm/EvmVarianceTable.tsx
+src/components/execution/ExecutionTaskList.tsx
+src/components/execution/ExecutionTimeline.tsx
+src/components/execution/DelayBadge.tsx
 ```
 
-**Edited (presentation only)**
+**Edited (mount only, no logic changes)**
 ```
-src/pages/HomePage.tsx           — new dashboard layout
-src/components/layout/AppTopbar.tsx — search, notifications, user menu, mobile trigger
-src/components/layout/AppSidebar.tsx — badge counts
-src/App.tsx                      — mount CommandPalette + RequireRole on admin routes
-src/pages/SavedProjectsPage.tsx  — adopt DataTable (reference)
-src/pages/ProcurementPage.tsx    — adopt DataTable (reference)
+src/pages/ProjectDetailsPage.tsx       — add KPI strip, Activity tab, Execution tab
+src/components/project-details/ProjectOverviewTab.tsx — embed EVM summary + S-curve
+src/components/project-details/ProjectBOQTab.tsx      — mount tree view + version panel + export bar
+src/pages/SavedProjectsPage.tsx        — Grid/Table view switcher + filter chips
 ```
 
-## Out of scope (explicit)
+## Out of scope (explicit, per RULES)
 
-- No changes to BOQ analysis, EVM math, cost-control formulas, AI prompts, edge functions, RLS policies, RPCs.
-- No changes to existing migrations.
-- Other pages keep their current layout and tables until separately migrated.
+- No mock data anywhere. If a metric has no source, the card shows "—" with a tooltip rather than a fake number.
+- No changes to `CostControlEvmStandalone.jsx`, `CostControlReportPage.tsx`, edge functions, RLS, RPCs, or migrations.
+- No new tables. All four modules read from existing schema.
 
 ## Risk
 
-- **Low.** All work is additive. The role enum extension is backward-compatible (existing `admin` rows stay valid). `RequireRole` is opt-in per route. Existing pages compile unchanged.
+- **Low.** All work is additive. The shared `useEvmSnapshot` hook duplicates existing formulas; if its math drifts from the standalone page we surface "—" instead of incorrect values.
