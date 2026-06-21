@@ -31,6 +31,7 @@ const CostAnalysisPage = lazy(() => import("./pages/CostAnalysisPage"));
 const Changelog = lazy(() => import("./pages/Changelog"));
 const AdminVersions = lazy(() => import("./pages/AdminVersions"));
 const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
+const ApprovalsInboxPage = lazy(() => import("./pages/ApprovalsInboxPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const ProcurementPage = lazy(() => import("./pages/ProcurementPage"));
@@ -137,6 +138,7 @@ const App = () => (
                         <Route path="/contracts" element={<ContractsPage />} />
                         <Route path="/subcontractors" element={<SubcontractorsPage />} />
                         <Route path="/risk" element={<RiskPage />} />
+                        <Route path="/approvals" element={<ApprovalsInboxPage />} />
                         <Route path="/reports" element={<Navigate to="/projects?tab=reports" replace />} />
                         <Route path="/settings" element={<SettingsPage />} />
                         <Route path="/company-settings" element={<CompanySettingsPage />} />
