@@ -233,9 +233,9 @@ export function AppSidebar() {
               {isArabic ? "المشروع الحالي" : "Current Project"}
             </div>
             <ProjectSwitcher compact />
-            {currentProject?.client_name && (
+            {currentProject?.client_ref && (
               <div className="text-[10px] text-sidebar-foreground/60 px-2 mt-1 truncate">
-                {currentProject.client_name}
+                {currentProject.client_ref}
               </div>
             )}
           </div>

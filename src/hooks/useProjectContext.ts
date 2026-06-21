@@ -8,7 +8,7 @@ export type LiteProject = {
   id: string;
   name: string;
   status?: string | null;
-  client_name?: string | null;
+  client_ref?: string | null;
 };
 
 /**
