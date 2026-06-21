@@ -379,7 +379,23 @@ const SubcontractorsPage = () => {
             </Suspense>
           </TabsContent>
 
+          <TabsContent value="profiles" className="mt-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {subcontractors.map((s: any) => (
+                <div key={s.id} className="space-y-3">
+                  <SubcontractorProfile partner={s} />
+                  <SubcontractorPayments contractorName={s.name} />
+                  <SubcontractorCertifications partnerId={s.id} />
+                </div>
+              ))}
+              {subcontractors.length === 0 && (
+                <p className="text-sm text-muted-foreground">{isArabic ? "لا يوجد مقاولون" : "No subcontractors yet."}</p>
+              )}
+            </div>
+          </TabsContent>
+
           <TabsContent value="boq-link" className="mt-4">
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
