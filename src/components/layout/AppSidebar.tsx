@@ -106,7 +106,7 @@ export function AppSidebar() {
         {groups.map((g) => {
           const hasActive = g.items.some((i) => isActive(i.url));
           return (
-            <SidebarGroup key={g.labelEn} defaultOpen={hasActive}>
+            <SidebarGroup key={g.labelEn}>
               {!collapsed && (
                 <SidebarGroupLabel>{isArabic ? g.labelAr : g.labelEn}</SidebarGroupLabel>
               )}
