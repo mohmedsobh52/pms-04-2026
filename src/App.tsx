@@ -68,6 +68,7 @@ const ResourcesDashboardPage = lazy(() => import("./pages/ResourcesDashboardPage
 const DebugBreadcrumbsPage = lazy(() => import("./pages/DebugBreadcrumbsPage"));
 const ExecutiveSummaryPage = lazy(() => import("./pages/ExecutiveSummaryPage"));
 const ProjectsComparePage = lazy(() => import("./pages/ProjectsComparePage"));
+const TechnicalProposalGeneratorPage = lazy(() => import("./pages/TechnicalProposalGeneratorPage"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
