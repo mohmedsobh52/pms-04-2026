@@ -94,7 +94,44 @@ export function NotificationsPopover() {
         }
       } catch {}
 
-      return notices.sort((a, b) => (a.ts < b.ts ? 1 : -1)).slice(0, 10);
+      try {
+        const { data: approvals } = await supabase
+          .from("financial_audit_logs")
+          .select("id,entity_type,entity_id,created_at")
+          .eq("action", "approve")
+          .order("created_at", { ascending: false })
+          .limit(5);
+        approvals?.forEach((a: any) =>
+          notices.push({
+            id: `approval-${a.id}`,
+            title: isArabic ? `تم اعتماد ${a.entity_type}` : `Approved: ${a.entity_type}`,
+            ts: a.created_at,
+          })
+        );
+      } catch {}
+
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const { data: overdue } = await supabase
+          .from("procurement_items")
+          .select("id,description,delivery_date,status")
+          .lt("delivery_date", today)
+          .not("status", "in", "(delivered,paid,completed)")
+          .order("delivery_date", { ascending: true })
+          .limit(5);
+        overdue?.forEach((o: any) =>
+          notices.push({
+            id: `overdue-${o.id}`,
+            title: isArabic
+              ? `طلب متأخر: ${o.description ?? "—"}`
+              : `Overdue procurement: ${o.description ?? "—"}`,
+            to: "/procurement",
+            ts: o.delivery_date,
+          })
+        );
+      } catch {}
+
+      return notices.sort((a, b) => (a.ts < b.ts ? 1 : -1)).slice(0, 12);
     },
   });
 
