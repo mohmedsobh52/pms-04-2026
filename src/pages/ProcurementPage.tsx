@@ -36,6 +36,10 @@ const ProcurementLeadTimeRisk = lazy(() =>
 
 const TabFallback = () => <SuspenseFallback />;
 
+import { ProcurementWorkflow } from "@/components/procurement/ProcurementWorkflow";
+import { SupplierComparisonMatrix } from "@/components/cost/SupplierComparisonMatrix";
+
+
 const TAB_KEY = "procurement:active-tab";
 
 const ProcurementPage = () => {
