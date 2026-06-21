@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRoles } from "@/hooks/useUserRoles";
 import { supabase } from "@/integrations/supabase/client";
 import { SuspenseFallback } from "@/components/ui/loading-states";
 
@@ -25,13 +26,16 @@ interface AppVersion {
   created_at: string;
 }
 
-const ADMIN_EMAILS = ['mohmedsobh@gmail.com', 'admin@boqanalyzer.com'];
+// Admin authorization is enforced via the `user_roles` table (role = 'admin'),
+// validated server-side by RLS. Email allowlists are NOT used — they can be spoofed
+// at the client and bypass the backend role check.
 
 const AdminVersions = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { isArabic, t } = useLanguage();
   const { toast } = useToast();
+  const { isAdmin, isLoading: rolesLoading } = useUserRoles();
   
   const [versions, setVersions] = useState<AppVersion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,15 +59,13 @@ const AdminVersions = () => {
     is_latest: false,
   });
 
-  const isAdmin = user && ADMIN_EMAILS.includes(user.email || '');
-
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (authLoading || rolesLoading) return;
+    if (!user) {
       navigate('/auth');
       return;
     }
-    
-    if (!authLoading && user && !isAdmin) {
+    if (!isAdmin) {
       navigate('/');
       toast({
         title: isArabic ? 'غير مصرح' : 'Unauthorized',
@@ -72,11 +74,8 @@ const AdminVersions = () => {
       });
       return;
     }
-    
-    if (isAdmin) {
-      fetchVersions();
-    }
-  }, [user, authLoading, isAdmin, navigate]);
+    fetchVersions();
+  }, [user, authLoading, rolesLoading, isAdmin, navigate]);
 
   const fetchVersions = async () => {
     try {
