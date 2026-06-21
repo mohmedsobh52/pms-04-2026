@@ -24,26 +24,26 @@ export async function searchEntities(query: string, limit = 5): Promise<EntityHi
       r.map<EntityHit>((p: any) => ({
         id: p.id, group: "projects", label: p.name, description: p.file_name, route: `/projects/${p.id}`,
       }))),
-    safe(() => supabase.from("contracts").select("id,contract_name,contractor_name").ilike("contract_name", like).limit(limit), (r) =>
+    safe(() => supabase.from("contracts").select("id,contract_title,contractor_name").ilike("contract_title", like).limit(limit), (r) =>
       r.map<EntityHit>((c: any) => ({
-        id: c.id, group: "contracts", label: c.contract_name, description: c.contractor_name, route: "/contracts",
+        id: c.id, group: "contracts", label: c.contract_title, description: c.contractor_name, route: "/contracts",
       }))),
-    safe(() => supabase.from("procurement_items").select("id,item_name,status").ilike("item_name", like).limit(limit), (r) =>
+    safe(() => supabase.from("procurement_items").select("id,description,boq_item_number,status").ilike("description", like).limit(limit), (r) =>
       r.map<EntityHit>((p: any) => ({
-        id: p.id, group: "procurement", label: p.item_name, description: p.status, route: "/procurement",
+        id: p.id, group: "procurement", label: p.description ?? p.boq_item_number, description: p.status, route: "/procurement",
       }))),
-    safe(() => supabase.from("risks").select("id,title,severity").ilike("title", like).limit(limit), (r) =>
+    safe(() => supabase.from("risks").select("id,risk_title,risk_score").ilike("risk_title", like).limit(limit), (r) =>
       r.map<EntityHit>((x: any) => ({
-        id: x.id, group: "risks", label: x.title, description: x.severity, route: "/risk",
+        id: x.id, group: "risks", label: x.risk_title, description: x.risk_score ? `Score: ${x.risk_score}` : undefined, route: "/risk",
       }))),
     safe(() => supabase.from("project_items").select("id,description,item_number,project_id").ilike("description", like).limit(limit), (r) =>
       r.map<EntityHit>((b: any) => ({
         id: b.id, group: "boq", label: `${b.item_number ?? ""} ${b.description}`.trim(),
         route: `/projects/${b.project_id}`,
       }))),
-    safe(() => supabase.from("subcontractors").select("id,name,specialization").ilike("name", like).limit(limit), (r) =>
+    safe(() => supabase.from("subcontractors").select("id,name,specialty").ilike("name", like).limit(limit), (r) =>
       r.map<EntityHit>((s: any) => ({
-        id: s.id, group: "subcontractors", label: s.name, description: s.specialization, route: "/subcontractors",
+        id: s.id, group: "subcontractors", label: s.name, description: s.specialty, route: "/subcontractors",
       }))),
   ];
 
