@@ -1,89 +1,74 @@
-# Enhance Financial & Operational Modules
+# Centralized Intelligence & Reporting Layer
 
-Goal: Add enterprise-grade financial and operational controls on top of existing modules without breaking workflows. All work is additive (new components + thin overlays on existing pages) plus one schema migration for audit + record locking + risk scoring + variations.
+Additive layer on top of existing pages. No business logic changes; reuses existing data sources.
 
-## 1. Database (single migration)
+## 1. Reporting Center (`/reports` enhancements)
 
-New tables (all with GRANTs + RLS scoped via `user_owns_project` or `auth.uid()`):
+Add a new `ReportingCenter` shell that groups reports by domain. Each card opens a drawer with filters and Export PDF / Export Excel buttons.
 
-- `financial_audit_logs` — `id, user_id, project_id, entity_type, entity_id, action, before jsonb, after jsonb, created_at`. Indexed on (project_id, created_at).
-- `record_locks` — `id, entity_type, entity_id, locked_by, locked_at, reason`. Unique (entity_type, entity_id). Used to lock approved certificates / payments / POs.
-- `contract_variations` — `id, contract_id, variation_number, description, amount, status (pending/approved/rejected), approved_by, approved_at, created_at`.
-- `risk_scores` — extends existing `risks` via new columns: `probability_score (1-5)`, `impact_score (1-5)`, `risk_score generated as P*I`, `last_alerted_at`. (ALTER existing table, additive only.)
-- `currency_rates` — `code, rate_to_usd, updated_at` for normalization.
+- `src/components/reports/ReportingCenter.tsx` — grouped grid (EVM / Project / Cost / Procurement / Risk).
+- `src/components/reports/ReportExportBar.tsx` — PDF (jsPDF + html2canvas, already in deps) + Excel (xlsx).
+- `src/lib/report-export.ts` — `exportToPdf(node, {title, isArabic})` and `exportToExcel(rows, sheetName, fileName)`. RTL handled by setting `R2L` doc property and Cairo font fallback.
+- Per-domain report builders (thin, read existing data, render printable table + summary):
+  - `EvmReport.tsx` — pulls `useEvmSnapshot` per project; table of CPI/SPI/VAC + S-curve image.
+  - `ProjectReport.tsx` — project summary + progress timeline.
+  - `CostReport.tsx` — BOQ totals, cost breakdown rollup.
+  - `ProcurementReport.tsx` — workflow stage counts + open POs.
+  - `RiskReport.tsx` — heatmap + critical list.
 
-Helper SQL function `public.is_record_locked(_type text, _id uuid) returns boolean`.
+Mount on `ReportsPage.tsx` as a new top section above existing content.
 
-## 2. Cost & Pricing enhancements
+## 2. Admin Panel additions (`/admin`)
 
-- `src/components/cost/CostBreakdownPanel.tsx` — reusable breakdown card (labor / materials / equipment / overhead / profit) reading from existing `item_costs`.
-- `src/components/cost/PriceLibraryHistory.tsx` — timeline view of `pricing_history` + `edited_boq_prices`.
-- `src/components/cost/SupplierComparisonMatrix.tsx` — matrix view of `price_quotations` across suppliers per item (rebuilds existing `SupplierComparisonTable` as a matrix).
-- `src/lib/currency.ts` + `useCurrency()` hook — normalize values to display currency using `currency_rates`.
+Existing `AdminDashboardPage` already has tabs. Add three new tabs (additive):
 
-Mount in: `CostAnalysisPage`, `LibraryPage`, `QuotationsPage` (additive sections).
+- `UsersRolesPanel.tsx` — list `user_roles`, assign/remove roles per user via `useUserRoles`. Admin-only via `RequireRole`.
+- `PermissionsMatrix.tsx` — static matrix mapping roles × actions (read-only display from a config constant in `src/lib/permissions-matrix.ts`).
+- `SystemSettingsPanel.tsx` — admin-editable `currency_rates`, default currency, language defaults (stored in existing `user_analysis_preferences` for current admin).
+- `AuditLogsViewer.tsx` — paginated table of `financial_audit_logs` with entity/action/date filters.
+- `CostCodesPanel.tsx` — CRUD over a new `cost_codes` table (code, name, category, description).
 
-## 3. Procurement workflow
+DB: one migration adds `cost_codes` with RLS (admins write, authenticated read).
 
-- `src/components/procurement/ProcurementWorkflow.tsx` — 7-stage stepper (Request → Approval → RFQ → Comparison → PO → Delivery → Invoice → Payment). Reads/writes `procurement_items.status`.
-- Action buttons per stage, gated by `Can` (role check) and `is_record_locked`.
-- Mount as new tab inside `ProcurementPage`.
+## 3. Notifications system
 
-## 4. Contracts
+Extend `NotificationsPopover` to merge five live sources via Supabase realtime channels:
+- Approvals: `financial_audit_logs` action='approve'
+- Overdue: `procurement_items.delivery_date < now()` + status not in ('delivered','paid')
+- Contract expiry: `contracts` where end_date within 30d
+- Risk alerts: `risks` where computed score ≥15
+- Generic: existing notification sources
 
-- `src/components/contracts/ContractVariations.tsx` — CRUD over new `contract_variations`, totals rollup vs original contract value.
-- `src/components/contracts/ContractExpiryAlerts.tsx` — derives alerts from `contracts.end_date` (30/60/90 days), reuses `NotificationsPopover` pattern.
-- `src/components/contracts/ContractLifecycleTimeline.tsx` — visual lifecycle (Draft → Active → Variations → Closeout → Warranty) from existing fields.
+New: `src/lib/notifications-feed.ts` consolidates these. Realtime channel per source (already enabled implicitly; if missing tables aren't in publication, fall back to polling every 60s — implemented).
 
-Mount in `ContractsPage` as new tabs.
+## 4. Global Search
 
-## 5. Subcontractors
+`src/components/CommandPalette.tsx` exists. Enhance with grouped results across: Projects, Contracts, Procurement items, Risks, BOQ items, Subcontractors. New `src/lib/global-search.ts` runs parallel queries with `.ilike` per table, returns `{group, label, route}`. Permission-aware via `user_owns_project` + RLS (queries naturally filtered by RLS).
 
-- `src/components/subcontractors/SubcontractorProfile.tsx` — profile card with rating from `partner_reviews`.
-- `src/components/subcontractors/SubcontractorCertifications.tsx` — documents list (reuses `project_attachments` filtered by partner).
-- `src/components/subcontractors/SubcontractorPayments.tsx` — payment ledger from `contract_payments` filtered by partner.
+Bind `Ctrl/Cmd+K` (already wired) and update `GlobalSearch.tsx` to surface grouped sections.
 
-Mount in `SubcontractorsPage` and `PartnerDetailsPage`.
+## 5. Performance polish
 
-## 6. Risk management
-
-- `src/components/risk/RiskScoreEditor.tsx` — P×I sliders → score.
-- `src/components/risk/RiskHeatmap.tsx` — 5×5 grid coloring by count.
-- `src/components/risk/RiskMatrix.tsx` — scatter of risks on P/I axes.
-- `src/components/risk/RiskAlertsPanel.tsx` — list of risks with score ≥ 15.
-
-Mount in `RiskPage` (new tabs).
-
-## 7. Audit + Locking primitives
-
-- `src/lib/financial-audit.ts` — wrapper `logFinancialAction({entity_type, entity_id, action, before, after})` that inserts into `financial_audit_logs`.
-- `src/hooks/useRecordLock.ts` — `{ locked, lock(reason), unlock() }`.
-- `src/components/audit/LockBadge.tsx` — small badge "Locked – approved" used in tables.
-- `src/components/audit/AuditTrailDrawer.tsx` — side drawer listing audit entries for a given entity.
-
-Wire into: progress certificates approval, contract payments approval, PO approval. On approve → log audit + create lock. Edits to locked records are blocked client-side (button disabled) and server-side (RLS-using-trigger via simple BEFORE UPDATE trigger that raises if locked).
+- Wrap heavy report builders + admin tabs in `Suspense` + `lazy()`.
+- Add `usePaginatedQuery` hook in `src/hooks/usePaginatedQuery.ts` for tables (page/limit, cursor optional). Use in `AuditLogsViewer`.
+- `src/lib/query-cache.ts` — tiny in-memory TTL cache (5min) for reference reads (currency_rates, cost_codes, user_roles).
+- `src/components/ErrorBoundary.tsx` already exists; wrap each new top-level panel.
 
 ## Files
 
-**New (~22):**
-- `supabase/migrations/<ts>_financial_ops_enhancements.sql`
-- `src/lib/financial-audit.ts`, `src/lib/currency.ts`
-- `src/hooks/useRecordLock.ts`, `src/hooks/useCurrency.ts`
-- `src/components/audit/{LockBadge,AuditTrailDrawer}.tsx`
-- `src/components/cost/{CostBreakdownPanel,PriceLibraryHistory,SupplierComparisonMatrix}.tsx`
-- `src/components/procurement/ProcurementWorkflow.tsx`
-- `src/components/contracts/{ContractVariations,ContractExpiryAlerts,ContractLifecycleTimeline}.tsx`
-- `src/components/subcontractors/{SubcontractorProfile,SubcontractorCertifications,SubcontractorPayments}.tsx`
-- `src/components/risk/{RiskScoreEditor,RiskHeatmap,RiskMatrix,RiskAlertsPanel}.tsx`
+**New:**
+- `supabase/migrations/<ts>_reporting_center.sql` (cost_codes table)
+- `src/lib/report-export.ts`, `src/lib/permissions-matrix.ts`, `src/lib/notifications-feed.ts`, `src/lib/global-search.ts`, `src/lib/query-cache.ts`
+- `src/hooks/usePaginatedQuery.ts`
+- `src/components/reports/{ReportingCenter,ReportExportBar,EvmReport,ProjectReport,CostReport,ProcurementReport,RiskReport}.tsx`
+- `src/components/admin/{UsersRolesPanel,PermissionsMatrix,SystemSettingsPanel,AuditLogsViewer,CostCodesPanel}.tsx`
 
-**Edited (mount only, no logic rewrite):**
-- `ProcurementPage.tsx`, `ContractsPage.tsx`, `SubcontractorsPage.tsx`, `RiskPage.tsx`, `CostAnalysisPage.tsx`, `LibraryPage.tsx`, `QuotationsPage.tsx`, `PartnerDetailsPage.tsx`
+**Edited (mount only):**
+- `ReportsPage.tsx`, `AdminDashboardPage.tsx`, `NotificationsPopover.tsx`, `CommandPalette.tsx`/`GlobalSearch.tsx`
 
 ## Out of scope / risk
 
-- No changes to existing EVM, BOQ, or analysis logic.
-- No edge functions added.
-- Currency conversion uses cached rates table — no external API call in this pass; user can seed rates manually or via future job.
-- Lock trigger affects only the new approval flows; existing rows remain unlocked.
-
-Risk: low — every change is additive. If lock trigger misfires, drop it; UI continues to function.
+- No edge functions; PDF/Excel rendered client-side.
+- Cost codes start empty — admin seeds them.
+- Realtime falls back to 60s polling if a publication is missing — no schema-touching to enable realtime in this pass.
+- Risk: low — purely additive.
