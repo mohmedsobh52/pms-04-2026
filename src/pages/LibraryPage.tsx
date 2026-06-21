@@ -222,6 +222,9 @@ const LibraryPage = () => {
         <Suspense fallback={<LibraryFallback />}>
           <LibraryDatabase />
         </Suspense>
+
+        <PriceLibraryHistory />
+
       </div>
     </PageLayout>
   );
