@@ -129,72 +129,72 @@
 
 
   .dark {
-    /* Emerald Prestige — Dark variant */
-    --background: 163 40% 8%;
-    --foreground: 45 45% 92%;
+    /* Teal Trust — Dark variant */
+    --background: 200 30% 8%;
+    --foreground: 200 30% 95%;
 
-    --card: 163 40% 12%;
-    --card-foreground: 45 45% 92%;
+    --card: 200 30% 12%;
+    --card-foreground: 200 30% 95%;
 
-    --popover: 163 40% 10%;
-    --popover-foreground: 45 45% 92%;
+    --popover: 200 30% 10%;
+    --popover-foreground: 200 30% 95%;
 
-    --primary: 44 52% 54%;
-    --primary-foreground: 163 86% 12%;
+    --primary: 184 60% 45%;
+    --primary-foreground: 200 30% 10%;
 
-    --secondary: 166 60% 35%;
-    --secondary-foreground: 45 45% 92%;
+    --secondary: 184 45% 32%;
+    --secondary-foreground: 200 30% 95%;
 
-    --muted: 163 30% 18%;
-    --muted-foreground: 45 25% 65%;
+    --muted: 200 25% 18%;
+    --muted-foreground: 200 15% 65%;
 
-    --accent: 44 52% 54%;
-    --accent-foreground: 163 86% 12%;
+    --accent: 38 90% 55%;
+    --accent-foreground: 200 30% 10%;
 
-    --success: 166 70% 45%;
+    --success: 160 65% 45%;
     --success-foreground: 0 0% 100%;
 
-    --destructive: 0 70% 50%;
+    --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 163 30% 22%;
-    --input: 163 30% 22%;
-    --ring: 44 52% 54%;
+    --border: 200 25% 22%;
+    --input: 200 25% 22%;
+    --ring: 184 60% 45%;
 
-    --workflow-bg: 163 40% 10%;
-    --workflow-node: 163 40% 15%;
-    --workflow-line: 163 25% 30%;
+    --workflow-bg: 200 30% 10%;
+    --workflow-node: 200 30% 15%;
+    --workflow-line: 200 20% 30%;
 
-    --gradient-surface: linear-gradient(180deg, hsl(163 40% 12%) 0%, hsl(163 40% 8%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(163 86% 5%) 0%, hsl(163 50% 14%) 100%);
-    --gradient-bg: linear-gradient(180deg, hsl(163 40% 6%) 0%, hsl(163 40% 10%) 50%, hsl(163 40% 6%) 100%);
-    --gradient-gold: linear-gradient(135deg, hsl(44 52% 54%) 0%, hsl(44 60% 44%) 100%);
+    --gradient-surface: linear-gradient(180deg, hsl(200 30% 12%) 0%, hsl(200 30% 8%) 100%);
+    --gradient-hero:    linear-gradient(135deg, hsl(184 70% 8%) 0%, hsl(184 50% 18%) 100%);
+    --gradient-bg:      linear-gradient(180deg, hsl(200 30% 6%) 0%, hsl(200 30% 10%) 50%, hsl(200 30% 6%) 100%);
+    --gradient-gold:    linear-gradient(135deg, hsl(38 90% 55%) 0%, hsl(38 90% 45%) 100%);
 
-    --sidebar-background: 163 50% 10%;
-    --sidebar-foreground: 45 45% 92%;
-    --sidebar-primary: 44 52% 54%;
-    --sidebar-primary-foreground: 163 86% 12%;
-    --sidebar-accent: 163 40% 18%;
-    --sidebar-accent-foreground: 45 45% 92%;
-    --sidebar-border: 163 30% 22%;
-    --sidebar-ring: 44 52% 54%;
+    --sidebar-background: 184 70% 10%;
+    --sidebar-foreground: 200 30% 95%;
+    --sidebar-primary: 38 90% 55%;
+    --sidebar-primary-foreground: 184 70% 10%;
+    --sidebar-accent: 184 50% 18%;
+    --sidebar-accent-foreground: 200 30% 95%;
+    --sidebar-border: 184 40% 22%;
+    --sidebar-ring: 38 90% 55%;
 
-    --qa-blue: 166 70% 40%;
-    --qa-orange: 44 70% 55%;
-    --qa-teal: 173 60% 45%;
-    --qa-green: 166 70% 45%;
-    --qa-purple: 200 60% 50%;
-    --qa-amber: 44 70% 55%;
-    --qa-indigo: 163 70% 30%;
-    --qa-rose: 0 70% 55%;
-    --qa-red: 0 70% 55%;
+    --qa-blue:   184 60% 45%;
+    --qa-orange: 38 90% 55%;
+    --qa-teal:   184 55% 50%;
+    --qa-green:  160 65% 45%;
+    --qa-purple: 250 60% 60%;
+    --qa-amber:  38 90% 55%;
+    --qa-indigo: 220 65% 55%;
+    --qa-rose:   0 70% 60%;
+    --qa-red:    0 70% 55%;
 
-    --phase-initiation: 173 60% 52%;
-    --phase-analysis: 163 70% 40%;
-    --phase-pricing: 166 70% 45%;
-    --phase-contracting: 44 70% 55%;
-    --phase-execution: 44 52% 54%;
-    --phase-monitoring: 0 70% 55%;
+    --phase-initiation:  184 55% 52%;
+    --phase-analysis:    184 60% 40%;
+    --phase-pricing:     160 65% 45%;
+    --phase-contracting: 38 90% 55%;
+    --phase-execution:   220 65% 55%;
+    --phase-monitoring:  0 70% 60%;
   }
 
 }
@@ -206,25 +206,25 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Manrope', 'Inter', system-ui, sans-serif;
+    font-family: 'Tajawal', 'Cairo', system-ui, -apple-system, 'Segoe UI', sans-serif;
     min-height: 100vh;
     position: relative;
   }
 
   [dir="rtl"] body,
   [lang="ar"] body {
-    font-family: 'Cairo', 'Manrope', system-ui, sans-serif;
+    font-family: 'Cairo', 'Tajawal', system-ui, sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Sora', 'Manrope', system-ui, sans-serif;
+    font-family: 'Tajawal', 'Cairo', system-ui, sans-serif;
     font-weight: 700;
     letter-spacing: -0.01em;
   }
 
   [dir="rtl"] h1, [dir="rtl"] h2, [dir="rtl"] h3, [dir="rtl"] h4, [dir="rtl"] h5, [dir="rtl"] h6,
   [lang="ar"] h1, [lang="ar"] h2, [lang="ar"] h3, [lang="ar"] h4, [lang="ar"] h5, [lang="ar"] h6 {
-    font-family: 'Cairo', 'Sora', system-ui, sans-serif;
+    font-family: 'Cairo', 'Tajawal', system-ui, sans-serif;
   }
 
 }
