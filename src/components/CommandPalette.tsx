@@ -53,6 +53,7 @@ const ITEMS: NavItem[] = [
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
   const navigate = useNavigate();
   const { isArabic } = useLanguage();
 
@@ -67,8 +68,22 @@ export function CommandPalette() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Entity search across modules (permission-aware via RLS)
+  const { data: hits = [] } = useQuery({
+    queryKey: ["global-search", q],
+    enabled: open && q.trim().length >= 2,
+    staleTime: 30_000,
+    queryFn: () => searchEntities(q, 5),
+  });
+
+  const grouped = hits.reduce<Record<string, EntityHit[]>>((acc, h) => {
+    (acc[h.group] ??= []).push(h);
+    return acc;
+  }, {});
+
   const go = (path: string) => {
     setOpen(false);
+    setQ("");
     navigate(path);
   };
 
@@ -82,10 +97,29 @@ export function CommandPalette() {
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
       <CommandInput
-        placeholder={isArabic ? "ابحث عن صفحة أو إجراء..." : "Search page or action..."}
+        value={q}
+        onValueChange={setQ}
+        placeholder={isArabic ? "ابحث في كل الوحدات..." : "Search across all modules..."}
       />
       <CommandList>
         <CommandEmpty>{isArabic ? "لا توجد نتائج" : "No results."}</CommandEmpty>
+
+        {Object.entries(grouped).map(([group, items]) => (
+          <CommandGroup
+            key={group}
+            heading={`${isArabic ? GROUP_LABELS[group as keyof typeof GROUP_LABELS].ar : GROUP_LABELS[group as keyof typeof GROUP_LABELS].en} (${items.length})`}
+          >
+            {items.map((h) => (
+              <CommandItem key={`${h.group}-${h.id}`} value={`${h.label} ${h.description ?? ""}`} onSelect={() => go(h.route)}>
+                <Search className="me-2 h-4 w-4 text-muted-foreground" />
+                <span className="truncate">{h.label}</span>
+                {h.description && <span className="ms-auto text-xs text-muted-foreground truncate max-w-[140px]">{h.description}</span>}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        ))}
+        {hits.length > 0 && <CommandSeparator />}
+
         {(Object.keys(groups) as Array<keyof typeof groups>).map((g, idx) => {
           const items = ITEMS.filter((i) => i.group === g);
           return (
