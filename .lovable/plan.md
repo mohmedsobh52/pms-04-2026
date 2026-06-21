@@ -1,74 +1,81 @@
-# Centralized Intelligence & Reporting Layer
+# Enterprise Upgrade — Phased Plan
 
-Additive layer on top of existing pages. No business logic changes; reuses existing data sources.
+## Current state (already shipped)
 
-## 1. Reporting Center (`/reports` enhancements)
+Most of the "foundation" items from your spec are already in this codebase:
 
-Add a new `ReportingCenter` shell that groups reports by domain. Each card opens a drawer with filters and Export PDF / Export Excel buttons.
+- ✅ **AppShell** (sidebar + topbar + breadcrumbs) — `src/components/layout/AppShell.tsx`
+- ✅ **Teal design system** + Tajawal/Cairo, RTL/LTR — global tokens in `index.css`
+- ✅ **RBAC** — `user_roles` table, `has_role()` SECURITY DEFINER, `RequireRole`, `Can` (just hardened: removed `ADMIN_EMAILS` allowlists, revoked `is_record_locked` from anon)
+- ✅ **Financial audit + record locks** — `financial_audit_logs`, `record_locks`, `enforce_record_lock` trigger, `useRecordLock` hook
+- ✅ **Notifications popover** with realtime sources, **Global command palette** with cross-module search
+- ✅ **Reporting Center** with PDF/Excel export (AR/EN), **Admin Panel** (users/roles, permissions matrix, settings, cost codes, audit logs)
+- ✅ **EVM**, **BOQ**, **Procurement workflow stepper**, **Contracts/Variations**, **Risk heatmap+matrix**, **Subcontractors**
 
-- `src/components/reports/ReportingCenter.tsx` — grouped grid (EVM / Project / Cost / Procurement / Risk).
-- `src/components/reports/ReportExportBar.tsx` — PDF (jsPDF + html2canvas, already in deps) + Excel (xlsx).
-- `src/lib/report-export.ts` — `exportToPdf(node, {title, isArabic})` and `exportToExcel(rows, sheetName, fileName)`. RTL handled by setting `R2L` doc property and Cairo font fallback.
-- Per-domain report builders (thin, read existing data, render printable table + summary):
-  - `EvmReport.tsx` — pulls `useEvmSnapshot` per project; table of CPI/SPI/VAC + S-curve image.
-  - `ProjectReport.tsx` — project summary + progress timeline.
-  - `CostReport.tsx` — BOQ totals, cost breakdown rollup.
-  - `ProcurementReport.tsx` — workflow stage counts + open POs.
-  - `RiskReport.tsx` — heatmap + critical list.
+## What's genuinely missing → phased delivery
 
-Mount on `ReportsPage.tsx` as a new top section above existing content.
+Each phase = one shippable, verifiable slice. Pick one and I'll implement it end-to-end.
 
-## 2. Admin Panel additions (`/admin`)
+---
 
-Existing `AdminDashboardPage` already has tabs. Add three new tabs (additive):
+### Phase A — Workflow Engine (highest leverage)
+**New tables:** `workflow_definitions`, `workflow_steps`, `workflow_instances`, `workflow_approvals` (RLS scoped to project owner + assigned approvers).
+**Backend:** Postgres functions `start_workflow(entity_type, entity_id, definition_id)`, `approve_step()`, `reject_step()`, SLA timer via `expires_at` + scheduled function.
+**Frontend:** `WorkflowStepper` component, `ApprovalPanel`, `WorkflowDefinitionEditor` (admin), mount on procurement/contracts/certificates.
+**Wires into:** existing financial-audit logging for every approve/reject.
 
-- `UsersRolesPanel.tsx` — list `user_roles`, assign/remove roles per user via `useUserRoles`. Admin-only via `RequireRole`.
-- `PermissionsMatrix.tsx` — static matrix mapping roles × actions (read-only display from a config constant in `src/lib/permissions-matrix.ts`).
-- `SystemSettingsPanel.tsx` — admin-editable `currency_rates`, default currency, language defaults (stored in existing `user_analysis_preferences` for current admin).
-- `AuditLogsViewer.tsx` — paginated table of `financial_audit_logs` with entity/action/date filters.
-- `CostCodesPanel.tsx` — CRUD over a new `cost_codes` table (code, name, category, description).
+---
 
-DB: one migration adds `cost_codes` with RLS (admins write, authenticated read).
+### Phase B — Document Management System
+**New tables:** `documents`, `document_versions`, `document_tags`, `document_permissions`. Reuses existing `project-files` storage bucket; adds `expires_at` for contracts/certs.
+**Backend:** Trigger that pushes expiry → `record_locks`-style alerts table consumed by NotificationsPopover.
+**Frontend:** `DocumentExplorer` (folder tree), `VersionedFileUploader`, `DocumentTagPicker`, expiry badges, search over `documents.tsvector`.
 
-## 3. Notifications system
+---
 
-Extend `NotificationsPopover` to merge five live sources via Supabase realtime channels:
-- Approvals: `financial_audit_logs` action='approve'
-- Overdue: `procurement_items.delivery_date < now()` + status not in ('delivered','paid')
-- Contract expiry: `contracts` where end_date within 30d
-- Risk alerts: `risks` where computed score ≥15
-- Generic: existing notification sources
+### Phase C — Standardized DataTable + Forms
+**New:** `src/components/data-table/DataTable.tsx` — TanStack Table v8 with column visibility, sorting, server pagination, virtualization (`@tanstack/react-virtual`), bulk actions, sticky header, mobile card fallback, Excel/PDF export hooks.
+**New:** `src/components/forms/EnterpriseForm.tsx` wrapper — react-hook-form + zod, autosave drafts to localStorage, `beforeunload` warning, field-level `<Can permission="...">` gating, conditional fields via `watch()`.
+**Migration:** Refactor 3 highest-traffic tables (BOQ items, audit logs, procurement) onto it; rest follow incrementally.
 
-New: `src/lib/notifications-feed.ts` consolidates these. Realtime channel per source (already enabled implicitly; if missing tables aren't in publication, fall back to polling every 60s — implemented).
+---
 
-## 4. Global Search
+### Phase D — Field Mobile Mode
+**New route:** `/field` — separate minimal shell, large tap targets.
+**Features:** Daily progress entry, photo upload with GPS EXIF capture, voice-to-text via `webkitSpeechRecognition`.
+**Offline:** IndexedDB queue (`idb-keyval`), background sync on `online` event. PWA manifest only — no service-worker offline cache to keep Lovable preview clean.
 
-`src/components/CommandPalette.tsx` exists. Enhance with grouped results across: Projects, Contracts, Procurement items, Risks, BOQ items, Subcontractors. New `src/lib/global-search.ts` runs parallel queries with `.ilike` per table, returns `{group, label, route}`. Permission-aware via `user_owns_project` + RLS (queries naturally filtered by RLS).
+---
 
-Bind `Ctrl/Cmd+K` (already wired) and update `GlobalSearch.tsx` to surface grouped sections.
+### Phase E — Real-time Notification Engine v2
+**New tables:** `notifications` (per-user inbox), `notification_preferences`.
+**Backend:** Triggers on `procurement_items`, `contracts`, `risks`, `progress_certificates` → insert into `notifications`. Realtime publication.
+**Frontend:** Notification center page `/notifications`, dedup by `(user_id, entity_type, entity_id, event)`, preferences UI per type.
 
-## 5. Performance polish
+---
 
-- Wrap heavy report builders + admin tabs in `Suspense` + `lazy()`.
-- Add `usePaginatedQuery` hook in `src/hooks/usePaginatedQuery.ts` for tables (page/limit, cursor optional). Use in `AuditLogsViewer`.
-- `src/lib/query-cache.ts` — tiny in-memory TTL cache (5min) for reference reads (currency_rates, cost_codes, user_roles).
-- `src/components/ErrorBoundary.tsx` already exists; wrap each new top-level panel.
+### Phase F — Security & Performance final pass
+- Migrate remaining 13 advisory linter warnings (search_path on every SECURITY DEFINER fn)
+- Virtualize BOQ items table (currently renders 1000+ rows)
+- Add `React.lazy` to remaining 12 non-lazy routes
+- Centralize API layer in `src/lib/api/*` with React Query factory
+- Add `ErrorBoundary` per route group
 
-## Files
+---
 
-**New:**
-- `supabase/migrations/<ts>_reporting_center.sql` (cost_codes table)
-- `src/lib/report-export.ts`, `src/lib/permissions-matrix.ts`, `src/lib/notifications-feed.ts`, `src/lib/global-search.ts`, `src/lib/query-cache.ts`
-- `src/hooks/usePaginatedQuery.ts`
-- `src/components/reports/{ReportingCenter,ReportExportBar,EvmReport,ProjectReport,CostReport,ProcurementReport,RiskReport}.tsx`
-- `src/components/admin/{UsersRolesPanel,PermissionsMatrix,SystemSettingsPanel,AuditLogsViewer,CostCodesPanel}.tsx`
+## How we work through this
 
-**Edited (mount only):**
-- `ReportsPage.tsx`, `AdminDashboardPage.tsx`, `NotificationsPopover.tsx`, `CommandPalette.tsx`/`GlobalSearch.tsx`
+1. You pick a phase letter.
+2. I implement it fully in one go (migrations + components + wiring + verification).
+3. You test in preview.
+4. Move to next phase.
 
-## Out of scope / risk
+## Out of scope (explicitly)
 
-- No edge functions; PDF/Excel rendered client-side.
-- Cost codes start empty — admin seeds them.
-- Realtime falls back to 60s polling if a publication is missing — no schema-touching to enable realtime in this pass.
-- Risk: low — purely additive.
+- Full OCR pipeline (would need an edge function + Tesseract; can add as Phase B.1 if you confirm)
+- Native mobile via Capacitor (separate path; PWA-only for now)
+- SAML/SSO (Supabase supports it but needs your IdP config)
+
+---
+
+**Which phase first?** My recommendation: **Phase C (DataTable + Forms)** — every other phase benefits from it, and it has the highest visible impact with lowest schema risk.
