@@ -1387,7 +1387,7 @@ export default function ProjectDetailsPage() {
                 </div>
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                   <div className="xl:col-span-2">
-                    <BoqTreeView projectId={projectId} currency={project?.currency || "SAR"} />
+                    <BoqExplorer projectId={projectId} currency={project?.currency || "SAR"} />
                   </div>
                   <BoqVersionPanel projectId={projectId} />
                 </div>
