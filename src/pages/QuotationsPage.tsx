@@ -309,10 +309,14 @@ const QuotationsPage = () => {
               <QuotationUpload />
             </TabsContent>
             <TabsContent value="compare">
-              <Suspense fallback={<SuspenseFallback label={isArabic ? "جاري التحميل..." : "Loading..."} />}>
-                <QuotationComparison />
-              </Suspense>
+              <div className="space-y-4">
+                <SupplierComparisonMatrix />
+                <Suspense fallback={<SuspenseFallback label={isArabic ? "جاري التحميل..." : "Loading..."} />}>
+                  <QuotationComparison />
+                </Suspense>
+              </div>
             </TabsContent>
+
           </Tabs>
         </div>
       </ErrorBoundary>
