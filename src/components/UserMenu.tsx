@@ -18,6 +18,8 @@ import { Badge } from "@/components/ui/badge";
 export function UserMenu() {
   const { user, signOut } = useAuth();
   const { isArabic } = useLanguage();
+  const { roles } = useUserRoles();
+  const primaryRole = roles[0];
 
   if (!user) return null;
 
