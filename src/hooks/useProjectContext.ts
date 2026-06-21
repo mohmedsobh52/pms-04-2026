@@ -35,7 +35,7 @@ export function useProjectContext() {
     queryFn: async (): Promise<LiteProject[]> => {
       const { data, error } = await supabase
         .from("saved_projects")
-        .select("id, name, status, client_name")
+        .select("id, name, status, client_ref")
         .order("updated_at", { ascending: false })
         .limit(50);
       if (error) return [];
@@ -50,7 +50,7 @@ export function useProjectContext() {
     queryFn: async (): Promise<LiteProject | null> => {
       const { data, error } = await supabase
         .from("saved_projects")
-        .select("id, name, status, client_name")
+        .select("id, name, status, client_ref")
         .eq("id", projectId!)
         .maybeSingle();
       if (error) return null;
