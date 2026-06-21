@@ -50,7 +50,7 @@ export function useProjectContext() {
     queryFn: async (): Promise<LiteProject | null> => {
       const { data, error } = await supabase
         .from("saved_projects")
-        .select("id, name, status, client_ref")
+        .select("id, name, status")
         .eq("id", projectId!)
         .maybeSingle();
       if (error) return null;
