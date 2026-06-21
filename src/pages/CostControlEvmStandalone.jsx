@@ -3101,9 +3101,9 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
               </div>
               <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-                  <thead><tr style={{background:darkMode?"#1e2d3d":"#f8f9fc"}}>{["#","الشهر","التاريخ","PV (M)","AC (M)","EV (M)","PV تراكمي","AC تراكمي","EV تراكمي","فرق PV-AC","إجراء"].map(h=><th key={h} style={{padding:"9px 11px",textAlign:"center",fontWeight:700,color:darkMode?"#94a3b8":"#555",borderBottom:`1px solid ${darkMode?"#334155":"#eee"}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+                  <thead><tr style={{background:darkMode?"#1e2d3d":"#f8f9fc"}}>{["#","الشهر","التاريخ","PV","AC","EV","PV تراكمي","AC تراكمي","EV تراكمي","فرق PV-AC","إجراء"].map(h=><th key={h} style={{padding:"9px 11px",textAlign:"center",fontWeight:700,color:darkMode?"#94a3b8":"#555",borderBottom:`1px solid ${darkMode?"#334155":"#eee"}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
                   <tbody>
-                    {cfCum.map((c,idx)=>{
+                    {(()=>{const nfRaw=new Intl.NumberFormat("ar-EG",{maximumFractionDigits:0});return cfCum.map((c,idx)=>{
                       const isEd=cfEditId===c.id;const diff=c.pvM-c.acM;const outOfWindow=cfRowOutOfWindow(c);
                       return(
                         <tr key={c.id} style={{borderBottom:"1px solid #f5f5f5",background:outOfWindow?"hsl(var(--destructive)/.05)":c.isForecast?"#f5f3ff":idx%2===0?"#fff":"#fafbfc",opacity:outOfWindow?.55:1}}>
@@ -3113,21 +3113,21 @@ ${actions.join("\n")||"• الإبقاء على ضوابط المتابعة ا�
                           {["pvM","acM","evM"].map(k=>(
                             <td key={k} style={{padding:"6px 10px",textAlign:"right"}}>
                               {isEd&&!c.isForecast
-                                ?<div><input type="number" value={cfBuf[k]} onChange={e=>setCfBuf({...cfBuf,[k]:e.target.value})} style={{width:65,border:`1px solid ${cfErrs[k]?"#ef4444":"#6366f1"}`,borderRadius:5,padding:"3px 5px",fontSize:10,textAlign:"right"}}/><ErrMsg msg={cfErrs[k]}/></div>
-                                :<span style={{fontFamily:"monospace",fontWeight:600,color:k==="pvM"?"#6366f1":k==="acM"?c.isForecast?"#8b5cf6":"#f59e0b":"#10b981"}}>{(+c[k]).toFixed(1)}</span>
+                                ?<div><input type="number" step="1" value={cfBuf[k]} onChange={e=>setCfBuf({...cfBuf,[k]:e.target.value})} style={{width:110,border:`1px solid ${cfErrs[k]?"#ef4444":"#6366f1"}`,borderRadius:5,padding:"3px 5px",fontSize:10,textAlign:"right"}}/><ErrMsg msg={cfErrs[k]}/></div>
+                                :<span style={{fontFamily:"monospace",fontWeight:600,color:k==="pvM"?"#6366f1":k==="acM"?c.isForecast?"#8b5cf6":"#f59e0b":"#10b981"}}>{nfRaw.format(Math.round((+c[k])*1e6))}</span>
                               }
                             </td>
                           ))}
-                          <td style={{padding:"6px 10px",textAlign:"right",fontFamily:"monospace",color:"#6366f1"}}>{c.pvCum.toFixed(1)}</td>
-                          <td style={{padding:"6px 10px",textAlign:"right",fontFamily:"monospace",color:"#f59e0b"}}>{c.acCum.toFixed(1)}</td>
-                          <td style={{padding:"6px 10px",textAlign:"right",fontFamily:"monospace",color:"#10b981"}}>{c.evCum.toFixed(1)}</td>
-                          <td style={{padding:"6px 10px",textAlign:"right",fontFamily:"monospace",color:diff>=0?"#10b981":"#ef4444",fontWeight:700}}>{diff.toFixed(1)}</td>
+                          <td style={{padding:"6px 10px",textAlign:"right",fontFamily:"monospace",color:"#6366f1"}}>{nfRaw.format(Math.round(c.pvCum*1e6))}</td>
+                          <td style={{padding:"6px 10px",textAlign:"right",fontFamily:"monospace",color:"#f59e0b"}}>{nfRaw.format(Math.round(c.acCum*1e6))}</td>
+                          <td style={{padding:"6px 10px",textAlign:"right",fontFamily:"monospace",color:"#10b981"}}>{nfRaw.format(Math.round(c.evCum*1e6))}</td>
+                          <td style={{padding:"6px 10px",textAlign:"right",fontFamily:"monospace",color:diff>=0?"#10b981":"#ef4444",fontWeight:700}}>{nfRaw.format(Math.round(diff*1e6))}</td>
                           <td style={{padding:"6px 10px",textAlign:"center"}}>
                             {c.isForecast?<span style={{fontSize:10,color:"#bbb"}}>متوقع</span>
                               :outOfWindow?<span style={{fontSize:10,color:"hsl(var(--destructive))",fontWeight:700}}>🔒 خارج النطاق</span>
                               :isEd
                                 ?<div style={{display:"flex",gap:3,justifyContent:"center"}}><button onClick={()=>saveCF(c.id)} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontWeight:700,fontSize:10}}>✓</button><button onClick={()=>{setCfEditId(null);setCfErrs({});}} style={{background:darkMode?"#334155":"#f0f0f5",border:"none",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontSize:10}}>✕</button></div>
-                                :<button onClick={()=>{setCfEditId(c.id);setCfBuf({pvM:c.pvM,acM:c.acM,evM:c.evM});setCfErrs({});}} style={{background:"#eef2ff",border:"none",borderRadius:5,padding:"3px 7px",cursor:"pointer",fontSize:11,color:"#6366f1"}}>✏️</button>
+                                :<button onClick={()=>{setCfEditId(c.id);setCfBuf({pvM:Math.round(c.pvM*1e6),acM:Math.round(c.acM*1e6),evM:Math.round(c.evM*1e6)});setCfErrs({});}} style={{background:"#eef2ff",border:"none",borderRadius:5,padding:"3px 7px",cursor:"pointer",fontSize:11,color:"#6366f1"}}>✏️</button>
                             }
                           </td>
                         </tr>
