@@ -23,38 +23,22 @@ export function EvmSummaryCard({ projectId, currency = "SAR" }: Props) {
   const { isArabic } = useLanguage();
   const { data, isLoading } = useEvmSnapshot(projectId);
 
-  const cells = [
-    { label: "BAC", value: data?.bac != null ? `${currency} ${fmt(data.bac)}` : "—", tone: "muted" as const },
-    { label: "PV", value: data?.hasData ? `${currency} ${fmt(data.pv)}` : "—", tone: "muted" as const },
-    { label: "EV", value: data?.hasData ? `${currency} ${fmt(data.ev)}` : "—", tone: "primary" as const },
-    { label: "AC", value: data?.hasData ? `${currency} ${fmt(data.ac)}` : "—", tone: "muted" as const },
-    {
-      label: "CPI",
-      value: data?.cpi != null ? data.cpi.toFixed(2) : "—",
-      tone: (data?.cpi == null
-        ? "muted"
-        : data.cpi >= 1
-        ? "good"
-        : data.cpi >= 0.9
-        ? "warn"
-        : "bad") as const,
-    },
-    {
-      label: "SPI",
-      value: data?.spi != null ? data.spi.toFixed(2) : "—",
-      tone: (data?.spi == null
-        ? "muted"
-        : data.spi >= 1
-        ? "good"
-        : data.spi >= 0.9
-        ? "warn"
-        : "bad") as const,
-    },
-    { label: "EAC", value: data?.eac != null ? `${currency} ${fmt(data.eac)}` : "—", tone: "muted" as const },
+  type Tone = "muted" | "primary" | "good" | "warn" | "bad";
+  const ratioTone = (v: number | null | undefined): Tone =>
+    v == null ? "muted" : v >= 1 ? "good" : v >= 0.9 ? "warn" : "bad";
+
+  const cells: { label: string; value: string; tone: Tone }[] = [
+    { label: "BAC", value: data?.bac != null ? `${currency} ${fmt(data.bac)}` : "—", tone: "muted" },
+    { label: "PV", value: data?.hasData ? `${currency} ${fmt(data.pv)}` : "—", tone: "muted" },
+    { label: "EV", value: data?.hasData ? `${currency} ${fmt(data.ev)}` : "—", tone: "primary" },
+    { label: "AC", value: data?.hasData ? `${currency} ${fmt(data.ac)}` : "—", tone: "muted" },
+    { label: "CPI", value: data?.cpi != null ? data.cpi.toFixed(2) : "—", tone: ratioTone(data?.cpi) },
+    { label: "SPI", value: data?.spi != null ? data.spi.toFixed(2) : "—", tone: ratioTone(data?.spi) },
+    { label: "EAC", value: data?.eac != null ? `${currency} ${fmt(data.eac)}` : "—", tone: "muted" },
     {
       label: "VAC",
       value: data?.vac != null ? `${currency} ${fmt(data.vac)}` : "—",
-      tone: (data?.vac == null ? "muted" : data.vac >= 0 ? "good" : "bad") as const,
+      tone: data?.vac == null ? "muted" : data.vac >= 0 ? "good" : "bad",
     },
   ];
 
