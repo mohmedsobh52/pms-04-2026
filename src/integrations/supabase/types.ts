@@ -3454,7 +3454,17 @@ export type Database = {
       user_owns_project: { Args: { _project_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "moderator" | "user"
+      app_role:
+        | "admin"
+        | "moderator"
+        | "user"
+        | "pm"
+        | "cost_engineer"
+        | "qs"
+        | "procurement"
+        | "site_engineer"
+        | "subcontractor"
+        | "viewer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3582,7 +3592,18 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "moderator", "user"],
+      app_role: [
+        "admin",
+        "moderator",
+        "user",
+        "pm",
+        "cost_engineer",
+        "qs",
+        "procurement",
+        "site_engineer",
+        "subcontractor",
+        "viewer",
+      ],
     },
   },
 } as const

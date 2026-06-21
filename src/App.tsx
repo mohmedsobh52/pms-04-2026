@@ -17,6 +17,7 @@ import { InlineErrorFallback } from "@/components/InlineErrorFallback";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { CommandPalette } from "@/components/CommandPalette";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { RequireRole } from "@/components/auth/RequireRole";
 import { Loader2 } from "lucide-react";
 
 // Lazy loaded pages for better initial load performance
@@ -123,8 +124,8 @@ const App = () => (
                         <Route path="/about" element={<About />} />
                         <Route path="/cost-analysis" element={<CostAnalysisPage />} />
                         <Route path="/changelog" element={<Changelog />} />
-                        <Route path="/admin/versions" element={<AdminVersions />} />
-                        <Route path="/admin" element={<AdminDashboardPage />} />
+                        <Route path="/admin/versions" element={<RequireRole roles={["admin"]}><AdminVersions /></RequireRole>} />
+                        <Route path="/admin" element={<RequireRole roles={["admin"]}><AdminDashboardPage /></RequireRole>} />
                         {/* Separate pages for each section */}
                         <Route path="/dashboard" element={<DashboardPage />} />
                         <Route path="/items" element={<BOQItemsPage />} />
