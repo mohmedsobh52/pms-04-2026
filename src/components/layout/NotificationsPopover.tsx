@@ -41,7 +41,7 @@ export function NotificationsPopover() {
       const notices: Notice[] = [];
 
       try {
-        const { data: risks } = await supabase
+        const { data: risks } = await (supabase as any)
           .from("risks")
           .select("id,title,severity,updated_at")
           .in("severity", ["high", "critical"])
