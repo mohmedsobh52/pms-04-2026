@@ -253,18 +253,17 @@ function RiskReport() {
   const { data: rows = [] } = useQuery({
     queryKey: ["report-risks"],
     queryFn: async () => {
-      const { data } = await supabase.from("risks" as any)
-        .select("title,severity,probability,impact,status,mitigation,created_at")
+      const { data } = await supabase.from("risks")
+        .select("risk_title,probability,impact,probability_score,impact_score,risk_score,status,mitigation_strategy,created_at")
         .order("created_at", { ascending: false }).limit(200);
-      return (data ?? []).map((r: any) => {
-        const score = Number(r.probability ?? 0) * Number(r.impact ?? 0);
-        return {
-          Title: r.title, Severity: r.severity ?? "—",
-          Probability: r.probability ?? "—", Impact: r.impact ?? "—",
-          Score: score, Status: r.status ?? "—",
-          Mitigation: r.mitigation ?? "—",
-        };
-      });
+      return (data ?? []).map((r: any) => ({
+        Title: r.risk_title,
+        Probability: r.probability ?? "—",
+        Impact: r.impact ?? "—",
+        Score: r.risk_score ?? (Number(r.probability_score ?? 0) * Number(r.impact_score ?? 0)),
+        Status: r.status ?? "—",
+        Mitigation: r.mitigation_strategy ?? "—",
+      }));
     },
   });
   return (
