@@ -17,6 +17,7 @@ import { InlineErrorFallback } from "@/components/InlineErrorFallback";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { CommandPalette } from "@/components/CommandPalette";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { RequireRole } from "@/components/auth/RequireRole";
 import { Loader2 } from "lucide-react";
 
 // Lazy loaded pages for better initial load performance
