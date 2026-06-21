@@ -2436,49 +2436,73 @@ export type Database = {
           analysis_result: Json | null
           category: string | null
           description: string | null
+          expiry_date: string | null
           file_name: string
           file_path: string
           file_size: number | null
           file_type: string | null
           folder_id: string | null
           id: string
+          indexed_text: string | null
           is_analyzed: boolean | null
+          is_latest: boolean
+          parent_attachment_id: string | null
           project_id: string | null
+          search_tsv: unknown
+          tags: string[]
+          title: string | null
           updated_at: string
           uploaded_at: string
           user_id: string
+          version_number: number
         }
         Insert: {
           analysis_result?: Json | null
           category?: string | null
           description?: string | null
+          expiry_date?: string | null
           file_name: string
           file_path: string
           file_size?: number | null
           file_type?: string | null
           folder_id?: string | null
           id?: string
+          indexed_text?: string | null
           is_analyzed?: boolean | null
+          is_latest?: boolean
+          parent_attachment_id?: string | null
           project_id?: string | null
+          search_tsv?: unknown
+          tags?: string[]
+          title?: string | null
           updated_at?: string
           uploaded_at?: string
           user_id: string
+          version_number?: number
         }
         Update: {
           analysis_result?: Json | null
           category?: string | null
           description?: string | null
+          expiry_date?: string | null
           file_name?: string
           file_path?: string
           file_size?: number | null
           file_type?: string | null
           folder_id?: string | null
           id?: string
+          indexed_text?: string | null
           is_analyzed?: boolean | null
+          is_latest?: boolean
+          parent_attachment_id?: string | null
           project_id?: string | null
+          search_tsv?: unknown
+          tags?: string[]
+          title?: string | null
           updated_at?: string
           uploaded_at?: string
           user_id?: string
+          version_number?: number
         }
         Relationships: [
           {
@@ -2486,6 +2510,13 @@ export type Database = {
             columns: ["folder_id"]
             isOneToOne: false
             referencedRelation: "attachment_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_attachments_parent_attachment_id_fkey"
+            columns: ["parent_attachment_id"]
+            isOneToOne: false
+            referencedRelation: "project_attachments"
             referencedColumns: ["id"]
           },
           {
@@ -3704,6 +3735,46 @@ export type Database = {
       }
     }
     Functions: {
+      add_document_version: {
+        Args: {
+          _description?: string
+          _file_name: string
+          _file_path: string
+          _file_size: number
+          _file_type: string
+          _parent_id: string
+        }
+        Returns: {
+          analysis_result: Json | null
+          category: string | null
+          description: string | null
+          expiry_date: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string | null
+          folder_id: string | null
+          id: string
+          indexed_text: string | null
+          is_analyzed: boolean | null
+          is_latest: boolean
+          parent_attachment_id: string | null
+          project_id: string | null
+          search_tsv: unknown
+          tags: string[]
+          title: string | null
+          updated_at: string
+          uploaded_at: string
+          user_id: string
+          version_number: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "project_attachments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       add_shared_comment: {
         Args: {
           _author_email?: string
@@ -3785,6 +3856,39 @@ export type Database = {
           to: "workflow_instances"
           isOneToOne: true
           isSetofReturn: false
+        }
+      }
+      get_expiring_documents: {
+        Args: { _days?: number }
+        Returns: {
+          analysis_result: Json | null
+          category: string | null
+          description: string | null
+          expiry_date: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string | null
+          folder_id: string | null
+          id: string
+          indexed_text: string | null
+          is_analyzed: boolean | null
+          is_latest: boolean
+          parent_attachment_id: string | null
+          project_id: string | null
+          search_tsv: unknown
+          tags: string[]
+          title: string | null
+          updated_at: string
+          uploaded_at: string
+          user_id: string
+          version_number: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "project_attachments"
+          isOneToOne: false
+          isSetofReturn: true
         }
       }
       get_shared_analysis: {
