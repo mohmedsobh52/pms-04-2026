@@ -35,6 +35,7 @@ import { ProjectBOQTab } from "@/components/project-details/ProjectBOQTab";
 import { TranslationPreviewDialog } from "@/components/project-details/TranslationPreviewDialog";
 import { ProjectDocumentsTab } from "@/components/project-details/ProjectDocumentsTab";
 import { ProjectSettingsTab } from "@/components/project-details/ProjectSettingsTab";
+import { AppShell } from "@/components/layout/AppShell";
 import { 
   ProjectData, 
   ProjectItem, 
@@ -1270,7 +1271,8 @@ export default function ProjectDetailsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background" dir={isArabic ? 'rtl' : 'ltr'}>
+    <AppShell fullBleed hideBreadcrumbs>
+    <div className="min-h-[calc(100vh-3.5rem)] bg-background" dir={isArabic ? 'rtl' : 'ltr'}>
       <ProjectHeader
         project={project}
         pricingStats={pricingStats}
