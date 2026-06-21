@@ -36,6 +36,18 @@ import { TranslationPreviewDialog } from "@/components/project-details/Translati
 import { ProjectDocumentsTab } from "@/components/project-details/ProjectDocumentsTab";
 import { ProjectSettingsTab } from "@/components/project-details/ProjectSettingsTab";
 import { AppShell } from "@/components/layout/AppShell";
+import { ProjectKpiStrip } from "@/components/project-details/ProjectKpiStrip";
+import { ProjectActivityFeed } from "@/components/project-details/ProjectActivityFeed";
+import { EvmSummaryCard } from "@/components/evm/EvmSummaryCard";
+import { EvmTrendMiniChart } from "@/components/evm/EvmTrendMiniChart";
+import { EvmSCurve } from "@/components/evm/EvmSCurve";
+import { EvmVarianceTable } from "@/components/evm/EvmVarianceTable";
+import { BoqTreeView } from "@/components/boq/BoqTreeView";
+import { BoqVersionPanel } from "@/components/boq/BoqVersionPanel";
+import { BoqImportExportBar } from "@/components/boq/BoqImportExportBar";
+import { ExecutionTaskList } from "@/components/execution/ExecutionTaskList";
+import { ExecutionTimeline } from "@/components/execution/ExecutionTimeline";
+import { Activity as ActivityIcon, BarChart3 as EvmIcon, GanttChartSquare, History as HistoryIcon } from "lucide-react";
 import { 
   ProjectData, 
   ProjectItem, 
@@ -1317,17 +1329,33 @@ export default function ProjectDetailsPage() {
           </div>
         )}
 
+        {projectId && (
+          <ProjectKpiStrip projectId={projectId} currency={project?.currency || "SAR"} />
+        )}
+
         <Tabs value={activeTab} onValueChange={handleTabChange} className="tabs-navigation-safe">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
+          <TabsList className="grid w-full grid-cols-4 md:grid-cols-8 mb-6 h-auto">
             <TabsTrigger value="overview">
               {isArabic ? "نظرة عامة" : "Overview"}
             </TabsTrigger>
             <TabsTrigger value="boq">
               {isArabic ? "جدول الكميات" : "BOQ"}
             </TabsTrigger>
+            <TabsTrigger value="evm" className="flex items-center gap-1">
+              <EvmIcon className="w-3.5 h-3.5" />
+              {isArabic ? "EVM" : "EVM"}
+            </TabsTrigger>
+            <TabsTrigger value="execution" className="flex items-center gap-1">
+              <GanttChartSquare className="w-3.5 h-3.5" />
+              {isArabic ? "التنفيذ" : "Execution"}
+            </TabsTrigger>
             <TabsTrigger value="analysis" className="flex items-center gap-1">
               <Brain className="w-3.5 h-3.5" />
-              {isArabic ? "تحليل متقدم" : "Advanced Analysis"}
+              {isArabic ? "تحليل" : "Analysis"}
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="flex items-center gap-1">
+              <HistoryIcon className="w-3.5 h-3.5" />
+              {isArabic ? "النشاط" : "Activity"}
             </TabsTrigger>
             <TabsTrigger value="documents">
               {isArabic ? "المستندات" : "Documents"}
@@ -1352,6 +1380,19 @@ export default function ProjectDetailsPage() {
           </TabsContent>
 
           <TabsContent value="boq">
+            {projectId && (
+              <div className="space-y-4 mb-4">
+                <div className="flex items-center justify-end">
+                  <BoqImportExportBar projectId={projectId} projectName={project?.name || "BOQ"} />
+                </div>
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                  <div className="xl:col-span-2">
+                    <BoqTreeView projectId={projectId} currency={project?.currency || "SAR"} />
+                  </div>
+                  <BoqVersionPanel projectId={projectId} />
+                </div>
+              </div>
+            )}
             {backfillState.status !== "idle" && (
               <div className="mb-4 rounded-lg border border-border bg-card p-4 shadow-sm">
                 <div className="flex items-start gap-3">
@@ -1499,6 +1540,32 @@ export default function ProjectDetailsPage() {
               onDeleteZeroQuantityItems={handleDeleteZeroQuantityItems}
               formatCurrency={formatCurrency}
             />
+          </TabsContent>
+
+          <TabsContent value="evm" className="space-y-4">
+            {projectId && (
+              <>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <EvmSummaryCard projectId={projectId} currency={project?.currency || "SAR"} />
+                  <EvmTrendMiniChart projectId={projectId} />
+                </div>
+                <EvmSCurve projectId={projectId} currency={project?.currency || "SAR"} />
+                <EvmVarianceTable projectId={projectId} currency={project?.currency || "SAR"} />
+              </>
+            )}
+          </TabsContent>
+
+          <TabsContent value="execution" className="space-y-4">
+            {projectId && (
+              <>
+                <ExecutionTimeline projectId={projectId} />
+                <ExecutionTaskList projectId={projectId} />
+              </>
+            )}
+          </TabsContent>
+
+          <TabsContent value="activity">
+            {projectId && <ProjectActivityFeed projectId={projectId} />}
           </TabsContent>
 
           <TabsContent value="analysis">
