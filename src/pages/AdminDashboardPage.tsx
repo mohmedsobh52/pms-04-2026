@@ -719,6 +719,14 @@ const AdminDashboardPage = () => {
           )}
         </Card>
       </div>
+
+      <div className="mt-8 space-y-6">
+        <UsersRolesPanel />
+        <PermissionsMatrix />
+        <SystemSettingsPanel />
+        <CostCodesPanel />
+        <AuditLogsViewer />
+      </div>
     </div>
   );
 };
