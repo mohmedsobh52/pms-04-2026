@@ -260,13 +260,17 @@ const ProcurementPage = () => {
           </TabsContent>
 
           <TabsContent value="procurement">
-            <Suspense fallback={<TabFallback />}>
-              <ProcurementResourcesSchedule
-                items={analysisData?.items || []}
-                currency={analysisData?.summary?.currency || "SAR"}
-              />
-            </Suspense>
+            <div className="space-y-4">
+              <ProcurementWorkflow />
+              <Suspense fallback={<TabFallback />}>
+                <ProcurementResourcesSchedule
+                  items={analysisData?.items || []}
+                  currency={analysisData?.summary?.currency || "SAR"}
+                />
+              </Suspense>
+            </div>
           </TabsContent>
+
 
           <TabsContent value="compare">
             <div className="space-y-4">
