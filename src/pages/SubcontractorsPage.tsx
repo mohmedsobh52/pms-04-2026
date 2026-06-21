@@ -16,6 +16,10 @@ const SubcontractorManagement = lazy(() =>
 const SubcontractorBOQLink = lazy(() =>
   import("@/components/SubcontractorBOQLink").then((m) => ({ default: m.SubcontractorBOQLink }))
 );
+import { SubcontractorProfile } from "@/components/subcontractors/SubcontractorProfile";
+import { SubcontractorPayments } from "@/components/subcontractors/SubcontractorPayments";
+import { SubcontractorCertifications } from "@/components/subcontractors/SubcontractorCertifications";
+
 import { 
   Users, 
   LayoutDashboard, 
