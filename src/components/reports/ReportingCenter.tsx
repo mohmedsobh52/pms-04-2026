@@ -229,12 +229,12 @@ function ProcurementReport() {
     queryKey: ["report-procurement"],
     queryFn: async () => {
       const { data } = await supabase.from("procurement_items")
-        .select("item_name,status,quantity,unit_price,total_price,delivery_date,supplier_name")
+        .select("description,boq_item_number,status,quantity,estimated_cost,delivery_date,suggested_suppliers,priority")
         .order("delivery_date", { ascending: true }).limit(200);
       return (data ?? []).map((r: any) => ({
-        Item: r.item_name, Status: r.status, Qty: r.quantity,
-        "Unit Price": r.unit_price, Total: r.total_price,
-        Supplier: r.supplier_name ?? "—",
+        Item: r.description ?? r.boq_item_number, Status: r.status ?? "—", Priority: r.priority ?? "—",
+        Qty: r.quantity ?? 0, "Estimated Cost": r.estimated_cost ?? 0,
+        Supplier: Array.isArray(r.suggested_suppliers) ? (r.suggested_suppliers[0] ?? "—") : "—",
         Delivery: r.delivery_date ? new Date(r.delivery_date).toLocaleDateString() : "—",
       }));
     },
