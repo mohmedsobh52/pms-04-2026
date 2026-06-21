@@ -1757,7 +1757,8 @@ export default function ProjectDetailsPage() {
             )}
           </TabsContent>
 
-          <TabsContent value="documents">
+          <TabsContent value="documents" className="space-y-6">
+            {projectId && <DocumentsManager projectId={projectId} />}
             <ProjectDocumentsTab
               attachments={attachments}
               isUploading={isUploading}
