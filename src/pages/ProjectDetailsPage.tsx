@@ -2008,6 +2008,7 @@ export default function ProjectDetailsPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </AppShell>
   );
 }
 
