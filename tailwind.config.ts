@@ -14,9 +14,15 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Inter', 'system-ui', 'sans-serif'],
-        arabic: ['Cairo', 'system-ui', 'sans-serif'],
+        sans: ['Tajawal', 'Cairo', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        display: ['Tajawal', 'Cairo', 'system-ui', 'sans-serif'],
+        arabic: ['Cairo', 'Tajawal', 'system-ui', 'sans-serif'],
+      },
+      spacing: {
+        'page-x': '1.5rem',
+        'page-y': '1.5rem',
+        'section': '2.5rem',
+        'card': '1rem',
       },
       colors: {
         border: "hsl(var(--border))",

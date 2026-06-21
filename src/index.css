@@ -1,5 +1,4 @@
-/* Google Fonts — Emerald Prestige typography: Sora (display) + Manrope (body) + Cairo (Arabic) */
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Manrope:wght@300;400;500;600;700&family=Cairo:wght@400;500;600;700;800&display=swap');
+/* Foundation typography: Tajawal + Cairo are loaded via @fontsource in src/main.tsx */
 @import './components/ui/dialog-custom.css';
 
 @tailwind base;
@@ -17,187 +16,185 @@
 
 @layer base {
   :root {
-    /* ════════ Emerald Prestige Palette (HSL) ════════
-       #064e3b deep emerald → 163 86% 16%
-       #0d7a5f emerald      → 166 81% 26%
-       #c9a84c gold accent  →  44 52% 54%
-       #f5f0e0 cream surface→  45 45% 92%               */
+    /* ════════ Teal Trust Palette (HSL) ════════
+       Deep teal primary · cool surfaces · warm amber accent.
+       Re-skinned from Emerald Prestige — all token names preserved.   */
 
-    --background: 45 45% 96%;
-    --foreground: 163 40% 12%;
+    --background: 200 30% 98%;
+    --foreground: 200 35% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 163 40% 12%;
+    --card-foreground: 200 35% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 163 40% 12%;
+    --popover-foreground: 200 35% 12%;
 
-    --primary: 163 86% 16%;
-    --primary-foreground: 45 45% 96%;
+    --primary: 184 70% 27%;
+    --primary-foreground: 200 30% 98%;
 
-    --secondary: 166 81% 26%;
+    --secondary: 184 50% 42%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 45 30% 92%;
-    --muted-foreground: 163 20% 35%;
+    --muted: 200 25% 94%;
+    --muted-foreground: 200 15% 40%;
 
-    --accent: 44 52% 54%;
-    --accent-foreground: 163 86% 12%;
+    --accent: 38 92% 50%;
+    --accent-foreground: 200 35% 12%;
 
-    --success: 166 81% 26%;
+    --success: 160 70% 36%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 44 70% 48%;
-    --warning-foreground: 163 86% 12%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 200 35% 12%;
 
-    --destructive: 0 72% 50%;
+    --destructive: 0 75% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 163 20% 86%;
-    --input: 163 20% 86%;
-    --ring: 163 86% 16%;
+    --border: 200 20% 88%;
+    --input: 200 20% 88%;
+    --ring: 184 70% 27%;
 
     --radius: 0.625rem;
 
-    --workflow-bg: 45 45% 95%;
+    --workflow-bg: 200 30% 96%;
     --workflow-node: 0 0% 100%;
-    --workflow-line: 163 20% 78%;
-    --workflow-primary: 163 86% 16%;
-    --workflow-secondary: 166 81% 26%;
-    --workflow-success: 166 81% 36%;
-    --workflow-info: 44 52% 54%;
+    --workflow-line: 200 20% 80%;
+    --workflow-primary: 184 70% 27%;
+    --workflow-secondary: 184 50% 42%;
+    --workflow-success: 160 70% 36%;
+    --workflow-info: 38 92% 50%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(163 86% 16%) 0%, hsl(166 81% 26%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(44 52% 54%) 0%, hsl(44 70% 64%) 100%);
-    --gradient-surface: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(45 45% 96%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(163 86% 10%) 0%, hsl(163 86% 20%) 100%);
-    --gradient-bg: linear-gradient(180deg, hsl(45 45% 97%) 0%, hsl(0 0% 100%) 50%, hsl(45 45% 95%) 100%);
-    --gradient-gold: linear-gradient(135deg, hsl(44 52% 54%) 0%, hsl(44 60% 44%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(184 70% 22%) 0%, hsl(184 55% 38%) 100%);
+    --gradient-accent:  linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(38 92% 62%) 100%);
+    --gradient-surface: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(200 30% 97%) 100%);
+    --gradient-hero:    linear-gradient(135deg, hsl(184 70% 16%) 0%, hsl(184 55% 28%) 100%);
+    --gradient-bg:      linear-gradient(180deg, hsl(200 30% 98%) 0%, hsl(0 0% 100%) 50%, hsl(200 30% 96%) 100%);
+    --gradient-gold:    linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(38 92% 40%) 100%);
 
-    --shadow-sm: 0 1px 2px hsl(163 40% 12% / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(163 40% 12% / 0.08), 0 2px 4px -2px hsl(163 40% 12% / 0.06);
-    --shadow-lg: 0 10px 15px -3px hsl(163 40% 12% / 0.1), 0 4px 6px -4px hsl(163 40% 12% / 0.06);
-    --shadow-xl: 0 20px 25px -5px hsl(163 40% 12% / 0.12), 0 8px 10px -6px hsl(163 40% 12% / 0.08);
-    --shadow-glow: 0 0 30px hsl(163 86% 20% / 0.25);
-    --shadow-glow-accent: 0 0 30px hsl(44 52% 54% / 0.3);
+    --shadow-sm: 0 1px 2px hsl(200 35% 12% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(200 35% 12% / 0.08), 0 2px 4px -2px hsl(200 35% 12% / 0.06);
+    --shadow-lg: 0 10px 15px -3px hsl(200 35% 12% / 0.1), 0 4px 6px -4px hsl(200 35% 12% / 0.06);
+    --shadow-xl: 0 20px 25px -5px hsl(200 35% 12% / 0.12), 0 8px 10px -6px hsl(200 35% 12% / 0.08);
+    --shadow-glow: 0 0 30px hsl(184 70% 30% / 0.25);
+    --shadow-glow-accent: 0 0 30px hsl(38 92% 55% / 0.30);
 
-    --sidebar-background: 163 86% 16%;
-    --sidebar-foreground: 45 45% 92%;
-    --sidebar-primary: 44 52% 54%;
-    --sidebar-primary-foreground: 163 86% 12%;
-    --sidebar-accent: 163 60% 22%;
-    --sidebar-accent-foreground: 45 45% 96%;
-    --sidebar-border: 163 50% 25%;
-    --sidebar-ring: 44 52% 54%;
+    --sidebar-background: 184 70% 14%;
+    --sidebar-foreground: 200 30% 95%;
+    --sidebar-primary: 38 92% 55%;
+    --sidebar-primary-foreground: 184 70% 12%;
+    --sidebar-accent: 184 55% 22%;
+    --sidebar-accent-foreground: 200 30% 96%;
+    --sidebar-border: 184 40% 22%;
+    --sidebar-ring: 38 92% 55%;
 
-    /* Quick Action Card Colors — re-tuned to palette */
-    --qa-blue: 166 81% 26%;
-    --qa-orange: 44 70% 48%;
-    --qa-teal: 173 60% 32%;
-    --qa-green: 166 81% 36%;
+    /* Quick Action Card Colors — retuned to the new palette */
+    --qa-blue:   184 70% 32%;
+    --qa-orange: 38 92% 50%;
+    --qa-teal:   184 60% 38%;
+    --qa-green:  160 70% 36%;
 
     /* Unified Status Colors */
-    --status-active: 166 81% 36%;
-    --status-pending: 44 70% 48%;
-    --status-completed: 163 86% 16%;
-    --status-overdue: 0 72% 50%;
-    --status-draft: 163 15% 50%;
+    --status-active:    160 70% 36%;
+    --status-pending:   38 92% 50%;
+    --status-completed: 184 70% 27%;
+    --status-overdue:   0 75% 50%;
+    --status-draft:     200 15% 50%;
     --status-cancelled: 0 0% 55%;
 
     /* Priority Colors */
-    --priority-high: 0 72% 50%;
-    --priority-medium: 44 70% 48%;
-    --priority-low: 166 81% 36%;
+    --priority-high:   0 75% 50%;
+    --priority-medium: 38 92% 50%;
+    --priority-low:    160 70% 36%;
 
     /* Category (Resource) Colors */
-    --cat-material: 166 81% 36%;
-    --cat-labor: 163 86% 20%;
-    --cat-equipment: 44 52% 54%;
-    --cat-subcontractor: 200 60% 35%;
-    --cat-other: 163 15% 50%;
-    --qa-purple: 200 60% 35%;
-    --qa-amber: 44 70% 48%;
-    --qa-indigo: 163 86% 16%;
-    --qa-rose: 0 72% 50%;
-    --qa-red: 0 72% 50%;
+    --cat-material:      160 70% 36%;
+    --cat-labor:         184 70% 27%;
+    --cat-equipment:     38 92% 50%;
+    --cat-subcontractor: 220 70% 45%;
+    --cat-other:         200 15% 50%;
+    --qa-purple: 250 60% 55%;
+    --qa-amber:  38 92% 50%;
+    --qa-indigo: 220 70% 45%;
+    --qa-rose:   0 72% 55%;
+    --qa-red:    0 75% 50%;
 
     /* Lifecycle Phase Colors */
-    --phase-initiation: 173 60% 42%;
-    --phase-analysis: 163 86% 20%;
-    --phase-pricing: 166 81% 36%;
-    --phase-contracting: 44 70% 48%;
-    --phase-execution: 44 52% 54%;
-    --phase-monitoring: 0 72% 50%;
+    --phase-initiation:  184 60% 42%;
+    --phase-analysis:    184 70% 22%;
+    --phase-pricing:     160 70% 36%;
+    --phase-contracting: 38 92% 50%;
+    --phase-execution:   220 70% 45%;
+    --phase-monitoring:  0 75% 50%;
   }
 
 
   .dark {
-    /* Emerald Prestige — Dark variant */
-    --background: 163 40% 8%;
-    --foreground: 45 45% 92%;
+    /* Teal Trust — Dark variant */
+    --background: 200 30% 8%;
+    --foreground: 200 30% 95%;
 
-    --card: 163 40% 12%;
-    --card-foreground: 45 45% 92%;
+    --card: 200 30% 12%;
+    --card-foreground: 200 30% 95%;
 
-    --popover: 163 40% 10%;
-    --popover-foreground: 45 45% 92%;
+    --popover: 200 30% 10%;
+    --popover-foreground: 200 30% 95%;
 
-    --primary: 44 52% 54%;
-    --primary-foreground: 163 86% 12%;
+    --primary: 184 60% 45%;
+    --primary-foreground: 200 30% 10%;
 
-    --secondary: 166 60% 35%;
-    --secondary-foreground: 45 45% 92%;
+    --secondary: 184 45% 32%;
+    --secondary-foreground: 200 30% 95%;
 
-    --muted: 163 30% 18%;
-    --muted-foreground: 45 25% 65%;
+    --muted: 200 25% 18%;
+    --muted-foreground: 200 15% 65%;
 
-    --accent: 44 52% 54%;
-    --accent-foreground: 163 86% 12%;
+    --accent: 38 90% 55%;
+    --accent-foreground: 200 30% 10%;
 
-    --success: 166 70% 45%;
+    --success: 160 65% 45%;
     --success-foreground: 0 0% 100%;
 
-    --destructive: 0 70% 50%;
+    --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 163 30% 22%;
-    --input: 163 30% 22%;
-    --ring: 44 52% 54%;
+    --border: 200 25% 22%;
+    --input: 200 25% 22%;
+    --ring: 184 60% 45%;
 
-    --workflow-bg: 163 40% 10%;
-    --workflow-node: 163 40% 15%;
-    --workflow-line: 163 25% 30%;
+    --workflow-bg: 200 30% 10%;
+    --workflow-node: 200 30% 15%;
+    --workflow-line: 200 20% 30%;
 
-    --gradient-surface: linear-gradient(180deg, hsl(163 40% 12%) 0%, hsl(163 40% 8%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(163 86% 5%) 0%, hsl(163 50% 14%) 100%);
-    --gradient-bg: linear-gradient(180deg, hsl(163 40% 6%) 0%, hsl(163 40% 10%) 50%, hsl(163 40% 6%) 100%);
-    --gradient-gold: linear-gradient(135deg, hsl(44 52% 54%) 0%, hsl(44 60% 44%) 100%);
+    --gradient-surface: linear-gradient(180deg, hsl(200 30% 12%) 0%, hsl(200 30% 8%) 100%);
+    --gradient-hero:    linear-gradient(135deg, hsl(184 70% 8%) 0%, hsl(184 50% 18%) 100%);
+    --gradient-bg:      linear-gradient(180deg, hsl(200 30% 6%) 0%, hsl(200 30% 10%) 50%, hsl(200 30% 6%) 100%);
+    --gradient-gold:    linear-gradient(135deg, hsl(38 90% 55%) 0%, hsl(38 90% 45%) 100%);
 
-    --sidebar-background: 163 50% 10%;
-    --sidebar-foreground: 45 45% 92%;
-    --sidebar-primary: 44 52% 54%;
-    --sidebar-primary-foreground: 163 86% 12%;
-    --sidebar-accent: 163 40% 18%;
-    --sidebar-accent-foreground: 45 45% 92%;
-    --sidebar-border: 163 30% 22%;
-    --sidebar-ring: 44 52% 54%;
+    --sidebar-background: 184 70% 10%;
+    --sidebar-foreground: 200 30% 95%;
+    --sidebar-primary: 38 90% 55%;
+    --sidebar-primary-foreground: 184 70% 10%;
+    --sidebar-accent: 184 50% 18%;
+    --sidebar-accent-foreground: 200 30% 95%;
+    --sidebar-border: 184 40% 22%;
+    --sidebar-ring: 38 90% 55%;
 
-    --qa-blue: 166 70% 40%;
-    --qa-orange: 44 70% 55%;
-    --qa-teal: 173 60% 45%;
-    --qa-green: 166 70% 45%;
-    --qa-purple: 200 60% 50%;
-    --qa-amber: 44 70% 55%;
-    --qa-indigo: 163 70% 30%;
-    --qa-rose: 0 70% 55%;
-    --qa-red: 0 70% 55%;
+    --qa-blue:   184 60% 45%;
+    --qa-orange: 38 90% 55%;
+    --qa-teal:   184 55% 50%;
+    --qa-green:  160 65% 45%;
+    --qa-purple: 250 60% 60%;
+    --qa-amber:  38 90% 55%;
+    --qa-indigo: 220 65% 55%;
+    --qa-rose:   0 70% 60%;
+    --qa-red:    0 70% 55%;
 
-    --phase-initiation: 173 60% 52%;
-    --phase-analysis: 163 70% 40%;
-    --phase-pricing: 166 70% 45%;
-    --phase-contracting: 44 70% 55%;
-    --phase-execution: 44 52% 54%;
-    --phase-monitoring: 0 70% 55%;
+    --phase-initiation:  184 55% 52%;
+    --phase-analysis:    184 60% 40%;
+    --phase-pricing:     160 65% 45%;
+    --phase-contracting: 38 90% 55%;
+    --phase-execution:   220 65% 55%;
+    --phase-monitoring:  0 70% 60%;
   }
 
 }
@@ -209,25 +206,25 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Manrope', 'Inter', system-ui, sans-serif;
+    font-family: 'Tajawal', 'Cairo', system-ui, -apple-system, 'Segoe UI', sans-serif;
     min-height: 100vh;
     position: relative;
   }
 
   [dir="rtl"] body,
   [lang="ar"] body {
-    font-family: 'Cairo', 'Manrope', system-ui, sans-serif;
+    font-family: 'Cairo', 'Tajawal', system-ui, sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Sora', 'Manrope', system-ui, sans-serif;
+    font-family: 'Tajawal', 'Cairo', system-ui, sans-serif;
     font-weight: 700;
     letter-spacing: -0.01em;
   }
 
   [dir="rtl"] h1, [dir="rtl"] h2, [dir="rtl"] h3, [dir="rtl"] h4, [dir="rtl"] h5, [dir="rtl"] h6,
   [lang="ar"] h1, [lang="ar"] h2, [lang="ar"] h3, [lang="ar"] h4, [lang="ar"] h5, [lang="ar"] h6 {
-    font-family: 'Cairo', 'Sora', system-ui, sans-serif;
+    font-family: 'Cairo', 'Tajawal', system-ui, sans-serif;
   }
 
 }

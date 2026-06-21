@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/hooks/useLanguage";
-import { UnifiedHeader } from "@/components/UnifiedHeader";
+import { AppShell } from "@/components/layout/AppShell";
 // BackgroundImage replaced with semantic theme background
 import { PMSLogo } from "@/components/PMSLogo";
 import { supabase } from "@/integrations/supabase/client";
@@ -141,23 +141,23 @@ export default function HomePage() {
   ];
 
   return (
-    <div
-      className="min-h-screen flex flex-col bg-background"
-      dir={isArabic ? "rtl" : "ltr"}
-      style={{
-        backgroundImage:
-          "radial-gradient(ellipse at top, hsl(var(--primary) / 0.10), transparent 60%), radial-gradient(ellipse at bottom right, hsl(var(--accent) / 0.08), transparent 55%)",
-      }}
-    >
-      <style>{`
-        @keyframes card-enter {
-          from { opacity: 0; transform: translateY(20px) scale(0.95); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-      `}</style>
-      <UnifiedHeader />
+    <AppShell hideBreadcrumbs fullBleed className="bg-background">
+      <div
+        className="min-h-[calc(100vh-3.5rem)] flex flex-col"
+        dir={isArabic ? "rtl" : "ltr"}
+        style={{
+          backgroundImage:
+            "radial-gradient(ellipse at top, hsl(var(--primary) / 0.10), transparent 60%), radial-gradient(ellipse at bottom right, hsl(var(--accent) / 0.08), transparent 55%)",
+        }}
+      >
+        <style>{`
+          @keyframes card-enter {
+            from { opacity: 0; transform: translateY(20px) scale(0.95); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+          }
+        `}</style>
 
-      <main className="flex-1 flex flex-col items-center px-3 md:px-4 py-6 md:py-8">
+        <main className="flex-1 flex flex-col items-center px-3 md:px-4 py-6 md:py-8">
         {/* Hero Stats Pills */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 max-w-3xl w-full mb-4">
           {heroStats.map((s) => {
@@ -339,6 +339,7 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
-    </div>
+      </div>
+    </AppShell>
   );
 }

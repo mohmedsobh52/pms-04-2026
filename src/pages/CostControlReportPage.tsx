@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import { useSearchParams, useParams, Link } from "react-router-dom";
-import { PageLayout } from "@/components/PageLayout";
+import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useUndoRedo, heatmapClass } from "@/hooks/useEvmTools";
 import html2canvas from "html2canvas";
