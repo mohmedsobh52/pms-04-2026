@@ -28,6 +28,7 @@ import {
   Settings,
   Gauge,
   ArrowRight,
+  Sparkles,
 } from "lucide-react";
 
 type CountsMap = Record<string, number>;
@@ -75,6 +76,7 @@ const groups: { titleAr: string; titleEn: string; items: Section[] }[] = [
       { nameAr: "المستخلصات", nameEn: "Certificates", descAr: "الشهادات والمستخلصات", descEn: "Progress certificates", path: "/progress-certificates", icon: Award, token: "status-pending", countKey: "progress_certificates" },
       { nameAr: "تحليل المخططات", nameEn: "Drawings", descAr: "استخراج الكميات", descEn: "Extract quantities", path: "/projects?tab=attachments&mode=extraction", icon: Ruler, token: "priority-medium", countKey: null },
       { nameAr: "خطة التنفيذ", nameEn: "Execution Plan", descAr: "تخطيط بالذكاء الاصطناعي", descEn: "AI execution planning", path: "/p6-export", icon: ListChecks, token: "status-completed", countKey: null },
+      { nameAr: "مولّد العروض الفنية", nameEn: "Technical Proposal", descAr: "عروض فنية بالذكاء الاصطناعي", descEn: "AI-generated proposals", path: "/technical-proposal", icon: Sparkles, token: "status-active", countKey: null },
     ],
   },
   {

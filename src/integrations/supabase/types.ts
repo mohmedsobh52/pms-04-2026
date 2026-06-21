@@ -3282,6 +3282,74 @@ export type Database = {
         }
         Relationships: []
       }
+      technical_proposals: {
+        Row: {
+          budget: number | null
+          client_name: string | null
+          content: string | null
+          created_at: string
+          currency: string | null
+          duration_months: number | null
+          id: string
+          inputs: Json | null
+          language: string | null
+          model: string | null
+          project_id: string | null
+          project_scope: string | null
+          sections: Json | null
+          status: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          budget?: number | null
+          client_name?: string | null
+          content?: string | null
+          created_at?: string
+          currency?: string | null
+          duration_months?: number | null
+          id?: string
+          inputs?: Json | null
+          language?: string | null
+          model?: string | null
+          project_id?: string | null
+          project_scope?: string | null
+          sections?: Json | null
+          status?: string | null
+          title: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          budget?: number | null
+          client_name?: string | null
+          content?: string | null
+          created_at?: string
+          currency?: string | null
+          duration_months?: number | null
+          id?: string
+          inputs?: Json | null
+          language?: string | null
+          model?: string | null
+          project_id?: string | null
+          project_scope?: string | null
+          sections?: Json | null
+          status?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_proposals_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "saved_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tender_pricing: {
         Row: {
           contingency: number | null

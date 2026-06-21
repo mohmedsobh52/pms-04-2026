@@ -68,6 +68,7 @@ const ResourcesDashboardPage = lazy(() => import("./pages/ResourcesDashboardPage
 const DebugBreadcrumbsPage = lazy(() => import("./pages/DebugBreadcrumbsPage"));
 const ExecutiveSummaryPage = lazy(() => import("./pages/ExecutiveSummaryPage"));
 const ProjectsComparePage = lazy(() => import("./pages/ProjectsComparePage"));
+const TechnicalProposalGeneratorPage = lazy(() => import("./pages/TechnicalProposalGeneratorPage"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -163,6 +164,7 @@ const App = () => (
                         <Route path="/debug/breadcrumbs" element={<DebugBreadcrumbsPage />} />
                         <Route path="/executive-summary" element={<ExecutiveSummaryPage />} />
                         <Route path="/projects/compare" element={<ProjectsComparePage />} />
+                        <Route path="/technical-proposal" element={<TechnicalProposalGeneratorPage />} />
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />
                       </Routes>
