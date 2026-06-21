@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   CommandDialog,
   CommandEmpty,
@@ -10,10 +11,11 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { useLanguage } from "@/hooks/useLanguage";
+import { searchEntities, GROUP_LABELS, EntityHit } from "@/lib/global-search";
 import {
   Home, FolderOpen, FileText, Package, Users, Building2, BarChart3,
   Calendar, Library, DollarSign, Settings, ShieldAlert, Sparkles,
-  Calculator, FileSpreadsheet, Target,
+  Calculator, FileSpreadsheet, Target, Search,
 } from "lucide-react";
 
 interface NavItem {
