@@ -269,10 +269,14 @@ const ProcurementPage = () => {
           </TabsContent>
 
           <TabsContent value="compare">
-            <Suspense fallback={<TabFallback />}>
-              <SupplierComparisonTable isArabic={isArabic} />
-            </Suspense>
+            <div className="space-y-4">
+              <SupplierComparisonMatrix />
+              <Suspense fallback={<TabFallback />}>
+                <SupplierComparisonTable isArabic={isArabic} />
+              </Suspense>
+            </div>
           </TabsContent>
+
 
           <TabsContent value="contracts">
             <Suspense fallback={<TabFallback />}>
