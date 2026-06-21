@@ -83,13 +83,17 @@ export default function ApprovalsInboxPage() {
       if (!s) return false;
       if (isAdmin) return true;
       if (s.approver_user_id === user.id) return true;
-      if (s.approver_role && roles.includes(s.approver_role)) return true;
+      if (s.approver_role && (roles as string[]).includes(s.approver_role)) return true;
       return false;
     });
   }, [rows, user, roles, isAdmin]);
 
   return (
-    <AppShell title="صندوق الموافقات" subtitle="سير الأعمال المعلّقة بانتظار قرارك">
+    <AppShell>
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold">صندوق الموافقات</h1>
+        <p className="text-sm text-muted-foreground">سير الأعمال المعلّقة بانتظار قرارك</p>
+      </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_400px]">
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3">
