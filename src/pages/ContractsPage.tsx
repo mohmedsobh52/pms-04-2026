@@ -58,6 +58,11 @@ const MaintenanceTracker = lazy(() =>
   import("@/components/contracts/MaintenanceTracker").then((m) => ({ default: m.MaintenanceTracker }))
 );
 
+import { ContractExpiryAlerts } from "@/components/contracts/ContractExpiryAlerts";
+import { ContractVariations } from "@/components/contracts/ContractVariations";
+import { ContractLifecycleTimeline } from "@/components/contracts/ContractLifecycleTimeline";
+
+
 const TAB_STORAGE_KEY = "contracts:active-tab";
 
 const TabFallback = () => (
