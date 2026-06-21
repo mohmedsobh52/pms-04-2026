@@ -36,6 +36,18 @@ import { TranslationPreviewDialog } from "@/components/project-details/Translati
 import { ProjectDocumentsTab } from "@/components/project-details/ProjectDocumentsTab";
 import { ProjectSettingsTab } from "@/components/project-details/ProjectSettingsTab";
 import { AppShell } from "@/components/layout/AppShell";
+import { ProjectKpiStrip } from "@/components/project-details/ProjectKpiStrip";
+import { ProjectActivityFeed } from "@/components/project-details/ProjectActivityFeed";
+import { EvmSummaryCard } from "@/components/evm/EvmSummaryCard";
+import { EvmTrendMiniChart } from "@/components/evm/EvmTrendMiniChart";
+import { EvmSCurve } from "@/components/evm/EvmSCurve";
+import { EvmVarianceTable } from "@/components/evm/EvmVarianceTable";
+import { BoqTreeView } from "@/components/boq/BoqTreeView";
+import { BoqVersionPanel } from "@/components/boq/BoqVersionPanel";
+import { BoqImportExportBar } from "@/components/boq/BoqImportExportBar";
+import { ExecutionTaskList } from "@/components/execution/ExecutionTaskList";
+import { ExecutionTimeline } from "@/components/execution/ExecutionTimeline";
+import { Activity as ActivityIcon, BarChart3 as EvmIcon, GanttChartSquare, History as HistoryIcon } from "lucide-react";
 import { 
   ProjectData, 
   ProjectItem, 
