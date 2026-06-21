@@ -4,6 +4,7 @@ import { X, RefreshCw, Sparkles, History, Bell, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserRoles } from '@/hooks/useUserRoles';
 import { supabase } from '@/integrations/supabase/client';
 
 interface VersionInfo {
@@ -21,17 +22,14 @@ const LAST_CHECK_KEY = 'boq_last_update_check';
 const CHECK_INTERVAL = 1000 * 60 * 30; // Check every 30 minutes
 const NOTIFICATION_PERMISSION_KEY = 'boq_notification_permission_asked';
 
-const ADMIN_EMAILS = ['mohmedsobh@gmail.com', 'admin@boqanalyzer.com'];
-
 export const UpdateBanner = () => {
   const { language, isArabic } = useLanguage();
   const { user } = useAuth();
+  const { isAdmin } = useUserRoles();
   const [isVisible, setIsVisible] = useState(false);
   const [showChanges, setShowChanges] = useState(false);
   const [latestVersion, setLatestVersion] = useState<VersionInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  const isAdmin = user && ADMIN_EMAILS.includes(user.email || '');
 
   // Request notification permission
   const requestNotificationPermission = useCallback(async () => {
