@@ -44,6 +44,7 @@ import { EvmSCurve } from "@/components/evm/EvmSCurve";
 import { EvmVarianceTable } from "@/components/evm/EvmVarianceTable";
 import { BoqTreeView } from "@/components/boq/BoqTreeView";
 import { BoqExplorer } from "@/components/boq/BoqExplorer";
+import { DocumentsManager } from "@/components/dms/DocumentsManager";
 import { BoqVersionPanel } from "@/components/boq/BoqVersionPanel";
 import { BoqImportExportBar } from "@/components/boq/BoqImportExportBar";
 import { ExecutionTaskList } from "@/components/execution/ExecutionTaskList";
@@ -1757,7 +1758,8 @@ export default function ProjectDetailsPage() {
             )}
           </TabsContent>
 
-          <TabsContent value="documents">
+          <TabsContent value="documents" className="space-y-6">
+            {projectId && <DocumentsManager projectId={projectId} />}
             <ProjectDocumentsTab
               attachments={attachments}
               isUploading={isUploading}
