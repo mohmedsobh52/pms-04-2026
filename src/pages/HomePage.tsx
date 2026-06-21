@@ -28,6 +28,7 @@ import {
   Settings,
   Gauge,
   ArrowRight,
+  Sparkles,
 } from "lucide-react";
 
 type CountsMap = Record<string, number>;
