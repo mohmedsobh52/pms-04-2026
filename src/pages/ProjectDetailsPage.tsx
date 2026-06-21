@@ -43,6 +43,7 @@ import { EvmTrendMiniChart } from "@/components/evm/EvmTrendMiniChart";
 import { EvmSCurve } from "@/components/evm/EvmSCurve";
 import { EvmVarianceTable } from "@/components/evm/EvmVarianceTable";
 import { BoqTreeView } from "@/components/boq/BoqTreeView";
+import { BoqExplorer } from "@/components/boq/BoqExplorer";
 import { BoqVersionPanel } from "@/components/boq/BoqVersionPanel";
 import { BoqImportExportBar } from "@/components/boq/BoqImportExportBar";
 import { ExecutionTaskList } from "@/components/execution/ExecutionTaskList";
@@ -1387,7 +1388,7 @@ export default function ProjectDetailsPage() {
                 </div>
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                   <div className="xl:col-span-2">
-                    <BoqTreeView projectId={projectId} currency={project?.currency || "SAR"} />
+                    <BoqExplorer projectId={projectId} currency={project?.currency || "SAR"} />
                   </div>
                   <BoqVersionPanel projectId={projectId} />
                 </div>
