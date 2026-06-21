@@ -872,30 +872,75 @@ export default function CashFlowPanel({
                     {isArabic ? "اتجاه أداء EVM (لقطات محفوظة)" : "EVM Performance Trend (Snapshots)"}
                     <Badge variant="outline" className="text-[10px]">{snapshots.length}</Badge>
                   </div>
-                  <Button size="sm" variant="ghost" className="h-7 gap-1 text-rose-600" onClick={handleClearSnapshots}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                    {isArabic ? "مسح الكل" : "Clear all"}
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button size="sm" variant="outline" className="h-7 gap-1" onClick={() => {
+                      const rows = snapshots.map((s) => ({
+                        DataDate: s.dataDate || new Date(s.ts).toLocaleDateString(),
+                        Percent: Number(s.pct.toFixed(2)),
+                        BAC: Math.round(s.BAC), PV: Math.round(s.PV), EV: Math.round(s.EV), AC: Math.round(s.AC),
+                        CPI: Number(s.CPI.toFixed(3)), SPI: Number(s.SPI.toFixed(3)),
+                        EAC: Math.round(s.EAC), VAC: Math.round(s.VAC),
+                      }));
+                      const wb = XLSX.utils.book_new();
+                      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Snapshots");
+                      XLSX.writeFile(wb, `${projectName || "project"}-evm-snapshots.xlsx`);
+                    }}>
+                      <Download className="h-3.5 w-3.5" />
+                      {isArabic ? "تصدير" : "Export"}
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 gap-1 text-rose-600" onClick={handleClearSnapshots}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {isArabic ? "مسح الكل" : "Clear all"}
+                    </Button>
+                  </div>
                 </div>
 
                 {snapshots.length >= 2 && (
-                  <div className="h-56 w-full rounded-lg border bg-muted/20 p-2">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={snapshots.map((s) => ({
-                        label: s.dataDate || new Date(s.ts).toLocaleDateString("en-US", { month: "short", day: "2-digit" }),
-                        CPI: Number(s.CPI.toFixed(3)),
-                        SPI: Number(s.SPI.toFixed(3)),
-                      }))} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
-                        <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                        <YAxis domain={[0, 'auto']} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                        <RTooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                        <Legend wrapperStyle={{ fontSize: 12 }} />
-                        <ReferenceLine y={1} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
-                        <Line type="monotone" dataKey="CPI" stroke="hsl(262 83% 58%)" strokeWidth={2.5} dot={{ r: 3 }} />
-                        <Line type="monotone" dataKey="SPI" stroke="hsl(38 92% 50%)" strokeWidth={2.5} dot={{ r: 3 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    <div className="h-56 w-full rounded-lg border bg-muted/20 p-2">
+                      <div className="text-[11px] font-semibold text-muted-foreground px-1 pb-1">
+                        {isArabic ? "اتجاه CPI / SPI" : "CPI / SPI Trend"}
+                      </div>
+                      <ResponsiveContainer width="100%" height="88%">
+                        <LineChart data={snapshots.map((s) => ({
+                          label: s.dataDate || new Date(s.ts).toLocaleDateString("en-US", { month: "short", day: "2-digit" }),
+                          CPI: Number(s.CPI.toFixed(3)),
+                          SPI: Number(s.SPI.toFixed(3)),
+                        }))} margin={{ top: 5, right: 15, bottom: 0, left: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+                          <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
+                          <YAxis domain={[0, 'auto']} tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
+                          <RTooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                          <Legend wrapperStyle={{ fontSize: 11 }} />
+                          <ReferenceLine y={1} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
+                          <Line type="monotone" dataKey="CPI" stroke="hsl(262 83% 58%)" strokeWidth={2.5} dot={{ r: 3 }} />
+                          <Line type="monotone" dataKey="SPI" stroke="hsl(38 92% 50%)" strokeWidth={2.5} dot={{ r: 3 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="h-56 w-full rounded-lg border bg-muted/20 p-2">
+                      <div className="text-[11px] font-semibold text-muted-foreground px-1 pb-1">
+                        {isArabic ? "اتجاه EAC / VAC" : "EAC / VAC Trend"}
+                      </div>
+                      <ResponsiveContainer width="100%" height="88%">
+                        <LineChart data={snapshots.map((s) => ({
+                          label: s.dataDate || new Date(s.ts).toLocaleDateString("en-US", { month: "short", day: "2-digit" }),
+                          EAC: Math.round(s.EAC),
+                          VAC: Math.round(s.VAC),
+                          BAC: Math.round(s.BAC),
+                        }))} margin={{ top: 5, right: 15, bottom: 0, left: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+                          <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
+                          <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => Intl.NumberFormat("en", { notation: "compact" }).format(v as number)} />
+                          <RTooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                          <Legend wrapperStyle={{ fontSize: 11 }} />
+                          <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
+                          <Line type="monotone" dataKey="BAC" stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
+                          <Line type="monotone" dataKey="EAC" stroke="hsl(0 84% 60%)" strokeWidth={2.5} dot={{ r: 3 }} />
+                          <Line type="monotone" dataKey="VAC" stroke="hsl(160 84% 39%)" strokeWidth={2.5} dot={{ r: 3 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
                 )}
 
