@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { UsersRolesPanel } from "@/components/admin/UsersRolesPanel";
+import { PermissionsMatrix } from "@/components/admin/PermissionsMatrix";
+import { SystemSettingsPanel } from "@/components/admin/SystemSettingsPanel";
+import { CostCodesPanel } from "@/components/admin/CostCodesPanel";
+import { AuditLogsViewer } from "@/components/admin/AuditLogsViewer";
 import {
   Shield,
   Bell,
@@ -718,6 +723,14 @@ const AdminDashboardPage = () => {
             </div>
           )}
         </Card>
+      </div>
+
+      <div className="mt-8 space-y-6">
+        <UsersRolesPanel />
+        <PermissionsMatrix />
+        <SystemSettingsPanel />
+        <CostCodesPanel />
+        <AuditLogsViewer />
       </div>
     </div>
   );

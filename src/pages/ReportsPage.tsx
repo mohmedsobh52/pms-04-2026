@@ -27,6 +27,7 @@ const ProjectSummaryTab = lazy(() => import("@/components/reports/ProjectSummary
 const RecentProjectsTab = lazy(() => import("@/components/reports/RecentProjectsTab").then((m) => ({ default: m.RecentProjectsTab })));
 const ProjectsComparisonExport = lazy(() => import("@/components/reports/ProjectsComparisonExport").then((m) => ({ default: m.ProjectsComparisonExport })));
 const AdvancedReportsTab = lazy(() => import("@/components/reports/AdvancedReportsTab").then((m) => ({ default: m.AdvancedReportsTab })));
+const ReportingCenter = lazy(() => import("@/components/reports/ReportingCenter").then((m) => ({ default: m.ReportingCenter })));
 
 const TabFallback = () => (
   <div className="flex items-center justify-center py-16 text-muted-foreground">
@@ -513,6 +514,12 @@ const ReportsPage = () => {
               })}
             </CardContent>
           </Card>
+        </div>
+
+        <div className="mt-6">
+          <Suspense fallback={<TabFallback />}>
+            <ReportingCenter />
+          </Suspense>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
