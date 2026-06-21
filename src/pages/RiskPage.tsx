@@ -30,11 +30,13 @@ const RiskPage = () => {
     (async () => {
       const { data } = await supabase
         .from("risks")
-        .select("id, title, description, risk_score, probability, impact, status, category, review_date")
+        .select("id, title, description, risk_score, probability, impact, probability_score, impact_score, status, category, review_date")
         .eq("user_id", user.id)
         .limit(500)
         .order("created_at", { ascending: false });
       if (!data) return;
+      setRisksRaw(data as any[]);
+
       const scores = data.map((r: any) => Number(r.risk_score) || 0);
       const high = data.filter((r: any) => (Number(r.risk_score) || 0) >= 15).length;
       const mitigated = data.filter((r: any) => r.status === "mitigated" || r.status === "closed").length;
