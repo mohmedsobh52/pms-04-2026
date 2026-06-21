@@ -12,6 +12,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Settings, FolderOpen, User, LogOut, ChevronDown, BarChart3 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useUserRoles, ROLE_LABELS } from "@/hooks/useUserRoles";
+import { Badge } from "@/components/ui/badge";
 
 export function UserMenu() {
   const { user, signOut } = useAuth();
