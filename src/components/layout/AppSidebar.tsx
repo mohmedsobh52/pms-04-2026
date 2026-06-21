@@ -6,7 +6,7 @@ import {
 import {
   Home, FolderOpen, ListChecks, DollarSign, Gauge, Briefcase, Package, FileSignature,
   Users, AlertTriangle, FileBarChart, BookOpen, Calendar, Settings, Shield, FileText,
-  Layers, Truck, Award,
+  Layers, Truck, Award, Inbox,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 
@@ -49,6 +49,7 @@ const groups: NavGroup[] = [
       { titleEn: "Contracts",             titleAr: "العقود",   url: "/contracts",             icon: FileSignature },
       { titleEn: "Progress Certificates", titleAr: "مستخلصات", url: "/progress-certificates", icon: FileText },
       { titleEn: "Risks",                 titleAr: "المخاطر",  url: "/risk",                  icon: AlertTriangle },
+      { titleEn: "Approvals",             titleAr: "الموافقات", url: "/approvals",             icon: Inbox },
     ],
   },
   {

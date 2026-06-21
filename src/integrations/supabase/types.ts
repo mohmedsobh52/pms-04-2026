@@ -3459,6 +3459,190 @@ export type Database = {
         }
         Relationships: []
       }
+      workflow_approvals: {
+        Row: {
+          approver_id: string
+          comment: string | null
+          decided_at: string
+          decision: Database["public"]["Enums"]["workflow_approval_decision"]
+          id: string
+          instance_id: string
+          step_id: string
+          step_order: number
+        }
+        Insert: {
+          approver_id: string
+          comment?: string | null
+          decided_at?: string
+          decision: Database["public"]["Enums"]["workflow_approval_decision"]
+          id?: string
+          instance_id: string
+          step_id: string
+          step_order: number
+        }
+        Update: {
+          approver_id?: string
+          comment?: string | null
+          decided_at?: string
+          decision?: Database["public"]["Enums"]["workflow_approval_decision"]
+          id?: string
+          instance_id?: string
+          step_id?: string
+          step_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_approvals_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_approvals_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_definitions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          entity_type: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          entity_type: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          entity_type?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      workflow_instances: {
+        Row: {
+          completed_at: string | null
+          current_step_order: number
+          definition_id: string
+          due_at: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          metadata: Json
+          project_id: string | null
+          started_at: string
+          started_by: string | null
+          status: Database["public"]["Enums"]["workflow_instance_status"]
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          current_step_order?: number
+          definition_id: string
+          due_at?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          metadata?: Json
+          project_id?: string | null
+          started_at?: string
+          started_by?: string | null
+          status?: Database["public"]["Enums"]["workflow_instance_status"]
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          current_step_order?: number
+          definition_id?: string
+          due_at?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          metadata?: Json
+          project_id?: string | null
+          started_at?: string
+          started_by?: string | null
+          status?: Database["public"]["Enums"]["workflow_instance_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_instances_definition_id_fkey"
+            columns: ["definition_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_steps: {
+        Row: {
+          allow_parallel: boolean
+          approver_role: Database["public"]["Enums"]["app_role"] | null
+          approver_user_id: string | null
+          condition_expression: string | null
+          created_at: string
+          definition_id: string
+          id: string
+          name: string
+          sla_hours: number | null
+          step_order: number
+        }
+        Insert: {
+          allow_parallel?: boolean
+          approver_role?: Database["public"]["Enums"]["app_role"] | null
+          approver_user_id?: string | null
+          condition_expression?: string | null
+          created_at?: string
+          definition_id: string
+          id?: string
+          name: string
+          sla_hours?: number | null
+          step_order: number
+        }
+        Update: {
+          allow_parallel?: boolean
+          approver_role?: Database["public"]["Enums"]["app_role"] | null
+          approver_user_id?: string | null
+          condition_expression?: string | null
+          created_at?: string
+          definition_id?: string
+          id?: string
+          name?: string
+          sla_hours?: number | null
+          step_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_steps_definition_id_fkey"
+            columns: ["definition_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       analysis_comments_secure: {
@@ -3551,6 +3735,58 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      cancel_workflow: {
+        Args: { _instance_id: string; _reason?: string }
+        Returns: {
+          completed_at: string | null
+          current_step_order: number
+          definition_id: string
+          due_at: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          metadata: Json
+          project_id: string | null
+          started_at: string
+          started_by: string | null
+          status: Database["public"]["Enums"]["workflow_instance_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "workflow_instances"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      decide_workflow_step: {
+        Args: {
+          _comment?: string
+          _decision: Database["public"]["Enums"]["workflow_approval_decision"]
+          _instance_id: string
+        }
+        Returns: {
+          completed_at: string | null
+          current_step_order: number
+          definition_id: string
+          due_at: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          metadata: Json
+          project_id: string | null
+          started_at: string
+          started_by: string | null
+          status: Database["public"]["Enums"]["workflow_instance_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "workflow_instances"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_shared_analysis: {
         Args: { _share_code: string }
         Returns: {
@@ -3623,6 +3859,16 @@ export type Database = {
         }
         Returns: string
       }
+      start_workflow: {
+        Args: {
+          _definition_id: string
+          _entity_id: string
+          _entity_type: string
+          _metadata?: Json
+          _project_id?: string
+        }
+        Returns: string
+      }
       user_owns_project: { Args: { _project_id: string }; Returns: boolean }
     }
     Enums: {
@@ -3637,6 +3883,13 @@ export type Database = {
         | "site_engineer"
         | "subcontractor"
         | "viewer"
+      workflow_approval_decision: "approved" | "rejected"
+      workflow_instance_status:
+        | "pending"
+        | "in_progress"
+        | "approved"
+        | "rejected"
+        | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3775,6 +4028,14 @@ export const Constants = {
         "site_engineer",
         "subcontractor",
         "viewer",
+      ],
+      workflow_approval_decision: ["approved", "rejected"],
+      workflow_instance_status: [
+        "pending",
+        "in_progress",
+        "approved",
+        "rejected",
+        "cancelled",
       ],
     },
   },
