@@ -43,9 +43,14 @@ export function UserMenu() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56 z-50 bg-popover">
         <DropdownMenuLabel>
-          <div className="flex flex-col space-y-1">
+          <div className="flex flex-col space-y-1.5">
             <p className="text-sm font-medium">{userName}</p>
             <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+            {primaryRole && (
+              <Badge variant="secondary" className="w-fit text-[10px] font-normal">
+                {isArabic ? ROLE_LABELS[primaryRole].ar : ROLE_LABELS[primaryRole].en}
+              </Badge>
+            )}
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
