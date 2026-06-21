@@ -104,7 +104,6 @@ export function AppSidebar() {
 
       <SidebarContent>
         {groups.map((g) => {
-          const hasActive = g.items.some((i) => isActive(i.url));
           return (
             <SidebarGroup key={g.labelEn}>
               {!collapsed && (
