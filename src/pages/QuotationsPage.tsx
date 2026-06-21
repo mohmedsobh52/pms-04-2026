@@ -13,6 +13,8 @@ import { FileText, CheckCircle2, Clock, Users, DollarSign, TrendingUp, Award, Ca
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { SuspenseFallback } from "@/components/ui/loading-states";
+import { SupplierComparisonMatrix } from "@/components/cost/SupplierComparisonMatrix";
+
 
 const QuotationComparison = lazy(() =>
   import("@/components/QuotationComparison").then((m) => ({ default: m.QuotationComparison }))
@@ -309,10 +311,14 @@ const QuotationsPage = () => {
               <QuotationUpload />
             </TabsContent>
             <TabsContent value="compare">
-              <Suspense fallback={<SuspenseFallback label={isArabic ? "جاري التحميل..." : "Loading..."} />}>
-                <QuotationComparison />
-              </Suspense>
+              <div className="space-y-4">
+                <SupplierComparisonMatrix />
+                <Suspense fallback={<SuspenseFallback label={isArabic ? "جاري التحميل..." : "Loading..."} />}>
+                  <QuotationComparison />
+                </Suspense>
+              </div>
             </TabsContent>
+
           </Tabs>
         </div>
       </ErrorBoundary>

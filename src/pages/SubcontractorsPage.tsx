@@ -16,6 +16,10 @@ const SubcontractorManagement = lazy(() =>
 const SubcontractorBOQLink = lazy(() =>
   import("@/components/SubcontractorBOQLink").then((m) => ({ default: m.SubcontractorBOQLink }))
 );
+import { SubcontractorProfile } from "@/components/subcontractors/SubcontractorProfile";
+import { SubcontractorPayments } from "@/components/subcontractors/SubcontractorPayments";
+import { SubcontractorCertifications } from "@/components/subcontractors/SubcontractorCertifications";
+
 import { 
   Users, 
   LayoutDashboard, 
@@ -346,7 +350,7 @@ const SubcontractorsPage = () => {
 
         {/* Main Tabs - FIDIC removed */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid grid-cols-3 w-full md:w-auto tabs-navigation-safe">
+          <TabsList className="grid grid-cols-4 w-full md:w-auto tabs-navigation-safe">
             <TabsTrigger value="dashboard" className="gap-2">
               <LayoutDashboard className="w-4 h-4" />
               <span className="hidden md:inline">{isArabic ? "لوحة التحكم" : "Dashboard"}</span>
@@ -355,11 +359,16 @@ const SubcontractorsPage = () => {
               <Users className="w-4 h-4" />
               <span className="hidden md:inline">{isArabic ? "المقاولين" : "Subcontractors"}</span>
             </TabsTrigger>
+            <TabsTrigger value="profiles" className="gap-2">
+              <Star className="w-4 h-4" />
+              <span className="hidden md:inline">{isArabic ? "الملفات" : "Profiles"}</span>
+            </TabsTrigger>
             <TabsTrigger value="boq-link" className="gap-2">
               <Link2 className="w-4 h-4" />
               <span className="hidden md:inline">{isArabic ? "ربط البنود" : "BOQ Link"}</span>
             </TabsTrigger>
           </TabsList>
+
 
           <TabsContent value="dashboard" className="mt-4">
             <SubcontractorProgressDashboard
@@ -374,7 +383,23 @@ const SubcontractorsPage = () => {
             </Suspense>
           </TabsContent>
 
+          <TabsContent value="profiles" className="mt-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {subcontractors.map((s: any) => (
+                <div key={s.id} className="space-y-3">
+                  <SubcontractorProfile partner={s} />
+                  <SubcontractorPayments contractorName={s.name} />
+                  <SubcontractorCertifications partnerId={s.id} />
+                </div>
+              ))}
+              {subcontractors.length === 0 && (
+                <p className="text-sm text-muted-foreground">{isArabic ? "لا يوجد مقاولون" : "No subcontractors yet."}</p>
+              )}
+            </div>
+          </TabsContent>
+
           <TabsContent value="boq-link" className="mt-4">
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

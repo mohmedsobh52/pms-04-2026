@@ -13,6 +13,10 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
+import { RiskHeatmap } from "@/components/risk/RiskHeatmap";
+import { RiskMatrix } from "@/components/risk/RiskMatrix";
+import { RiskAlertsPanel } from "@/components/risk/RiskAlertsPanel";
+
 
 const RiskPage = () => {
   const { user } = useAuth();
@@ -22,17 +26,21 @@ const RiskPage = () => {
   const [byStatus, setByStatus] = useState<Array<{ name: string; count: number; color: string }>>([]);
   const [heatmap, setHeatmap] = useState<number[][]>(() => Array.from({length:5},()=>Array(5).fill(0)));
   const [topRisks, setTopRisks] = useState<any[]>([]);
+  const [risksRaw, setRisksRaw] = useState<any[]>([]);
+
 
   useEffect(() => {
     if (!user) return;
     (async () => {
       const { data } = await supabase
         .from("risks")
-        .select("id, title, description, risk_score, probability, impact, status, category, review_date")
+        .select("id, title, description, risk_score, probability, impact, probability_score, impact_score, status, category, review_date")
         .eq("user_id", user.id)
         .limit(500)
         .order("created_at", { ascending: false });
       if (!data) return;
+      setRisksRaw(data as any[]);
+
       const scores = data.map((r: any) => Number(r.risk_score) || 0);
       const high = data.filter((r: any) => (Number(r.risk_score) || 0) >= 15).length;
       const mitigated = data.filter((r: any) => r.status === "mitigated" || r.status === "closed").length;
@@ -261,9 +269,17 @@ const RiskPage = () => {
         </div>
 
         <ColorLegend type="priority" isArabic={isArabic} />
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <RiskHeatmap risks={risksRaw} />
+          <RiskMatrix risks={risksRaw} />
+        </div>
+        <RiskAlertsPanel risks={risksRaw} />
+
         <Suspense fallback={<SuspenseFallback label={isArabic ? "جاري التحميل..." : "Loading..."} />}>
           <RiskManagement />
         </Suspense>
+
       </div>
     </PageLayout>
   );

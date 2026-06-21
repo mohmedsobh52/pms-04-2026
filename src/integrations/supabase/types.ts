@@ -520,6 +520,48 @@ export type Database = {
           },
         ]
       }
+      contract_variations: {
+        Row: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          contract_id: string
+          created_at: string
+          description: string | null
+          id: string
+          status: string
+          updated_at: string
+          user_id: string
+          variation_number: string
+        }
+        Insert: {
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          contract_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          variation_number: string
+        }
+        Update: {
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          contract_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          variation_number?: string
+        }
+        Relationships: []
+      }
       contract_warranties: {
         Row: {
           bond_type: string | null
@@ -1008,6 +1050,24 @@ export type Database = {
         }
         Relationships: []
       }
+      currency_rates: {
+        Row: {
+          code: string
+          rate_to_usd: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          rate_to_usd: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          rate_to_usd?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       edited_boq_prices: {
         Row: {
           created_at: string
@@ -1281,6 +1341,45 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
           website?: string | null
+        }
+        Relationships: []
+      }
+      financial_audit_logs: {
+        Row: {
+          action: string
+          after: Json | null
+          before: Json | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          metadata: Json | null
+          project_id: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+          project_id?: string | null
+          user_id?: string
+        }
+        Update: {
+          action?: string
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+          project_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -2543,6 +2642,33 @@ export type Database = {
           },
         ]
       }
+      record_locks: {
+        Row: {
+          entity_id: string
+          entity_type: string
+          id: string
+          locked_at: string
+          locked_by: string
+          reason: string | null
+        }
+        Insert: {
+          entity_id: string
+          entity_type: string
+          id?: string
+          locked_at?: string
+          locked_by?: string
+          reason?: string | null
+        }
+        Update: {
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          locked_at?: string
+          locked_by?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
       reference_prices: {
         Row: {
           category: string
@@ -2673,8 +2799,11 @@ export type Database = {
           id: string
           identified_date: string | null
           impact: string | null
+          impact_score: number | null
+          last_alerted_at: string | null
           mitigation_strategy: string | null
           probability: string | null
+          probability_score: number | null
           project_id: string | null
           review_date: string | null
           risk_description: string | null
@@ -2692,8 +2821,11 @@ export type Database = {
           id?: string
           identified_date?: string | null
           impact?: string | null
+          impact_score?: number | null
+          last_alerted_at?: string | null
           mitigation_strategy?: string | null
           probability?: string | null
+          probability_score?: number | null
           project_id?: string | null
           review_date?: string | null
           risk_description?: string | null
@@ -2711,8 +2843,11 @@ export type Database = {
           id?: string
           identified_date?: string | null
           impact?: string | null
+          impact_score?: number | null
+          last_alerted_at?: string | null
           mitigation_strategy?: string | null
           probability?: string | null
+          probability_score?: number | null
           project_id?: string | null
           review_date?: string | null
           risk_description?: string | null
@@ -3431,6 +3566,10 @@ export type Database = {
       increment_shared_view: {
         Args: { _share_code: string }
         Returns: undefined
+      }
+      is_record_locked: {
+        Args: { _id: string; _type: string }
+        Returns: boolean
       }
       resolve_shared_comment: {
         Args: { _comment_id: string; _share_code: string }

@@ -1,99 +1,89 @@
+# Enhance Financial & Operational Modules
 
-# Core Execution Modules — Upgrade Plan
+Goal: Add enterprise-grade financial and operational controls on top of existing modules without breaking workflows. All work is additive (new components + thin overlays on existing pages) plus one schema migration for audit + record locking + risk scoring + variations.
 
-The codebase already has substantial business logic for all four modules. This plan adds the missing UX layers and new connective tissue **on top** of existing data — no business-logic rewrites, no schema changes.
+## 1. Database (single migration)
 
-Real-data sources used (no mocks):
-- Projects → `saved_projects`, `project_data`, `project_items`, `analysis_audit_logs`
-- BOQ → `project_items`, `item_costs`, `boq_templates`, `edited_boq_prices`
-- EVM → `cost_control_baselines`, `cost_control_overrides`, `progress_certificates`, `progress_certificate_items`, `project_progress_history`
-- Execution Plan → `project_items` (with `start_date`/`end_date`/`progress` already present), `project_progress_history`
+New tables (all with GRANTs + RLS scoped via `user_owns_project` or `auth.uid()`):
 
----
+- `financial_audit_logs` — `id, user_id, project_id, entity_type, entity_id, action, before jsonb, after jsonb, created_at`. Indexed on (project_id, created_at).
+- `record_locks` — `id, entity_type, entity_id, locked_by, locked_at, reason`. Unique (entity_type, entity_id). Used to lock approved certificates / payments / POs.
+- `contract_variations` — `id, contract_id, variation_number, description, amount, status (pending/approved/rejected), approved_by, approved_at, created_at`.
+- `risk_scores` — extends existing `risks` via new columns: `probability_score (1-5)`, `impact_score (1-5)`, `risk_score generated as P*I`, `last_alerted_at`. (ALTER existing table, additive only.)
+- `currency_rates` — `code, rate_to_usd, updated_at` for normalization.
 
-## 1. Projects — Workspace polish
+Helper SQL function `public.is_record_locked(_type text, _id uuid) returns boolean`.
 
-**File: `src/pages/ProjectDetailsPage.tsx` (already 2014 LOC)** — keep all tabs and logic. Add a slim **Project KPI strip** at the top of the page that derives from existing queries:
+## 2. Cost & Pricing enhancements
 
-- **CPI** = EV / AC  (from `cost_control_baselines` + latest `progress_certificates`)
-- **SPI** = EV / PV
-- **Cost Variance** = EV − AC
-- **Progress %** = weighted completion across `project_items.progress`
+- `src/components/cost/CostBreakdownPanel.tsx` — reusable breakdown card (labor / materials / equipment / overhead / profit) reading from existing `item_costs`.
+- `src/components/cost/PriceLibraryHistory.tsx` — timeline view of `pricing_history` + `edited_boq_prices`.
+- `src/components/cost/SupplierComparisonMatrix.tsx` — matrix view of `price_quotations` across suppliers per item (rebuilds existing `SupplierComparisonTable` as a matrix).
+- `src/lib/currency.ts` + `useCurrency()` hook — normalize values to display currency using `currency_rates`.
 
-New components:
-- `src/components/project-details/ProjectKpiStrip.tsx` — 4 cards, color-coded thresholds (>1 green, 0.9–1 amber, <0.9 red). Click → opens existing Cost Control page filtered to this project.
-- `src/components/project-details/ProjectActivityFeed.tsx` — reads `analysis_audit_logs` for the project + recent `project_progress_history` and `progress_certificates` events. Added as a new "Activity" tab.
+Mount in: `CostAnalysisPage`, `LibraryPage`, `QuotationsPage` (additive sections).
 
-**Projects list (`src/pages/SavedProjectsPage.tsx`)** — add view switcher (Grid / Table) and filter chips (status, currency, last-updated range). Uses the existing `DataTable` primitive for the Table view. No data changes.
+## 3. Procurement workflow
 
-## 2. BOQ System
+- `src/components/procurement/ProcurementWorkflow.tsx` — 7-stage stepper (Request → Approval → RFQ → Comparison → PO → Delivery → Invoice → Payment). Reads/writes `procurement_items.status`.
+- Action buttons per stage, gated by `Can` (role check) and `is_record_locked`.
+- Mount as new tab inside `ProcurementPage`.
 
-`project_items` already supports hierarchy through `item_number` (e.g. `1.2.3`) and explicit `parent_id` exists via `wbs_data`. New components:
+## 4. Contracts
 
-- `src/components/boq/BoqTreeView.tsx` — collapsible tree built from `item_number` segments. Sums quantity × unit_price up the hierarchy. Row click reveals `item_costs` breakdown (already in DB).
-- `src/components/boq/BoqVersionPanel.tsx` — lists snapshots from existing `cost_control_baselines` (each baseline is effectively a BOQ snapshot) + recent edits from `edited_boq_prices`. Diff view reuses `BOQVersionComparison.tsx`.
-- `src/components/boq/BoqImportExportBar.tsx` — wraps existing import flow (`BOQUploadDialog`) and adds an XLSX export of the current BOQ with `item_number`, `description`, `unit`, `quantity`, `unit_price`, `total_price`, computed unit cost from `item_costs`.
+- `src/components/contracts/ContractVariations.tsx` — CRUD over new `contract_variations`, totals rollup vs original contract value.
+- `src/components/contracts/ContractExpiryAlerts.tsx` — derives alerts from `contracts.end_date` (30/60/90 days), reuses `NotificationsPopover` pattern.
+- `src/components/contracts/ContractLifecycleTimeline.tsx` — visual lifecycle (Draft → Active → Variations → Closeout → Warranty) from existing fields.
 
-Mounted inside the existing `ProjectBOQTab.tsx` — no new page.
+Mount in `ContractsPage` as new tabs.
 
-## 3. EVM System
+## 5. Subcontractors
 
-The standalone EVM page (`CostControlEvmStandalone.jsx`, 5676 LOC) already computes PV/EV/AC/CPI/SPI/EAC. We add **embedded EVM widgets** for the project workspace so users don't have to leave the project context:
+- `src/components/subcontractors/SubcontractorProfile.tsx` — profile card with rating from `partner_reviews`.
+- `src/components/subcontractors/SubcontractorCertifications.tsx` — documents list (reuses `project_attachments` filtered by partner).
+- `src/components/subcontractors/SubcontractorPayments.tsx` — payment ledger from `contract_payments` filtered by partner.
 
-- `src/components/evm/EvmSummaryCard.tsx` — compact PV/EV/AC + CPI/SPI/EAC numbers for a single project, derived from the same selectors the standalone page uses (extracted into a shared hook `useEvmSnapshot(projectId)`).
-- `src/components/evm/EvmTrendMiniChart.tsx` — CPI/SPI sparkline from `cost_control_baselines` history (Recharts).
-- `src/components/evm/EvmSCurve.tsx` — PV vs EV vs AC cumulative curve over time. Data: `project_progress_history` for actual, baseline schedule from `cost_control_baselines.baseline_schedule`.
-- `src/components/evm/EvmVarianceTable.tsx` — per-WBS variance breakdown (CV, SV, VAC) computed from `project_items` + `item_costs`.
+Mount in `SubcontractorsPage` and `PartnerDetailsPage`.
 
-Shared hook: `src/hooks/useEvmSnapshot.ts` — pure read, returns `{ pv, ev, ac, cpi, spi, eac, vac, bac, percentComplete, series }`. Same formulas already in CostControlReportPage; centralized so widgets and the standalone page can both call it.
+## 6. Risk management
 
-Mounted in `ProjectOverviewTab.tsx` (new EVM section) and reused by the new ProjectKpiStrip.
+- `src/components/risk/RiskScoreEditor.tsx` — P×I sliders → score.
+- `src/components/risk/RiskHeatmap.tsx` — 5×5 grid coloring by count.
+- `src/components/risk/RiskMatrix.tsx` — scatter of risks on P/I axes.
+- `src/components/risk/RiskAlertsPanel.tsx` — list of risks with score ≥ 15.
 
-## 4. Execution Plan
+Mount in `RiskPage` (new tabs).
 
-`project_items` already has `start_date`, `end_date`, `progress`, `predecessors` (in `wbs_data` JSON). We add a read-mostly execution view:
+## 7. Audit + Locking primitives
 
-- `src/components/execution/ExecutionTaskList.tsx` — flat task list with progress bars, status badges (Not started / In progress / Delayed / Completed), filter + sort.
-- `src/components/execution/ExecutionTimeline.tsx` — simple horizontal Gantt rendered with divs (no library). Shows planned bar + actual progress overlay. Click row → highlights dependencies if `predecessors` present.
-- `src/components/execution/DelayBadge.tsx` — computes delay as `today - end_date` when `progress < 100`. Surfaced in both list and timeline.
+- `src/lib/financial-audit.ts` — wrapper `logFinancialAction({entity_type, entity_id, action, before, after})` that inserts into `financial_audit_logs`.
+- `src/hooks/useRecordLock.ts` — `{ locked, lock(reason), unlock() }`.
+- `src/components/audit/LockBadge.tsx` — small badge "Locked – approved" used in tables.
+- `src/components/audit/AuditTrailDrawer.tsx` — side drawer listing audit entries for a given entity.
 
-Mounted as a new "Execution" tab inside `ProjectDetailsPage`. No edits to existing P6/scheduling logic.
-
----
+Wire into: progress certificates approval, contract payments approval, PO approval. On approve → log audit + create lock. Edits to locked records are blocked client-side (button disabled) and server-side (RLS-using-trigger via simple BEFORE UPDATE trigger that raises if locked).
 
 ## Files
 
-**New**
-```
-src/hooks/useEvmSnapshot.ts
-src/components/project-details/ProjectKpiStrip.tsx
-src/components/project-details/ProjectActivityFeed.tsx
-src/components/boq/BoqTreeView.tsx
-src/components/boq/BoqVersionPanel.tsx
-src/components/boq/BoqImportExportBar.tsx
-src/components/evm/EvmSummaryCard.tsx
-src/components/evm/EvmTrendMiniChart.tsx
-src/components/evm/EvmSCurve.tsx
-src/components/evm/EvmVarianceTable.tsx
-src/components/execution/ExecutionTaskList.tsx
-src/components/execution/ExecutionTimeline.tsx
-src/components/execution/DelayBadge.tsx
-```
+**New (~22):**
+- `supabase/migrations/<ts>_financial_ops_enhancements.sql`
+- `src/lib/financial-audit.ts`, `src/lib/currency.ts`
+- `src/hooks/useRecordLock.ts`, `src/hooks/useCurrency.ts`
+- `src/components/audit/{LockBadge,AuditTrailDrawer}.tsx`
+- `src/components/cost/{CostBreakdownPanel,PriceLibraryHistory,SupplierComparisonMatrix}.tsx`
+- `src/components/procurement/ProcurementWorkflow.tsx`
+- `src/components/contracts/{ContractVariations,ContractExpiryAlerts,ContractLifecycleTimeline}.tsx`
+- `src/components/subcontractors/{SubcontractorProfile,SubcontractorCertifications,SubcontractorPayments}.tsx`
+- `src/components/risk/{RiskScoreEditor,RiskHeatmap,RiskMatrix,RiskAlertsPanel}.tsx`
 
-**Edited (mount only, no logic changes)**
-```
-src/pages/ProjectDetailsPage.tsx       — add KPI strip, Activity tab, Execution tab
-src/components/project-details/ProjectOverviewTab.tsx — embed EVM summary + S-curve
-src/components/project-details/ProjectBOQTab.tsx      — mount tree view + version panel + export bar
-src/pages/SavedProjectsPage.tsx        — Grid/Table view switcher + filter chips
-```
+**Edited (mount only, no logic rewrite):**
+- `ProcurementPage.tsx`, `ContractsPage.tsx`, `SubcontractorsPage.tsx`, `RiskPage.tsx`, `CostAnalysisPage.tsx`, `LibraryPage.tsx`, `QuotationsPage.tsx`, `PartnerDetailsPage.tsx`
 
-## Out of scope (explicit, per RULES)
+## Out of scope / risk
 
-- No mock data anywhere. If a metric has no source, the card shows "—" with a tooltip rather than a fake number.
-- No changes to `CostControlEvmStandalone.jsx`, `CostControlReportPage.tsx`, edge functions, RLS, RPCs, or migrations.
-- No new tables. All four modules read from existing schema.
+- No changes to existing EVM, BOQ, or analysis logic.
+- No edge functions added.
+- Currency conversion uses cached rates table — no external API call in this pass; user can seed rates manually or via future job.
+- Lock trigger affects only the new approval flows; existing rows remain unlocked.
 
-## Risk
-
-- **Low.** All work is additive. The shared `useEvmSnapshot` hook duplicates existing formulas; if its math drifts from the standalone page we surface "—" instead of incorrect values.
+Risk: low — every change is additive. If lock trigger misfires, drop it; UI continues to function.
