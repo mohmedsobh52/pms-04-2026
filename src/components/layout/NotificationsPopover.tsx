@@ -1,141 +1,35 @@
-import { Bell } from "lucide-react";
+import { Bell, Check, CheckCheck, X, AlertTriangle, Info, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLanguage } from "@/hooks/useLanguage";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useNotifications, type Notification } from "@/hooks/useNotificationsInbox";
+import { cn } from "@/lib/utils";
 
-type Notice = {
-  id: string;
-  title: string;
-  description?: string;
-  to?: string;
-  ts: string;
+const SEV_ICON: Record<Notification["severity"], React.ComponentType<any>> = {
+  info: Info,
+  warning: AlertTriangle,
+  critical: AlertCircle,
+  success: Check,
 };
 
-/**
- * Lightweight notifications center. Derives notices from existing tables:
- *  - Open risks (severity high/critical)
- *  - Contracts ending within 30 days
- *  - Pending procurement items
- * Read-only — no new tables.
- */
+const SEV_COLOR: Record<Notification["severity"], string> = {
+  info: "text-sky-500",
+  warning: "text-amber-500",
+  critical: "text-destructive",
+  success: "text-emerald-500",
+};
+
 export function NotificationsPopover() {
   const { isArabic } = useLanguage();
-  const { user } = useAuth();
+  const { data = [], unreadCount, markRead, markAllRead, remove } = useNotifications(50);
 
-  const { data } = useQuery({
-    queryKey: ["notifications", user?.id],
-    enabled: !!user,
-    staleTime: 60 * 1000,
-    queryFn: async (): Promise<Notice[]> => {
-      const notices: Notice[] = [];
-
-      try {
-        const { data: risks } = await (supabase as any)
-          .from("risks")
-          .select("id,title,severity,updated_at")
-          .in("severity", ["high", "critical"])
-          .order("updated_at", { ascending: false })
-          .limit(5);
-        risks?.forEach((r: any) =>
-          notices.push({
-            id: `risk-${r.id}`,
-            title: isArabic ? `مخاطرة عالية: ${r.title}` : `High risk: ${r.title}`,
-            to: "/risk",
-            ts: r.updated_at,
-          })
-        );
-      } catch {}
-
-      try {
-        const in30 = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
-        const { data: contracts } = await supabase
-          .from("contracts")
-          .select("id,contract_name,end_date")
-          .lte("end_date", in30)
-          .order("end_date", { ascending: true })
-          .limit(5);
-        contracts?.forEach((c: any) =>
-          notices.push({
-            id: `contract-${c.id}`,
-            title: isArabic
-              ? `عقد ينتهي قريبًا: ${c.contract_name}`
-              : `Contract ending soon: ${c.contract_name}`,
-            to: "/contracts",
-            ts: c.end_date,
-          })
-        );
-      } catch {}
-
-      try {
-        const { count } = await supabase
-          .from("procurement_items")
-          .select("*", { count: "exact", head: true })
-          .eq("status", "pending");
-        if (count && count > 0) {
-          notices.push({
-            id: "proc-pending",
-            title: isArabic
-              ? `${count} طلب شراء بانتظار المراجعة`
-              : `${count} procurement items pending review`,
-            to: "/procurement",
-            ts: new Date().toISOString(),
-          });
-        }
-      } catch {}
-
-      try {
-        const { data: approvals } = await supabase
-          .from("financial_audit_logs")
-          .select("id,entity_type,entity_id,created_at")
-          .eq("action", "approve")
-          .order("created_at", { ascending: false })
-          .limit(5);
-        approvals?.forEach((a: any) =>
-          notices.push({
-            id: `approval-${a.id}`,
-            title: isArabic ? `تم اعتماد ${a.entity_type}` : `Approved: ${a.entity_type}`,
-            ts: a.created_at,
-          })
-        );
-      } catch {}
-
-      try {
-        const today = new Date().toISOString().slice(0, 10);
-        const { data: overdue } = await supabase
-          .from("procurement_items")
-          .select("id,description,delivery_date,status")
-          .lt("delivery_date", today)
-          .not("status", "in", "(delivered,paid,completed)")
-          .order("delivery_date", { ascending: true })
-          .limit(5);
-        overdue?.forEach((o: any) =>
-          notices.push({
-            id: `overdue-${o.id}`,
-            title: isArabic
-              ? `طلب متأخر: ${o.description ?? "—"}`
-              : `Overdue procurement: ${o.description ?? "—"}`,
-            to: "/procurement",
-            ts: o.delivery_date,
-          })
-        );
-      } catch {}
-
-      return notices.sort((a, b) => (a.ts < b.ts ? 1 : -1)).slice(0, 12);
-    },
-  });
-
-  const count = data?.length ?? 0;
+  const onItemClick = (n: Notification) => {
+    if (!n.read_at) markRead.mutate([n.id]);
+  };
 
   return (
     <Popover>
@@ -147,50 +41,102 @@ export function NotificationsPopover() {
           aria-label="Notifications"
         >
           <Bell className="h-4 w-4" />
-          {count > 0 && (
+          {unreadCount > 0 && (
             <span className="absolute -top-0.5 -end-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
-              {count > 9 ? "9+" : count}
+              {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0 z-50 bg-popover">
-        <div className="px-4 py-3 border-b border-border">
-          <h3 className="text-sm font-semibold">
-            {isArabic ? "الإشعارات" : "Notifications"}
-          </h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {count > 0
-              ? isArabic
-                ? `${count} عنصر يحتاج الانتباه`
-                : `${count} items need attention`
-              : isArabic
-              ? "لا توجد إشعارات جديدة"
-              : "No new notifications"}
-          </p>
+      <PopoverContent align="end" className="w-96 p-0 z-50 bg-popover">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold">
+              {isArabic ? "الإشعارات" : "Notifications"}
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {unreadCount > 0
+                ? isArabic
+                  ? `${unreadCount} غير مقروءة`
+                  : `${unreadCount} unread`
+                : isArabic
+                ? "كل شيء على ما يرام"
+                : "All caught up"}
+            </p>
+          </div>
+          {unreadCount > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs gap-1"
+              onClick={() => markAllRead.mutate()}
+            >
+              <CheckCheck className="h-3.5 w-3.5" />
+              {isArabic ? "قراءة الكل" : "Mark all"}
+            </Button>
+          )}
         </div>
-        <ScrollArea className="max-h-80">
+        <ScrollArea className="max-h-[420px]">
           <div className="py-1">
-            {(data ?? []).map((n) => (
-              <Link
-                key={n.id}
-                to={n.to ?? "#"}
-                className="block px-4 py-2.5 hover:bg-muted/60 transition-colors"
-              >
-                <p className="text-sm text-foreground truncate">{n.title}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  {formatDistanceToNow(new Date(n.ts), {
-                    addSuffix: true,
-                    locale: isArabic ? ar : enUS,
-                  })}
-                </p>
-              </Link>
-            ))}
-            {count === 0 && (
-              <div className="px-4 py-6 text-center text-xs text-muted-foreground">
-                {isArabic ? "كل شيء على ما يرام" : "All clear"}
+            {data.length === 0 && (
+              <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+                {isArabic ? "لا توجد إشعارات" : "No notifications yet"}
               </div>
             )}
+            {data.map((n) => {
+              const Icon = SEV_ICON[n.severity] ?? Info;
+              const Wrapper: any = n.link ? Link : "div";
+              const wrapperProps: any = n.link ? { to: n.link } : {};
+              return (
+                <div
+                  key={n.id}
+                  className={cn(
+                    "group relative flex gap-2 px-3 py-2.5 hover:bg-muted/60 transition-colors border-l-2",
+                    n.read_at ? "border-l-transparent opacity-70" : "border-l-primary bg-primary/[0.03]",
+                  )}
+                >
+                  <Icon className={cn("h-4 w-4 mt-0.5 shrink-0", SEV_COLOR[n.severity])} />
+                  <Wrapper
+                    {...wrapperProps}
+                    onClick={() => onItemClick(n)}
+                    className="flex-1 min-w-0 cursor-pointer"
+                  >
+                    <p className="text-sm font-medium truncate">{n.title}</p>
+                    {n.body && (
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{n.body}</p>
+                    )}
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {formatDistanceToNow(new Date(n.created_at), {
+                        addSuffix: true,
+                        locale: isArabic ? ar : enUS,
+                      })}
+                    </p>
+                  </Wrapper>
+                  <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {!n.read_at && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={() => markRead.mutate([n.id])}
+                        title={isArabic ? "تعليم كمقروء" : "Mark read"}
+                      >
+                        <Check className="h-3 w-3" />
+                      </Button>
+                    )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6"
+                      onClick={() => remove.mutate(n.id)}
+                      title={isArabic ? "حذف" : "Dismiss"}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </ScrollArea>
       </PopoverContent>
