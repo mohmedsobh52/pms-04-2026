@@ -18,6 +18,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
+import { PriceLibraryHistory } from "@/components/cost/PriceLibraryHistory";
+
 
 interface RecentItem {
   id: string;
