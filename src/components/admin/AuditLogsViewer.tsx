@@ -1,82 +1,151 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import * as XLSX from "xlsx";
+import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
 
-const ACTIONS = ["create", "update", "approve", "lock", "unlock", "delete"];
+const ACTIONS = ["create", "update", "approve", "lock", "unlock", "delete", "advance",
+  "workflow_approved", "workflow_rejected", "workflow_cancelled"];
+
+type Log = {
+  id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  user_id: string | null;
+  metadata: any;
+  created_at: string;
+};
 
 export function AuditLogsViewer() {
   const { isArabic } = useLanguage();
-  const [page, setPage] = useState(1);
-  const [action, setAction] = useState<string>("all");
+  const [action, setAction] = useState("all");
   const [entity, setEntity] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
 
-  const filters: any[] = [];
-  if (action !== "all") filters.push({ column: "action", op: "eq", value: action });
-  if (entity) filters.push({ column: "entity_type", op: "ilike", value: `%${entity}%` });
-
-  const { data, isLoading } = usePaginatedQuery<any>({
-    table: "financial_audit_logs",
-    select: "id,action,entity_type,entity_id,user_id,metadata,created_at",
-    filters,
-    orderBy: { column: "created_at", ascending: false },
-    page, pageSize: 25,
+  const { data, isLoading } = useQuery({
+    queryKey: ["audit-logs", action, entity, from, to],
+    queryFn: async (): Promise<Log[]> => {
+      let q = supabase
+        .from("financial_audit_logs")
+        .select("id,action,entity_type,entity_id,user_id,metadata,created_at")
+        .order("created_at", { ascending: false })
+        .limit(1000);
+      if (action !== "all") q = q.eq("action", action);
+      if (entity) q = q.ilike("entity_type", `%${entity}%`);
+      if (from) q = q.gte("created_at", from);
+      if (to) q = q.lte("created_at", new Date(new Date(to).getTime() + 864e5).toISOString());
+      const { data } = await q;
+      return (data ?? []) as Log[];
+    },
   });
 
-  const totalPages = data ? Math.max(1, Math.ceil(data.total / 25)) : 1;
+  const columns = useMemo<ColumnDef<Log, unknown>[]>(() => [
+    {
+      accessorKey: "created_at",
+      header: isArabic ? "التاريخ" : "Date",
+      cell: ({ row }) => (
+        <span className="whitespace-nowrap text-xs">
+          {new Date(row.original.created_at).toLocaleString()}
+        </span>
+      ),
+      size: 170,
+    },
+    {
+      accessorKey: "action",
+      header: isArabic ? "الإجراء" : "Action",
+      cell: ({ row }) => <Badge variant="outline">{row.original.action}</Badge>,
+      size: 140,
+    },
+    {
+      accessorKey: "entity_type",
+      header: isArabic ? "الكيان" : "Entity",
+      size: 160,
+    },
+    {
+      accessorKey: "entity_id",
+      header: "ID",
+      cell: ({ row }) => (
+        <span className="font-mono text-[10px]" title={row.original.entity_id ?? ""}>
+          {row.original.entity_id?.slice(0, 8) ?? "—"}…
+        </span>
+      ),
+      size: 90,
+    },
+    {
+      accessorKey: "user_id",
+      header: isArabic ? "المستخدم" : "User",
+      cell: ({ row }) => (
+        <span className="font-mono text-[10px]" title={row.original.user_id ?? ""}>
+          {row.original.user_id?.slice(0, 8) ?? "—"}…
+        </span>
+      ),
+      size: 90,
+    },
+    {
+      id: "metadata",
+      header: isArabic ? "تفاصيل" : "Details",
+      cell: ({ row }) => (
+        <code className="text-[10px] text-muted-foreground line-clamp-1 block max-w-[280px]">
+          {row.original.metadata ? JSON.stringify(row.original.metadata) : "—"}
+        </code>
+      ),
+    },
+  ], [isArabic]);
+
+  const onExport = (rows: Log[]) => {
+    const sheet = XLSX.utils.json_to_sheet(rows.map((r) => ({
+      Date: new Date(r.created_at).toISOString(),
+      Action: r.action,
+      Entity: r.entity_type,
+      EntityID: r.entity_id,
+      UserID: r.user_id,
+      Metadata: r.metadata ? JSON.stringify(r.metadata) : "",
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, sheet, "Audit");
+    XLSX.writeFile(wb, `audit-logs-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
 
   return (
     <Card>
-      <CardHeader><CardTitle className="text-base">{isArabic ? "سجل التدقيق" : "Audit Logs"}</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle className="text-base">{isArabic ? "سجل التدقيق" : "Audit Logs"}</CardTitle>
+      </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex flex-wrap gap-2">
-          <Input className="max-w-[220px]" placeholder={isArabic ? "نوع الكيان" : "Entity type"} value={entity} onChange={(e) => { setEntity(e.target.value); setPage(1); }} />
-          <Select value={action} onValueChange={(v) => { setAction(v); setPage(1); }}>
-            <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+          <Input className="max-w-[200px]" placeholder={isArabic ? "نوع الكيان" : "Entity type"}
+            value={entity} onChange={(e) => setEntity(e.target.value)} />
+          <Select value={action} onValueChange={setAction}>
+            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{isArabic ? "كل الإجراءات" : "All actions"}</SelectItem>
               {ACTIONS.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Input type="date" className="max-w-[160px]" value={from} onChange={(e) => setFrom(e.target.value)}
+            placeholder={isArabic ? "من" : "From"} />
+          <Input type="date" className="max-w-[160px]" value={to} onChange={(e) => setTo(e.target.value)}
+            placeholder={isArabic ? "إلى" : "To"} />
         </div>
 
-        <div className="border rounded-md">
-          <table className="w-full text-xs">
-            <thead><tr className="border-b bg-muted/40">
-              <th className="text-start p-2">{isArabic ? "التاريخ" : "Date"}</th>
-              <th className="text-start p-2">{isArabic ? "الإجراء" : "Action"}</th>
-              <th className="text-start p-2">{isArabic ? "الكيان" : "Entity"}</th>
-              <th className="text-start p-2">{isArabic ? "المعرّف" : "ID"}</th>
-              <th className="text-start p-2">{isArabic ? "المستخدم" : "User"}</th>
-            </tr></thead>
-            <tbody>
-              {isLoading && <tr><td colSpan={5} className="p-6 text-center"><Loader2 className="h-4 w-4 animate-spin inline" /></td></tr>}
-              {(data?.rows ?? []).map((r) => (
-                <tr key={r.id} className="border-b">
-                  <td className="p-2 whitespace-nowrap">{new Date(r.created_at).toLocaleString()}</td>
-                  <td className="p-2"><Badge variant="outline">{r.action}</Badge></td>
-                  <td className="p-2">{r.entity_type}</td>
-                  <td className="p-2 font-mono text-[10px]">{r.entity_id?.slice(0, 8)}…</td>
-                  <td className="p-2 font-mono text-[10px]">{r.user_id?.slice(0, 8)}…</td>
-                </tr>
-              ))}
-              {!isLoading && data?.rows.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">{isArabic ? "لا توجد سجلات" : "No logs"}</td></tr>}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">{isArabic ? `الصفحة ${page} من ${totalPages}` : `Page ${page} of ${totalPages}`} · {data?.total ?? 0} {isArabic ? "سجل" : "records"}</span>
-          <div className="flex gap-1">
-            <Button size="sm" variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}><ChevronLeft className="h-3 w-3" /></Button>
-            <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}><ChevronRight className="h-3 w-3" /></Button>
-          </div>
-        </div>
+        <DataTable<Log, unknown>
+          columns={columns}
+          data={data ?? []}
+          storageKey="audit-logs"
+          searchPlaceholder={isArabic ? "بحث…" : "Search…"}
+          onExport={onExport}
+          pagination={false}
+          virtualizeThreshold={50}
+          emptyState={isLoading ? (isArabic ? "جارٍ التحميل…" : "Loading…")
+            : (isArabic ? "لا توجد سجلات" : "No logs")}
+        />
       </CardContent>
     </Card>
   );
