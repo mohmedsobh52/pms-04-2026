@@ -1380,6 +1380,19 @@ export default function ProjectDetailsPage() {
           </TabsContent>
 
           <TabsContent value="boq">
+            {projectId && (
+              <div className="space-y-4 mb-4">
+                <div className="flex items-center justify-end">
+                  <BoqImportExportBar projectId={projectId} projectName={project?.name || "BOQ"} />
+                </div>
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                  <div className="xl:col-span-2">
+                    <BoqTreeView projectId={projectId} currency={project?.currency || "SAR"} />
+                  </div>
+                  <BoqVersionPanel projectId={projectId} />
+                </div>
+              </div>
+            )}
             {backfillState.status !== "idle" && (
               <div className="mb-4 rounded-lg border border-border bg-card p-4 shadow-sm">
                 <div className="flex items-start gap-3">
