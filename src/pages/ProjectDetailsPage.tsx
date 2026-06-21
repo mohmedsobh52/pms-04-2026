@@ -43,6 +43,7 @@ import { EvmTrendMiniChart } from "@/components/evm/EvmTrendMiniChart";
 import { EvmSCurve } from "@/components/evm/EvmSCurve";
 import { EvmVarianceTable } from "@/components/evm/EvmVarianceTable";
 import { BoqTreeView } from "@/components/boq/BoqTreeView";
+import { BoqExplorer } from "@/components/boq/BoqExplorer";
 import { BoqVersionPanel } from "@/components/boq/BoqVersionPanel";
 import { BoqImportExportBar } from "@/components/boq/BoqImportExportBar";
 import { ExecutionTaskList } from "@/components/execution/ExecutionTaskList";
