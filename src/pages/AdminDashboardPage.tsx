@@ -5,6 +5,7 @@ import { PermissionsMatrix } from "@/components/admin/PermissionsMatrix";
 import { SystemSettingsPanel } from "@/components/admin/SystemSettingsPanel";
 import { CostCodesPanel } from "@/components/admin/CostCodesPanel";
 import { AuditLogsViewer } from "@/components/admin/AuditLogsViewer";
+import { WorkflowDefinitionsPanel } from "@/components/workflow/WorkflowDefinitionsPanel";
 import {
   Shield,
   Bell,
@@ -728,6 +729,7 @@ const AdminDashboardPage = () => {
       <div className="mt-8 space-y-6">
         <UsersRolesPanel />
         <PermissionsMatrix />
+        <WorkflowDefinitionsPanel />
         <SystemSettingsPanel />
         <CostCodesPanel />
         <AuditLogsViewer />
