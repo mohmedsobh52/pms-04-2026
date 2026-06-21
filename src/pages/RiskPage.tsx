@@ -13,6 +13,10 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
+import { RiskHeatmap } from "@/components/risk/RiskHeatmap";
+import { RiskMatrix } from "@/components/risk/RiskMatrix";
+import { RiskAlertsPanel } from "@/components/risk/RiskAlertsPanel";
+
 
 const RiskPage = () => {
   const { user } = useAuth();
