@@ -1795,6 +1795,54 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          dedup_key: string | null
+          id: string
+          link: string | null
+          project_id: string | null
+          read_at: string | null
+          recipient_id: string
+          related_entity_id: string | null
+          related_entity_type: string | null
+          severity: string
+          title: string
+          type: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          dedup_key?: string | null
+          id?: string
+          link?: string | null
+          project_id?: string | null
+          read_at?: string | null
+          recipient_id: string
+          related_entity_id?: string | null
+          related_entity_type?: string | null
+          severity?: string
+          title: string
+          type: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          dedup_key?: string | null
+          id?: string
+          link?: string | null
+          project_id?: string | null
+          read_at?: string | null
+          recipient_id?: string
+          related_entity_id?: string | null
+          related_entity_type?: string | null
+          severity?: string
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
       ocr_extracted_texts: {
         Row: {
           created_at: string
@@ -3943,6 +3991,23 @@ export type Database = {
       is_record_locked: {
         Args: { _id: string; _type: string }
         Returns: boolean
+      }
+      mark_all_notifications_read: { Args: never; Returns: number }
+      mark_notifications_read: { Args: { _ids: string[] }; Returns: number }
+      notify_user: {
+        Args: {
+          _body?: string
+          _dedup_key?: string
+          _entity_id?: string
+          _entity_type?: string
+          _link?: string
+          _project_id?: string
+          _recipient: string
+          _severity?: string
+          _title: string
+          _type: string
+        }
+        Returns: undefined
       }
       resolve_shared_comment: {
         Args: { _comment_id: string; _share_code: string }
