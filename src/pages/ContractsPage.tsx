@@ -549,10 +549,14 @@ const ContractsPage = () => {
           </TabsContent>
 
           <TabsContent value="alerts" className="mt-4">
-            <Suspense fallback={<TabFallback />}>
-              <SmartContractAlerts />
-            </Suspense>
+            <div className="space-y-4">
+              <ContractExpiryAlerts />
+              <Suspense fallback={<TabFallback />}>
+                <SmartContractAlerts />
+              </Suspense>
+            </div>
           </TabsContent>
+
         </Tabs>
       </div>
     </PageLayout>
