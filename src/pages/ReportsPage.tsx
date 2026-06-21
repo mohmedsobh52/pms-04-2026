@@ -516,6 +516,12 @@ const ReportsPage = () => {
           </Card>
         </div>
 
+        <div className="mt-6">
+          <Suspense fallback={<TabFallback />}>
+            <ReportingCenter />
+          </Suspense>
+        </div>
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
           <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1 tabs-navigation-safe">
             {tabs.map((tab) => (
