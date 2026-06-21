@@ -265,9 +265,17 @@ const RiskPage = () => {
         </div>
 
         <ColorLegend type="priority" isArabic={isArabic} />
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <RiskHeatmap risks={risksRaw} />
+          <RiskMatrix risks={risksRaw} />
+        </div>
+        <RiskAlertsPanel risks={risksRaw} />
+
         <Suspense fallback={<SuspenseFallback label={isArabic ? "جاري التحميل..." : "Loading..."} />}>
           <RiskManagement />
         </Suspense>
+
       </div>
     </PageLayout>
   );
