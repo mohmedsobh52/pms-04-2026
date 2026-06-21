@@ -105,15 +105,17 @@ function EvmReport() {
       const { data: items } = await supabase.from("project_items")
         .select("project_id,total_price").in("project_id", ids);
       const { data: hist } = await supabase.from("project_progress_history")
-        .select("project_id,actual_cost,earned_value,planned_value,recorded_at")
-        .in("project_id", ids).order("recorded_at", { ascending: false });
+        .select("project_id,actual_cost,actual_progress,planned_progress,record_date")
+        .in("project_id", ids).order("record_date", { ascending: false });
       return projects.map((p: any) => {
         const bac = (items ?? []).filter((i: any) => i.project_id === p.id)
           .reduce((s: number, i: any) => s + Number(i.total_price || 0), 0);
         const latest = (hist ?? []).find((h: any) => h.project_id === p.id);
-        const ev = Number(latest?.earned_value || 0);
+        const ap = Number(latest?.actual_progress || 0) / 100;
+        const pp = Number(latest?.planned_progress || 0) / 100;
+        const ev = bac * ap;
+        const pv = bac * pp;
         const ac = Number(latest?.actual_cost || 0);
-        const pv = Number(latest?.planned_value || 0);
         const cpi = ac > 0 ? ev / ac : 0;
         const spi = pv > 0 ? ev / pv : 0;
         const eac = cpi > 0 ? bac / cpi : bac;
