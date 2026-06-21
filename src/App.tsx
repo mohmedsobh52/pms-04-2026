@@ -164,6 +164,7 @@ const App = () => (
                         <Route path="/debug/breadcrumbs" element={<DebugBreadcrumbsPage />} />
                         <Route path="/executive-summary" element={<ExecutiveSummaryPage />} />
                         <Route path="/projects/compare" element={<ProjectsComparePage />} />
+                        <Route path="/technical-proposal" element={<TechnicalProposalGeneratorPage />} />
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />
                       </Routes>
