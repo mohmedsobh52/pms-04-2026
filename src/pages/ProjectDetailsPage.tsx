@@ -1529,6 +1529,32 @@ export default function ProjectDetailsPage() {
             />
           </TabsContent>
 
+          <TabsContent value="evm" className="space-y-4">
+            {projectId && (
+              <>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <EvmSummaryCard projectId={projectId} currency={project?.currency || "SAR"} />
+                  <EvmTrendMiniChart projectId={projectId} />
+                </div>
+                <EvmSCurve projectId={projectId} currency={project?.currency || "SAR"} />
+                <EvmVarianceTable projectId={projectId} currency={project?.currency || "SAR"} />
+              </>
+            )}
+          </TabsContent>
+
+          <TabsContent value="execution" className="space-y-4">
+            {projectId && (
+              <>
+                <ExecutionTimeline projectId={projectId} />
+                <ExecutionTaskList projectId={projectId} />
+              </>
+            )}
+          </TabsContent>
+
+          <TabsContent value="activity">
+            {projectId && <ProjectActivityFeed projectId={projectId} />}
+          </TabsContent>
+
           <TabsContent value="analysis">
             {projectAnalysisData ? (
               <AnalysisResults
