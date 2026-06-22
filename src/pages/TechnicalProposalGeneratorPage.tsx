@@ -394,6 +394,18 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
+                <Label className="flex items-center gap-2"><LayoutTemplate className="w-4 h-4" />{t("قالب جاهز", "Ready template")}</Label>
+                <Select onValueChange={applyTemplate}>
+                  <SelectTrigger><SelectValue placeholder={t("اختر قالباً لتعبئة الحقول...", "Pick a template to prefill...")} /></SelectTrigger>
+                  <SelectContent>
+                    {TEMPLATES.map((tpl) => (
+                      <SelectItem key={tpl.id} value={tpl.id}>{isArabic ? tpl.ar : tpl.en}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
                 <Label>{t("مشروع موجود (اختياري)", "Existing project (optional)")}</Label>
                 <Select value={projectId} onValueChange={setProjectId}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -405,6 +417,52 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Branding */}
+              <div className="rounded-lg border border-border p-3 space-y-3 bg-muted/30">
+                <p className="text-xs font-semibold text-muted-foreground">{t("الهوية والتوقيع", "Branding & Signature")}</p>
+                <div>
+                  <Label className="text-xs">{t("اسم الشركة", "Company name")}</Label>
+                  <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs">{t("شعار الشركة", "Company logo")}</Label>
+                  {logoDataUrl ? (
+                    <div className="flex items-center gap-2 mt-1">
+                      <img src={logoDataUrl} alt="logo" className="h-12 border border-border rounded bg-white p-1" />
+                      <Button variant="ghost" size="sm" onClick={() => setLogoDataUrl("")}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="mt-1 flex items-center gap-2 text-xs cursor-pointer border border-dashed border-border rounded-md px-3 py-2 hover:bg-muted">
+                      <Upload className="w-4 h-4" />
+                      <span>{t("رفع شعار (PNG/JPG ≤ 2MB)", "Upload logo (PNG/JPG ≤ 2MB)")}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => e.target.files?.[0] && handleLogoUpload(e.target.files[0])}
+                      />
+                    </label>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">{t("اسم المُقدِّم", "Signed by")}</Label>
+                    <Input value={signName} onChange={(e) => setSignName(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">{t("المنصب", "Position")}</Label>
+                    <Input value={signTitle} onChange={(e) => setSignTitle(e.target.value)} />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">{t("التاريخ", "Date")}</Label>
+                  <Input type="text" placeholder="yyyy-MM-dd" value={signDate} onChange={(e) => setSignDate(e.target.value)} />
+                </div>
+              </div>
+
 
               <div>
                 <Label>{t("عنوان المشروع *", "Project title *")}</Label>
