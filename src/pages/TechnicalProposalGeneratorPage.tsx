@@ -281,23 +281,77 @@ export default function TechnicalProposalGeneratorPage() {
     URL.revokeObjectURL(url);
   };
 
+  const buildPrintHtml = () => {
+    const dir = language === "ar" ? "rtl" : "ltr";
+    const align = language === "ar" ? "right" : "left";
+    const signedLabel = language === "ar" ? "المُقدِّم" : "Submitted by";
+    const nameLabel = language === "ar" ? "الاسم" : "Name";
+    const titleLabel = language === "ar" ? "المنصب" : "Position";
+    const dateLabel = language === "ar" ? "التاريخ" : "Date";
+    const sigLabel = language === "ar" ? "التوقيع" : "Signature";
+
+    const header = `
+      <div class="cover">
+        ${logoDataUrl ? `<img src="${logoDataUrl}" alt="logo" class="logo"/>` : ""}
+        ${companyName ? `<div class="company">${companyName}</div>` : ""}
+        <h1>${title || ""}</h1>
+        ${client ? `<div class="client">${language === "ar" ? "مُقدَّم إلى:" : "Prepared for:"} <strong>${client}</strong></div>` : ""}
+        <div class="meta">${signDate}</div>
+      </div>`;
+
+    const signature = (signName || signTitle) ? `
+      <div class="signature">
+        <h3>${signedLabel}</h3>
+        <table class="sig">
+          <tr><td><strong>${nameLabel}:</strong> ${signName || ""}</td><td><strong>${titleLabel}:</strong> ${signTitle || ""}</td></tr>
+          <tr><td><strong>${dateLabel}:</strong> ${signDate}</td><td><strong>${sigLabel}:</strong> ____________________</td></tr>
+        </table>
+      </div>` : "";
+
+    return `<!doctype html><html dir="${dir}"><head><meta charset="utf-8"><title>${title}</title>
+<style>
+body{font-family:${language === "ar" ? "'Cairo','Tajawal'" : "'Tajawal'"},system-ui,sans-serif;max-width:820px;margin:32px auto;padding:0 24px;color:#1a1a1a;line-height:1.7}
+.cover{text-align:center;border-bottom:3px solid #0f4f4a;padding-bottom:24px;margin-bottom:24px}
+.cover .logo{max-height:90px;margin:0 auto 12px;display:block}
+.cover .company{font-size:14px;color:#555;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+.cover h1{color:#0f4f4a;margin:8px 0;font-size:28px}
+.cover .client{margin-top:8px;color:#444}
+.cover .meta{margin-top:6px;color:#888;font-size:13px}
+h1,h2,h3{color:#0f4f4a;margin-top:1.4em}
+h2{border-bottom:1px solid #ddd;padding-bottom:6px}
+table{border-collapse:collapse;width:100%;margin:12px 0}
+th,td{border:1px solid #ccc;padding:8px;text-align:${align}}
+th{background:#f5f5f5}
+code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
+.signature{margin-top:48px;padding-top:24px;border-top:2px solid #0f4f4a;page-break-inside:avoid}
+.signature h3{color:#0f4f4a;margin-bottom:12px}
+.sig td{border:none;padding:10px 8px;border-bottom:1px solid #ddd}
+@media print{.cover{page-break-after:avoid}}
+</style></head><body>${header}${markdownToHtml(content)}${signature}</body></html>`;
+  };
+
   const handlePrintPdf = () => {
     if (!content) return;
     const w = window.open("", "_blank");
     if (!w) return;
-    const html = `<!doctype html><html dir="${language === "ar" ? "rtl" : "ltr"}"><head><meta charset="utf-8"><title>${title}</title>
-<style>
-body{font-family:${language === "ar" ? "'Cairo','Tajawal'" : "'Tajawal'"} ,system-ui,sans-serif;max-width:820px;margin:32px auto;padding:0 24px;color:#1a1a1a;line-height:1.7}
-h1,h2,h3{color:#0f4f4a;margin-top:1.4em}
-h2{border-bottom:1px solid #ddd;padding-bottom:6px}
-table{border-collapse:collapse;width:100%;margin:12px 0}
-th,td{border:1px solid #ccc;padding:8px;text-align:${language === "ar" ? "right" : "left"}}
-th{background:#f5f5f5}
-code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
-</style></head><body><h1>${title || ""}</h1>${markdownToHtml(content)}</body></html>`;
-    w.document.write(html);
+    w.document.write(buildPrintHtml());
     w.document.close();
     setTimeout(() => w.print(), 400);
+  };
+
+  const handleDownloadWord = () => {
+    if (!content) return;
+    const html = buildPrintHtml();
+    const blob = new Blob(
+      ["\ufeff", '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">', html, "</html>"],
+      { type: "application/msword" },
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${title || "technical-proposal"}.doc`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleLoad = (p: ProposalRow) => {
