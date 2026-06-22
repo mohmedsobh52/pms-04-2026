@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Sparkles, Download, Save, FileText, Trash2 } from "lucide-react";
+import { Loader2, Sparkles, Download, Save, FileText, Trash2, Upload, FileType, LayoutTemplate, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -44,6 +44,54 @@ const ALL_SECTIONS = [
 
 const DEFAULT_SECTIONS = ALL_SECTIONS.map((s) => s.id);
 
+const TEMPLATES = [
+  {
+    id: "building",
+    ar: "مباني سكنية/تجارية",
+    en: "Residential / Commercial Building",
+    scope_ar: "تنفيذ مبنى متعدد الطوابق يشمل الأعمال الإنشائية والمعمارية والكهروميكانيكية والتشطيبات النهائية حتى التسليم.",
+    scope_en: "Multi-story building including civil, architectural, MEP works and final finishes up to handover.",
+    extra_ar: "الالتزام بكود البناء السعودي، استخدام مواد معتمدة، فترة ضمان 12 شهراً.",
+    extra_en: "Comply with local building code, certified materials only, 12-month warranty.",
+  },
+  {
+    id: "infra",
+    ar: "بنية تحتية / طرق",
+    en: "Infrastructure / Roads",
+    scope_ar: "أعمال طرق وبنية تحتية تشمل الحفر والردم والأسفلت وشبكات الصرف والإنارة وعلامات المرور.",
+    scope_en: "Roads & infrastructure: earthworks, asphalt, drainage, lighting and road markings.",
+    extra_ar: "اختبارات MARSHALL وCBR، اعتماد المختبر، خطة مرور أثناء التنفيذ.",
+    extra_en: "MARSHALL & CBR tests, accredited lab, traffic management plan during execution.",
+  },
+  {
+    id: "mep",
+    ar: "أعمال كهروميكانيكية (MEP)",
+    en: "MEP Works",
+    scope_ar: "توريد وتركيب أنظمة التكييف والكهرباء والسباكة والإطفاء مع التشغيل والاختبار والتسليم.",
+    scope_en: "Supply and install HVAC, electrical, plumbing and fire-fighting systems with T&C and handover.",
+    extra_ar: "أجهزة معتمدة من الدفاع المدني، Commissioning كامل قبل التسليم.",
+    extra_en: "Civil Defense approved equipment, full commissioning before handover.",
+  },
+  {
+    id: "renovation",
+    ar: "ترميم وإعادة تأهيل",
+    en: "Renovation & Refurbishment",
+    scope_ar: "ترميم وتأهيل المبنى القائم مع تدعيم إنشائي وتجديد التشطيبات والأنظمة دون تعطيل التشغيل.",
+    scope_en: "Refurbish existing building with structural strengthening and finish/system renewal without disrupting operations.",
+    extra_ar: "العمل خارج ساعات الذروة، حماية المحتويات، إدارة المخلفات.",
+    extra_en: "Off-peak working hours, content protection, waste management plan.",
+  },
+  {
+    id: "maintenance",
+    ar: "عقد صيانة سنوي",
+    en: "Annual Maintenance Contract",
+    scope_ar: "صيانة وقائية وتصحيحية شاملة للمرافق على مدار السنة مع SLA وزمن استجابة محدد.",
+    scope_en: "Comprehensive preventive & corrective facility maintenance with defined SLA and response times.",
+    extra_ar: "زمن استجابة ≤ 4 ساعات للأعطال الحرجة، تقارير شهرية، فريق دائم في الموقع.",
+    extra_en: "≤4h response for critical faults, monthly reports, dedicated on-site team.",
+  },
+];
+
 export default function TechnicalProposalGeneratorPage() {
   const { isArabic } = useLanguage();
   const { user } = useAuth();
@@ -66,6 +114,37 @@ export default function TechnicalProposalGeneratorPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState<ProposalRow[]>([]);
+
+  // Branding & signature (persisted locally)
+  const [companyName, setCompanyName] = useState<string>(() => localStorage.getItem("tp_company_name") || "");
+  const [logoDataUrl, setLogoDataUrl] = useState<string>(() => localStorage.getItem("tp_company_logo") || "");
+  const [signName, setSignName] = useState<string>(() => localStorage.getItem("tp_sign_name") || "");
+  const [signTitle, setSignTitle] = useState<string>(() => localStorage.getItem("tp_sign_title") || "");
+  const [signDate, setSignDate] = useState<string>(new Date().toISOString().slice(0, 10));
+
+  useEffect(() => { localStorage.setItem("tp_company_name", companyName); }, [companyName]);
+  useEffect(() => { localStorage.setItem("tp_company_logo", logoDataUrl); }, [logoDataUrl]);
+  useEffect(() => { localStorage.setItem("tp_sign_name", signName); }, [signName]);
+  useEffect(() => { localStorage.setItem("tp_sign_title", signTitle); }, [signTitle]);
+
+  const handleLogoUpload = (file: File) => {
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: t("الصورة كبيرة جداً (حد أقصى 2MB)", "Image too large (max 2MB)"), variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setLogoDataUrl(String(reader.result || ""));
+    reader.readAsDataURL(file);
+  };
+
+  const applyTemplate = (id: string) => {
+    const tpl = TEMPLATES.find((x) => x.id === id);
+    if (!tpl) return;
+    setScope(isArabic ? tpl.scope_ar : tpl.scope_en);
+    setExtra(isArabic ? tpl.extra_ar : tpl.extra_en);
+    if (!title) setTitle(isArabic ? tpl.ar : tpl.en);
+    toast({ title: t("تم تطبيق القالب", "Template applied") });
+  };
 
   const loadHistory = async () => {
     const { data } = await supabase
@@ -202,23 +281,77 @@ export default function TechnicalProposalGeneratorPage() {
     URL.revokeObjectURL(url);
   };
 
+  const buildPrintHtml = () => {
+    const dir = language === "ar" ? "rtl" : "ltr";
+    const align = language === "ar" ? "right" : "left";
+    const signedLabel = language === "ar" ? "المُقدِّم" : "Submitted by";
+    const nameLabel = language === "ar" ? "الاسم" : "Name";
+    const titleLabel = language === "ar" ? "المنصب" : "Position";
+    const dateLabel = language === "ar" ? "التاريخ" : "Date";
+    const sigLabel = language === "ar" ? "التوقيع" : "Signature";
+
+    const header = `
+      <div class="cover">
+        ${logoDataUrl ? `<img src="${logoDataUrl}" alt="logo" class="logo"/>` : ""}
+        ${companyName ? `<div class="company">${companyName}</div>` : ""}
+        <h1>${title || ""}</h1>
+        ${client ? `<div class="client">${language === "ar" ? "مُقدَّم إلى:" : "Prepared for:"} <strong>${client}</strong></div>` : ""}
+        <div class="meta">${signDate}</div>
+      </div>`;
+
+    const signature = (signName || signTitle) ? `
+      <div class="signature">
+        <h3>${signedLabel}</h3>
+        <table class="sig">
+          <tr><td><strong>${nameLabel}:</strong> ${signName || ""}</td><td><strong>${titleLabel}:</strong> ${signTitle || ""}</td></tr>
+          <tr><td><strong>${dateLabel}:</strong> ${signDate}</td><td><strong>${sigLabel}:</strong> ____________________</td></tr>
+        </table>
+      </div>` : "";
+
+    return `<!doctype html><html dir="${dir}"><head><meta charset="utf-8"><title>${title}</title>
+<style>
+body{font-family:${language === "ar" ? "'Cairo','Tajawal'" : "'Tajawal'"},system-ui,sans-serif;max-width:820px;margin:32px auto;padding:0 24px;color:#1a1a1a;line-height:1.7}
+.cover{text-align:center;border-bottom:3px solid #0f4f4a;padding-bottom:24px;margin-bottom:24px}
+.cover .logo{max-height:90px;margin:0 auto 12px;display:block}
+.cover .company{font-size:14px;color:#555;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+.cover h1{color:#0f4f4a;margin:8px 0;font-size:28px}
+.cover .client{margin-top:8px;color:#444}
+.cover .meta{margin-top:6px;color:#888;font-size:13px}
+h1,h2,h3{color:#0f4f4a;margin-top:1.4em}
+h2{border-bottom:1px solid #ddd;padding-bottom:6px}
+table{border-collapse:collapse;width:100%;margin:12px 0}
+th,td{border:1px solid #ccc;padding:8px;text-align:${align}}
+th{background:#f5f5f5}
+code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
+.signature{margin-top:48px;padding-top:24px;border-top:2px solid #0f4f4a;page-break-inside:avoid}
+.signature h3{color:#0f4f4a;margin-bottom:12px}
+.sig td{border:none;padding:10px 8px;border-bottom:1px solid #ddd}
+@media print{.cover{page-break-after:avoid}}
+</style></head><body>${header}${markdownToHtml(content)}${signature}</body></html>`;
+  };
+
   const handlePrintPdf = () => {
     if (!content) return;
     const w = window.open("", "_blank");
     if (!w) return;
-    const html = `<!doctype html><html dir="${language === "ar" ? "rtl" : "ltr"}"><head><meta charset="utf-8"><title>${title}</title>
-<style>
-body{font-family:${language === "ar" ? "'Cairo','Tajawal'" : "'Tajawal'"} ,system-ui,sans-serif;max-width:820px;margin:32px auto;padding:0 24px;color:#1a1a1a;line-height:1.7}
-h1,h2,h3{color:#0f4f4a;margin-top:1.4em}
-h2{border-bottom:1px solid #ddd;padding-bottom:6px}
-table{border-collapse:collapse;width:100%;margin:12px 0}
-th,td{border:1px solid #ccc;padding:8px;text-align:${language === "ar" ? "right" : "left"}}
-th{background:#f5f5f5}
-code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
-</style></head><body><h1>${title || ""}</h1>${markdownToHtml(content)}</body></html>`;
-    w.document.write(html);
+    w.document.write(buildPrintHtml());
     w.document.close();
     setTimeout(() => w.print(), 400);
+  };
+
+  const handleDownloadWord = () => {
+    if (!content) return;
+    const html = buildPrintHtml();
+    const blob = new Blob(
+      ["\ufeff", '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">', html, "</html>"],
+      { type: "application/msword" },
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${title || "technical-proposal"}.doc`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleLoad = (p: ProposalRow) => {
@@ -261,6 +394,18 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
+                <Label className="flex items-center gap-2"><LayoutTemplate className="w-4 h-4" />{t("قالب جاهز", "Ready template")}</Label>
+                <Select onValueChange={applyTemplate}>
+                  <SelectTrigger><SelectValue placeholder={t("اختر قالباً لتعبئة الحقول...", "Pick a template to prefill...")} /></SelectTrigger>
+                  <SelectContent>
+                    {TEMPLATES.map((tpl) => (
+                      <SelectItem key={tpl.id} value={tpl.id}>{isArabic ? tpl.ar : tpl.en}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
                 <Label>{t("مشروع موجود (اختياري)", "Existing project (optional)")}</Label>
                 <Select value={projectId} onValueChange={setProjectId}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -272,6 +417,52 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Branding */}
+              <div className="rounded-lg border border-border p-3 space-y-3 bg-muted/30">
+                <p className="text-xs font-semibold text-muted-foreground">{t("الهوية والتوقيع", "Branding & Signature")}</p>
+                <div>
+                  <Label className="text-xs">{t("اسم الشركة", "Company name")}</Label>
+                  <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs">{t("شعار الشركة", "Company logo")}</Label>
+                  {logoDataUrl ? (
+                    <div className="flex items-center gap-2 mt-1">
+                      <img src={logoDataUrl} alt="logo" className="h-12 border border-border rounded bg-white p-1" />
+                      <Button variant="ghost" size="sm" onClick={() => setLogoDataUrl("")}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="mt-1 flex items-center gap-2 text-xs cursor-pointer border border-dashed border-border rounded-md px-3 py-2 hover:bg-muted">
+                      <Upload className="w-4 h-4" />
+                      <span>{t("رفع شعار (PNG/JPG ≤ 2MB)", "Upload logo (PNG/JPG ≤ 2MB)")}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => e.target.files?.[0] && handleLogoUpload(e.target.files[0])}
+                      />
+                    </label>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">{t("اسم المُقدِّم", "Signed by")}</Label>
+                    <Input value={signName} onChange={(e) => setSignName(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">{t("المنصب", "Position")}</Label>
+                    <Input value={signTitle} onChange={(e) => setSignTitle(e.target.value)} />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">{t("التاريخ", "Date")}</Label>
+                  <Input type="text" placeholder="yyyy-MM-dd" value={signDate} onChange={(e) => setSignDate(e.target.value)} />
+                </div>
+              </div>
+
 
               <div>
                 <Label>{t("عنوان المشروع *", "Project title *")}</Label>
@@ -378,6 +569,9 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleDownloadMd} disabled={!content}>
                   <Download className="w-4 h-4 me-1" />MD
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleDownloadWord} disabled={!content}>
+                  <FileType className="w-4 h-4 me-1" />Word
                 </Button>
                 <Button variant="outline" size="sm" onClick={handlePrintPdf} disabled={!content}>
                   <FileText className="w-4 h-4 me-1" />PDF
