@@ -261,10 +261,11 @@ export default function TechnicalProposalGeneratorPage() {
         currency,
         language,
         sections,
-        inputs: { extra, boqSummary },
+        inputs: { extra, boqSummary, companyName, signName, signTitle, signDate },
         content,
         model,
         status: "draft",
+        proposal_number: proposalNumber || null,
       } as any);
       if (error) throw error;
       toast({ title: t("تم الحفظ", "Saved") });
