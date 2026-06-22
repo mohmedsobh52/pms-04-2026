@@ -573,7 +573,12 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
           {/* Output */}
           <Card className="lg:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-base">{t("المعاينة", "Preview")}</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                {t("المعاينة", "Preview")}
+                {proposalNumber && (
+                  <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary">{proposalNumber}</span>
+                )}
+              </CardTitle>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={handleSave} disabled={!content || saving}>
                   {saving ? <Loader2 className="w-4 h-4 me-1 animate-spin" /> : <Save className="w-4 h-4 me-1" />}
