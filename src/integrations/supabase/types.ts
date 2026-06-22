@@ -3296,6 +3296,7 @@ export type Database = {
           model: string | null
           project_id: string | null
           project_scope: string | null
+          proposal_number: string | null
           sections: Json | null
           status: string | null
           title: string
@@ -3315,6 +3316,7 @@ export type Database = {
           model?: string | null
           project_id?: string | null
           project_scope?: string | null
+          proposal_number?: string | null
           sections?: Json | null
           status?: string | null
           title: string
@@ -3334,6 +3336,7 @@ export type Database = {
           model?: string | null
           project_id?: string | null
           project_scope?: string | null
+          proposal_number?: string | null
           sections?: Json | null
           status?: string | null
           title?: string
@@ -4062,6 +4065,7 @@ export type Database = {
       }
       mark_all_notifications_read: { Args: never; Returns: number }
       mark_notifications_read: { Args: { _ids: string[] }; Returns: number }
+      next_proposal_number: { Args: { _user: string }; Returns: string }
       notify_user: {
         Args: {
           _body?: string
