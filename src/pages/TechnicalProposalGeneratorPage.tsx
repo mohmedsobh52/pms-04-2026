@@ -14,6 +14,7 @@ import { Loader2, Sparkles, Download, Save, FileText, Trash2, Upload, FileType, 
 import { toast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { generateProposalDocx } from "@/lib/proposalDocx";
 
 type SavedProject = { id: string; name: string };
 type ProposalRow = {
