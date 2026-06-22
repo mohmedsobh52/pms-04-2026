@@ -14,6 +14,7 @@ import { Loader2, Sparkles, Download, Save, FileText, Trash2, Upload, FileType, 
 import { toast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { generateProposalDocx } from "@/lib/proposalDocx";
 
 type SavedProject = { id: string; name: string };
 type ProposalRow = {
@@ -111,6 +112,7 @@ export default function TechnicalProposalGeneratorPage() {
   const [model, setModel] = useState("google/gemini-2.5-pro");
   const [boqSummary, setBoqSummary] = useState("");
   const [content, setContent] = useState("");
+  const [proposalNumber, setProposalNumber] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState<ProposalRow[]>([]);
@@ -232,6 +234,11 @@ export default function TechnicalProposalGeneratorPage() {
       const text = (data as any)?.content || "";
       if (!text) throw new Error(t("لم يتم توليد محتوى", "No content generated"));
       setContent(text);
+      // Auto-assign next proposal number
+      try {
+        const { data: num } = await supabase.rpc("next_proposal_number" as any, { _user: user?.id });
+        if (num) setProposalNumber(String(num));
+      } catch { /* non-fatal */ }
       toast({ title: t("تم توليد العرض الفني", "Proposal generated") });
     } catch (e: any) {
       toast({ title: t("خطأ", "Error"), description: e.message, variant: "destructive" });
@@ -255,10 +262,11 @@ export default function TechnicalProposalGeneratorPage() {
         currency,
         language,
         sections,
-        inputs: { extra, boqSummary },
+        inputs: { extra, boqSummary, companyName, signName, signTitle, signDate },
         content,
         model,
         status: "draft",
+        proposal_number: proposalNumber || null,
       } as any);
       if (error) throw error;
       toast({ title: t("تم الحفظ", "Saved") });
@@ -339,19 +347,23 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
     setTimeout(() => w.print(), 400);
   };
 
-  const handleDownloadWord = () => {
+  const handleDownloadWord = async () => {
     if (!content) return;
-    const html = buildPrintHtml();
-    const blob = new Blob(
-      ["\ufeff", '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">', html, "</html>"],
-      { type: "application/msword" },
-    );
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${title || "technical-proposal"}.doc`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const blob = await generateProposalDocx({
+        title, client, companyName, logoDataUrl,
+        proposalNumber, signName, signTitle, signDate,
+        language, markdown: content,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${proposalNumber || title || "technical-proposal"}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      toast({ title: t("خطأ في توليد Word", "Word generation failed"), description: e.message, variant: "destructive" });
+    }
   };
 
   const handleLoad = (p: ProposalRow) => {
@@ -561,7 +573,12 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
           {/* Output */}
           <Card className="lg:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-base">{t("المعاينة", "Preview")}</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                {t("المعاينة", "Preview")}
+                {proposalNumber && (
+                  <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary">{proposalNumber}</span>
+                )}
+              </CardTitle>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={handleSave} disabled={!content || saving}>
                   {saving ? <Loader2 className="w-4 h-4 me-1 animate-spin" /> : <Save className="w-4 h-4 me-1" />}
