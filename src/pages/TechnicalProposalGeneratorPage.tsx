@@ -347,19 +347,23 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
     setTimeout(() => w.print(), 400);
   };
 
-  const handleDownloadWord = () => {
+  const handleDownloadWord = async () => {
     if (!content) return;
-    const html = buildPrintHtml();
-    const blob = new Blob(
-      ["\ufeff", '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">', html, "</html>"],
-      { type: "application/msword" },
-    );
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${title || "technical-proposal"}.doc`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const blob = await generateProposalDocx({
+        title, client, companyName, logoDataUrl,
+        proposalNumber, signName, signTitle, signDate,
+        language, markdown: content,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${proposalNumber || title || "technical-proposal"}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      toast({ title: t("خطأ في توليد Word", "Word generation failed"), description: e.message, variant: "destructive" });
+    }
   };
 
   const handleLoad = (p: ProposalRow) => {
