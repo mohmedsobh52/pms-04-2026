@@ -44,6 +44,54 @@ const ALL_SECTIONS = [
 
 const DEFAULT_SECTIONS = ALL_SECTIONS.map((s) => s.id);
 
+const TEMPLATES = [
+  {
+    id: "building",
+    ar: "مباني سكنية/تجارية",
+    en: "Residential / Commercial Building",
+    scope_ar: "تنفيذ مبنى متعدد الطوابق يشمل الأعمال الإنشائية والمعمارية والكهروميكانيكية والتشطيبات النهائية حتى التسليم.",
+    scope_en: "Multi-story building including civil, architectural, MEP works and final finishes up to handover.",
+    extra_ar: "الالتزام بكود البناء السعودي، استخدام مواد معتمدة، فترة ضمان 12 شهراً.",
+    extra_en: "Comply with local building code, certified materials only, 12-month warranty.",
+  },
+  {
+    id: "infra",
+    ar: "بنية تحتية / طرق",
+    en: "Infrastructure / Roads",
+    scope_ar: "أعمال طرق وبنية تحتية تشمل الحفر والردم والأسفلت وشبكات الصرف والإنارة وعلامات المرور.",
+    scope_en: "Roads & infrastructure: earthworks, asphalt, drainage, lighting and road markings.",
+    extra_ar: "اختبارات MARSHALL وCBR، اعتماد المختبر، خطة مرور أثناء التنفيذ.",
+    extra_en: "MARSHALL & CBR tests, accredited lab, traffic management plan during execution.",
+  },
+  {
+    id: "mep",
+    ar: "أعمال كهروميكانيكية (MEP)",
+    en: "MEP Works",
+    scope_ar: "توريد وتركيب أنظمة التكييف والكهرباء والسباكة والإطفاء مع التشغيل والاختبار والتسليم.",
+    scope_en: "Supply and install HVAC, electrical, plumbing and fire-fighting systems with T&C and handover.",
+    extra_ar: "أجهزة معتمدة من الدفاع المدني، Commissioning كامل قبل التسليم.",
+    extra_en: "Civil Defense approved equipment, full commissioning before handover.",
+  },
+  {
+    id: "renovation",
+    ar: "ترميم وإعادة تأهيل",
+    en: "Renovation & Refurbishment",
+    scope_ar: "ترميم وتأهيل المبنى القائم مع تدعيم إنشائي وتجديد التشطيبات والأنظمة دون تعطيل التشغيل.",
+    scope_en: "Refurbish existing building with structural strengthening and finish/system renewal without disrupting operations.",
+    extra_ar: "العمل خارج ساعات الذروة، حماية المحتويات، إدارة المخلفات.",
+    extra_en: "Off-peak working hours, content protection, waste management plan.",
+  },
+  {
+    id: "maintenance",
+    ar: "عقد صيانة سنوي",
+    en: "Annual Maintenance Contract",
+    scope_ar: "صيانة وقائية وتصحيحية شاملة للمرافق على مدار السنة مع SLA وزمن استجابة محدد.",
+    scope_en: "Comprehensive preventive & corrective facility maintenance with defined SLA and response times.",
+    extra_ar: "زمن استجابة ≤ 4 ساعات للأعطال الحرجة، تقارير شهرية، فريق دائم في الموقع.",
+    extra_en: "≤4h response for critical faults, monthly reports, dedicated on-site team.",
+  },
+];
+
 export default function TechnicalProposalGeneratorPage() {
   const { isArabic } = useLanguage();
   const { user } = useAuth();
