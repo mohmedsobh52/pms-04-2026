@@ -115,6 +115,37 @@ export default function TechnicalProposalGeneratorPage() {
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState<ProposalRow[]>([]);
 
+  // Branding & signature (persisted locally)
+  const [companyName, setCompanyName] = useState<string>(() => localStorage.getItem("tp_company_name") || "");
+  const [logoDataUrl, setLogoDataUrl] = useState<string>(() => localStorage.getItem("tp_company_logo") || "");
+  const [signName, setSignName] = useState<string>(() => localStorage.getItem("tp_sign_name") || "");
+  const [signTitle, setSignTitle] = useState<string>(() => localStorage.getItem("tp_sign_title") || "");
+  const [signDate, setSignDate] = useState<string>(new Date().toISOString().slice(0, 10));
+
+  useEffect(() => { localStorage.setItem("tp_company_name", companyName); }, [companyName]);
+  useEffect(() => { localStorage.setItem("tp_company_logo", logoDataUrl); }, [logoDataUrl]);
+  useEffect(() => { localStorage.setItem("tp_sign_name", signName); }, [signName]);
+  useEffect(() => { localStorage.setItem("tp_sign_title", signTitle); }, [signTitle]);
+
+  const handleLogoUpload = (file: File) => {
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: t("الصورة كبيرة جداً (حد أقصى 2MB)", "Image too large (max 2MB)"), variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setLogoDataUrl(String(reader.result || ""));
+    reader.readAsDataURL(file);
+  };
+
+  const applyTemplate = (id: string) => {
+    const tpl = TEMPLATES.find((x) => x.id === id);
+    if (!tpl) return;
+    setScope(isArabic ? tpl.scope_ar : tpl.scope_en);
+    setExtra(isArabic ? tpl.extra_ar : tpl.extra_en);
+    if (!title) setTitle(isArabic ? tpl.ar : tpl.en);
+    toast({ title: t("تم تطبيق القالب", "Template applied") });
+  };
+
   const loadHistory = async () => {
     const { data } = await supabase
       .from("technical_proposals" as any)
