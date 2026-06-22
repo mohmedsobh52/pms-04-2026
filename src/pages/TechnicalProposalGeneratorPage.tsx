@@ -233,6 +233,11 @@ export default function TechnicalProposalGeneratorPage() {
       const text = (data as any)?.content || "";
       if (!text) throw new Error(t("لم يتم توليد محتوى", "No content generated"));
       setContent(text);
+      // Auto-assign next proposal number
+      try {
+        const { data: num } = await supabase.rpc("next_proposal_number" as any, { _user: user?.id });
+        if (num) setProposalNumber(String(num));
+      } catch { /* non-fatal */ }
       toast({ title: t("تم توليد العرض الفني", "Proposal generated") });
     } catch (e: any) {
       toast({ title: t("خطأ", "Error"), description: e.message, variant: "destructive" });
