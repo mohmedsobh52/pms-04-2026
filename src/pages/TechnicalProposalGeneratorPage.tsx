@@ -570,6 +570,9 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
                 <Button variant="outline" size="sm" onClick={handleDownloadMd} disabled={!content}>
                   <Download className="w-4 h-4 me-1" />MD
                 </Button>
+                <Button variant="outline" size="sm" onClick={handleDownloadWord} disabled={!content}>
+                  <FileType className="w-4 h-4 me-1" />Word
+                </Button>
                 <Button variant="outline" size="sm" onClick={handlePrintPdf} disabled={!content}>
                   <FileText className="w-4 h-4 me-1" />PDF
                 </Button>
