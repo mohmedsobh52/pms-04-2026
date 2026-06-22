@@ -111,6 +111,7 @@ export default function TechnicalProposalGeneratorPage() {
   const [model, setModel] = useState("google/gemini-2.5-pro");
   const [boqSummary, setBoqSummary] = useState("");
   const [content, setContent] = useState("");
+  const [proposalNumber, setProposalNumber] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState<ProposalRow[]>([]);
