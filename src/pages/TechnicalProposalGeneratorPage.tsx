@@ -38,11 +38,19 @@ const ALL_SECTIONS = [
   { id: "risk", ar: "إدارة المخاطر", en: "Risk Management" },
   { id: "resources", ar: "الموارد والمعدات", en: "Resources & Equipment" },
   { id: "procurement", ar: "خطة المشتريات", en: "Procurement Plan" },
+  { id: "subcontracting", ar: "خطة المقاولين من الباطن", en: "Subcontracting Plan" },
+  { id: "mobilization", ar: "خطة التعبئة والتجهيز للموقع", en: "Site Mobilization Plan" },
   { id: "communication", ar: "خطة الاتصال", en: "Communication Plan" },
   { id: "stakeholders", ar: "خطة أصحاب المصلحة", en: "Stakeholder Management Plan" },
+  { id: "change", ar: "إدارة التغيير والمطالبات", en: "Change & Claims Management" },
+  { id: "sustainability", ar: "الاستدامة والبيئة", en: "Sustainability & Environment" },
+  { id: "bim", ar: "الحلول الرقمية و BIM", en: "Digital Solutions & BIM" },
+  { id: "training", ar: "التدريب ونقل المعرفة", en: "Training & Knowledge Transfer" },
   { id: "pricing", ar: "الملخص المالي", en: "Financial Summary" },
   { id: "warranty", ar: "الضمانات وما بعد التسليم", en: "Warranty & Handover" },
   { id: "references", ar: "الخبرات المرجعية", en: "Reference Projects" },
+  { id: "compliance", ar: "الامتثال والاشتراطات النظامية", en: "Compliance & Regulatory" },
+  { id: "assumptions", ar: "الافتراضات والاستثناءات", en: "Assumptions & Exclusions" },
 ];
 
 const DEFAULT_SECTIONS = ALL_SECTIONS.map((s) => s.id);
