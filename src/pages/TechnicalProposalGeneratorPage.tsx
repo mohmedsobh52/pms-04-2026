@@ -221,6 +221,8 @@ export default function TechnicalProposalGeneratorPage() {
   const handleGenerate = async () => {
     if (!title.trim()) {
       toast({ title: t("عنوان المشروع مطلوب", "Project title required"), variant: "destructive" });
+      titleInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      titleInputRef.current?.focus();
       return;
     }
     setLoading(true);
