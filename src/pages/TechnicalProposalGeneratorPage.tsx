@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
@@ -111,6 +111,7 @@ export default function TechnicalProposalGeneratorPage() {
   const [projects, setProjects] = useState<SavedProject[]>([]);
   const [projectId, setProjectId] = useState<string>("none");
   const [title, setTitle] = useState("");
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const [client, setClient] = useState("");
   const [scope, setScope] = useState("");
   const [duration, setDuration] = useState<string>("");
@@ -220,6 +221,8 @@ export default function TechnicalProposalGeneratorPage() {
   const handleGenerate = async () => {
     if (!title.trim()) {
       toast({ title: t("عنوان المشروع مطلوب", "Project title required"), variant: "destructive" });
+      titleInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      titleInputRef.current?.focus();
       return;
     }
     setLoading(true);
@@ -488,7 +491,7 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
 
               <div>
                 <Label>{t("عنوان المشروع *", "Project title *")}</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+                <Input ref={titleInputRef} value={title} onChange={(e) => setTitle(e.target.value)} />
               </div>
 
               <div>
