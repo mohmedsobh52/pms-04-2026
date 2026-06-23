@@ -53,12 +53,20 @@ const SECTION_LABELS_EN: Record<string, string> = {
   hse: 'Health, Safety & Environment (HSE)',
   risk: 'Risk Management',
   resources: 'Resources & Equipment',
-  procurement: 'Procurement Plan',
+  procurement: 'Procurement Plan (long-lead items, vendors, schedule)',
+  subcontracting: 'Subcontracting Plan — selection criteria, prequalification, scope packages, supervision',
+  mobilization: 'Site Mobilization Plan — site offices, stores, temporary utilities, mobilization schedule',
   communication: 'Communication Plan — channels, meeting cadence, RACI matrix, reporting, document control',
-  stakeholders: 'Stakeholder Management Plan — identification, power/interest analysis, engagement strategies, expectations',
+  stakeholders: 'Stakeholder Management Plan — identification, power/interest analysis, engagement strategies',
+  change: 'Change & Claims Management — change order workflow, pricing, documentation, claims handling',
+  sustainability: 'Sustainability & Environment — carbon reduction, waste management, LEED/Estidama compliance if applicable',
+  bim: 'Digital Solutions & BIM — LOD level, coordination, clash detection, digital management tools',
+  training: 'Training & Knowledge Transfer — client team training, O&M manuals, post-handover support period',
   pricing: 'Financial Summary & Pricing',
   warranty: 'Warranty & After-Handover Support',
   references: 'Experience & Reference Projects',
+  compliance: 'Compliance & Regulatory — local/Saudi codes, ISO certifications, government authority requirements',
+  assumptions: 'Assumptions & Exclusions — clear list of items excluded from scope and assumptions the proposal is based on',
 };
 
 Deno.serve(async (req) => {
