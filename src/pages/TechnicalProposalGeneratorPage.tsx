@@ -491,7 +491,7 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
 
               <div>
                 <Label>{t("عنوان المشروع *", "Project title *")}</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+                <Input ref={titleInputRef} value={title} onChange={(e) => setTitle(e.target.value)} />
               </div>
 
               <div>
