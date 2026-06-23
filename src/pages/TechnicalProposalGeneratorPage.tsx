@@ -111,6 +111,7 @@ export default function TechnicalProposalGeneratorPage() {
   const [projects, setProjects] = useState<SavedProject[]>([]);
   const [projectId, setProjectId] = useState<string>("none");
   const [title, setTitle] = useState("");
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const [client, setClient] = useState("");
   const [scope, setScope] = useState("");
   const [duration, setDuration] = useState<string>("");
