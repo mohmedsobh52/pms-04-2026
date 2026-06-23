@@ -28,6 +28,8 @@ const SECTION_LABELS_AR: Record<string, string> = {
   risk: 'إدارة المخاطر',
   resources: 'الموارد والمعدات',
   procurement: 'خطة المشتريات',
+  communication: 'خطة الاتصال (Communication Plan) — قنوات التواصل، تكرار الاجتماعات، مصفوفة التوزيع (RACI)، التقارير الدورية، إدارة الوثائق',
+  stakeholders: 'خطة إدارة أصحاب المصلحة (Stakeholder Plan) — تحديد الأطراف، تحليل التأثير/الاهتمام، استراتيجيات الإشراك، إدارة التوقعات',
   pricing: 'الملخص المالي والتسعير',
   warranty: 'الضمانات وما بعد التسليم',
   references: 'الخبرات والمشاريع المرجعية',
