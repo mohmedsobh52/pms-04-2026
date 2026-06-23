@@ -38,6 +38,8 @@ const ALL_SECTIONS = [
   { id: "risk", ar: "إدارة المخاطر", en: "Risk Management" },
   { id: "resources", ar: "الموارد والمعدات", en: "Resources & Equipment" },
   { id: "procurement", ar: "خطة المشتريات", en: "Procurement Plan" },
+  { id: "communication", ar: "خطة الاتصال", en: "Communication Plan" },
+  { id: "stakeholders", ar: "خطة أصحاب المصلحة", en: "Stakeholder Management Plan" },
   { id: "pricing", ar: "الملخص المالي", en: "Financial Summary" },
   { id: "warranty", ar: "الضمانات وما بعد التسليم", en: "Warranty & Handover" },
   { id: "references", ar: "الخبرات المرجعية", en: "Reference Projects" },
