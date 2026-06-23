@@ -46,6 +46,8 @@ const SECTION_LABELS_EN: Record<string, string> = {
   risk: 'Risk Management',
   resources: 'Resources & Equipment',
   procurement: 'Procurement Plan',
+  communication: 'Communication Plan — channels, meeting cadence, RACI matrix, reporting, document control',
+  stakeholders: 'Stakeholder Management Plan — identification, power/interest analysis, engagement strategies, expectations',
   pricing: 'Financial Summary & Pricing',
   warranty: 'Warranty & After-Handover Support',
   references: 'Experience & Reference Projects',
