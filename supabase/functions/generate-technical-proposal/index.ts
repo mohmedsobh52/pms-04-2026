@@ -141,18 +141,18 @@ Instructions:
 
     if (res.status === 429) {
       return new Response(JSON.stringify({ error: isAr ? 'تم تجاوز الحد المسموح، حاول لاحقاً' : 'Rate limit exceeded, try again later' }), {
-        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
     if (res.status === 402) {
-      return new Response(JSON.stringify({ error: isAr ? 'الرصيد غير كافٍ. الرجاء إضافة رصيد في Lovable AI' : 'Insufficient credits. Please add credits in Lovable AI' }), {
-        status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      return new Response(JSON.stringify({ error: isAr ? 'الرصيد غير كافٍ. الرجاء إضافة رصيد في إعدادات مساحة العمل (Plans & credits)' : 'Insufficient credits. Please add credits in workspace settings (Plans & credits)' }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
     if (!res.ok) {
       const t = await res.text();
       return new Response(JSON.stringify({ error: `AI error: ${t}` }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
