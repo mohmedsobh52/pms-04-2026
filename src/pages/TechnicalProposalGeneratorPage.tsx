@@ -120,7 +120,7 @@ export default function TechnicalProposalGeneratorPage() {
   const [language, setLanguage] = useState<"ar" | "en">("ar");
   const [sections, setSections] = useState<string[]>(DEFAULT_SECTIONS);
   const [extra, setExtra] = useState("");
-  const [model, setModel] = useState("google/gemini-2.5-pro");
+  const [model, setModel] = useState("google/gemini-2.5-flash");
   const [boqSummary, setBoqSummary] = useState("");
   const [content, setContent] = useState("");
   const [proposalNumber, setProposalNumber] = useState<string>("");
