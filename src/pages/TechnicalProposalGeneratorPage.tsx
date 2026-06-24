@@ -549,6 +549,16 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
                   <Label className="text-xs">{t("التاريخ", "Date")}</Label>
                   <Input type="text" placeholder="yyyy-MM-dd" value={signDate} onChange={(e) => setSignDate(e.target.value)} />
                 </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">{t("صلاحية العرض (يوم)", "Validity (days)")}</Label>
+                    <Input type="number" min="1" value={validityDays} onChange={(e) => setValidityDays(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">{t("شروط الدفع", "Payment terms")}</Label>
+                    <Input placeholder={t("مثال: 30/60/10", "e.g., 30/60/10")} value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} />
+                  </div>
+                </div>
               </div>
 
 
