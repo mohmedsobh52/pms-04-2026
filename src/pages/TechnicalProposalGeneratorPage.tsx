@@ -245,7 +245,11 @@ export default function TechnicalProposalGeneratorPage() {
           currency,
           language,
           sections,
-          extra_context: extra,
+          extra_context: [
+            extra,
+            validityDays ? (isArabic ? `صلاحية العرض: ${validityDays} يوماً` : `Proposal validity: ${validityDays} days`) : "",
+            paymentTerms ? (isArabic ? `شروط الدفع: ${paymentTerms}` : `Payment terms: ${paymentTerms}`) : "",
+          ].filter(Boolean).join("\n"),
           boq_summary: boqSummary,
           model,
         },
