@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Sparkles, Download, Save, FileText, Trash2, Upload, FileType, LayoutTemplate, X } from "lucide-react";
+import { Loader2, Sparkles, Download, Save, FileText, Trash2, Upload, FileType, LayoutTemplate, X, Copy, Copy as CopyIcon, Search, CheckSquare, Square } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -127,6 +127,13 @@ export default function TechnicalProposalGeneratorPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState<ProposalRow[]>([]);
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [validityDays, setValidityDays] = useState<string>(() => localStorage.getItem("tp_validity_days") || "30");
+  const [paymentTerms, setPaymentTerms] = useState<string>(() => localStorage.getItem("tp_payment_terms") || "");
+  const [currentProposalId, setCurrentProposalId] = useState<string | null>(null);
+
+  useEffect(() => { localStorage.setItem("tp_validity_days", validityDays); }, [validityDays]);
+  useEffect(() => { localStorage.setItem("tp_payment_terms", paymentTerms); }, [paymentTerms]);
 
   // Branding & signature (persisted locally)
   const [companyName, setCompanyName] = useState<string>(() => localStorage.getItem("tp_company_name") || "");
@@ -238,7 +245,11 @@ export default function TechnicalProposalGeneratorPage() {
           currency,
           language,
           sections,
-          extra_context: extra,
+          extra_context: [
+            extra,
+            validityDays ? (isArabic ? `صلاحية العرض: ${validityDays} يوماً` : `Proposal validity: ${validityDays} days`) : "",
+            paymentTerms ? (isArabic ? `شروط الدفع: ${paymentTerms}` : `Payment terms: ${paymentTerms}`) : "",
+          ].filter(Boolean).join("\n"),
           boq_summary: boqSummary,
           model,
         },
@@ -265,7 +276,7 @@ export default function TechnicalProposalGeneratorPage() {
     if (!content) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from("technical_proposals" as any).insert({
+      const payload: any = {
         user_id: user?.id,
         project_id: projectId === "none" ? null : projectId,
         title,
@@ -276,14 +287,22 @@ export default function TechnicalProposalGeneratorPage() {
         currency,
         language,
         sections,
-        inputs: { extra, boqSummary, companyName, signName, signTitle, signDate },
+        inputs: { extra, boqSummary, companyName, signName, signTitle, signDate, validityDays, paymentTerms },
         content,
         model,
         status: "draft",
         proposal_number: proposalNumber || null,
-      } as any);
-      if (error) throw error;
-      toast({ title: t("تم الحفظ", "Saved") });
+      };
+      if (currentProposalId) {
+        const { error } = await supabase.from("technical_proposals" as any).update(payload).eq("id", currentProposalId);
+        if (error) throw error;
+        toast({ title: t("تم التحديث", "Updated") });
+      } else {
+        const { data, error } = await supabase.from("technical_proposals" as any).insert(payload).select("id").maybeSingle();
+        if (error) throw error;
+        if ((data as any)?.id) setCurrentProposalId((data as any).id);
+        toast({ title: t("تم الحفظ", "Saved") });
+      }
       loadHistory();
     } catch (e: any) {
       toast({ title: t("خطأ", "Error"), description: e.message, variant: "destructive" });
@@ -291,6 +310,38 @@ export default function TechnicalProposalGeneratorPage() {
       setSaving(false);
     }
   };
+
+  const handleCopyMd = async () => {
+    if (!content) return;
+    try {
+      await navigator.clipboard.writeText(content);
+      toast({ title: t("تم النسخ", "Copied to clipboard") });
+    } catch {
+      toast({ title: t("فشل النسخ", "Copy failed"), variant: "destructive" });
+    }
+  };
+
+  const handleDuplicate = () => {
+    setCurrentProposalId(null);
+    setProposalNumber("");
+    setTitle((prev) => prev ? `${prev} (${t("نسخة", "Copy")})` : prev);
+    toast({ title: t("جاهز لحفظ نسخة جديدة", "Ready to save as new copy") });
+  };
+
+  const stats = useMemo(() => {
+    if (!content) return null;
+    const words = content.trim().split(/\s+/).filter(Boolean).length;
+    const readMin = Math.max(1, Math.round(words / 200));
+    return { words, readMin };
+  }, [content]);
+
+  const filteredHistory = useMemo(() => {
+    if (!historyQuery.trim()) return history;
+    const q = historyQuery.toLowerCase();
+    return history.filter((h) =>
+      h.title?.toLowerCase().includes(q) || (h.client_name || "").toLowerCase().includes(q)
+    );
+  }, [history, historyQuery]);
 
   const handleDownloadMd = () => {
     if (!content) return;
@@ -381,11 +432,22 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
   };
 
   const handleLoad = (p: ProposalRow) => {
+    setCurrentProposalId(p.id);
     setTitle(p.title);
     setClient(p.client_name || "");
     setLanguage((p.language as any) || "ar");
     setContent(p.content || "");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleNewProposal = () => {
+    setCurrentProposalId(null);
+    setProposalNumber("");
+    setContent("");
+    setTitle("");
+    setClient("");
+    setScope("");
+    toast({ title: t("جاهز لعرض جديد", "Ready for new proposal") });
   };
 
   const handleDelete = async (id: string) => {
@@ -487,6 +549,16 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
                   <Label className="text-xs">{t("التاريخ", "Date")}</Label>
                   <Input type="text" placeholder="yyyy-MM-dd" value={signDate} onChange={(e) => setSignDate(e.target.value)} />
                 </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">{t("صلاحية العرض (يوم)", "Validity (days)")}</Label>
+                    <Input type="number" min="1" value={validityDays} onChange={(e) => setValidityDays(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">{t("شروط الدفع", "Payment terms")}</Label>
+                    <Input placeholder={t("مثال: 30/60/10", "e.g., 30/60/10")} value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} />
+                  </div>
+                </div>
               </div>
 
 
@@ -564,7 +636,17 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
               </div>
 
               <div>
-                <Label className="mb-2 block">{t("الأقسام المطلوبة", "Sections to include")}</Label>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="block">{t("الأقسام المطلوبة", "Sections to include")} <span className="text-xs text-muted-foreground">({sections.length}/{sectionRows.length})</span></Label>
+                  <div className="flex gap-1">
+                    <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={() => setSections(ALL_SECTIONS.map((s) => s.id))}>
+                      <CheckSquare className="w-3 h-3 me-1" />{t("الكل", "All")}
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={() => setSections([])}>
+                      <Square className="w-3 h-3 me-1" />{t("لا شيء", "None")}
+                    </Button>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 gap-2 max-h-64 overflow-auto pe-2">
                   {sectionRows.map((s) => (
                     <label key={s.id} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -587,17 +669,38 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
 
           {/* Output */}
           <Card className="lg:col-span-2">
-            <CardHeader className="flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-base flex items-center gap-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
+              <CardTitle className="text-base flex items-center gap-2 flex-wrap">
                 {t("المعاينة", "Preview")}
                 {proposalNumber && (
                   <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary">{proposalNumber}</span>
                 )}
+                {currentProposalId && (
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">{t("وضع التحرير", "Editing")}</span>
+                )}
+                {stats && (
+                  <span className="text-xs text-muted-foreground font-normal">
+                    {stats.words.toLocaleString("en-US")} {t("كلمة", "words")} · ~{stats.readMin} {t("دقيقة قراءة", "min read")}
+                  </span>
+                )}
               </CardTitle>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                {content && (
+                  <Button variant="ghost" size="sm" onClick={handleNewProposal}>
+                    <Sparkles className="w-4 h-4 me-1" />{t("جديد", "New")}
+                  </Button>
+                )}
+                {currentProposalId && (
+                  <Button variant="ghost" size="sm" onClick={handleDuplicate}>
+                    <CopyIcon className="w-4 h-4 me-1" />{t("تكرار", "Duplicate")}
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={handleCopyMd} disabled={!content}>
+                  <Copy className="w-4 h-4 me-1" />{t("نسخ", "Copy")}
+                </Button>
                 <Button variant="outline" size="sm" onClick={handleSave} disabled={!content || saving}>
                   {saving ? <Loader2 className="w-4 h-4 me-1 animate-spin" /> : <Save className="w-4 h-4 me-1" />}
-                  {t("حفظ", "Save")}
+                  {currentProposalId ? t("تحديث", "Update") : t("حفظ", "Save")}
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleDownloadMd} disabled={!content}>
                   <Download className="w-4 h-4 me-1" />MD
@@ -653,36 +756,51 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
         {/* History */}
         {history.length > 0 && (
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{t("العروض المحفوظة", "Saved Proposals")}</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
+              <CardTitle className="text-base">
+                {t("العروض المحفوظة", "Saved Proposals")} <span className="text-xs text-muted-foreground font-normal">({filteredHistory.length}/{history.length})</span>
+              </CardTitle>
+              <div className="relative w-full sm:w-64">
+                <Search className="w-4 h-4 absolute start-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="ps-8 h-9"
+                  placeholder={t("بحث بالعنوان أو العميل...", "Search by title or client...")}
+                  value={historyQuery}
+                  onChange={(e) => setHistoryQuery(e.target.value)}
+                />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {history.map((p) => (
-                  <div
-                    key={p.id}
-                    className="border border-border rounded-lg p-3 bg-card/60 hover:border-primary/40 transition-colors flex flex-col gap-2"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-semibold text-sm truncate">{p.title}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {p.client_name || t("بدون عميل", "No client")} · {new Date(p.created_at).toLocaleDateString("en-US")}
-                        </p>
+              {filteredHistory.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">{t("لا توجد نتائج", "No results")}</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {filteredHistory.map((p) => (
+                    <div
+                      key={p.id}
+                      className={`border rounded-lg p-3 bg-card/60 hover:border-primary/40 transition-colors flex flex-col gap-2 ${currentProposalId === p.id ? "border-primary" : "border-border"}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm truncate">{p.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {p.client_name || t("بدون عميل", "No client")} · {new Date(p.created_at).toLocaleDateString("en-US")}
+                          </p>
+                        </div>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted">{p.language?.toUpperCase()}</span>
                       </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted">{p.language?.toUpperCase()}</span>
+                      <div className="flex gap-2 mt-auto">
+                        <Button variant="outline" size="sm" className="flex-1" onClick={() => handleLoad(p)}>
+                          {t("فتح", "Open")}
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(p.id)}>
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-2 mt-auto">
-                      <Button variant="outline" size="sm" className="flex-1" onClick={() => handleLoad(p)}>
-                        {t("فتح", "Open")}
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(p.id)}>
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
