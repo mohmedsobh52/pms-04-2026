@@ -669,17 +669,38 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
 
           {/* Output */}
           <Card className="lg:col-span-2">
-            <CardHeader className="flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-base flex items-center gap-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
+              <CardTitle className="text-base flex items-center gap-2 flex-wrap">
                 {t("المعاينة", "Preview")}
                 {proposalNumber && (
                   <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary">{proposalNumber}</span>
                 )}
+                {currentProposalId && (
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">{t("وضع التحرير", "Editing")}</span>
+                )}
+                {stats && (
+                  <span className="text-xs text-muted-foreground font-normal">
+                    {stats.words.toLocaleString("en-US")} {t("كلمة", "words")} · ~{stats.readMin} {t("دقيقة قراءة", "min read")}
+                  </span>
+                )}
               </CardTitle>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                {content && (
+                  <Button variant="ghost" size="sm" onClick={handleNewProposal}>
+                    <Sparkles className="w-4 h-4 me-1" />{t("جديد", "New")}
+                  </Button>
+                )}
+                {currentProposalId && (
+                  <Button variant="ghost" size="sm" onClick={handleDuplicate}>
+                    <CopyIcon className="w-4 h-4 me-1" />{t("تكرار", "Duplicate")}
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={handleCopyMd} disabled={!content}>
+                  <Copy className="w-4 h-4 me-1" />{t("نسخ", "Copy")}
+                </Button>
                 <Button variant="outline" size="sm" onClick={handleSave} disabled={!content || saving}>
                   {saving ? <Loader2 className="w-4 h-4 me-1 animate-spin" /> : <Save className="w-4 h-4 me-1" />}
-                  {t("حفظ", "Save")}
+                  {currentProposalId ? t("تحديث", "Update") : t("حفظ", "Save")}
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleDownloadMd} disabled={!content}>
                   <Download className="w-4 h-4 me-1" />MD
