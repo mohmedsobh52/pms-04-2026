@@ -244,6 +244,7 @@ export default function TechnicalProposalGeneratorPage() {
         },
       });
       if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
       const text = (data as any)?.content || "";
       if (!text) throw new Error(t("لم يتم توليد محتوى", "No content generated"));
       setContent(text);
