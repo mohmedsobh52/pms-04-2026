@@ -120,7 +120,7 @@ export default function TechnicalProposalGeneratorPage() {
   const [language, setLanguage] = useState<"ar" | "en">("ar");
   const [sections, setSections] = useState<string[]>(DEFAULT_SECTIONS);
   const [extra, setExtra] = useState("");
-  const [model, setModel] = useState("google/gemini-2.5-pro");
+  const [model, setModel] = useState("google/gemini-2.5-flash");
   const [boqSummary, setBoqSummary] = useState("");
   const [content, setContent] = useState("");
   const [proposalNumber, setProposalNumber] = useState<string>("");
@@ -545,9 +545,10 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
                 <Select value={model} onValueChange={setModel}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="google/gemini-2.5-pro">Gemini 2.5 Pro ({t("جودة عالية", "High quality")})</SelectItem>
-                    <SelectItem value="google/gemini-2.5-flash">Gemini 2.5 Flash ({t("سريع", "Fast")})</SelectItem>
-                    <SelectItem value="google/gemini-3-flash-preview">Gemini 3 Flash Preview</SelectItem>
+                    <SelectItem value="google/gemini-2.5-flash">Gemini 2.5 Flash ({t("مجاني · سريع", "Free · Fast")})</SelectItem>
+                    <SelectItem value="google/gemini-2.5-flash-lite">Gemini 2.5 Flash Lite ({t("مجاني · الأسرع", "Free · Fastest")})</SelectItem>
+                    <SelectItem value="google/gemini-2.5-pro">Gemini 2.5 Pro ({t("مدفوع · جودة عالية", "Paid · High quality")})</SelectItem>
+                    <SelectItem value="google/gemini-3-flash-preview">Gemini 3 Flash Preview ({t("مدفوع", "Paid")})</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
