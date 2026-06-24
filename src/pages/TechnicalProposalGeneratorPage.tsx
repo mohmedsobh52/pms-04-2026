@@ -276,7 +276,7 @@ export default function TechnicalProposalGeneratorPage() {
     if (!content) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from("technical_proposals" as any).insert({
+      const payload: any = {
         user_id: user?.id,
         project_id: projectId === "none" ? null : projectId,
         title,
@@ -287,14 +287,22 @@ export default function TechnicalProposalGeneratorPage() {
         currency,
         language,
         sections,
-        inputs: { extra, boqSummary, companyName, signName, signTitle, signDate },
+        inputs: { extra, boqSummary, companyName, signName, signTitle, signDate, validityDays, paymentTerms },
         content,
         model,
         status: "draft",
         proposal_number: proposalNumber || null,
-      } as any);
-      if (error) throw error;
-      toast({ title: t("تم الحفظ", "Saved") });
+      };
+      if (currentProposalId) {
+        const { error } = await supabase.from("technical_proposals" as any).update(payload).eq("id", currentProposalId);
+        if (error) throw error;
+        toast({ title: t("تم التحديث", "Updated") });
+      } else {
+        const { data, error } = await supabase.from("technical_proposals" as any).insert(payload).select("id").maybeSingle();
+        if (error) throw error;
+        if ((data as any)?.id) setCurrentProposalId((data as any).id);
+        toast({ title: t("تم الحفظ", "Saved") });
+      }
       loadHistory();
     } catch (e: any) {
       toast({ title: t("خطأ", "Error"), description: e.message, variant: "destructive" });
@@ -302,6 +310,38 @@ export default function TechnicalProposalGeneratorPage() {
       setSaving(false);
     }
   };
+
+  const handleCopyMd = async () => {
+    if (!content) return;
+    try {
+      await navigator.clipboard.writeText(content);
+      toast({ title: t("تم النسخ", "Copied to clipboard") });
+    } catch {
+      toast({ title: t("فشل النسخ", "Copy failed"), variant: "destructive" });
+    }
+  };
+
+  const handleDuplicate = () => {
+    setCurrentProposalId(null);
+    setProposalNumber("");
+    setTitle((prev) => prev ? `${prev} (${t("نسخة", "Copy")})` : prev);
+    toast({ title: t("جاهز لحفظ نسخة جديدة", "Ready to save as new copy") });
+  };
+
+  const stats = useMemo(() => {
+    if (!content) return null;
+    const words = content.trim().split(/\s+/).filter(Boolean).length;
+    const readMin = Math.max(1, Math.round(words / 200));
+    return { words, readMin };
+  }, [content]);
+
+  const filteredHistory = useMemo(() => {
+    if (!historyQuery.trim()) return history;
+    const q = historyQuery.toLowerCase();
+    return history.filter((h) =>
+      h.title?.toLowerCase().includes(q) || (h.client_name || "").toLowerCase().includes(q)
+    );
+  }, [history, historyQuery]);
 
   const handleDownloadMd = () => {
     if (!content) return;
