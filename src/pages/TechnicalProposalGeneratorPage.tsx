@@ -127,6 +127,13 @@ export default function TechnicalProposalGeneratorPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState<ProposalRow[]>([]);
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [validityDays, setValidityDays] = useState<string>(() => localStorage.getItem("tp_validity_days") || "30");
+  const [paymentTerms, setPaymentTerms] = useState<string>(() => localStorage.getItem("tp_payment_terms") || "");
+  const [currentProposalId, setCurrentProposalId] = useState<string | null>(null);
+
+  useEffect(() => { localStorage.setItem("tp_validity_days", validityDays); }, [validityDays]);
+  useEffect(() => { localStorage.setItem("tp_payment_terms", paymentTerms); }, [paymentTerms]);
 
   // Branding & signature (persisted locally)
   const [companyName, setCompanyName] = useState<string>(() => localStorage.getItem("tp_company_name") || "");
