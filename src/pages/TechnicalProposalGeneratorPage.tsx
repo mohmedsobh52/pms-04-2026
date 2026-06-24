@@ -432,11 +432,22 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
   };
 
   const handleLoad = (p: ProposalRow) => {
+    setCurrentProposalId(p.id);
     setTitle(p.title);
     setClient(p.client_name || "");
     setLanguage((p.language as any) || "ar");
     setContent(p.content || "");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleNewProposal = () => {
+    setCurrentProposalId(null);
+    setProposalNumber("");
+    setContent("");
+    setTitle("");
+    setClient("");
+    setScope("");
+    toast({ title: t("جاهز لعرض جديد", "Ready for new proposal") });
   };
 
   const handleDelete = async (id: string) => {
