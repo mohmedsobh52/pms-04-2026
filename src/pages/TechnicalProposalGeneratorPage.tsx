@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Sparkles, Download, Save, FileText, Trash2, Upload, FileType, LayoutTemplate, X } from "lucide-react";
+import { Loader2, Sparkles, Download, Save, FileText, Trash2, Upload, FileType, LayoutTemplate, X, Copy, Copy as CopyIcon, Search, CheckSquare, Square } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
