@@ -636,7 +636,17 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
               </div>
 
               <div>
-                <Label className="mb-2 block">{t("الأقسام المطلوبة", "Sections to include")}</Label>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="block">{t("الأقسام المطلوبة", "Sections to include")} <span className="text-xs text-muted-foreground">({sections.length}/{sectionRows.length})</span></Label>
+                  <div className="flex gap-1">
+                    <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={() => setSections(ALL_SECTIONS.map((s) => s.id))}>
+                      <CheckSquare className="w-3 h-3 me-1" />{t("الكل", "All")}
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={() => setSections([])}>
+                      <Square className="w-3 h-3 me-1" />{t("لا شيء", "None")}
+                    </Button>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 gap-2 max-h-64 overflow-auto pe-2">
                   {sectionRows.map((s) => (
                     <label key={s.id} className="flex items-center gap-2 text-sm cursor-pointer">
