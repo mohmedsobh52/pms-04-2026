@@ -127,17 +127,30 @@ Instructions:
 - Keep language professional and concise.
 - Output only the proposal — no preamble.`;
 
-    const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: b.model || 'google/gemini-2.5-pro',
-        messages: [
-          { role: 'system', content: isAr ? sysAr : sysEn },
-          { role: 'user', content: userPrompt },
-        ],
-      }),
-    });
+    const callModel = async (modelId: string) => {
+      return await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: modelId,
+          messages: [
+            { role: 'system', content: isAr ? sysAr : sysEn },
+            { role: 'user', content: userPrompt },
+          ],
+        }),
+      });
+    };
+
+    const primaryModel = b.model || 'google/gemini-2.5-flash';
+    let res = await callModel(primaryModel);
+    let usedModel = primaryModel;
+
+    // If credits/rate issue, try cheapest fallback automatically
+    if ((res.status === 402 || res.status === 429) && primaryModel !== 'google/gemini-2.5-flash-lite') {
+      const fb = await callModel('google/gemini-2.5-flash-lite');
+      if (fb.ok) { res = fb; usedModel = 'google/gemini-2.5-flash-lite'; }
+      else res = fb;
+    }
 
     if (res.status === 429) {
       return new Response(JSON.stringify({ error: isAr ? 'تم تجاوز الحد المسموح، حاول لاحقاً' : 'Rate limit exceeded, try again later' }), {
@@ -145,7 +158,9 @@ Instructions:
       });
     }
     if (res.status === 402) {
-      return new Response(JSON.stringify({ error: isAr ? 'الرصيد غير كافٍ. الرجاء إضافة رصيد في إعدادات مساحة العمل (Plans & credits)' : 'Insufficient credits. Please add credits in workspace settings (Plans & credits)' }), {
+      return new Response(JSON.stringify({ error: isAr
+        ? 'رصيد Lovable AI Gateway في مساحة العمل نفد. يرجى إضافة رصيد من Settings → Plans & credits ثم إعادة المحاولة.'
+        : 'Lovable AI Gateway credits in your workspace are exhausted. Add credits in Settings → Plans & credits and retry.' }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -158,7 +173,7 @@ Instructions:
 
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content || '';
-    return new Response(JSON.stringify({ content, model: b.model || 'google/gemini-2.5-pro' }), {
+    return new Response(JSON.stringify({ content, model: usedModel }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {
