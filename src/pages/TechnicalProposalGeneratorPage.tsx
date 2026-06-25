@@ -348,11 +348,20 @@ export default function TechnicalProposalGeneratorPage() {
     if (!content) return;
     try {
       await navigator.clipboard.writeText(content);
-      toast({ title: t("تم النسخ", "Copied to clipboard") });
+      // Auto-select rendered preview text after copy so the user can re-copy as rich text if needed
+      if (previewRef.current) {
+        const sel = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(previewRef.current);
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+      }
+      toast({ title: t("تم النسخ (Markdown) وتحديد النص", "Copied (Markdown) & text selected") });
     } catch {
       toast({ title: t("فشل النسخ", "Copy failed"), variant: "destructive" });
     }
   };
+
 
   const handleDuplicate = () => {
     setCurrentProposalId(null);
