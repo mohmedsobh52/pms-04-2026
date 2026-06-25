@@ -455,6 +455,8 @@ body{font-family:${language === "ar" ? "'Cairo','Tajawal'" : "'Tajawal'"},system
 .cover h1{color:#0f4f4a;margin:8px 0;font-size:28px}
 .cover .client{margin-top:8px;color:#444}
 .cover .meta{margin-top:6px;color:#888;font-size:13px}
+.cover .terms{margin-top:10px;display:flex;gap:18px;justify-content:center;flex-wrap:wrap;font-size:13px;color:#444}
+
 h1,h2,h3{color:#0f4f4a;margin-top:1.4em}
 h2{border-bottom:1px solid #ddd;padding-bottom:6px}
 table{border-collapse:collapse;width:100%;margin:12px 0}
