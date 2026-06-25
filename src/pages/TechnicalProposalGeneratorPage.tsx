@@ -378,12 +378,25 @@ export default function TechnicalProposalGeneratorPage() {
   }, [content]);
 
   const filteredHistory = useMemo(() => {
-    if (!historyQuery.trim()) return history;
-    const q = historyQuery.toLowerCase();
-    return history.filter((h) =>
-      h.title?.toLowerCase().includes(q) || (h.client_name || "").toLowerCase().includes(q)
-    );
-  }, [history, historyQuery]);
+    const q = historyQuery.trim().toLowerCase();
+    const from = historyFrom ? new Date(historyFrom).getTime() : null;
+    const to = historyTo ? new Date(historyTo).getTime() + 86_400_000 : null;
+    const list = history.filter((h) => {
+      if (q && !(h.title?.toLowerCase().includes(q) || (h.client_name || "").toLowerCase().includes(q))) return false;
+      const ts = new Date(h.created_at).getTime();
+      if (from && ts < from) return false;
+      if (to && ts > to) return false;
+      return true;
+    });
+    list.sort((a, b) => {
+      if (historySort === "title") return (a.title || "").localeCompare(b.title || "");
+      const ta = new Date(a.created_at).getTime();
+      const tb = new Date(b.created_at).getTime();
+      return historySort === "old" ? ta - tb : tb - ta;
+    });
+    return list;
+  }, [history, historyQuery, historyFrom, historyTo, historySort]);
+
 
   const handleDownloadMd = () => {
     if (!content) return;
