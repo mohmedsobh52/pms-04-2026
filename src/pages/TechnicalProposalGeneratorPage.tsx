@@ -759,8 +759,18 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
                     {stats.words.toLocaleString("en-US")} {t("كلمة", "words")} · ~{stats.readMin} {t("دقيقة قراءة", "min read")}
                   </span>
                 )}
+                {content && autoSave && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded ${autoSaveStatus === "saving" ? "bg-blue-500/10 text-blue-600" : autoSaveStatus === "saved" ? "bg-emerald-500/10 text-emerald-600" : autoSaveStatus === "error" ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}>
+                    {autoSaveStatus === "saving" ? t("جاري الحفظ...", "Saving...") : autoSaveStatus === "saved" ? t("تم الحفظ تلقائياً", "Auto-saved") : autoSaveStatus === "error" ? t("فشل الحفظ", "Save failed") : t("حفظ تلقائي", "Auto-save on")}
+                  </span>
+                )}
               </CardTitle>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 flex-wrap items-center">
+                <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer select-none">
+                  <Checkbox checked={autoSave} onCheckedChange={(c) => setAutoSave(!!c)} />
+                  {t("حفظ تلقائي", "Auto-save")}
+                </label>
+
                 {content && (
                   <Button variant="ghost" size="sm" onClick={handleNewProposal}>
                     <Sparkles className="w-4 h-4 me-1" />{t("جديد", "New")}
