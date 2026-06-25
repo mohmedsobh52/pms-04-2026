@@ -504,8 +504,17 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
     setClient(p.client_name || "");
     setLanguage((p.language as any) || "ar");
     setContent(p.content || "");
+    if (p.validity_days != null) setValidityDays(String(p.validity_days));
+    if (p.payment_terms) setPaymentTerms(p.payment_terms);
+    const inp = (p as any).inputs || {};
+    if (inp.extra) setExtra(inp.extra);
+    if (inp.companyName) setCompanyName(inp.companyName);
+    if (inp.signName) setSignName(inp.signName);
+    if (inp.signTitle) setSignTitle(inp.signTitle);
+    if (inp.signDate) setSignDate(inp.signDate);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
 
   const handleNewProposal = () => {
     setCurrentProposalId(null);
