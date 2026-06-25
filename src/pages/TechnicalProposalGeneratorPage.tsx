@@ -24,7 +24,11 @@ type ProposalRow = {
   created_at: string;
   language: string | null;
   content: string | null;
+  validity_days?: number | null;
+  payment_terms?: string | null;
+  inputs?: any;
 };
+
 
 const ALL_SECTIONS = [
   { id: "cover", ar: "صفحة الغلاف والملخص التنفيذي", en: "Cover & Executive Summary" },
@@ -128,12 +132,21 @@ export default function TechnicalProposalGeneratorPage() {
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState<ProposalRow[]>([]);
   const [historyQuery, setHistoryQuery] = useState("");
+  const [historyFrom, setHistoryFrom] = useState<string>("");
+  const [historyTo, setHistoryTo] = useState<string>("");
+  const [historySort, setHistorySort] = useState<"new" | "old" | "title">("new");
   const [validityDays, setValidityDays] = useState<string>(() => localStorage.getItem("tp_validity_days") || "30");
   const [paymentTerms, setPaymentTerms] = useState<string>(() => localStorage.getItem("tp_payment_terms") || "");
   const [currentProposalId, setCurrentProposalId] = useState<string | null>(null);
+  const [autoSave, setAutoSave] = useState<boolean>(() => localStorage.getItem("tp_autosave") !== "0");
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const previewRef = useRef<HTMLDivElement>(null);
+
 
   useEffect(() => { localStorage.setItem("tp_validity_days", validityDays); }, [validityDays]);
   useEffect(() => { localStorage.setItem("tp_payment_terms", paymentTerms); }, [paymentTerms]);
+  useEffect(() => { localStorage.setItem("tp_autosave", autoSave ? "1" : "0"); }, [autoSave]);
+
 
   // Branding & signature (persisted locally)
   const [companyName, setCompanyName] = useState<string>(() => localStorage.getItem("tp_company_name") || "");
@@ -169,11 +182,12 @@ export default function TechnicalProposalGeneratorPage() {
   const loadHistory = async () => {
     const { data } = await supabase
       .from("technical_proposals" as any)
-      .select("id,title,client_name,created_at,language,content")
+      .select("id,title,client_name,created_at,language,content,validity_days,payment_terms,inputs")
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(50);
     setHistory(((data as unknown) as ProposalRow[]) ?? []);
   };
+
 
   useEffect(() => {
     (async () => {
@@ -272,9 +286,10 @@ export default function TechnicalProposalGeneratorPage() {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (opts?: { silent?: boolean }) => {
     if (!content) return;
-    setSaving(true);
+    const silent = !!opts?.silent;
+    if (silent) setAutoSaveStatus("saving"); else setSaving(true);
     try {
       const payload: any = {
         user_id: user?.id,
@@ -287,7 +302,9 @@ export default function TechnicalProposalGeneratorPage() {
         currency,
         language,
         sections,
-        inputs: { extra, boqSummary, companyName, signName, signTitle, signDate, validityDays, paymentTerms },
+        inputs: { extra, boqSummary, companyName, signName, signTitle, signDate },
+        validity_days: validityDays ? Number(validityDays) : null,
+        payment_terms: paymentTerms || null,
         content,
         model,
         status: "draft",
@@ -296,30 +313,55 @@ export default function TechnicalProposalGeneratorPage() {
       if (currentProposalId) {
         const { error } = await supabase.from("technical_proposals" as any).update(payload).eq("id", currentProposalId);
         if (error) throw error;
-        toast({ title: t("تم التحديث", "Updated") });
+        if (!silent) toast({ title: t("تم التحديث", "Updated") });
       } else {
         const { data, error } = await supabase.from("technical_proposals" as any).insert(payload).select("id").maybeSingle();
         if (error) throw error;
         if ((data as any)?.id) setCurrentProposalId((data as any).id);
-        toast({ title: t("تم الحفظ", "Saved") });
+        if (!silent) toast({ title: t("تم الحفظ", "Saved") });
       }
+      if (silent) setAutoSaveStatus("saved");
       loadHistory();
     } catch (e: any) {
-      toast({ title: t("خطأ", "Error"), description: e.message, variant: "destructive" });
+      if (silent) setAutoSaveStatus("error");
+      else toast({ title: t("خطأ", "Error"), description: e.message, variant: "destructive" });
     } finally {
-      setSaving(false);
+      if (!silent) setSaving(false);
     }
   };
+
+  // Auto-save with debounce
+  const autoSaveTimer = useRef<number | null>(null);
+  useEffect(() => {
+    if (!autoSave || !content || !user) return;
+    if (autoSaveTimer.current) window.clearTimeout(autoSaveTimer.current);
+    setAutoSaveStatus("idle");
+    autoSaveTimer.current = window.setTimeout(() => {
+      handleSave({ silent: true });
+    }, 1500);
+    return () => { if (autoSaveTimer.current) window.clearTimeout(autoSaveTimer.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content, sections, title, client, validityDays, paymentTerms, autoSave]);
+
 
   const handleCopyMd = async () => {
     if (!content) return;
     try {
       await navigator.clipboard.writeText(content);
-      toast({ title: t("تم النسخ", "Copied to clipboard") });
+      // Auto-select rendered preview text after copy so the user can re-copy as rich text if needed
+      if (previewRef.current) {
+        const sel = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(previewRef.current);
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+      }
+      toast({ title: t("تم النسخ (Markdown) وتحديد النص", "Copied (Markdown) & text selected") });
     } catch {
       toast({ title: t("فشل النسخ", "Copy failed"), variant: "destructive" });
     }
   };
+
 
   const handleDuplicate = () => {
     setCurrentProposalId(null);
@@ -336,12 +378,25 @@ export default function TechnicalProposalGeneratorPage() {
   }, [content]);
 
   const filteredHistory = useMemo(() => {
-    if (!historyQuery.trim()) return history;
-    const q = historyQuery.toLowerCase();
-    return history.filter((h) =>
-      h.title?.toLowerCase().includes(q) || (h.client_name || "").toLowerCase().includes(q)
-    );
-  }, [history, historyQuery]);
+    const q = historyQuery.trim().toLowerCase();
+    const from = historyFrom ? new Date(historyFrom).getTime() : null;
+    const to = historyTo ? new Date(historyTo).getTime() + 86_400_000 : null;
+    const list = history.filter((h) => {
+      if (q && !(h.title?.toLowerCase().includes(q) || (h.client_name || "").toLowerCase().includes(q))) return false;
+      const ts = new Date(h.created_at).getTime();
+      if (from && ts < from) return false;
+      if (to && ts > to) return false;
+      return true;
+    });
+    list.sort((a, b) => {
+      if (historySort === "title") return (a.title || "").localeCompare(b.title || "");
+      const ta = new Date(a.created_at).getTime();
+      const tb = new Date(b.created_at).getTime();
+      return historySort === "old" ? ta - tb : tb - ta;
+    });
+    return list;
+  }, [history, historyQuery, historyFrom, historyTo, historySort]);
+
 
   const handleDownloadMd = () => {
     if (!content) return;
@@ -363,14 +418,24 @@ export default function TechnicalProposalGeneratorPage() {
     const dateLabel = language === "ar" ? "التاريخ" : "Date";
     const sigLabel = language === "ar" ? "التوقيع" : "Signature";
 
+    const validityLabel = language === "ar" ? "صلاحية العرض" : "Proposal validity";
+    const paymentLabel = language === "ar" ? "شروط الدفع" : "Payment terms";
+    const daysLabel = language === "ar" ? "يوم" : "days";
+    const numLabel = language === "ar" ? "رقم العرض" : "Proposal No.";
+
     const header = `
       <div class="cover">
         ${logoDataUrl ? `<img src="${logoDataUrl}" alt="logo" class="logo"/>` : ""}
         ${companyName ? `<div class="company">${companyName}</div>` : ""}
         <h1>${title || ""}</h1>
         ${client ? `<div class="client">${language === "ar" ? "مُقدَّم إلى:" : "Prepared for:"} <strong>${client}</strong></div>` : ""}
-        <div class="meta">${signDate}</div>
+        <div class="meta">${proposalNumber ? `${numLabel}: <strong>${proposalNumber}</strong> · ` : ""}${signDate}</div>
+        ${(validityDays || paymentTerms) ? `<div class="terms">
+          ${validityDays ? `<span><strong>${validityLabel}:</strong> ${validityDays} ${daysLabel}</span>` : ""}
+          ${paymentTerms ? `<span><strong>${paymentLabel}:</strong> ${paymentTerms}</span>` : ""}
+        </div>` : ""}
       </div>`;
+
 
     const signature = (signName || signTitle) ? `
       <div class="signature">
@@ -390,6 +455,8 @@ body{font-family:${language === "ar" ? "'Cairo','Tajawal'" : "'Tajawal'"},system
 .cover h1{color:#0f4f4a;margin:8px 0;font-size:28px}
 .cover .client{margin-top:8px;color:#444}
 .cover .meta{margin-top:6px;color:#888;font-size:13px}
+.cover .terms{margin-top:10px;display:flex;gap:18px;justify-content:center;flex-wrap:wrap;font-size:13px;color:#444}
+
 h1,h2,h3{color:#0f4f4a;margin-top:1.4em}
 h2{border-bottom:1px solid #ddd;padding-bottom:6px}
 table{border-collapse:collapse;width:100%;margin:12px 0}
@@ -437,8 +504,17 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
     setClient(p.client_name || "");
     setLanguage((p.language as any) || "ar");
     setContent(p.content || "");
+    if (p.validity_days != null) setValidityDays(String(p.validity_days));
+    if (p.payment_terms) setPaymentTerms(p.payment_terms);
+    const inp = (p as any).inputs || {};
+    if (inp.extra) setExtra(inp.extra);
+    if (inp.companyName) setCompanyName(inp.companyName);
+    if (inp.signName) setSignName(inp.signName);
+    if (inp.signTitle) setSignTitle(inp.signTitle);
+    if (inp.signDate) setSignDate(inp.signDate);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
 
   const handleNewProposal = () => {
     setCurrentProposalId(null);
@@ -683,8 +759,18 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
                     {stats.words.toLocaleString("en-US")} {t("كلمة", "words")} · ~{stats.readMin} {t("دقيقة قراءة", "min read")}
                   </span>
                 )}
+                {content && autoSave && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded ${autoSaveStatus === "saving" ? "bg-blue-500/10 text-blue-600" : autoSaveStatus === "saved" ? "bg-emerald-500/10 text-emerald-600" : autoSaveStatus === "error" ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}>
+                    {autoSaveStatus === "saving" ? t("جاري الحفظ...", "Saving...") : autoSaveStatus === "saved" ? t("تم الحفظ تلقائياً", "Auto-saved") : autoSaveStatus === "error" ? t("فشل الحفظ", "Save failed") : t("حفظ تلقائي", "Auto-save on")}
+                  </span>
+                )}
               </CardTitle>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 flex-wrap items-center">
+                <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer select-none">
+                  <Checkbox checked={autoSave} onCheckedChange={(c) => setAutoSave(!!c)} />
+                  {t("حفظ تلقائي", "Auto-save")}
+                </label>
+
                 {content && (
                   <Button variant="ghost" size="sm" onClick={handleNewProposal}>
                     <Sparkles className="w-4 h-4 me-1" />{t("جديد", "New")}
@@ -698,7 +784,7 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
                 <Button variant="outline" size="sm" onClick={handleCopyMd} disabled={!content}>
                   <Copy className="w-4 h-4 me-1" />{t("نسخ", "Copy")}
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleSave} disabled={!content || saving}>
+                <Button variant="outline" size="sm" onClick={() => handleSave()} disabled={!content || saving}>
                   {saving ? <Loader2 className="w-4 h-4 me-1 animate-spin" /> : <Save className="w-4 h-4 me-1" />}
                   {currentProposalId ? t("تحديث", "Update") : t("حفظ", "Save")}
                 </Button>
@@ -731,11 +817,13 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
               {content && (
                 <>
                   <div
+                    ref={previewRef}
                     dir={language === "ar" ? "rtl" : "ltr"}
                     className="prose prose-sm md:prose-base max-w-none dark:prose-invert prose-headings:text-primary prose-table:text-sm"
                   >
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
                   </div>
+
                   <details className="mt-6">
                     <summary className="cursor-pointer text-sm text-muted-foreground">
                       {t("تحرير Markdown", "Edit Markdown")}
@@ -756,20 +844,49 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
         {/* History */}
         {history.length > 0 && (
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
-              <CardTitle className="text-base">
-                {t("العروض المحفوظة", "Saved Proposals")} <span className="text-xs text-muted-foreground font-normal">({filteredHistory.length}/{history.length})</span>
-              </CardTitle>
-              <div className="relative w-full sm:w-64">
-                <Search className="w-4 h-4 absolute start-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  className="ps-8 h-9"
-                  placeholder={t("بحث بالعنوان أو العميل...", "Search by title or client...")}
-                  value={historyQuery}
-                  onChange={(e) => setHistoryQuery(e.target.value)}
-                />
+            <CardHeader className="flex flex-col gap-3">
+              <div className="flex flex-row items-center justify-between gap-2 flex-wrap">
+                <CardTitle className="text-base">
+                  {t("العروض المحفوظة", "Saved Proposals")} <span className="text-xs text-muted-foreground font-normal">({filteredHistory.length}/{history.length})</span>
+                </CardTitle>
+                <div className="relative w-full sm:w-64">
+                  <Search className="w-4 h-4 absolute start-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="ps-8 h-9"
+                    placeholder={t("بحث بالعنوان أو العميل...", "Search by title or client...")}
+                    value={historyQuery}
+                    onChange={(e) => setHistoryQuery(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap items-end gap-2">
+                <div>
+                  <Label className="text-xs">{t("من تاريخ", "From")}</Label>
+                  <Input type="text" placeholder="yyyy-MM-dd" className="h-9 w-36" value={historyFrom} onChange={(e) => setHistoryFrom(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs">{t("إلى تاريخ", "To")}</Label>
+                  <Input type="text" placeholder="yyyy-MM-dd" className="h-9 w-36" value={historyTo} onChange={(e) => setHistoryTo(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs">{t("الترتيب", "Sort")}</Label>
+                  <Select value={historySort} onValueChange={(v: any) => setHistorySort(v)}>
+                    <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new">{t("الأحدث أولاً", "Newest first")}</SelectItem>
+                      <SelectItem value="old">{t("الأقدم أولاً", "Oldest first")}</SelectItem>
+                      <SelectItem value="title">{t("العنوان (أ-ي)", "Title (A-Z)")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {(historyFrom || historyTo || historyQuery) && (
+                  <Button variant="ghost" size="sm" className="h-9" onClick={() => { setHistoryFrom(""); setHistoryTo(""); setHistoryQuery(""); }}>
+                    <X className="w-4 h-4 me-1" />{t("مسح", "Clear")}
+                  </Button>
+                )}
               </div>
             </CardHeader>
+
             <CardContent>
               {filteredHistory.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-6">{t("لا توجد نتائج", "No results")}</p>

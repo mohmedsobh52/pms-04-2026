@@ -3294,6 +3294,7 @@ export type Database = {
           inputs: Json | null
           language: string | null
           model: string | null
+          payment_terms: string | null
           project_id: string | null
           project_scope: string | null
           proposal_number: string | null
@@ -3302,6 +3303,7 @@ export type Database = {
           title: string
           updated_at: string
           user_id: string
+          validity_days: number | null
         }
         Insert: {
           budget?: number | null
@@ -3314,6 +3316,7 @@ export type Database = {
           inputs?: Json | null
           language?: string | null
           model?: string | null
+          payment_terms?: string | null
           project_id?: string | null
           project_scope?: string | null
           proposal_number?: string | null
@@ -3322,6 +3325,7 @@ export type Database = {
           title: string
           updated_at?: string
           user_id?: string
+          validity_days?: number | null
         }
         Update: {
           budget?: number | null
@@ -3334,6 +3338,7 @@ export type Database = {
           inputs?: Json | null
           language?: string | null
           model?: string | null
+          payment_terms?: string | null
           project_id?: string | null
           project_scope?: string | null
           proposal_number?: string | null
@@ -3342,6 +3347,7 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string
+          validity_days?: number | null
         }
         Relationships: [
           {
