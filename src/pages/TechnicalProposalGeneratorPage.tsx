@@ -145,6 +145,8 @@ export default function TechnicalProposalGeneratorPage() {
 
   useEffect(() => { localStorage.setItem("tp_validity_days", validityDays); }, [validityDays]);
   useEffect(() => { localStorage.setItem("tp_payment_terms", paymentTerms); }, [paymentTerms]);
+  useEffect(() => { localStorage.setItem("tp_autosave", autoSave ? "1" : "0"); }, [autoSave]);
+
 
   // Branding & signature (persisted locally)
   const [companyName, setCompanyName] = useState<string>(() => localStorage.getItem("tp_company_name") || "");
