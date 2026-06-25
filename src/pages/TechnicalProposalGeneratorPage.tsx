@@ -731,7 +731,7 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
                 <Button variant="outline" size="sm" onClick={handleCopyMd} disabled={!content}>
                   <Copy className="w-4 h-4 me-1" />{t("نسخ", "Copy")}
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleSave} disabled={!content || saving}>
+                <Button variant="outline" size="sm" onClick={() => handleSave()} disabled={!content || saving}>
                   {saving ? <Loader2 className="w-4 h-4 me-1 animate-spin" /> : <Save className="w-4 h-4 me-1" />}
                   {currentProposalId ? t("تحديث", "Update") : t("حفظ", "Save")}
                 </Button>
