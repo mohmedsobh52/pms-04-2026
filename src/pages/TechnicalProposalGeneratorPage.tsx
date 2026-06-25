@@ -286,9 +286,10 @@ export default function TechnicalProposalGeneratorPage() {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (opts?: { silent?: boolean }) => {
     if (!content) return;
-    setSaving(true);
+    const silent = !!opts?.silent;
+    if (silent) setAutoSaveStatus("saving"); else setSaving(true);
     try {
       const payload: any = {
         user_id: user?.id,
@@ -301,7 +302,9 @@ export default function TechnicalProposalGeneratorPage() {
         currency,
         language,
         sections,
-        inputs: { extra, boqSummary, companyName, signName, signTitle, signDate, validityDays, paymentTerms },
+        inputs: { extra, boqSummary, companyName, signName, signTitle, signDate },
+        validity_days: validityDays ? Number(validityDays) : null,
+        payment_terms: paymentTerms || null,
         content,
         model,
         status: "draft",
@@ -310,20 +313,36 @@ export default function TechnicalProposalGeneratorPage() {
       if (currentProposalId) {
         const { error } = await supabase.from("technical_proposals" as any).update(payload).eq("id", currentProposalId);
         if (error) throw error;
-        toast({ title: t("تم التحديث", "Updated") });
+        if (!silent) toast({ title: t("تم التحديث", "Updated") });
       } else {
         const { data, error } = await supabase.from("technical_proposals" as any).insert(payload).select("id").maybeSingle();
         if (error) throw error;
         if ((data as any)?.id) setCurrentProposalId((data as any).id);
-        toast({ title: t("تم الحفظ", "Saved") });
+        if (!silent) toast({ title: t("تم الحفظ", "Saved") });
       }
+      if (silent) setAutoSaveStatus("saved");
       loadHistory();
     } catch (e: any) {
-      toast({ title: t("خطأ", "Error"), description: e.message, variant: "destructive" });
+      if (silent) setAutoSaveStatus("error");
+      else toast({ title: t("خطأ", "Error"), description: e.message, variant: "destructive" });
     } finally {
-      setSaving(false);
+      if (!silent) setSaving(false);
     }
   };
+
+  // Auto-save with debounce
+  const autoSaveTimer = useRef<number | null>(null);
+  useEffect(() => {
+    if (!autoSave || !content || !user) return;
+    if (autoSaveTimer.current) window.clearTimeout(autoSaveTimer.current);
+    setAutoSaveStatus("idle");
+    autoSaveTimer.current = window.setTimeout(() => {
+      handleSave({ silent: true });
+    }, 1500);
+    return () => { if (autoSaveTimer.current) window.clearTimeout(autoSaveTimer.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content, sections, title, client, validityDays, paymentTerms, autoSave]);
+
 
   const handleCopyMd = async () => {
     if (!content) return;
