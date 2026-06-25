@@ -834,20 +834,49 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
         {/* History */}
         {history.length > 0 && (
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
-              <CardTitle className="text-base">
-                {t("العروض المحفوظة", "Saved Proposals")} <span className="text-xs text-muted-foreground font-normal">({filteredHistory.length}/{history.length})</span>
-              </CardTitle>
-              <div className="relative w-full sm:w-64">
-                <Search className="w-4 h-4 absolute start-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  className="ps-8 h-9"
-                  placeholder={t("بحث بالعنوان أو العميل...", "Search by title or client...")}
-                  value={historyQuery}
-                  onChange={(e) => setHistoryQuery(e.target.value)}
-                />
+            <CardHeader className="flex flex-col gap-3">
+              <div className="flex flex-row items-center justify-between gap-2 flex-wrap">
+                <CardTitle className="text-base">
+                  {t("العروض المحفوظة", "Saved Proposals")} <span className="text-xs text-muted-foreground font-normal">({filteredHistory.length}/{history.length})</span>
+                </CardTitle>
+                <div className="relative w-full sm:w-64">
+                  <Search className="w-4 h-4 absolute start-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="ps-8 h-9"
+                    placeholder={t("بحث بالعنوان أو العميل...", "Search by title or client...")}
+                    value={historyQuery}
+                    onChange={(e) => setHistoryQuery(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap items-end gap-2">
+                <div>
+                  <Label className="text-xs">{t("من تاريخ", "From")}</Label>
+                  <Input type="text" placeholder="yyyy-MM-dd" className="h-9 w-36" value={historyFrom} onChange={(e) => setHistoryFrom(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs">{t("إلى تاريخ", "To")}</Label>
+                  <Input type="text" placeholder="yyyy-MM-dd" className="h-9 w-36" value={historyTo} onChange={(e) => setHistoryTo(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs">{t("الترتيب", "Sort")}</Label>
+                  <Select value={historySort} onValueChange={(v: any) => setHistorySort(v)}>
+                    <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new">{t("الأحدث أولاً", "Newest first")}</SelectItem>
+                      <SelectItem value="old">{t("الأقدم أولاً", "Oldest first")}</SelectItem>
+                      <SelectItem value="title">{t("العنوان (أ-ي)", "Title (A-Z)")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {(historyFrom || historyTo || historyQuery) && (
+                  <Button variant="ghost" size="sm" className="h-9" onClick={() => { setHistoryFrom(""); setHistoryTo(""); setHistoryQuery(""); }}>
+                    <X className="w-4 h-4 me-1" />{t("مسح", "Clear")}
+                  </Button>
+                )}
               </div>
             </CardHeader>
+
             <CardContent>
               {filteredHistory.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-6">{t("لا توجد نتائج", "No results")}</p>
