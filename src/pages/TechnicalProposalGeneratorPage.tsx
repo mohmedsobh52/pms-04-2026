@@ -132,9 +132,16 @@ export default function TechnicalProposalGeneratorPage() {
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState<ProposalRow[]>([]);
   const [historyQuery, setHistoryQuery] = useState("");
+  const [historyFrom, setHistoryFrom] = useState<string>("");
+  const [historyTo, setHistoryTo] = useState<string>("");
+  const [historySort, setHistorySort] = useState<"new" | "old" | "title">("new");
   const [validityDays, setValidityDays] = useState<string>(() => localStorage.getItem("tp_validity_days") || "30");
   const [paymentTerms, setPaymentTerms] = useState<string>(() => localStorage.getItem("tp_payment_terms") || "");
   const [currentProposalId, setCurrentProposalId] = useState<string | null>(null);
+  const [autoSave, setAutoSave] = useState<boolean>(() => localStorage.getItem("tp_autosave") !== "0");
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const previewRef = useRef<HTMLDivElement>(null);
+
 
   useEffect(() => { localStorage.setItem("tp_validity_days", validityDays); }, [validityDays]);
   useEffect(() => { localStorage.setItem("tp_payment_terms", paymentTerms); }, [paymentTerms]);
