@@ -807,11 +807,13 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
               {content && (
                 <>
                   <div
+                    ref={previewRef}
                     dir={language === "ar" ? "rtl" : "ltr"}
                     className="prose prose-sm md:prose-base max-w-none dark:prose-invert prose-headings:text-primary prose-table:text-sm"
                   >
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
                   </div>
+
                   <details className="mt-6">
                     <summary className="cursor-pointer text-sm text-muted-foreground">
                       {t("تحرير Markdown", "Edit Markdown")}
