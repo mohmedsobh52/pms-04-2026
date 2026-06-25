@@ -182,11 +182,12 @@ export default function TechnicalProposalGeneratorPage() {
   const loadHistory = async () => {
     const { data } = await supabase
       .from("technical_proposals" as any)
-      .select("id,title,client_name,created_at,language,content")
+      .select("id,title,client_name,created_at,language,content,validity_days,payment_terms,inputs")
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(50);
     setHistory(((data as unknown) as ProposalRow[]) ?? []);
   };
+
 
   useEffect(() => {
     (async () => {
