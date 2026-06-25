@@ -418,14 +418,24 @@ export default function TechnicalProposalGeneratorPage() {
     const dateLabel = language === "ar" ? "التاريخ" : "Date";
     const sigLabel = language === "ar" ? "التوقيع" : "Signature";
 
+    const validityLabel = language === "ar" ? "صلاحية العرض" : "Proposal validity";
+    const paymentLabel = language === "ar" ? "شروط الدفع" : "Payment terms";
+    const daysLabel = language === "ar" ? "يوم" : "days";
+    const numLabel = language === "ar" ? "رقم العرض" : "Proposal No.";
+
     const header = `
       <div class="cover">
         ${logoDataUrl ? `<img src="${logoDataUrl}" alt="logo" class="logo"/>` : ""}
         ${companyName ? `<div class="company">${companyName}</div>` : ""}
         <h1>${title || ""}</h1>
         ${client ? `<div class="client">${language === "ar" ? "مُقدَّم إلى:" : "Prepared for:"} <strong>${client}</strong></div>` : ""}
-        <div class="meta">${signDate}</div>
+        <div class="meta">${proposalNumber ? `${numLabel}: <strong>${proposalNumber}</strong> · ` : ""}${signDate}</div>
+        ${(validityDays || paymentTerms) ? `<div class="terms">
+          ${validityDays ? `<span><strong>${validityLabel}:</strong> ${validityDays} ${daysLabel}</span>` : ""}
+          ${paymentTerms ? `<span><strong>${paymentLabel}:</strong> ${paymentTerms}</span>` : ""}
+        </div>` : ""}
       </div>`;
+
 
     const signature = (signName || signTitle) ? `
       <div class="signature">
