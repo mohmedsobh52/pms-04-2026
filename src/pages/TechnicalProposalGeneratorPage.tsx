@@ -24,7 +24,11 @@ type ProposalRow = {
   created_at: string;
   language: string | null;
   content: string | null;
+  validity_days?: number | null;
+  payment_terms?: string | null;
+  inputs?: any;
 };
+
 
 const ALL_SECTIONS = [
   { id: "cover", ar: "صفحة الغلاف والملخص التنفيذي", en: "Cover & Executive Summary" },
