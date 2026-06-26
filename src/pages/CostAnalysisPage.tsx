@@ -1060,7 +1060,36 @@ export default function CostAnalysisPage() {
               </div>
             </CardContent>
           </Card>
+
+        {/* Smart Cost Engine */}
+        <div className="mb-6">
+          <SmartCostEnginePanel
+            pageRows={items.map((i) => ({
+              id: i.id,
+              name: i.name,
+              dailyProductivity: i.dailyProductivity,
+              dailyRent: i.dailyRent,
+            }))}
+            wastePct={wastePercentage}
+            currency={currency}
+            onApply={(rowId, patch) => {
+              setItems((prev) =>
+                prev.map((it) =>
+                  it.id === rowId
+                    ? {
+                        ...it,
+                        ...(patch.dailyProductivity !== undefined
+                          ? { dailyProductivity: patch.dailyProductivity }
+                          : {}),
+                        ...(patch.dailyRent !== undefined ? { dailyRent: patch.dailyRent } : {}),
+                      }
+                    : it,
+                ),
+              );
+            }}
+          />
         </div>
+
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Table - 2/3 width */}
