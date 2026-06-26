@@ -206,11 +206,12 @@ export function buildProjectInsights(
 
   // Scenarios — adjust to inflation/efficiency
   const realisticCost = totalWithWaste;
-  const scenarios: ProjectScenario[] = [
+  const baseScenarios: ProjectScenario[] = [
     { label: "optimistic", costMultiplier: 0.92, totalCost: round2(realisticCost * 0.92), delta: 0, deltaPct: 0 },
     { label: "realistic", costMultiplier: 1.0, totalCost: round2(realisticCost), delta: 0, deltaPct: 0 },
     { label: "pessimistic", costMultiplier: 1.15, totalCost: round2(realisticCost * 1.15), delta: 0, deltaPct: 0 },
-  ].map((s) => ({
+  ];
+  const scenarios: ProjectScenario[] = baseScenarios.map((s) => ({
     ...s,
     delta: round2(s.totalCost - realisticCost),
     deltaPct: round2((s.costMultiplier - 1) * 100),
