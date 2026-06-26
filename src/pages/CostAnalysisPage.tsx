@@ -1060,6 +1060,9 @@ export default function CostAnalysisPage() {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+
 
         {/* Smart Cost Engine */}
         <div className="mb-6">
