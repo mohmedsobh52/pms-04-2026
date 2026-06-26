@@ -101,7 +101,7 @@ const App = () => (
               <BackgroundImage />
               <Toaster />
               <Sonner />
-              <BrowserRouter>
+              <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                 <GlobalSearchProvider>
                   <ScrollToTop />
                   <ErrorBoundary fallback={<InlineErrorFallback message="Search unavailable" />}>
