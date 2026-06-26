@@ -48,6 +48,7 @@ import autoTable from 'jspdf-autotable';
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ColorLegend } from "@/components/ui/color-code";
 import { useLanguage } from "@/hooks/useLanguage";
+import { SmartCostEnginePanel } from "@/components/cost-engine/SmartCostEnginePanel";
 
 interface CostItem {
   id: string;
