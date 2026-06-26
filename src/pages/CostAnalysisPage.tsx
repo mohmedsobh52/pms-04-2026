@@ -48,6 +48,7 @@ import autoTable from 'jspdf-autotable';
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ColorLegend } from "@/components/ui/color-code";
 import { useLanguage } from "@/hooks/useLanguage";
+import { SmartCostEnginePanel } from "@/components/cost-engine/SmartCostEnginePanel";
 
 interface CostItem {
   id: string;
@@ -1060,6 +1061,38 @@ export default function CostAnalysisPage() {
             </CardContent>
           </Card>
         </div>
+
+
+
+        {/* Smart Cost Engine */}
+        <div className="mb-6">
+          <SmartCostEnginePanel
+            pageRows={items.map((i) => ({
+              id: i.id,
+              name: i.name,
+              dailyProductivity: i.dailyProductivity,
+              dailyRent: i.dailyRent,
+            }))}
+            wastePct={wastePercentage}
+            currency={currency}
+            onApply={(rowId, patch) => {
+              setItems((prev) =>
+                prev.map((it) =>
+                  it.id === rowId
+                    ? {
+                        ...it,
+                        ...(patch.dailyProductivity !== undefined
+                          ? { dailyProductivity: patch.dailyProductivity }
+                          : {}),
+                        ...(patch.dailyRent !== undefined ? { dailyRent: patch.dailyRent } : {}),
+                      }
+                    : it,
+                ),
+              );
+            }}
+          />
+        </div>
+
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Table - 2/3 width */}
