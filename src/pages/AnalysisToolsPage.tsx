@@ -2,6 +2,7 @@ import { BOQComparison } from "@/components/BOQComparison";
 import { MarketRateSuggestions } from "@/components/MarketRateSuggestions";
 import { CostAnalysis } from "@/components/CostAnalysis";
 import { AIVsLocalPriceComparison } from "@/components/AIVsLocalPriceComparison";
+import { SmartCostEnginePanel } from "@/components/cost-engine/SmartCostEnginePanel";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,10 +34,38 @@ const AnalysisToolsPage = () => {
     });
   };
 
+  const engineRows = (analysisData?.items || []).map((it: any, idx: number) => ({
+    id: String(it.item_number ?? idx),
+    name: it.description ?? `Item ${idx + 1}`,
+    dailyProductivity: 1,
+    dailyRent: Number(it.unit_price) || 0,
+  }));
+
+  const handleEngineApply = (rowId: string, patch: { dailyProductivity?: number; dailyRent?: number }) => {
+    if (!analysisData?.items || patch.dailyRent == null) return;
+    const updated = analysisData.items.map((it: any, idx: number) => {
+      const id = String(it.item_number ?? idx);
+      if (id !== rowId) return it;
+      return { ...it, unit_price: patch.dailyRent, total_price: (Number(it.quantity) || 1) * (patch.dailyRent as number) };
+    });
+    setAnalysisData({ ...analysisData, items: updated });
+  };
+
   return (
     <PageLayout>
       <ColorLegend type="category" isArabic={isArabic} className="mb-4" />
+      {engineRows.length > 0 && (
+        <div className="mb-4">
+          <SmartCostEnginePanel
+            pageRows={engineRows}
+            wastePct={0}
+            currency={analysisData?.summary?.currency || "SAR"}
+            onApply={handleEngineApply}
+          />
+        </div>
+      )}
       <Tabs defaultValue="cost-analysis" className="space-y-4">
+
         <TabsList className="grid w-full grid-cols-4 tabs-navigation-safe">
           <TabsTrigger value="cost-analysis" className="flex items-center gap-2">
             <DollarSign className="h-4 w-4" />
