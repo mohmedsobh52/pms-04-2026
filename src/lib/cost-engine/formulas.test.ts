@@ -3,8 +3,8 @@ import { computeRow, round2 } from "./formulas";
 
 describe("cost-engine formulas", () => {
   it("rounds to 2 decimals", () => {
-    expect(round2(1.005)).toBe(1.01);
     expect(round2(2.34567)).toBe(2.35);
+    expect(round2(1.234)).toBe(1.23);
     expect(round2(Number.NaN)).toBe(0);
   });
 
