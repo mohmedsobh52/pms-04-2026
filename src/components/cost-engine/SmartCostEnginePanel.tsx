@@ -120,8 +120,24 @@ export function SmartCostEnginePanel({ pageRows, wastePct, currency = "ريال"
   );
   const suggestions: Suggestion[] = useMemo(() => buildSuggestions(rows, analyses), [rows, analyses]);
 
-  // Reset ignored state on source change
-  useEffect(() => setIgnored({}), [source, projectId]);
+  // Load persisted decisions when source/project changes
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      setIgnored(raw ? JSON.parse(raw) : {});
+    } catch {
+      setIgnored({});
+    }
+  }, [storageKey]);
+
+  // Persist decisions
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(ignored));
+    } catch {
+      /* quota */
+    }
+  }, [ignored, storageKey]);
 
   const fmt = (n: number) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(n);
 
