@@ -48,6 +48,7 @@ export function SmartCostEnginePanel({ pageRows, wastePct, currency = "ريال"
   const [source, setSource] = useState<SourceMode>("page");
   const [projectId, setProjectId] = useState<string | null>(null);
   const [ignored, setIgnored] = useState<Record<string, "applied" | "ignored">>({});
+  const qc = useQueryClient();
 
   // Projects list (for BOQ mode)
   const { data: projects } = useQuery({
