@@ -2,6 +2,7 @@ import { BOQComparison } from "@/components/BOQComparison";
 import { MarketRateSuggestions } from "@/components/MarketRateSuggestions";
 import { CostAnalysis } from "@/components/CostAnalysis";
 import { AIVsLocalPriceComparison } from "@/components/AIVsLocalPriceComparison";
+import { SmartCostEnginePanel } from "@/components/cost-engine/SmartCostEnginePanel";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
