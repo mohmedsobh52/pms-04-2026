@@ -270,16 +270,22 @@ export function SmartCostEnginePanel({ pageRows, wastePct, currency = "ريال"
         </div>
 
         <Tabs defaultValue="suggestions" className="mt-2">
-          <TabsList>
-            <TabsTrigger value="suggestions" className="gap-1">
-              <Sparkles className="w-3 h-3" /> اقتراحات ({suggestions.length})
-            </TabsTrigger>
-            <TabsTrigger value="actions">
-              أهم الإجراءات ({insights.topActions.length})
-            </TabsTrigger>
-            <TabsTrigger value="scenarios">سيناريوهات</TabsTrigger>
-            <TabsTrigger value="quality">جودة البيانات</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <TabsList>
+              <TabsTrigger value="suggestions" className="gap-1">
+                <Sparkles className="w-3 h-3" /> اقتراحات ({suggestions.length})
+              </TabsTrigger>
+              <TabsTrigger value="actions">
+                أهم الإجراءات ({insights.topActions.length})
+              </TabsTrigger>
+              <TabsTrigger value="scenarios">سيناريوهات</TabsTrigger>
+              <TabsTrigger value="quality">جودة البيانات</TabsTrigger>
+            </TabsList>
+            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={exportSuggestionsCsv}>
+              <Download className="w-3 h-3 mr-1" /> تصدير CSV
+            </Button>
+          </div>
+
 
           <TabsContent value="suggestions" className="space-y-2 mt-3 max-h-80 overflow-y-auto">
             {suggestions.length === 0 ? (
