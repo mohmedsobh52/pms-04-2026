@@ -122,10 +122,25 @@ export function SmartCostEnginePanel({ pageRows, wastePct, currency = "ريال"
     { low: 0, medium: 0, high: 0 } as Record<string, number>,
   );
 
-  const handleApply = (s: Suggestion) => {
-    if (source !== "page") {
-      toast.info("التطبيق التلقائي متاح فقط لمصدر «الصفحة الحالية»");
-      setIgnored((p) => ({ ...p, [s.id]: "ignored" }));
+  const handleApply = async (s: Suggestion) => {
+    if (source === "boq") {
+      // Only "dailyCost" maps to BOQ unit_price (productivity is synthetic = 1)
+      if (s.field !== "dailyCost") {
+        toast.info("هذا الاقتراح غير قابل للتطبيق على بنود BOQ");
+        setIgnored((p) => ({ ...p, [s.id]: "ignored" }));
+        return;
+      }
+      const { error } = await supabase
+        .from("project_items")
+        .update({ unit_price: s.suggestedValue })
+        .eq("id", s.rowId);
+      if (error) {
+        toast.error("فشل تحديث سعر البند: " + error.message);
+        return;
+      }
+      qc.invalidateQueries({ queryKey: ["cost-engine-boq", projectId] });
+      setIgnored((p) => ({ ...p, [s.id]: "applied" }));
+      toast.success("تم تحديث سعر البند في قاعدة البيانات");
       return;
     }
     const patch =
@@ -142,6 +157,36 @@ export function SmartCostEnginePanel({ pageRows, wastePct, currency = "ريال"
     onApply(s.rowId, patch);
     setIgnored((p) => ({ ...p, [s.id]: "applied" }));
     toast.success("تم تطبيق الاقتراح");
+  };
+
+  const exportSuggestionsCsv = () => {
+    if (!suggestions.length) {
+      toast.info("لا توجد اقتراحات للتصدير");
+      return;
+    }
+    const header = ["row_id", "row_name", "field", "current", "suggested", "confidence", "financial_impact", "reason"];
+    const lines = [header.join(",")];
+    suggestions.forEach((s) => {
+      const row = rows.find((r) => r.id === s.rowId);
+      const cells = [
+        s.rowId,
+        `"${(row?.name || "").replace(/"/g, '""')}"`,
+        s.field,
+        s.currentValue,
+        s.suggestedValue,
+        s.confidence,
+        s.financialImpact,
+        `"${s.reason.replace(/"/g, '""')}"`,
+      ];
+      lines.push(cells.join(","));
+    });
+    const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cost-engine-suggestions-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
