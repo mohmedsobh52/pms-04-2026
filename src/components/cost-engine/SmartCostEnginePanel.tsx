@@ -47,7 +47,15 @@ type SourceMode = "page" | "boq";
 export function SmartCostEnginePanel({ pageRows, wastePct, currency = "ريال", onApply }: Props) {
   const [source, setSource] = useState<SourceMode>("page");
   const [projectId, setProjectId] = useState<string | null>(null);
-  const [ignored, setIgnored] = useState<Record<string, "applied" | "ignored">>({});
+  const storageKey = `cost-engine-decisions:${source}:${projectId ?? "page"}`;
+  const [ignored, setIgnored] = useState<Record<string, "applied" | "ignored">>(() => {
+    try {
+      const raw = localStorage.getItem(`cost-engine-decisions:page:page`);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
   const qc = useQueryClient();
 
   // Projects list (for BOQ mode)
