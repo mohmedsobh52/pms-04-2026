@@ -319,7 +319,8 @@ function SortableRow({
 }
 
 export default function CostAnalysisPage() {
-  const currency = "ريال";
+  const [meta, setMeta] = useState<CostAnalysisMeta | null>(null);
+  const currency = meta?.currency || "ريال";
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   
   // Load items from localStorage or use defaults
