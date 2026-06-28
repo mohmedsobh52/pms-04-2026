@@ -49,6 +49,9 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { ColorLegend } from "@/components/ui/color-code";
 import { useLanguage } from "@/hooks/useLanguage";
 import { SmartCostEnginePanel } from "@/components/cost-engine/SmartCostEnginePanel";
+import { ProjectInfoBar, type CostAnalysisMeta } from "@/components/cost-analysis/ProjectInfoBar";
+import { CostKpiGrid } from "@/components/cost-analysis/CostKpiGrid";
+import { deriveTotals } from "@/lib/cost-analysis/derive-totals";
 
 interface CostItem {
   id: string;
