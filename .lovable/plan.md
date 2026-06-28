@@ -1,81 +1,43 @@
-# Enterprise Upgrade — Phased Plan
+## تطوير شاشة تحليل التكاليف — خطة تنفيذ مرحلية
 
-## Current state (already shipped)
+المواصفات (36 قسم) ضخمة جداً ولا يمكن تنفيذها في دفعة واحدة دون إضعاف الجودة. أقترح تقسيمها إلى 6 مراحل، مع تنفيذ المرحلة 1 الآن، وعند موافقتك ننتقل للمراحل التالية.
 
-Most of the "foundation" items from your spec are already in this codebase:
+### المرحلة 1 — التطوير البصري الفوري + شريط معلومات + لوحة KPIs (سننفذها الآن)
+الهدف: ترتيب الشاشة الحالية بصرياً وإضافة الطبقة المعلوماتية العلوية بدون كسر أي وظيفة قائمة.
 
-- ✅ **AppShell** (sidebar + topbar + breadcrumbs) — `src/components/layout/AppShell.tsx`
-- ✅ **Teal design system** + Tajawal/Cairo, RTL/LTR — global tokens in `index.css`
-- ✅ **RBAC** — `user_roles` table, `has_role()` SECURITY DEFINER, `RequireRole`, `Can` (just hardened: removed `ADMIN_EMAILS` allowlists, revoked `is_record_locked` from anon)
-- ✅ **Financial audit + record locks** — `financial_audit_logs`, `record_locks`, `enforce_record_lock` trigger, `useRecordLock` hook
-- ✅ **Notifications popover** with realtime sources, **Global command palette** with cross-module search
-- ✅ **Reporting Center** with PDF/Excel export (AR/EN), **Admin Panel** (users/roles, permissions matrix, settings, cost codes, audit logs)
-- ✅ **EVM**, **BOQ**, **Procurement workflow stepper**, **Contracts/Variations**, **Risk heatmap+matrix**, **Subcontractors**
+- بطاقة معلومات المشروع أعلى الصفحة (الأقسام 2-3): الاسم، العميل، الموقع، العملة، الضريبة، تواريخ، آخر مستخدم، الحالة، الإصدار، أزرار تعديل/نسخة جديدة. حالياً البيانات تأتي من `useAnalysisData` + `useCompanySettings`، وما هو ناقص يُحفظ في `cost_analysis_meta` بـ localStorage.
+- لوحة KPIs 6 بطاقات (القسم 4): إجمالي البنود، تكلفة المباشرة، الهالك، إدارية، قبل/بعد الضريبة، متوسط تكلفة الوحدة، اكتمال البيانات، عدد الاقتراحات، التوفير المتوقع — كلها محسوبة لحظياً من نفس `items` الحالية.
+- ضبط بصري: توحيد ارتفاع المدخلات والأزرار، تكبير النصوص الصغيرة (تكلفة/م³، الشارات)، حواف موحدة، Hover/Focus، استخدام الـ semantic tokens فقط (`primary`, `accent`, `muted`)، RTL محفوظ.
+- إعادة تنظيم الأعمدة في `<header>` لإظهار اسم المشروع وحالته بجانب زر «العودة».
+- شرح Tooltip لكل KPI ولكل مؤشر داخل Cost Engine (القسم 6).
 
-## What's genuinely missing → phased delivery
+### المرحلة 2 — جدول البنود الموسّع + الفلاتر والبحث (الأقسام 7-10)
+- نقل الجدول الحالي إلى `DataTable` (TanStack) مع: Inline editing، تثبيت رأس وعمود، تحديد متعدد، أعمدة قابلة للإخفاء، Pagination/Virtualization، شريط فلاتر شامل (تصنيف، حالة بيانات، ثقة، اقتراحات، نطاق تكلفة، تاريخ تعديل)، أعمدة موسّعة (كود، تصنيف، كمية، مواد/عمالة/معدات/نقل/مقاول باطن/مصاريف/هالك/ربح/مخاطر).
+- نافذة «إضافة بند» موحّدة عبر `EnterpriseForm` مع خيارات: حفظ / حفظ وإضافة آخر / حفظ كقالب بند.
 
-Each phase = one shippable, verifiable slice. Pick one and I'll implement it end-to-end.
+### المرحلة 3 — Drawer تفاصيل البند بكامل التبويبات (القسم 11)
+معلومات أساسية / تفصيل التكلفة / مواد / عمالة / معدات / افتراضات / اقتراحات / سجل تغييرات / مرفقات. يتطلب جدولاً جديداً `cost_item_breakdowns` في الـ Backend.
 
----
+### المرحلة 4 — الافتراضات، العملات والضرائب، تحليل الحساسية، مقارنة السيناريوهات (الأقسام 12-13، 16-17)
+يتطلب جداول `cost_analysis_assumptions` و`cost_analysis_scenarios` مع RLS وGRANT.
 
-### Phase A — Workflow Engine (highest leverage)
-**New tables:** `workflow_definitions`, `workflow_steps`, `workflow_instances`, `workflow_approvals` (RLS scoped to project owner + assigned approvers).
-**Backend:** Postgres functions `start_workflow(entity_type, entity_id, definition_id)`, `approve_step()`, `reject_step()`, SLA timer via `expires_at` + scheduled function.
-**Frontend:** `WorkflowStepper` component, `ApprovalPanel`, `WorkflowDefinitionEditor` (admin), mount on procurement/contracts/certificates.
-**Wires into:** existing financial-audit logging for every approve/reject.
+### المرحلة 5 — محرك اقتراحات موسّع + كشف الشواذ + الموردين/الأسعار + المراجعة والاعتماد (الأقسام 14-15، 19، 23-24)
+استخدام `workflow_*` الموجودة + `notifications` + توسيع `analyzer.ts`.
 
----
+### المرحلة 6 — التقارير، الاستيراد الذكي بمطابقة الأعمدة، Version Control، الصلاحيات الدقيقة، تجربة الجوال، Skeleton/Empty states (الأقسام 21-22، 26-31، 35)
 
-### Phase B — Document Management System
-**New tables:** `documents`, `document_versions`, `document_tags`, `document_permissions`. Reuses existing `project-files` storage bucket; adds `expires_at` for contracts/certs.
-**Backend:** Trigger that pushes expiry → `record_locks`-style alerts table consumed by NotificationsPopover.
-**Frontend:** `DocumentExplorer` (folder tree), `VersionedFileUploader`, `DocumentTagPicker`, expiry badges, search over `documents.tsvector`.
+### التفاصيل التقنية للمرحلة 1
+الملفات التي ستتغير:
+- `src/pages/CostAnalysisPage.tsx`: إضافة `<ProjectInfoBar>` و`<CostKpiGrid>` في الأعلى قبل البطاقات الحالية، تنظيف الـ header، إصلاح المحاذاة.
+- ملفات جديدة:
+  - `src/components/cost-analysis/ProjectInfoBar.tsx`
+  - `src/components/cost-analysis/CostKpiGrid.tsx`
+  - `src/lib/cost-analysis/derive-totals.ts` (دالة مركزية: مباشرة، هالك، إدارية، ضريبة، بعد ضريبة، متوسط) — مصدر واحد للحقيقة يستخدمه الجدول والـ KPIs والـ Cost Engine.
+- لا تغييرات في قاعدة البيانات في هذه المرحلة. لا تغيير على الألوان أو الخطوط.
 
----
+### ما لن يحدث في المرحلة 1
+- لا حذف لأي قسم/زر/وظيفة قائمة (القوالب، الاستيراد، تصدير Excel/PDF، الرسم الدائري، AI، Cost Engine).
+- لا تغيير على schema قاعدة البيانات.
+- لا استبدال الجدول الحالي بعد (يأتي في المرحلة 2).
 
-### Phase C — Standardized DataTable + Forms
-**New:** `src/components/data-table/DataTable.tsx` — TanStack Table v8 with column visibility, sorting, server pagination, virtualization (`@tanstack/react-virtual`), bulk actions, sticky header, mobile card fallback, Excel/PDF export hooks.
-**New:** `src/components/forms/EnterpriseForm.tsx` wrapper — react-hook-form + zod, autosave drafts to localStorage, `beforeunload` warning, field-level `<Can permission="...">` gating, conditional fields via `watch()`.
-**Migration:** Refactor 3 highest-traffic tables (BOQ items, audit logs, procurement) onto it; rest follow incrementally.
-
----
-
-### Phase D — Field Mobile Mode
-**New route:** `/field` — separate minimal shell, large tap targets.
-**Features:** Daily progress entry, photo upload with GPS EXIF capture, voice-to-text via `webkitSpeechRecognition`.
-**Offline:** IndexedDB queue (`idb-keyval`), background sync on `online` event. PWA manifest only — no service-worker offline cache to keep Lovable preview clean.
-
----
-
-### Phase E — Real-time Notification Engine v2
-**New tables:** `notifications` (per-user inbox), `notification_preferences`.
-**Backend:** Triggers on `procurement_items`, `contracts`, `risks`, `progress_certificates` → insert into `notifications`. Realtime publication.
-**Frontend:** Notification center page `/notifications`, dedup by `(user_id, entity_type, entity_id, event)`, preferences UI per type.
-
----
-
-### Phase F — Security & Performance final pass
-- Migrate remaining 13 advisory linter warnings (search_path on every SECURITY DEFINER fn)
-- Virtualize BOQ items table (currently renders 1000+ rows)
-- Add `React.lazy` to remaining 12 non-lazy routes
-- Centralize API layer in `src/lib/api/*` with React Query factory
-- Add `ErrorBoundary` per route group
-
----
-
-## How we work through this
-
-1. You pick a phase letter.
-2. I implement it fully in one go (migrations + components + wiring + verification).
-3. You test in preview.
-4. Move to next phase.
-
-## Out of scope (explicitly)
-
-- Full OCR pipeline (would need an edge function + Tesseract; can add as Phase B.1 if you confirm)
-- Native mobile via Capacitor (separate path; PWA-only for now)
-- SAML/SSO (Supabase supports it but needs your IdP config)
-
----
-
-**Which phase first?** My recommendation: **Phase C (DataTable + Forms)** — every other phase benefits from it, and it has the highest visible impact with lowest schema risk.
+هل أبدأ تنفيذ **المرحلة 1** الآن؟
