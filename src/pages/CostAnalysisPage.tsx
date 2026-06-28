@@ -1012,6 +1012,22 @@ export default function CostAnalysisPage() {
 
       <main className="container mx-auto px-4 py-6">
         <ColorLegend type="category" isArabic={false} className="mb-4" />
+
+        {/* Project info bar + extended KPIs (Phase 1) */}
+        <ProjectInfoBar onChange={setMeta} />
+        <CostKpiGrid
+          totals={deriveTotals(
+            items.map((i) => ({
+              costPerUnit: i.costPerUnit,
+              dailyProductivity: i.dailyProductivity,
+              dailyRent: i.dailyRent,
+              name: i.name,
+            })),
+            { wastePct: wastePercentage, adminPct: adminPercentage, taxPct: meta?.taxPct ?? 0 },
+          )}
+          currency={currency}
+        />
+
         {/* Quick Stats Summary Bar */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <Card className="hover:shadow-md transition-shadow">
