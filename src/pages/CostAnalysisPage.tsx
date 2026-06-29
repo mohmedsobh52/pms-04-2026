@@ -1550,6 +1550,7 @@ export default function CostAnalysisPage() {
                               handleItemChange={handleItemChange}
                               handleRemoveItem={handleRemoveItem}
                               handleCopyItem={handleCopyItem}
+                              handleOpenDetails={setDetailsItemId}
                               analyzeWithAI={analyzeWithAI}
                               applyAISuggestion={applyAISuggestion}
                               calculateDifference={calculateDifference}
