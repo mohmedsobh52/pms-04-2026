@@ -1719,6 +1719,15 @@ export default function CostAnalysisPage() {
           </div>
         </div>
       </main>
+
+      <ItemDetailsDrawer
+        open={detailsItemId !== null}
+        onOpenChange={(o) => !o && setDetailsItemId(null)}
+        itemId={detailsItemId}
+        itemName={detailsItem?.name ?? ""}
+        costPerUnit={detailsItem?.costPerUnit ?? 0}
+        currency={currency}
+      />
     </div>
   );
 }
