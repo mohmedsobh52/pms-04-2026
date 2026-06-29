@@ -138,6 +138,7 @@ interface SortableRowProps {
   handleItemChange: (id: string, field: keyof CostItem, value: string | number) => void;
   handleRemoveItem: (id: string) => void;
   handleCopyItem: (id: string) => void;
+  handleOpenDetails?: (id: string) => void;
   analyzeWithAI: (id: string, name: string) => void;
   applyAISuggestion: (id: string, field: 'productivity' | 'rent') => void;
   calculateDifference: (manual: number, ai: number | undefined) => { value: number; type: 'up' | 'down' | 'same' } | null;
