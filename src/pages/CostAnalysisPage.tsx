@@ -409,7 +409,7 @@ export default function CostAnalysisPage() {
       if (q && !String(it.name ?? "").toLowerCase().includes(q)) return false;
       if (min != null && !Number.isNaN(min) && it.costPerUnit < min) return false;
       if (max != null && !Number.isNaN(max) && it.costPerUnit > max) return false;
-      if (itemsFilter.onlyAi && !item_hasAi(it)) return false;
+      if (itemsFilter.onlyAi && it.aiSuggestedProductivity == null && it.aiSuggestedRent == null) return false;
       return true;
     });
   }, [items, itemsFilter]);
