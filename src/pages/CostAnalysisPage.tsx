@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Calculator, Save, Plus, Trash2, Download, FileSpreadsheet, FileText, Copy, PieChart as PieChartIcon, Sparkles, Loader2, TrendingUp, TrendingDown, Minus, Zap, GripVertical, Edit2, ArrowRight, Upload, FileUp, RotateCcw, Link2, ArrowLeftRight } from "lucide-react";
+import { Calculator, Save, Plus, Trash2, Download, FileSpreadsheet, FileText, Copy, PieChart as PieChartIcon, Sparkles, Loader2, TrendingUp, TrendingDown, Minus, Zap, GripVertical, Edit2, ArrowRight, Upload, FileUp, RotateCcw, Link2, ArrowLeftRight, Info } from "lucide-react";
 import { extractDataFromExcel } from "@/lib/excel-utils";
 import {
   DndContext,
@@ -52,6 +52,7 @@ import { SmartCostEnginePanel } from "@/components/cost-engine/SmartCostEnginePa
 import { ProjectInfoBar, type CostAnalysisMeta } from "@/components/cost-analysis/ProjectInfoBar";
 import { CostKpiGrid } from "@/components/cost-analysis/CostKpiGrid";
 import { CostItemsToolbar, type CostItemsFilter } from "@/components/cost-analysis/CostItemsToolbar";
+import { ItemDetailsDrawer } from "@/components/cost-analysis/ItemDetailsDrawer";
 import { deriveTotals } from "@/lib/cost-analysis/derive-totals";
 
 interface CostItem {
@@ -138,6 +139,7 @@ interface SortableRowProps {
   handleItemChange: (id: string, field: keyof CostItem, value: string | number) => void;
   handleRemoveItem: (id: string) => void;
   handleCopyItem: (id: string) => void;
+  handleOpenDetails?: (id: string) => void;
   analyzeWithAI: (id: string, name: string) => void;
   applyAISuggestion: (id: string, field: 'productivity' | 'rent') => void;
   calculateDifference: (manual: number, ai: number | undefined) => { value: number; type: 'up' | 'down' | 'same' } | null;
@@ -149,6 +151,7 @@ function SortableRow({
   handleItemChange,
   handleRemoveItem,
   handleCopyItem,
+  handleOpenDetails,
   analyzeWithAI,
   applyAISuggestion,
   calculateDifference,
@@ -295,6 +298,17 @@ function SortableRow({
       </TableCell>
       <TableCell>
         <div className="flex gap-1">
+          {handleOpenDetails && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleOpenDetails(item.id)}
+              className="h-6 w-6 p-0 text-blue-600 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+              title="تفاصيل البند"
+            >
+              <Info className="w-3 h-3" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -418,6 +432,10 @@ export default function CostAnalysisPage() {
     itemsFilter.minCost !== "" ||
     itemsFilter.maxCost !== "" ||
     itemsFilter.onlyAi;
+
+  // Phase 3: Item details drawer
+  const [detailsItemId, setDetailsItemId] = useState<string | null>(null);
+  const detailsItem = detailsItemId ? items.find((it) => it.id === detailsItemId) ?? null : null;
 
   // Debug log for items changes
   useEffect(() => {
@@ -1532,6 +1550,7 @@ export default function CostAnalysisPage() {
                               handleItemChange={handleItemChange}
                               handleRemoveItem={handleRemoveItem}
                               handleCopyItem={handleCopyItem}
+                              handleOpenDetails={setDetailsItemId}
                               analyzeWithAI={analyzeWithAI}
                               applyAISuggestion={applyAISuggestion}
                               calculateDifference={calculateDifference}
@@ -1700,6 +1719,15 @@ export default function CostAnalysisPage() {
           </div>
         </div>
       </main>
+
+      <ItemDetailsDrawer
+        open={detailsItemId !== null}
+        onOpenChange={(o) => !o && setDetailsItemId(null)}
+        itemId={detailsItemId}
+        itemName={detailsItem?.name ?? ""}
+        costPerUnit={detailsItem?.costPerUnit ?? 0}
+        currency={currency}
+      />
     </div>
   );
 }
