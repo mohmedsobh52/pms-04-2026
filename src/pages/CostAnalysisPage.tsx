@@ -150,6 +150,7 @@ function SortableRow({
   handleItemChange,
   handleRemoveItem,
   handleCopyItem,
+  handleOpenDetails,
   analyzeWithAI,
   applyAISuggestion,
   calculateDifference,
