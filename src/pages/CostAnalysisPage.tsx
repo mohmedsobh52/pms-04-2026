@@ -394,6 +394,31 @@ export default function CostAnalysisPage() {
   const [startX, setStartX] = useState(0);
   const [startWidth, setStartWidth] = useState(0);
 
+  // Phase 2: Items filter (search / cost-range / AI-only)
+  const [itemsFilter, setItemsFilter] = useState<CostItemsFilter>({
+    query: "",
+    minCost: "",
+    maxCost: "",
+    onlyAi: false,
+  });
+  const visibleItems = useMemo(() => {
+    const q = itemsFilter.query.trim().toLowerCase();
+    const min = itemsFilter.minCost === "" ? null : parseFloat(itemsFilter.minCost);
+    const max = itemsFilter.maxCost === "" ? null : parseFloat(itemsFilter.maxCost);
+    return items.filter((it) => {
+      if (q && !String(it.name ?? "").toLowerCase().includes(q)) return false;
+      if (min != null && !Number.isNaN(min) && it.costPerUnit < min) return false;
+      if (max != null && !Number.isNaN(max) && it.costPerUnit > max) return false;
+      if (itemsFilter.onlyAi && !item_hasAi(it)) return false;
+      return true;
+    });
+  }, [items, itemsFilter]);
+  const isFilterActive =
+    itemsFilter.query.trim() !== "" ||
+    itemsFilter.minCost !== "" ||
+    itemsFilter.maxCost !== "" ||
+    itemsFilter.onlyAi;
+
   // Debug log for items changes
   useEffect(() => {
     console.log('Items updated. Current count:', items.length, 'Items:', items);
