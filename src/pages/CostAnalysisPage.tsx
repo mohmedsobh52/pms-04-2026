@@ -1356,6 +1356,50 @@ export default function CostAnalysisPage() {
                   total={items.length}
                   visible={visibleItems.length}
                 />
+                {isFilterActive && visibleItems.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 mb-2 p-2 rounded-md border border-primary/30 bg-primary/5">
+                    <span className="text-xs font-medium">
+                      إجراءات على البنود الظاهرة ({visibleItems.length}):
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={async () => {
+                        const targets = visibleItems.filter(
+                          (it) => it.aiSuggestedProductivity == null && it.aiSuggestedRent == null,
+                        );
+                        if (targets.length === 0) {
+                          toast.info("جميع البنود الظاهرة تحتوي على اقتراح AI");
+                          return;
+                        }
+                        toast.info(`تحليل ${targets.length} بند بالذكاء الاصطناعي...`);
+                        for (const it of targets) {
+                          await analyzeWithAI(it.id, it.name);
+                        }
+                      }}
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      تحليل بـ AI
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => {
+                        if (!confirm(`حذف ${visibleItems.length} بند؟`)) return;
+                        const ids = new Set(visibleItems.map((it) => it.id));
+                        setItems((prev) => prev.filter((it) => !ids.has(it.id)));
+                        toast.success(`تم حذف ${ids.size} بند`);
+                      }}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      حذف
+                    </Button>
+                  </div>
+                )}
                 <ScrollArea className="max-h-[calc(100vh-250px)] min-h-[800px]">
                   <div ref={scrollViewportRef} data-radix-scroll-area-viewport="" className="h-full w-full rounded-[inherit]" style={{ overflow: 'hidden scroll' }}>
                     <div style={{ minWidth: '100%', display: 'table' }}>
