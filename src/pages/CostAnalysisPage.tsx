@@ -51,6 +51,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { SmartCostEnginePanel } from "@/components/cost-engine/SmartCostEnginePanel";
 import { ProjectInfoBar, type CostAnalysisMeta } from "@/components/cost-analysis/ProjectInfoBar";
 import { CostKpiGrid } from "@/components/cost-analysis/CostKpiGrid";
+import { CostItemsToolbar, type CostItemsFilter } from "@/components/cost-analysis/CostItemsToolbar";
 import { deriveTotals } from "@/lib/cost-analysis/derive-totals";
 
 interface CostItem {
@@ -392,6 +393,31 @@ export default function CostAnalysisPage() {
   const [resizingColumn, setResizingColumn] = useState<keyof ColumnWidths | null>(null);
   const [startX, setStartX] = useState(0);
   const [startWidth, setStartWidth] = useState(0);
+
+  // Phase 2: Items filter (search / cost-range / AI-only)
+  const [itemsFilter, setItemsFilter] = useState<CostItemsFilter>({
+    query: "",
+    minCost: "",
+    maxCost: "",
+    onlyAi: false,
+  });
+  const visibleItems = useMemo(() => {
+    const q = itemsFilter.query.trim().toLowerCase();
+    const min = itemsFilter.minCost === "" ? null : parseFloat(itemsFilter.minCost);
+    const max = itemsFilter.maxCost === "" ? null : parseFloat(itemsFilter.maxCost);
+    return items.filter((it) => {
+      if (q && !String(it.name ?? "").toLowerCase().includes(q)) return false;
+      if (min != null && !Number.isNaN(min) && it.costPerUnit < min) return false;
+      if (max != null && !Number.isNaN(max) && it.costPerUnit > max) return false;
+      if (itemsFilter.onlyAi && it.aiSuggestedProductivity == null && it.aiSuggestedRent == null) return false;
+      return true;
+    });
+  }, [items, itemsFilter]);
+  const isFilterActive =
+    itemsFilter.query.trim() !== "" ||
+    itemsFilter.minCost !== "" ||
+    itemsFilter.maxCost !== "" ||
+    itemsFilter.onlyAi;
 
   // Debug log for items changes
   useEffect(() => {
@@ -1324,6 +1350,12 @@ export default function CostAnalysisPage() {
                     </Button>
                   </div>
                 </div>
+                <CostItemsToolbar
+                  filter={itemsFilter}
+                  onChange={setItemsFilter}
+                  total={items.length}
+                  visible={visibleItems.length}
+                />
                 <ScrollArea className="max-h-[calc(100vh-250px)] min-h-[800px]">
                   <div ref={scrollViewportRef} data-radix-scroll-area-viewport="" className="h-full w-full rounded-[inherit]" style={{ overflow: 'hidden scroll' }}>
                     <div style={{ minWidth: '100%', display: 'table' }}>
@@ -1440,10 +1472,16 @@ export default function CostAnalysisPage() {
                       </TableHeader>
                       <TableBody>
                         <SortableContext
-                          items={items.map(item => item.id)}
+                          items={visibleItems.map(item => item.id)}
                           strategy={verticalListSortingStrategy}
                         >
-                          {items.map((item) => (
+                          {visibleItems.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
+                                {isFilterActive ? "لا توجد بنود مطابقة للفلتر" : "لا توجد بنود"}
+                              </TableCell>
+                            </TableRow>
+                          ) : visibleItems.map((item) => (
                             <SortableRow
                               key={item.id}
                               item={item}
