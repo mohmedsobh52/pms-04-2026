@@ -433,6 +433,10 @@ export default function CostAnalysisPage() {
     itemsFilter.maxCost !== "" ||
     itemsFilter.onlyAi;
 
+  // Phase 3: Item details drawer
+  const [detailsItemId, setDetailsItemId] = useState<string | null>(null);
+  const detailsItem = detailsItemId ? items.find((it) => it.id === detailsItemId) ?? null : null;
+
   // Debug log for items changes
   useEffect(() => {
     console.log('Items updated. Current count:', items.length, 'Items:', items);
