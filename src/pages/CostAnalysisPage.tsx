@@ -1350,6 +1350,12 @@ export default function CostAnalysisPage() {
                     </Button>
                   </div>
                 </div>
+                <CostItemsToolbar
+                  filter={itemsFilter}
+                  onChange={setItemsFilter}
+                  total={items.length}
+                  visible={visibleItems.length}
+                />
                 <ScrollArea className="max-h-[calc(100vh-250px)] min-h-[800px]">
                   <div ref={scrollViewportRef} data-radix-scroll-area-viewport="" className="h-full w-full rounded-[inherit]" style={{ overflow: 'hidden scroll' }}>
                     <div style={{ minWidth: '100%', display: 'table' }}>
