@@ -1472,10 +1472,16 @@ export default function CostAnalysisPage() {
                       </TableHeader>
                       <TableBody>
                         <SortableContext
-                          items={items.map(item => item.id)}
+                          items={visibleItems.map(item => item.id)}
                           strategy={verticalListSortingStrategy}
                         >
-                          {items.map((item) => (
+                          {visibleItems.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
+                                {isFilterActive ? "لا توجد بنود مطابقة للفلتر" : "لا توجد بنود"}
+                              </TableCell>
+                            </TableRow>
+                          ) : visibleItems.map((item) => (
                             <SortableRow
                               key={item.id}
                               item={item}
