@@ -52,6 +52,7 @@ import { SmartCostEnginePanel } from "@/components/cost-engine/SmartCostEnginePa
 import { ProjectInfoBar, type CostAnalysisMeta } from "@/components/cost-analysis/ProjectInfoBar";
 import { CostKpiGrid } from "@/components/cost-analysis/CostKpiGrid";
 import { CostItemsToolbar, type CostItemsFilter } from "@/components/cost-analysis/CostItemsToolbar";
+import { ItemDetailsDrawer } from "@/components/cost-analysis/ItemDetailsDrawer";
 import { deriveTotals } from "@/lib/cost-analysis/derive-totals";
 
 interface CostItem {
