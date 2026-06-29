@@ -297,6 +297,17 @@ function SortableRow({
       </TableCell>
       <TableCell>
         <div className="flex gap-1">
+          {handleOpenDetails && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleOpenDetails(item.id)}
+              className="h-6 w-6 p-0 text-blue-600 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+              title="تفاصيل البند"
+            >
+              <Info className="w-3 h-3" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
