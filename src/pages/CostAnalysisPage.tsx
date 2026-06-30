@@ -54,6 +54,7 @@ import { CostKpiGrid } from "@/components/cost-analysis/CostKpiGrid";
 import { CostItemsToolbar, type CostItemsFilter } from "@/components/cost-analysis/CostItemsToolbar";
 import { ItemDetailsDrawer } from "@/components/cost-analysis/ItemDetailsDrawer";
 import { SensitivityScenarios } from "@/components/cost-analysis/SensitivityScenarios";
+import { AiCostAdvisorPanel } from "@/components/cost-analysis/AiCostAdvisorPanel";
 import { deriveTotals } from "@/lib/cost-analysis/derive-totals";
 
 interface CostItem {
@@ -1171,6 +1172,39 @@ export default function CostAnalysisPage() {
           taxPct={meta?.taxPct ?? 0}
           currency={currency}
         />
+
+        {/* Phase 5: AI Advisor with approval workflow */}
+        <AiCostAdvisorPanel
+          items={items.map((i) => ({
+            id: i.id,
+            name: i.name,
+            dailyProductivity: i.dailyProductivity,
+            dailyRent: i.dailyRent,
+            costPerUnit: i.costPerUnit,
+          }))}
+          currency={currency}
+          wastePct={wastePercentage}
+          adminPct={adminPercentage}
+          onApply={(rowId, patch) => {
+            setItems((prev) =>
+              prev.map((it) =>
+                it.id === rowId
+                  ? {
+                      ...it,
+                      ...(patch.dailyProductivity !== undefined
+                        ? { dailyProductivity: patch.dailyProductivity }
+                        : {}),
+                      ...(patch.dailyRent !== undefined
+                        ? { dailyRent: patch.dailyRent }
+                        : {}),
+                    }
+                  : it,
+              ),
+            );
+          }}
+        />
+
+
 
 
 
