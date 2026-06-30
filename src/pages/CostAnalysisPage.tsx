@@ -1158,6 +1158,22 @@ export default function CostAnalysisPage() {
           />
         </div>
 
+        {/* Phase 4: Sensitivity & Scenarios */}
+        <SensitivityScenarios
+          items={items.map((i) => ({
+            name: i.name,
+            costPerUnit: i.costPerUnit,
+            dailyProductivity: i.dailyProductivity,
+            dailyRent: i.dailyRent,
+          }))}
+          wastePct={wastePercentage}
+          adminPct={adminPercentage}
+          taxPct={meta?.taxPct ?? 0}
+          currency={currency}
+        />
+
+
+
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Table - 2/3 width */}
