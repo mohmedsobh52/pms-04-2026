@@ -54,6 +54,7 @@ import { CostKpiGrid } from "@/components/cost-analysis/CostKpiGrid";
 import { CostItemsToolbar, type CostItemsFilter } from "@/components/cost-analysis/CostItemsToolbar";
 import { ItemDetailsDrawer } from "@/components/cost-analysis/ItemDetailsDrawer";
 import { SensitivityScenarios } from "@/components/cost-analysis/SensitivityScenarios";
+import { AiCostAdvisorPanel } from "@/components/cost-analysis/AiCostAdvisorPanel";
 import { deriveTotals } from "@/lib/cost-analysis/derive-totals";
 
 interface CostItem {
