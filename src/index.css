@@ -370,7 +370,16 @@
 
 /* Print styles */
 @media print {
-  .no-print { display: none !important; }
+  .no-print,
+  [data-radix-popper-content-wrapper],
+  button[aria-haspopup="dialog"],
+  .print\:hidden { display: none !important; }
   .glass-card { box-shadow: none !important; border: 1px solid #e2e8f0 !important; background: white !important; }
   body { background: white !important; }
+  .cost-analysis-print-area { padding: 0 !important; }
+  .cost-analysis-print-area .card,
+  .cost-analysis-print-area [class*="Card"] { break-inside: avoid; page-break-inside: avoid; }
+  table { font-size: 10pt !important; }
+  thead { display: table-header-group; }
 }
+
