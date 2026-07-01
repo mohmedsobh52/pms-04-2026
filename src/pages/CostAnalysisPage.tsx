@@ -55,6 +55,7 @@ import { CostItemsToolbar, type CostItemsFilter } from "@/components/cost-analys
 import { ItemDetailsDrawer } from "@/components/cost-analysis/ItemDetailsDrawer";
 import { SensitivityScenarios } from "@/components/cost-analysis/SensitivityScenarios";
 import { AiCostAdvisorPanel } from "@/components/cost-analysis/AiCostAdvisorPanel";
+import { CostVersionsPanel } from "@/components/cost-analysis/CostVersionsPanel";
 import { deriveTotals } from "@/lib/cost-analysis/derive-totals";
 
 interface CostItem {
