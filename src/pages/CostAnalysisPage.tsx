@@ -55,6 +55,7 @@ import { CostItemsToolbar, type CostItemsFilter } from "@/components/cost-analys
 import { ItemDetailsDrawer } from "@/components/cost-analysis/ItemDetailsDrawer";
 import { SensitivityScenarios } from "@/components/cost-analysis/SensitivityScenarios";
 import { AiCostAdvisorPanel } from "@/components/cost-analysis/AiCostAdvisorPanel";
+import { CostVersionsPanel } from "@/components/cost-analysis/CostVersionsPanel";
 import { deriveTotals } from "@/lib/cost-analysis/derive-totals";
 
 interface CostItem {
@@ -1203,6 +1204,21 @@ export default function CostAnalysisPage() {
             );
           }}
         />
+
+        <CostVersionsPanel
+          items={items as unknown as Parameters<typeof CostVersionsPanel>[0]["items"]}
+          wastePercentage={wastePercentage}
+          adminPercentage={adminPercentage}
+          taxPct={meta?.taxPct ?? 0}
+          currency={currency}
+          onRestore={(snap) => {
+            setItems(snap.items as unknown as CostItem[]);
+            setWastePercentage(snap.wastePercentage);
+            setAdminPercentage(snap.adminPercentage);
+          }}
+        />
+
+
 
 
 
