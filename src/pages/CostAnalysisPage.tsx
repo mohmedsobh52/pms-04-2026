@@ -1630,7 +1630,9 @@ export default function CostAnalysisPage() {
                     </Table>
                   </DndContext>
                     </div>
+                    </div>
                   </div>
+
                 </ScrollArea>
               </CardContent>
             </Card>
