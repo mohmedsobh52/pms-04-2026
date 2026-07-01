@@ -1487,7 +1487,8 @@ export default function CostAnalysisPage() {
                 )}
                 <ScrollArea className="max-h-[calc(100vh-250px)] min-h-[800px]">
                   <div ref={scrollViewportRef} data-radix-scroll-area-viewport="" className="h-full w-full rounded-[inherit]" style={{ overflow: 'hidden scroll' }}>
-                    <div style={{ minWidth: '100%', display: 'table' }}>
+                    <div className="overflow-x-auto -mx-2 px-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+                    <div style={{ minWidth: '900px', display: 'table', width: '100%' }}>
                   <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
@@ -1629,7 +1630,9 @@ export default function CostAnalysisPage() {
                     </Table>
                   </DndContext>
                     </div>
+                    </div>
                   </div>
+
                 </ScrollArea>
               </CardContent>
             </Card>
