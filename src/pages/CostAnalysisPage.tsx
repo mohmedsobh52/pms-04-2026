@@ -1206,7 +1206,7 @@ export default function CostAnalysisPage() {
         />
 
         <CostVersionsPanel
-          items={items}
+          items={items as unknown as Parameters<typeof CostVersionsPanel>[0]["items"]}
           wastePercentage={wastePercentage}
           adminPercentage={adminPercentage}
           taxPct={meta?.taxPct ?? 0}
