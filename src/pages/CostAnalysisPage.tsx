@@ -1205,6 +1205,21 @@ export default function CostAnalysisPage() {
           }}
         />
 
+        <CostVersionsPanel
+          items={items}
+          wastePercentage={wastePercentage}
+          adminPercentage={adminPercentage}
+          taxPct={meta?.taxPct ?? 0}
+          currency={currency}
+          onRestore={(snap) => {
+            setItems(snap.items as unknown as CostItem[]);
+            setWastePercentage(snap.wastePercentage);
+            setAdminPercentage(snap.adminPercentage);
+          }}
+        />
+
+
+
 
 
 
