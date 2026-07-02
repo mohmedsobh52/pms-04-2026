@@ -275,7 +275,11 @@ const RiskPage = () => {
           <RiskHeatmap risks={risksRaw} />
           <RiskMatrix risks={risksRaw} />
         </div>
-        <RiskAlertsPanel risks={risksRaw} />
+        <div className="grid gap-4 md:grid-cols-2">
+          <RiskTrendCard risks={risksRaw} />
+          <RiskAlertsPanel risks={risksRaw} />
+        </div>
+
 
         <Suspense fallback={<SuspenseFallback label={isArabic ? "جاري التحميل..." : "Loading..."} />}>
           <RiskManagement />
