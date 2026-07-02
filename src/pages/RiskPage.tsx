@@ -16,6 +16,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { RiskHeatmap } from "@/components/risk/RiskHeatmap";
 import { RiskMatrix } from "@/components/risk/RiskMatrix";
 import { RiskAlertsPanel } from "@/components/risk/RiskAlertsPanel";
+import { RiskTrendCard } from "@/components/risk/RiskTrendCard";
 
 
 const RiskPage = () => {
@@ -274,7 +275,11 @@ const RiskPage = () => {
           <RiskHeatmap risks={risksRaw} />
           <RiskMatrix risks={risksRaw} />
         </div>
-        <RiskAlertsPanel risks={risksRaw} />
+        <div className="grid gap-4 md:grid-cols-2">
+          <RiskTrendCard risks={risksRaw} />
+          <RiskAlertsPanel risks={risksRaw} />
+        </div>
+
 
         <Suspense fallback={<SuspenseFallback label={isArabic ? "جاري التحميل..." : "Loading..."} />}>
           <RiskManagement />
