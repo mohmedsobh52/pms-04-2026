@@ -16,6 +16,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { RiskHeatmap } from "@/components/risk/RiskHeatmap";
 import { RiskMatrix } from "@/components/risk/RiskMatrix";
 import { RiskAlertsPanel } from "@/components/risk/RiskAlertsPanel";
+import { RiskTrendCard } from "@/components/risk/RiskTrendCard";
 
 
 const RiskPage = () => {
