@@ -349,6 +349,95 @@ export function SmartCostEnginePanel({ pageRows, wastePct, currency = "ريال"
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Phase 2 — Run controls */}
+        <div className="rounded-lg border bg-background/60 p-3 space-y-2.5">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Select value={scope} onValueChange={(v) => setScope(v as RunScope)} disabled={isRunning}>
+                <SelectTrigger className="h-8 w-52 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(SCOPE_LABELS) as RunScope[]).map((k) => (
+                    <SelectItem key={k} value={k} className="text-xs">
+                      {SCOPE_LABELS[k]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Badge variant="outline" className={STATUS_LABELS[runStatus].tone + " text-[11px]"}>
+                {STATUS_LABELS[runStatus].label}
+              </Badge>
+              {lastRunAt && (
+                <span className="text-[11px] text-muted-foreground">
+                  آخر تحليل: {new Date(lastRunAt).toLocaleString("ar")}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              {!isRunning ? (
+                <Button size="sm" className="h-8 gap-1" onClick={runAnalysis}>
+                  <Play className="w-3.5 h-3.5" />
+                  تشغيل التحليل الذكي
+                </Button>
+              ) : (
+                <Button size="sm" variant="destructive" className="h-8 gap-1" onClick={stopAnalysis}>
+                  <Square className="w-3.5 h-3.5" />
+                  إيقاف
+                </Button>
+              )}
+              {(runStatus === "failed" || runStatus === "completed_with_warnings") && (
+                <Button size="sm" variant="outline" className="h-8 gap-1" onClick={runAnalysis}>
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  إعادة المحاولة
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 gap-1"
+                onClick={downloadRunLog}
+                disabled={runLog.length === 0}
+                title="تنزيل سجل التحليل"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+          {(isRunning || progress > 0) && (
+            <div className="space-y-1">
+              <Progress value={progress} className="h-1.5" />
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>{Math.round(progress)}%</span>
+                <span>
+                  {rows.length} بند · {suggestions.length} اقتراح · {insights.topActions.length} إجراء
+                </span>
+              </div>
+            </div>
+          )}
+          {lastError && (
+            <div className="text-[11px] rounded border border-red-300 bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-300 p-2 flex items-start gap-1">
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <div className="font-medium">تفاصيل الخطأ</div>
+                <div className="truncate" title={lastError}>{lastError}</div>
+              </div>
+            </div>
+          )}
+          {runLog.length > 0 && (
+            <details className="text-[11px]">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground flex items-center gap-1">
+                <Info className="w-3 h-3" /> سجل التنفيذ ({runLog.length})
+              </summary>
+              <div className="mt-1.5 max-h-32 overflow-y-auto rounded bg-muted/40 p-1.5 space-y-0.5 font-mono">
+                {runLog.slice(-30).map((l, i) => (
+                  <div key={i} className="truncate">{l}</div>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+
         {source === "boq" && !projectId && (
           <p className="text-sm text-muted-foreground">اختر مشروعاً لتحليل بنوده.</p>
         )}
