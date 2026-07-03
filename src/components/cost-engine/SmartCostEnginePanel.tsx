@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Download } from "lucide-react";
+import { Download, Play, Square, RotateCcw, Info } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +57,24 @@ export function SmartCostEnginePanel({ pageRows, wastePct, currency = "ريال"
     }
   });
   const qc = useQueryClient();
+
+  // Phase 2 — Run controls
+  type RunScope = "current" | "selected" | "all" | "modified" | "missing" | "reanalyze";
+  type RunStatus =
+    | "idle"
+    | "preparing"
+    | "analyzing"
+    | "generating"
+    | "completed"
+    | "completed_with_warnings"
+    | "failed";
+  const [scope, setScope] = useState<RunScope>("all");
+  const [runStatus, setRunStatus] = useState<RunStatus>("idle");
+  const [progress, setProgress] = useState(0);
+  const [runLog, setRunLog] = useState<string[]>([]);
+  const [lastRunAt, setLastRunAt] = useState<string | null>(() => localStorage.getItem("cost-engine-last-run") || null);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const cancelRef = useRef<{ cancelled: boolean }>({ cancelled: false });
 
   // Projects list (for BOQ mode)
   const { data: projects } = useQuery({
@@ -213,6 +231,88 @@ export function SmartCostEnginePanel({ pageRows, wastePct, currency = "ريال"
     URL.revokeObjectURL(url);
   };
 
+  const SCOPE_LABELS: Record<RunScope, string> = {
+    current: "البند الحالي",
+    selected: "البنود المحددة",
+    all: "جميع البنود",
+    modified: "المعدلة فقط",
+    missing: "الناقصة فقط",
+    reanalyze: "إعادة تحليل كامل",
+  };
+  const STATUS_LABELS: Record<RunStatus, { label: string; tone: string }> = {
+    idle: { label: "لم يبدأ", tone: "bg-muted text-foreground" },
+    preparing: { label: "جاري تجهيز البيانات", tone: "bg-blue-500/10 text-blue-600" },
+    analyzing: { label: "جاري التحليل", tone: "bg-blue-500/10 text-blue-600" },
+    generating: { label: "جاري توليد الاقتراحات", tone: "bg-primary/10 text-primary" },
+    completed: { label: "اكتمل التحليل", tone: "bg-emerald-500/10 text-emerald-700" },
+    completed_with_warnings: { label: "اكتمل مع تحذيرات", tone: "bg-amber-500/10 text-amber-700" },
+    failed: { label: "فشل التحليل", tone: "bg-red-500/10 text-red-700" },
+  };
+
+  const runAnalysis = async () => {
+    cancelRef.current = { cancelled: false };
+    setLastError(null);
+    setRunLog([`[${new Date().toLocaleTimeString("ar")}] بدء التحليل — النطاق: ${SCOPE_LABELS[scope]}`]);
+    const push = (l: string) => setRunLog((p) => [...p, `[${new Date().toLocaleTimeString("ar")}] ${l}`]);
+    try {
+      const steps: Array<{ status: RunStatus; from: number; to: number; msg: string }> = [
+        { status: "preparing", from: 0, to: 20, msg: `تجهيز ${rows.length} بند` },
+        { status: "analyzing", from: 20, to: 65, msg: "تنفيذ خوارزميات التحليل الإحصائي" },
+        { status: "generating", from: 65, to: 95, msg: `توليد ${suggestions.length} اقتراح ذكي` },
+      ];
+      for (const step of steps) {
+        if (cancelRef.current.cancelled) throw new Error("cancelled");
+        setRunStatus(step.status);
+        push(step.msg);
+        const span = step.to - step.from;
+        const ticks = 12;
+        for (let i = 0; i <= ticks; i++) {
+          if (cancelRef.current.cancelled) throw new Error("cancelled");
+          setProgress(step.from + (span * i) / ticks);
+          await new Promise((r) => setTimeout(r, 25));
+        }
+      }
+      setProgress(100);
+      const hasWarnings = insights.dataQuality.warnings.length > 0 || insights.dataQuality.anomalyDensityPct > 15;
+      const final: RunStatus = hasWarnings ? "completed_with_warnings" : "completed";
+      setRunStatus(final);
+      push(`اكتمل — ${suggestions.length} اقتراح · ${insights.topActions.length} إجراء موصى به`);
+      const ts = new Date().toISOString();
+      setLastRunAt(ts);
+      localStorage.setItem("cost-engine-last-run", ts);
+      toast.success(hasWarnings ? "اكتمل التحليل مع تحذيرات" : "اكتمل التحليل بنجاح");
+    } catch (err: any) {
+      if (err?.message === "cancelled") {
+        setRunStatus("idle");
+        setProgress(0);
+        push("تم إيقاف التحليل بواسطة المستخدم");
+        toast.info("تم إيقاف التحليل");
+      } else {
+        setRunStatus("failed");
+        setLastError(String(err?.message || err));
+        push(`فشل: ${err?.message || err}`);
+        toast.error("فشل التحليل");
+      }
+    }
+  };
+
+  const stopAnalysis = () => {
+    cancelRef.current.cancelled = true;
+  };
+
+  const downloadRunLog = () => {
+    const content = runLog.length ? runLog.join("\n") : "لا يوجد سجل تحليل بعد.";
+    const blob = new Blob(["\uFEFF" + content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cost-engine-log-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const isRunning = ["preparing", "analyzing", "generating"].includes(runStatus);
+
   return (
     <Card className="border-primary/30 bg-primary/5">
       <CardHeader className="pb-3">
@@ -249,6 +349,95 @@ export function SmartCostEnginePanel({ pageRows, wastePct, currency = "ريال"
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Phase 2 — Run controls */}
+        <div className="rounded-lg border bg-background/60 p-3 space-y-2.5">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Select value={scope} onValueChange={(v) => setScope(v as RunScope)} disabled={isRunning}>
+                <SelectTrigger className="h-8 w-52 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(SCOPE_LABELS) as RunScope[]).map((k) => (
+                    <SelectItem key={k} value={k} className="text-xs">
+                      {SCOPE_LABELS[k]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Badge variant="outline" className={STATUS_LABELS[runStatus].tone + " text-[11px]"}>
+                {STATUS_LABELS[runStatus].label}
+              </Badge>
+              {lastRunAt && (
+                <span className="text-[11px] text-muted-foreground">
+                  آخر تحليل: {new Date(lastRunAt).toLocaleString("ar")}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              {!isRunning ? (
+                <Button size="sm" className="h-8 gap-1" onClick={runAnalysis}>
+                  <Play className="w-3.5 h-3.5" />
+                  تشغيل التحليل الذكي
+                </Button>
+              ) : (
+                <Button size="sm" variant="destructive" className="h-8 gap-1" onClick={stopAnalysis}>
+                  <Square className="w-3.5 h-3.5" />
+                  إيقاف
+                </Button>
+              )}
+              {(runStatus === "failed" || runStatus === "completed_with_warnings") && (
+                <Button size="sm" variant="outline" className="h-8 gap-1" onClick={runAnalysis}>
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  إعادة المحاولة
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 gap-1"
+                onClick={downloadRunLog}
+                disabled={runLog.length === 0}
+                title="تنزيل سجل التحليل"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+          {(isRunning || progress > 0) && (
+            <div className="space-y-1">
+              <Progress value={progress} className="h-1.5" />
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>{Math.round(progress)}%</span>
+                <span>
+                  {rows.length} بند · {suggestions.length} اقتراح · {insights.topActions.length} إجراء
+                </span>
+              </div>
+            </div>
+          )}
+          {lastError && (
+            <div className="text-[11px] rounded border border-red-300 bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-300 p-2 flex items-start gap-1">
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <div className="font-medium">تفاصيل الخطأ</div>
+                <div className="truncate" title={lastError}>{lastError}</div>
+              </div>
+            </div>
+          )}
+          {runLog.length > 0 && (
+            <details className="text-[11px]">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground flex items-center gap-1">
+                <Info className="w-3 h-3" /> سجل التنفيذ ({runLog.length})
+              </summary>
+              <div className="mt-1.5 max-h-32 overflow-y-auto rounded bg-muted/40 p-1.5 space-y-0.5 font-mono">
+                {runLog.slice(-30).map((l, i) => (
+                  <div key={i} className="truncate">{l}</div>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+
         {source === "boq" && !projectId && (
           <p className="text-sm text-muted-foreground">اختر مشروعاً لتحليل بنوده.</p>
         )}
