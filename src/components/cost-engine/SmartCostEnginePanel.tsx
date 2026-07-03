@@ -58,6 +58,24 @@ export function SmartCostEnginePanel({ pageRows, wastePct, currency = "ريال"
   });
   const qc = useQueryClient();
 
+  // Phase 2 — Run controls
+  type RunScope = "current" | "selected" | "all" | "modified" | "missing" | "reanalyze";
+  type RunStatus =
+    | "idle"
+    | "preparing"
+    | "analyzing"
+    | "generating"
+    | "completed"
+    | "completed_with_warnings"
+    | "failed";
+  const [scope, setScope] = useState<RunScope>("all");
+  const [runStatus, setRunStatus] = useState<RunStatus>("idle");
+  const [progress, setProgress] = useState(0);
+  const [runLog, setRunLog] = useState<string[]>([]);
+  const [lastRunAt, setLastRunAt] = useState<string | null>(() => localStorage.getItem("cost-engine-last-run") || null);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const cancelRef = useRef<{ cancelled: boolean }>({ cancelled: false });
+
   // Projects list (for BOQ mode)
   const { data: projects } = useQuery({
     queryKey: ["cost-engine-projects"],
