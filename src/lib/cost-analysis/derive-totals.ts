@@ -27,6 +27,8 @@ export interface DerivedTotals {
   completenessPct: number;
   filledItems: number;
   missingItems: number;
+  reviewItems: number;
+  avgConfidencePct: number;
 }
 
 const round2 = (n: number) => Math.round((Number.isFinite(n) ? n : 0) * 100) / 100;
@@ -40,14 +42,23 @@ export function deriveTotals(items: DeriveItemInput[], opts: DeriveOptions): Der
   const tax = preTax * ((opts.taxPct || 0) / 100);
   const grand = preTax + tax;
 
-  const filled = items.filter(
-    (i) =>
-      (Number(i.dailyProductivity) || 0) > 0 &&
-      (Number(i.dailyRent) || 0) > 0 &&
-      (i.name || "").trim().length > 0,
-  ).length;
+  let filled = 0;
+  let review = 0;
+  let confSum = 0;
+  for (const i of items) {
+    const hasName = (i.name || "").trim().length > 0;
+    const hasProd = (Number(i.dailyProductivity) || 0) > 0;
+    const hasRent = (Number(i.dailyRent) || 0) > 0;
+    const hasCost = (Number(i.costPerUnit) || 0) > 0;
+    const score = (hasName ? 1 : 0) + (hasProd ? 1 : 0) + (hasRent ? 1 : 0) + (hasCost ? 1 : 0);
+    confSum += (score / 4) * 100;
+    if (hasName && hasProd && hasRent) filled += 1;
+    else if (hasName && !hasCost) review += 1;
+    else if (hasName && (!hasProd || !hasRent)) review += 1;
+  }
   const completeness = itemsCount === 0 ? 0 : (filled / itemsCount) * 100;
   const avg = itemsCount === 0 ? 0 : directs / itemsCount;
+  const avgConf = itemsCount === 0 ? 0 : confSum / itemsCount;
 
   return {
     itemsCount,
@@ -61,5 +72,7 @@ export function deriveTotals(items: DeriveItemInput[], opts: DeriveOptions): Der
     completenessPct: round2(completeness),
     filledItems: filled,
     missingItems: itemsCount - filled,
+    reviewItems: review,
+    avgConfidencePct: round2(avgConf),
   };
 }
