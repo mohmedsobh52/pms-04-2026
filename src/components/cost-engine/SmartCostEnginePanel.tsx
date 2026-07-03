@@ -231,6 +231,88 @@ export function SmartCostEnginePanel({ pageRows, wastePct, currency = "ريال"
     URL.revokeObjectURL(url);
   };
 
+  const SCOPE_LABELS: Record<RunScope, string> = {
+    current: "البند الحالي",
+    selected: "البنود المحددة",
+    all: "جميع البنود",
+    modified: "المعدلة فقط",
+    missing: "الناقصة فقط",
+    reanalyze: "إعادة تحليل كامل",
+  };
+  const STATUS_LABELS: Record<RunStatus, { label: string; tone: string }> = {
+    idle: { label: "لم يبدأ", tone: "bg-muted text-foreground" },
+    preparing: { label: "جاري تجهيز البيانات", tone: "bg-blue-500/10 text-blue-600" },
+    analyzing: { label: "جاري التحليل", tone: "bg-blue-500/10 text-blue-600" },
+    generating: { label: "جاري توليد الاقتراحات", tone: "bg-primary/10 text-primary" },
+    completed: { label: "اكتمل التحليل", tone: "bg-emerald-500/10 text-emerald-700" },
+    completed_with_warnings: { label: "اكتمل مع تحذيرات", tone: "bg-amber-500/10 text-amber-700" },
+    failed: { label: "فشل التحليل", tone: "bg-red-500/10 text-red-700" },
+  };
+
+  const runAnalysis = async () => {
+    cancelRef.current = { cancelled: false };
+    setLastError(null);
+    setRunLog([`[${new Date().toLocaleTimeString("ar")}] بدء التحليل — النطاق: ${SCOPE_LABELS[scope]}`]);
+    const push = (l: string) => setRunLog((p) => [...p, `[${new Date().toLocaleTimeString("ar")}] ${l}`]);
+    try {
+      const steps: Array<{ status: RunStatus; from: number; to: number; msg: string }> = [
+        { status: "preparing", from: 0, to: 20, msg: `تجهيز ${rows.length} بند` },
+        { status: "analyzing", from: 20, to: 65, msg: "تنفيذ خوارزميات التحليل الإحصائي" },
+        { status: "generating", from: 65, to: 95, msg: `توليد ${suggestions.length} اقتراح ذكي` },
+      ];
+      for (const step of steps) {
+        if (cancelRef.current.cancelled) throw new Error("cancelled");
+        setRunStatus(step.status);
+        push(step.msg);
+        const span = step.to - step.from;
+        const ticks = 12;
+        for (let i = 0; i <= ticks; i++) {
+          if (cancelRef.current.cancelled) throw new Error("cancelled");
+          setProgress(step.from + (span * i) / ticks);
+          await new Promise((r) => setTimeout(r, 25));
+        }
+      }
+      setProgress(100);
+      const hasWarnings = insights.dataQuality.warnings.length > 0 || insights.dataQuality.anomalyDensityPct > 15;
+      const final: RunStatus = hasWarnings ? "completed_with_warnings" : "completed";
+      setRunStatus(final);
+      push(`اكتمل — ${suggestions.length} اقتراح · ${insights.topActions.length} إجراء موصى به`);
+      const ts = new Date().toISOString();
+      setLastRunAt(ts);
+      localStorage.setItem("cost-engine-last-run", ts);
+      toast.success(hasWarnings ? "اكتمل التحليل مع تحذيرات" : "اكتمل التحليل بنجاح");
+    } catch (err: any) {
+      if (err?.message === "cancelled") {
+        setRunStatus("idle");
+        setProgress(0);
+        push("تم إيقاف التحليل بواسطة المستخدم");
+        toast.info("تم إيقاف التحليل");
+      } else {
+        setRunStatus("failed");
+        setLastError(String(err?.message || err));
+        push(`فشل: ${err?.message || err}`);
+        toast.error("فشل التحليل");
+      }
+    }
+  };
+
+  const stopAnalysis = () => {
+    cancelRef.current.cancelled = true;
+  };
+
+  const downloadRunLog = () => {
+    const content = runLog.length ? runLog.join("\n") : "لا يوجد سجل تحليل بعد.";
+    const blob = new Blob(["\uFEFF" + content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cost-engine-log-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const isRunning = ["preparing", "analyzing", "generating"].includes(runStatus);
+
   return (
     <Card className="border-primary/30 bg-primary/5">
       <CardHeader className="pb-3">
