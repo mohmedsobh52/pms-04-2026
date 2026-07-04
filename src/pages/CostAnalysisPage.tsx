@@ -1943,16 +1943,16 @@ export default function CostAnalysisPage() {
                       </TableHeader>
                       <TableBody>
                         <SortableContext
-                          items={visibleItems.map(item => item.id)}
+                          items={pagedItems.map(item => item.id)}
                           strategy={verticalListSortingStrategy}
                         >
-                          {visibleItems.length === 0 ? (
+                          {pagedItems.length === 0 ? (
                             <TableRow>
                               <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
                                 {isFilterActive ? "لا توجد بنود مطابقة للفلتر" : "لا توجد بنود"}
                               </TableCell>
                             </TableRow>
-                          ) : visibleItems.map((item) => (
+                          ) : pagedItems.map((item) => (
                             <SortableRow
                               key={item.id}
                               item={item}
@@ -1964,10 +1964,24 @@ export default function CostAnalysisPage() {
                               applyAISuggestion={applyAISuggestion}
                               calculateDifference={calculateDifference}
                               formatNumber={formatNumber}
+                              selected={selectedIds.has(item.id)}
+                              onToggleSelect={toggleRowSelect}
+                              visibility={columnVisibility}
                             />
                           ))}
                         </SortableContext>
+                        {pageSize < 9999 && visibleItems.length > pageSize && (
+                          <TableRow>
+                            <TableCell
+                              colSpan={8}
+                              className="text-center text-xs text-muted-foreground py-3"
+                            >
+                              يعرض {pagedItems.length} من {visibleItems.length} — غيّر حجم الصفحة لعرض المزيد
+                            </TableCell>
+                          </TableRow>
+                        )}
                       </TableBody>
+
                     </Table>
                   </DndContext>
                     </div>
