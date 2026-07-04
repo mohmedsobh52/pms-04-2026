@@ -1815,12 +1815,20 @@ export default function CostAnalysisPage() {
                     <Table className="table-fixed">
                       <TableHeader>
                         <TableRow className="bg-primary/10">
-                          <TableHead style={{ width: columnWidths.drag }} className="relative">
-                            <div
-                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
-                              onMouseDown={(e) => handleColumnResizeStart(e, 'drag')}
+                          <TableHead style={{ width: 60 }} className="relative">
+                            <Checkbox
+                              checked={
+                                visibleItems.length > 0 &&
+                                visibleItems.every((it) => selectedIds.has(it.id))
+                              }
+                              onCheckedChange={(c) => {
+                                if (c === true) selectAllVisible();
+                                else clearSelection();
+                              }}
+                              aria-label="تحديد كل الظاهرة"
                             />
                           </TableHead>
+
                           <TableHead style={{ width: columnWidths.workItem }} className="text-right font-bold text-primary relative whitespace-nowrap">
                             {editingHeaders ? (
                               <Input
