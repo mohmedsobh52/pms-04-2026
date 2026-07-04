@@ -56,7 +56,16 @@ import { ItemDetailsDrawer } from "@/components/cost-analysis/ItemDetailsDrawer"
 import { SensitivityScenarios } from "@/components/cost-analysis/SensitivityScenarios";
 import { AiCostAdvisorPanel } from "@/components/cost-analysis/AiCostAdvisorPanel";
 import { CostVersionsPanel } from "@/components/cost-analysis/CostVersionsPanel";
+import { CostBulkActionsBar } from "@/components/cost-analysis/CostBulkActionsBar";
+import {
+  CostColumnVisibility,
+  defaultColumnVisibility,
+  type ColumnVisibility,
+  type ColumnKey,
+} from "@/components/cost-analysis/CostColumnVisibility";
+import { Checkbox } from "@/components/ui/checkbox";
 import { deriveTotals } from "@/lib/cost-analysis/derive-totals";
+
 
 interface CostItem {
   id: string;
@@ -147,6 +156,9 @@ interface SortableRowProps {
   applyAISuggestion: (id: string, field: 'productivity' | 'rent') => void;
   calculateDifference: (manual: number, ai: number | undefined) => { value: number; type: 'up' | 'down' | 'same' } | null;
   formatNumber: (num: number) => string;
+  selected?: boolean;
+  onToggleSelect?: (id: string, checked: boolean) => void;
+  visibility?: ColumnVisibility;
 }
 
 function SortableRow({
@@ -159,7 +171,11 @@ function SortableRow({
   applyAISuggestion,
   calculateDifference,
   formatNumber,
+  selected,
+  onToggleSelect,
+  visibility,
 }: SortableRowProps) {
+
   const {
     attributes,
     listeners,
@@ -175,164 +191,195 @@ function SortableRow({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const v = visibility ?? defaultColumnVisibility;
   return (
-    <TableRow ref={setNodeRef} style={style} className="hover:bg-muted/50">
-      <TableCell className="cursor-grab" {...attributes} {...listeners}>
-        <GripVertical className="w-4 h-4 text-muted-foreground" />
-      </TableCell>
-      <TableCell className="text-right font-medium">
-        <Input
-          value={item.name}
-          onChange={(e) => handleItemChange(item.id, 'name', e.target.value)}
-          className="text-right h-7 text-sm border-0 bg-transparent focus:bg-background"
-        />
-      </TableCell>
-      <TableCell className="text-center">
-        <Input
-          type="number"
-          value={item.dailyProductivity || ""}
-          onChange={(e) => handleItemChange(item.id, 'dailyProductivity', parseFloat(e.target.value) || 0)}
-          className="text-center h-7 w-16 mx-auto text-sm"
-          placeholder="0"
-        />
-      </TableCell>
-      <TableCell className="text-center">
-        {item.isLoadingAI ? (
-          <Loader2 className="w-4 h-4 animate-spin mx-auto text-primary" />
-        ) : item.aiSuggestedProductivity ? (
-          <div className="flex flex-col items-center gap-0.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => applyAISuggestion(item.id, 'productivity')}
-              className="h-5 px-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700"
-            >
-              {item.aiSuggestedProductivity}
-            </Button>
-            {(() => {
-              const diff = calculateDifference(item.dailyProductivity, item.aiSuggestedProductivity);
-              if (!diff) return null;
-              return (
-                <Badge 
-                  variant="outline" 
-                  className={`text-[9px] px-1 py-0 h-4 ${
-                    diff.type === 'up' ? 'text-green-600 border-green-300 bg-green-50' : 
-                    diff.type === 'down' ? 'text-red-600 border-red-300 bg-red-50' : 
-                    'text-muted-foreground'
-                  }`}
-                >
-                  {diff.type === 'up' && <TrendingUp className="w-2 h-2 mr-0.5" />}
-                  {diff.type === 'down' && <TrendingDown className="w-2 h-2 mr-0.5" />}
-                  {diff.type === 'same' && <Minus className="w-2 h-2 mr-0.5" />}
-                  {diff.value.toFixed(0)}%
-                </Badge>
-              );
-            })()}
-          </div>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => analyzeWithAI(item.id, item.name)}
-            className="h-6 w-6 p-0 text-amber-600 hover:bg-amber-100"
-          >
-            <Sparkles className="w-3 h-3" />
-          </Button>
+    <TableRow
+      ref={setNodeRef}
+      style={style}
+      className={`hover:bg-muted/50 ${selected ? "bg-primary/5" : ""}`}
+      data-state={selected ? "selected" : undefined}
+    >
+      <TableCell className="flex items-center gap-1 w-[60px]">
+        {onToggleSelect && (
+          <Checkbox
+            checked={!!selected}
+            onCheckedChange={(c) => onToggleSelect(item.id, c === true)}
+            aria-label="تحديد البند"
+          />
         )}
+        <span className="cursor-grab" {...attributes} {...listeners}>
+          <GripVertical className="w-4 h-4 text-muted-foreground" />
+        </span>
       </TableCell>
-      <TableCell className="text-center">
-        <Input
-          type="number"
-          value={item.dailyRent || ""}
-          onChange={(e) => handleItemChange(item.id, 'dailyRent', parseFloat(e.target.value) || 0)}
-          className="text-center h-7 w-14 mx-auto text-sm"
-          placeholder="0"
-        />
-      </TableCell>
-      <TableCell className="text-center">
-        {item.isLoadingAI ? (
-          <Loader2 className="w-4 h-4 animate-spin mx-auto text-primary" />
-        ) : item.aiSuggestedRent ? (
-          <div className="flex flex-col items-center gap-0.5">
+      {v.workItem && (
+        <TableCell className="text-right font-medium">
+          <Input
+            value={item.name}
+            onChange={(e) => handleItemChange(item.id, 'name', e.target.value)}
+            className="text-right h-7 text-sm border-0 bg-transparent focus:bg-background"
+          />
+        </TableCell>
+      )}
+
+      {v.productivity && (
+        <TableCell className="text-center">
+          <Input
+            type="number"
+            value={item.dailyProductivity || ""}
+            onChange={(e) => handleItemChange(item.id, 'dailyProductivity', parseFloat(e.target.value) || 0)}
+            className="text-center h-7 w-16 mx-auto text-sm"
+            placeholder="0"
+          />
+        </TableCell>
+      )}
+      {v.aiProductivity && (
+        <TableCell className="text-center">
+          {item.isLoadingAI ? (
+            <Loader2 className="w-4 h-4 animate-spin mx-auto text-primary" />
+          ) : item.aiSuggestedProductivity ? (
+            <div className="flex flex-col items-center gap-0.5">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => applyAISuggestion(item.id, 'productivity')}
+                className="h-5 px-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700"
+              >
+                {item.aiSuggestedProductivity}
+              </Button>
+              {(() => {
+                const diff = calculateDifference(item.dailyProductivity, item.aiSuggestedProductivity);
+                if (!diff) return null;
+                return (
+                  <Badge
+                    variant="outline"
+                    className={`text-[9px] px-1 py-0 h-4 ${
+                      diff.type === 'up' ? 'text-green-600 border-green-300 bg-green-50' :
+                      diff.type === 'down' ? 'text-red-600 border-red-300 bg-red-50' :
+                      'text-muted-foreground'
+                    }`}
+                  >
+                    {diff.type === 'up' && <TrendingUp className="w-2 h-2 mr-0.5" />}
+                    {diff.type === 'down' && <TrendingDown className="w-2 h-2 mr-0.5" />}
+                    {diff.type === 'same' && <Minus className="w-2 h-2 mr-0.5" />}
+                    {diff.value.toFixed(0)}%
+                  </Badge>
+                );
+              })()}
+            </div>
+          ) : (
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => applyAISuggestion(item.id, 'rent')}
-              className="h-5 px-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700"
+              onClick={() => analyzeWithAI(item.id, item.name)}
+              className="h-6 w-6 p-0 text-amber-600 hover:bg-amber-100"
             >
-              {item.aiSuggestedRent}
-            </Button>
-            {(() => {
-              const diff = calculateDifference(item.dailyRent, item.aiSuggestedRent);
-              if (!diff) return null;
-              return (
-                <Badge 
-                  variant="outline" 
-                  className={`text-[9px] px-1 py-0 h-4 ${
-                    diff.type === 'up' ? 'text-red-600 border-red-300 bg-red-50' : 
-                    diff.type === 'down' ? 'text-green-600 border-green-300 bg-green-50' : 
-                    'text-muted-foreground'
-                  }`}
-                >
-                  {diff.type === 'up' && <TrendingUp className="w-2 h-2 mr-0.5" />}
-                  {diff.type === 'down' && <TrendingDown className="w-2 h-2 mr-0.5" />}
-                  {diff.type === 'same' && <Minus className="w-2 h-2 mr-0.5" />}
-                  {diff.value.toFixed(0)}%
-                </Badge>
-              );
-            })()}
-          </div>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => analyzeWithAI(item.id, item.name)}
-            className="h-6 w-6 p-0 text-amber-600 hover:bg-amber-100"
-            disabled={item.aiSuggestedProductivity !== undefined}
-          >
-            <Sparkles className="w-3 h-3" />
-          </Button>
-        )}
-      </TableCell>
-      <TableCell className="text-center">
-        <Badge variant="secondary" className="font-mono text-xs px-2 py-0.5">
-          {formatNumber(item.costPerUnit)}
-        </Badge>
-      </TableCell>
-      <TableCell>
-        <div className="flex gap-1">
-          {handleOpenDetails && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleOpenDetails(item.id)}
-              className="h-6 w-6 p-0 text-blue-600 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
-              title="تفاصيل البند"
-            >
-              <Info className="w-3 h-3" />
+              <Sparkles className="w-3 h-3" />
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleCopyItem(item.id)}
-            className="h-6 w-6 p-0 text-primary hover:text-primary hover:bg-primary/10"
-            title="نسخ الصف"
-          >
-            <Copy className="w-3 h-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleRemoveItem(item.id)}
-            className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-            title="حذف الصف"
-          >
-            <Trash2 className="w-3 h-3" />
-          </Button>
-        </div>
-      </TableCell>
+        </TableCell>
+      )}
+      {v.dailyRent && (
+        <TableCell className="text-center">
+          <Input
+            type="number"
+            value={item.dailyRent || ""}
+            onChange={(e) => handleItemChange(item.id, 'dailyRent', parseFloat(e.target.value) || 0)}
+            className="text-center h-7 w-14 mx-auto text-sm"
+            placeholder="0"
+          />
+        </TableCell>
+      )}
+      {v.aiRent && (
+        <TableCell className="text-center">
+          {item.isLoadingAI ? (
+            <Loader2 className="w-4 h-4 animate-spin mx-auto text-primary" />
+          ) : item.aiSuggestedRent ? (
+            <div className="flex flex-col items-center gap-0.5">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => applyAISuggestion(item.id, 'rent')}
+                className="h-5 px-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700"
+              >
+                {item.aiSuggestedRent}
+              </Button>
+              {(() => {
+                const diff = calculateDifference(item.dailyRent, item.aiSuggestedRent);
+                if (!diff) return null;
+                return (
+                  <Badge
+                    variant="outline"
+                    className={`text-[9px] px-1 py-0 h-4 ${
+                      diff.type === 'up' ? 'text-red-600 border-red-300 bg-red-50' :
+                      diff.type === 'down' ? 'text-green-600 border-green-300 bg-green-50' :
+                      'text-muted-foreground'
+                    }`}
+                  >
+                    {diff.type === 'up' && <TrendingUp className="w-2 h-2 mr-0.5" />}
+                    {diff.type === 'down' && <TrendingDown className="w-2 h-2 mr-0.5" />}
+                    {diff.type === 'same' && <Minus className="w-2 h-2 mr-0.5" />}
+                    {diff.value.toFixed(0)}%
+                  </Badge>
+                );
+              })()}
+            </div>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => analyzeWithAI(item.id, item.name)}
+              className="h-6 w-6 p-0 text-amber-600 hover:bg-amber-100"
+              disabled={item.aiSuggestedProductivity !== undefined}
+            >
+              <Sparkles className="w-3 h-3" />
+            </Button>
+          )}
+        </TableCell>
+      )}
+      {v.costPerUnit && (
+        <TableCell className="text-center">
+          <Badge variant="secondary" className="font-mono text-xs px-2 py-0.5">
+            {formatNumber(item.costPerUnit)}
+          </Badge>
+        </TableCell>
+      )}
+      {v.actions && (
+        <TableCell>
+          <div className="flex gap-1">
+            {handleOpenDetails && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleOpenDetails(item.id)}
+                className="h-6 w-6 p-0 text-blue-600 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+                title="تفاصيل البند"
+              >
+                <Info className="w-3 h-3" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleCopyItem(item.id)}
+              className="h-6 w-6 p-0 text-primary hover:text-primary hover:bg-primary/10"
+              title="نسخ الصف"
+            >
+              <Copy className="w-3 h-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleRemoveItem(item.id)}
+              className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+              title="حذف الصف"
+            >
+              <Trash2 className="w-3 h-3" />
+            </Button>
+          </div>
+        </TableCell>
+      )}
     </TableRow>
+
   );
 }
 
@@ -558,9 +605,52 @@ export default function CostAnalysisPage() {
     (itemsFilter.preset ?? "all") !== "all";
 
 
+  // Phase 4: row selection + column visibility (+ page size)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>(() => {
+    try {
+      const stored = localStorage.getItem("cost_analysis_columns_visible");
+      return stored ? { ...defaultColumnVisibility, ...JSON.parse(stored) } : defaultColumnVisibility;
+    } catch {
+      return defaultColumnVisibility;
+    }
+  });
+  useEffect(() => {
+    localStorage.setItem("cost_analysis_columns_visible", JSON.stringify(columnVisibility));
+  }, [columnVisibility]);
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const s = Number(localStorage.getItem("cost_analysis_page_size"));
+    return s === 25 || s === 50 || s === 100 || s === 200 ? s : 50;
+  });
+  useEffect(() => {
+    localStorage.setItem("cost_analysis_page_size", String(pageSize));
+  }, [pageSize]);
+
+  const pagedItems = useMemo(
+    () => (pageSize >= 9999 ? visibleItems : visibleItems.slice(0, pageSize)),
+    [visibleItems, pageSize],
+  );
+
+  const toggleRowSelect = useCallback((id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const selectAllVisible = useCallback(() => {
+    setSelectedIds(new Set(visibleItems.map((it) => it.id)));
+  }, [visibleItems]);
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+
   // Phase 3: Item details drawer
   const [detailsItemId, setDetailsItemId] = useState<string | null>(null);
   const detailsItem = detailsItemId ? items.find((it) => it.id === detailsItemId) ?? null : null;
+
+
 
   // Debug log for items changes
   useEffect(() => {
@@ -1525,7 +1615,26 @@ export default function CostAnalysisPage() {
                       </Button>
                     </label>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Select
+                      value={String(pageSize)}
+                      onValueChange={(v) => setPageSize(Number(v))}
+                    >
+                      <SelectTrigger className="h-7 w-24 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="25">25 / صفحة</SelectItem>
+                        <SelectItem value="50">50 / صفحة</SelectItem>
+                        <SelectItem value="100">100 / صفحة</SelectItem>
+                        <SelectItem value="200">200 / صفحة</SelectItem>
+                        <SelectItem value="9999">الكل</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <CostColumnVisibility
+                      visibility={columnVisibility}
+                      onChange={setColumnVisibility}
+                    />
                     {hasUnsavedColumnWidths && (
                       <Button
                         variant="default"
@@ -1563,6 +1672,93 @@ export default function CostAnalysisPage() {
                   total={items.length}
                   visible={visibleItems.length}
                 />
+                <CostBulkActionsBar
+                  selectedCount={selectedIds.size}
+                  totalVisible={visibleItems.length}
+                  onClear={clearSelection}
+                  onSelectAllVisible={selectAllVisible}
+                  onCopy={() => {
+                    const ids = new Set(selectedIds);
+                    setItems((prev) => {
+                      const copies: CostItem[] = [];
+                      prev.forEach((it) => {
+                        if (ids.has(it.id)) {
+                          copies.push({
+                            ...it,
+                            id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                            name: `${it.name} (نسخة)`,
+                          });
+                        }
+                      });
+                      return [...prev, ...copies];
+                    });
+                    toast.success(`تم نسخ ${ids.size} بند`);
+                  }}
+                  onDelete={() => {
+                    if (!confirm(`حذف ${selectedIds.size} بند؟`)) return;
+                    const ids = new Set(selectedIds);
+                    setItems((prev) => prev.filter((it) => !ids.has(it.id)));
+                    clearSelection();
+                    toast.success(`تم الحذف`);
+                  }}
+                  onAnalyzeAi={async () => {
+                    const targets = items.filter(
+                      (it) =>
+                        selectedIds.has(it.id) &&
+                        it.aiSuggestedProductivity == null &&
+                        it.aiSuggestedRent == null,
+                    );
+                    if (targets.length === 0) {
+                      toast.info("جميع البنود المحددة لها اقتراح AI");
+                      return;
+                    }
+                    toast.info(`تحليل ${targets.length} بند...`);
+                    for (const it of targets) {
+                      await analyzeWithAI(it.id, it.name);
+                    }
+                  }}
+                  onApplyAi={() => {
+                    setItems((prev) =>
+                      prev.map((it) => {
+                        if (!selectedIds.has(it.id)) return it;
+                        if (!it.aiSuggestedProductivity && !it.aiSuggestedRent) return it;
+                        const p = it.aiSuggestedProductivity || it.dailyProductivity;
+                        const r = it.aiSuggestedRent || it.dailyRent;
+                        return {
+                          ...it,
+                          dailyProductivity: p,
+                          dailyRent: r,
+                          costPerUnit: p > 0 ? r / p : 0,
+                        };
+                      }),
+                    );
+                    toast.success("تم تطبيق اقتراحات AI على المحدد");
+                  }}
+                  onExport={() => {
+                    const rows = items.filter((it) => selectedIds.has(it.id));
+                    if (rows.length === 0) return;
+                    const csv = [
+                      ["اسم البند", "الإنتاجية", "الإيجار", "تكلفة الوحدة"].join(","),
+                      ...rows.map((r) =>
+                        [
+                          `"${(r.name ?? "").replace(/"/g, '""')}"`,
+                          r.dailyProductivity,
+                          r.dailyRent,
+                          r.costPerUnit,
+                        ].join(","),
+                      ),
+                    ].join("\n");
+                    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `cost-items-${Date.now()}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    toast.success(`تم تصدير ${rows.length} بند`);
+                  }}
+                />
+
                 {isFilterActive && visibleItems.length > 0 && (
                   <div className="flex flex-wrap items-center gap-2 mb-2 p-2 rounded-md border border-primary/30 bg-primary/5">
                     <span className="text-xs font-medium">
@@ -1619,121 +1815,144 @@ export default function CostAnalysisPage() {
                     <Table className="table-fixed">
                       <TableHeader>
                         <TableRow className="bg-primary/10">
-                          <TableHead style={{ width: columnWidths.drag }} className="relative">
-                            <div
-                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
-                              onMouseDown={(e) => handleColumnResizeStart(e, 'drag')}
+                          <TableHead style={{ width: 60 }} className="relative">
+                            <Checkbox
+                              checked={
+                                visibleItems.length > 0 &&
+                                visibleItems.every((it) => selectedIds.has(it.id))
+                              }
+                              onCheckedChange={(c) => {
+                                if (c === true) selectAllVisible();
+                                else clearSelection();
+                              }}
+                              aria-label="تحديد كل الظاهرة"
                             />
                           </TableHead>
-                          <TableHead style={{ width: columnWidths.workItem }} className="text-right font-bold text-primary relative whitespace-nowrap">
-                            {editingHeaders ? (
-                              <Input
-                                value={headers.workItem}
-                                onChange={(e) => setHeaders(prev => ({ ...prev, workItem: e.target.value }))}
-                                className="h-6 text-xs text-right"
+
+                          {columnVisibility.workItem && (
+                            <TableHead style={{ width: columnWidths.workItem }} className="text-right font-bold text-primary relative whitespace-nowrap">
+                              {editingHeaders ? (
+                                <Input
+                                  value={headers.workItem}
+                                  onChange={(e) => setHeaders(prev => ({ ...prev, workItem: e.target.value }))}
+                                  className="h-6 text-xs text-right"
+                                />
+                              ) : headers.workItem}
+                              <div
+                                className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                                onMouseDown={(e) => handleColumnResizeStart(e, 'workItem')}
                               />
-                            ) : headers.workItem}
-                            <div
-                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
-                              onMouseDown={(e) => handleColumnResizeStart(e, 'workItem')}
-                            />
-                          </TableHead>
-                          <TableHead style={{ width: columnWidths.productivity }} className="text-center font-bold text-primary relative whitespace-nowrap">
-                            {editingHeaders ? (
-                              <Input
-                                value={headers.productivity}
-                                onChange={(e) => setHeaders(prev => ({ ...prev, productivity: e.target.value }))}
-                                className="h-6 text-xs text-center"
+                            </TableHead>
+                          )}
+                          {columnVisibility.productivity && (
+                            <TableHead style={{ width: columnWidths.productivity }} className="text-center font-bold text-primary relative whitespace-nowrap">
+                              {editingHeaders ? (
+                                <Input
+                                  value={headers.productivity}
+                                  onChange={(e) => setHeaders(prev => ({ ...prev, productivity: e.target.value }))}
+                                  className="h-6 text-xs text-center"
+                                />
+                              ) : headers.productivity}
+                              <div
+                                className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                                onMouseDown={(e) => handleColumnResizeStart(e, 'productivity')}
                               />
-                            ) : headers.productivity}
-                            <div
-                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
-                              onMouseDown={(e) => handleColumnResizeStart(e, 'productivity')}
-                            />
-                          </TableHead>
-                          <TableHead style={{ width: columnWidths.aiProductivity }} className="text-center font-bold text-primary relative whitespace-nowrap">
-                            {editingHeaders ? (
-                              <Input
-                                value={headers.aiProductivity}
-                                onChange={(e) => setHeaders(prev => ({ ...prev, aiProductivity: e.target.value }))}
-                                className="h-6 text-xs text-center"
+                            </TableHead>
+                          )}
+                          {columnVisibility.aiProductivity && (
+                            <TableHead style={{ width: columnWidths.aiProductivity }} className="text-center font-bold text-primary relative whitespace-nowrap">
+                              {editingHeaders ? (
+                                <Input
+                                  value={headers.aiProductivity}
+                                  onChange={(e) => setHeaders(prev => ({ ...prev, aiProductivity: e.target.value }))}
+                                  className="h-6 text-xs text-center"
+                                />
+                              ) : (
+                                <div className="flex items-center justify-center gap-1">
+                                  <Sparkles className="w-3 h-3 text-amber-500" />
+                                  {headers.aiProductivity}
+                                </div>
+                              )}
+                              <div
+                                className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                                onMouseDown={(e) => handleColumnResizeStart(e, 'aiProductivity')}
                               />
-                            ) : (
-                              <div className="flex items-center justify-center gap-1">
-                                <Sparkles className="w-3 h-3 text-amber-500" />
-                                {headers.aiProductivity}
-                              </div>
-                            )}
-                            <div
-                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
-                              onMouseDown={(e) => handleColumnResizeStart(e, 'aiProductivity')}
-                            />
-                          </TableHead>
-                          <TableHead style={{ width: columnWidths.dailyRent }} className="text-center font-bold text-primary relative whitespace-nowrap">
-                            {editingHeaders ? (
-                              <Input
-                                value={headers.dailyRent}
-                                onChange={(e) => setHeaders(prev => ({ ...prev, dailyRent: e.target.value }))}
-                                className="h-6 text-xs text-center"
+                            </TableHead>
+                          )}
+                          {columnVisibility.dailyRent && (
+                            <TableHead style={{ width: columnWidths.dailyRent }} className="text-center font-bold text-primary relative whitespace-nowrap">
+                              {editingHeaders ? (
+                                <Input
+                                  value={headers.dailyRent}
+                                  onChange={(e) => setHeaders(prev => ({ ...prev, dailyRent: e.target.value }))}
+                                  className="h-6 text-xs text-center"
+                                />
+                              ) : headers.dailyRent}
+                              <div
+                                className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                                onMouseDown={(e) => handleColumnResizeStart(e, 'dailyRent')}
                               />
-                            ) : headers.dailyRent}
-                            <div
-                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
-                              onMouseDown={(e) => handleColumnResizeStart(e, 'dailyRent')}
-                            />
-                          </TableHead>
-                          <TableHead style={{ width: columnWidths.aiRent }} className="text-center font-bold text-primary relative whitespace-nowrap">
-                            {editingHeaders ? (
-                              <Input
-                                value={headers.aiRent}
-                                onChange={(e) => setHeaders(prev => ({ ...prev, aiRent: e.target.value }))}
-                                className="h-6 text-xs text-center"
+                            </TableHead>
+                          )}
+                          {columnVisibility.aiRent && (
+                            <TableHead style={{ width: columnWidths.aiRent }} className="text-center font-bold text-primary relative whitespace-nowrap">
+                              {editingHeaders ? (
+                                <Input
+                                  value={headers.aiRent}
+                                  onChange={(e) => setHeaders(prev => ({ ...prev, aiRent: e.target.value }))}
+                                  className="h-6 text-xs text-center"
+                                />
+                              ) : (
+                                <div className="flex items-center justify-center gap-1">
+                                  <Sparkles className="w-3 h-3 text-amber-500" />
+                                  {headers.aiRent}
+                                </div>
+                              )}
+                              <div
+                                className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                                onMouseDown={(e) => handleColumnResizeStart(e, 'aiRent')}
                               />
-                            ) : (
-                              <div className="flex items-center justify-center gap-1">
-                                <Sparkles className="w-3 h-3 text-amber-500" />
-                                {headers.aiRent}
-                              </div>
-                            )}
-                            <div
-                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
-                              onMouseDown={(e) => handleColumnResizeStart(e, 'aiRent')}
-                            />
-                          </TableHead>
-                          <TableHead style={{ width: columnWidths.costPerUnit }} className="text-center font-bold text-primary relative whitespace-nowrap">
-                            {editingHeaders ? (
-                              <Input
-                                value={headers.costPerUnit}
-                                onChange={(e) => setHeaders(prev => ({ ...prev, costPerUnit: e.target.value }))}
-                                className="h-6 text-xs text-center"
+                            </TableHead>
+                          )}
+                          {columnVisibility.costPerUnit && (
+                            <TableHead style={{ width: columnWidths.costPerUnit }} className="text-center font-bold text-primary relative whitespace-nowrap">
+                              {editingHeaders ? (
+                                <Input
+                                  value={headers.costPerUnit}
+                                  onChange={(e) => setHeaders(prev => ({ ...prev, costPerUnit: e.target.value }))}
+                                  className="h-6 text-xs text-center"
+                                />
+                              ) : headers.costPerUnit}
+                              <div
+                                className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                                onMouseDown={(e) => handleColumnResizeStart(e, 'costPerUnit')}
                               />
-                            ) : headers.costPerUnit}
-                            <div
-                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
-                              onMouseDown={(e) => handleColumnResizeStart(e, 'costPerUnit')}
-                            />
-                          </TableHead>
-                          <TableHead style={{ width: columnWidths.actions }} className="relative whitespace-nowrap">
-                            إجراءات
-                            <div
-                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
-                              onMouseDown={(e) => handleColumnResizeStart(e, 'actions')}
-                            />
-                          </TableHead>
+                            </TableHead>
+                          )}
+                          {columnVisibility.actions && (
+                            <TableHead style={{ width: columnWidths.actions }} className="relative whitespace-nowrap">
+                              إجراءات
+                              <div
+                                className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                                onMouseDown={(e) => handleColumnResizeStart(e, 'actions')}
+                              />
+                            </TableHead>
+                          )}
+
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         <SortableContext
-                          items={visibleItems.map(item => item.id)}
+                          items={pagedItems.map(item => item.id)}
                           strategy={verticalListSortingStrategy}
                         >
-                          {visibleItems.length === 0 ? (
+                          {pagedItems.length === 0 ? (
                             <TableRow>
                               <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
                                 {isFilterActive ? "لا توجد بنود مطابقة للفلتر" : "لا توجد بنود"}
                               </TableCell>
                             </TableRow>
-                          ) : visibleItems.map((item) => (
+                          ) : pagedItems.map((item) => (
                             <SortableRow
                               key={item.id}
                               item={item}
@@ -1745,10 +1964,24 @@ export default function CostAnalysisPage() {
                               applyAISuggestion={applyAISuggestion}
                               calculateDifference={calculateDifference}
                               formatNumber={formatNumber}
+                              selected={selectedIds.has(item.id)}
+                              onToggleSelect={toggleRowSelect}
+                              visibility={columnVisibility}
                             />
                           ))}
                         </SortableContext>
+                        {pageSize < 9999 && visibleItems.length > pageSize && (
+                          <TableRow>
+                            <TableCell
+                              colSpan={8}
+                              className="text-center text-xs text-muted-foreground py-3"
+                            >
+                              يعرض {pagedItems.length} من {visibleItems.length} — غيّر حجم الصفحة لعرض المزيد
+                            </TableCell>
+                          </TableRow>
+                        )}
                       </TableBody>
+
                     </Table>
                   </DndContext>
                     </div>
