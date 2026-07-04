@@ -1829,101 +1829,116 @@ export default function CostAnalysisPage() {
                             />
                           </TableHead>
 
-                          <TableHead style={{ width: columnWidths.workItem }} className="text-right font-bold text-primary relative whitespace-nowrap">
-                            {editingHeaders ? (
-                              <Input
-                                value={headers.workItem}
-                                onChange={(e) => setHeaders(prev => ({ ...prev, workItem: e.target.value }))}
-                                className="h-6 text-xs text-right"
+                          {columnVisibility.workItem && (
+                            <TableHead style={{ width: columnWidths.workItem }} className="text-right font-bold text-primary relative whitespace-nowrap">
+                              {editingHeaders ? (
+                                <Input
+                                  value={headers.workItem}
+                                  onChange={(e) => setHeaders(prev => ({ ...prev, workItem: e.target.value }))}
+                                  className="h-6 text-xs text-right"
+                                />
+                              ) : headers.workItem}
+                              <div
+                                className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                                onMouseDown={(e) => handleColumnResizeStart(e, 'workItem')}
                               />
-                            ) : headers.workItem}
-                            <div
-                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
-                              onMouseDown={(e) => handleColumnResizeStart(e, 'workItem')}
-                            />
-                          </TableHead>
-                          <TableHead style={{ width: columnWidths.productivity }} className="text-center font-bold text-primary relative whitespace-nowrap">
-                            {editingHeaders ? (
-                              <Input
-                                value={headers.productivity}
-                                onChange={(e) => setHeaders(prev => ({ ...prev, productivity: e.target.value }))}
-                                className="h-6 text-xs text-center"
+                            </TableHead>
+                          )}
+                          {columnVisibility.productivity && (
+                            <TableHead style={{ width: columnWidths.productivity }} className="text-center font-bold text-primary relative whitespace-nowrap">
+                              {editingHeaders ? (
+                                <Input
+                                  value={headers.productivity}
+                                  onChange={(e) => setHeaders(prev => ({ ...prev, productivity: e.target.value }))}
+                                  className="h-6 text-xs text-center"
+                                />
+                              ) : headers.productivity}
+                              <div
+                                className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                                onMouseDown={(e) => handleColumnResizeStart(e, 'productivity')}
                               />
-                            ) : headers.productivity}
-                            <div
-                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
-                              onMouseDown={(e) => handleColumnResizeStart(e, 'productivity')}
-                            />
-                          </TableHead>
-                          <TableHead style={{ width: columnWidths.aiProductivity }} className="text-center font-bold text-primary relative whitespace-nowrap">
-                            {editingHeaders ? (
-                              <Input
-                                value={headers.aiProductivity}
-                                onChange={(e) => setHeaders(prev => ({ ...prev, aiProductivity: e.target.value }))}
-                                className="h-6 text-xs text-center"
+                            </TableHead>
+                          )}
+                          {columnVisibility.aiProductivity && (
+                            <TableHead style={{ width: columnWidths.aiProductivity }} className="text-center font-bold text-primary relative whitespace-nowrap">
+                              {editingHeaders ? (
+                                <Input
+                                  value={headers.aiProductivity}
+                                  onChange={(e) => setHeaders(prev => ({ ...prev, aiProductivity: e.target.value }))}
+                                  className="h-6 text-xs text-center"
+                                />
+                              ) : (
+                                <div className="flex items-center justify-center gap-1">
+                                  <Sparkles className="w-3 h-3 text-amber-500" />
+                                  {headers.aiProductivity}
+                                </div>
+                              )}
+                              <div
+                                className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                                onMouseDown={(e) => handleColumnResizeStart(e, 'aiProductivity')}
                               />
-                            ) : (
-                              <div className="flex items-center justify-center gap-1">
-                                <Sparkles className="w-3 h-3 text-amber-500" />
-                                {headers.aiProductivity}
-                              </div>
-                            )}
-                            <div
-                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
-                              onMouseDown={(e) => handleColumnResizeStart(e, 'aiProductivity')}
-                            />
-                          </TableHead>
-                          <TableHead style={{ width: columnWidths.dailyRent }} className="text-center font-bold text-primary relative whitespace-nowrap">
-                            {editingHeaders ? (
-                              <Input
-                                value={headers.dailyRent}
-                                onChange={(e) => setHeaders(prev => ({ ...prev, dailyRent: e.target.value }))}
-                                className="h-6 text-xs text-center"
+                            </TableHead>
+                          )}
+                          {columnVisibility.dailyRent && (
+                            <TableHead style={{ width: columnWidths.dailyRent }} className="text-center font-bold text-primary relative whitespace-nowrap">
+                              {editingHeaders ? (
+                                <Input
+                                  value={headers.dailyRent}
+                                  onChange={(e) => setHeaders(prev => ({ ...prev, dailyRent: e.target.value }))}
+                                  className="h-6 text-xs text-center"
+                                />
+                              ) : headers.dailyRent}
+                              <div
+                                className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                                onMouseDown={(e) => handleColumnResizeStart(e, 'dailyRent')}
                               />
-                            ) : headers.dailyRent}
-                            <div
-                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
-                              onMouseDown={(e) => handleColumnResizeStart(e, 'dailyRent')}
-                            />
-                          </TableHead>
-                          <TableHead style={{ width: columnWidths.aiRent }} className="text-center font-bold text-primary relative whitespace-nowrap">
-                            {editingHeaders ? (
-                              <Input
-                                value={headers.aiRent}
-                                onChange={(e) => setHeaders(prev => ({ ...prev, aiRent: e.target.value }))}
-                                className="h-6 text-xs text-center"
+                            </TableHead>
+                          )}
+                          {columnVisibility.aiRent && (
+                            <TableHead style={{ width: columnWidths.aiRent }} className="text-center font-bold text-primary relative whitespace-nowrap">
+                              {editingHeaders ? (
+                                <Input
+                                  value={headers.aiRent}
+                                  onChange={(e) => setHeaders(prev => ({ ...prev, aiRent: e.target.value }))}
+                                  className="h-6 text-xs text-center"
+                                />
+                              ) : (
+                                <div className="flex items-center justify-center gap-1">
+                                  <Sparkles className="w-3 h-3 text-amber-500" />
+                                  {headers.aiRent}
+                                </div>
+                              )}
+                              <div
+                                className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                                onMouseDown={(e) => handleColumnResizeStart(e, 'aiRent')}
                               />
-                            ) : (
-                              <div className="flex items-center justify-center gap-1">
-                                <Sparkles className="w-3 h-3 text-amber-500" />
-                                {headers.aiRent}
-                              </div>
-                            )}
-                            <div
-                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
-                              onMouseDown={(e) => handleColumnResizeStart(e, 'aiRent')}
-                            />
-                          </TableHead>
-                          <TableHead style={{ width: columnWidths.costPerUnit }} className="text-center font-bold text-primary relative whitespace-nowrap">
-                            {editingHeaders ? (
-                              <Input
-                                value={headers.costPerUnit}
-                                onChange={(e) => setHeaders(prev => ({ ...prev, costPerUnit: e.target.value }))}
-                                className="h-6 text-xs text-center"
+                            </TableHead>
+                          )}
+                          {columnVisibility.costPerUnit && (
+                            <TableHead style={{ width: columnWidths.costPerUnit }} className="text-center font-bold text-primary relative whitespace-nowrap">
+                              {editingHeaders ? (
+                                <Input
+                                  value={headers.costPerUnit}
+                                  onChange={(e) => setHeaders(prev => ({ ...prev, costPerUnit: e.target.value }))}
+                                  className="h-6 text-xs text-center"
+                                />
+                              ) : headers.costPerUnit}
+                              <div
+                                className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                                onMouseDown={(e) => handleColumnResizeStart(e, 'costPerUnit')}
                               />
-                            ) : headers.costPerUnit}
-                            <div
-                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
-                              onMouseDown={(e) => handleColumnResizeStart(e, 'costPerUnit')}
-                            />
-                          </TableHead>
-                          <TableHead style={{ width: columnWidths.actions }} className="relative whitespace-nowrap">
-                            إجراءات
-                            <div
-                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
-                              onMouseDown={(e) => handleColumnResizeStart(e, 'actions')}
-                            />
-                          </TableHead>
+                            </TableHead>
+                          )}
+                          {columnVisibility.actions && (
+                            <TableHead style={{ width: columnWidths.actions }} className="relative whitespace-nowrap">
+                              إجراءات
+                              <div
+                                className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                                onMouseDown={(e) => handleColumnResizeStart(e, 'actions')}
+                              />
+                            </TableHead>
+                          )}
+
                         </TableRow>
                       </TableHeader>
                       <TableBody>
