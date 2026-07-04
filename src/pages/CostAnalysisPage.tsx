@@ -56,7 +56,16 @@ import { ItemDetailsDrawer } from "@/components/cost-analysis/ItemDetailsDrawer"
 import { SensitivityScenarios } from "@/components/cost-analysis/SensitivityScenarios";
 import { AiCostAdvisorPanel } from "@/components/cost-analysis/AiCostAdvisorPanel";
 import { CostVersionsPanel } from "@/components/cost-analysis/CostVersionsPanel";
+import { CostBulkActionsBar } from "@/components/cost-analysis/CostBulkActionsBar";
+import {
+  CostColumnVisibility,
+  defaultColumnVisibility,
+  type ColumnVisibility,
+  type ColumnKey,
+} from "@/components/cost-analysis/CostColumnVisibility";
+import { Checkbox } from "@/components/ui/checkbox";
 import { deriveTotals } from "@/lib/cost-analysis/derive-totals";
+
 
 interface CostItem {
   id: string;
