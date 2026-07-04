@@ -1615,7 +1615,26 @@ export default function CostAnalysisPage() {
                       </Button>
                     </label>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Select
+                      value={String(pageSize)}
+                      onValueChange={(v) => setPageSize(Number(v))}
+                    >
+                      <SelectTrigger className="h-7 w-24 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="25">25 / صفحة</SelectItem>
+                        <SelectItem value="50">50 / صفحة</SelectItem>
+                        <SelectItem value="100">100 / صفحة</SelectItem>
+                        <SelectItem value="200">200 / صفحة</SelectItem>
+                        <SelectItem value="9999">الكل</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <CostColumnVisibility
+                      visibility={columnVisibility}
+                      onChange={setColumnVisibility}
+                    />
                     {hasUnsavedColumnWidths && (
                       <Button
                         variant="default"
@@ -1653,6 +1672,93 @@ export default function CostAnalysisPage() {
                   total={items.length}
                   visible={visibleItems.length}
                 />
+                <CostBulkActionsBar
+                  selectedCount={selectedIds.size}
+                  totalVisible={visibleItems.length}
+                  onClear={clearSelection}
+                  onSelectAllVisible={selectAllVisible}
+                  onCopy={() => {
+                    const ids = new Set(selectedIds);
+                    setItems((prev) => {
+                      const copies: CostItem[] = [];
+                      prev.forEach((it) => {
+                        if (ids.has(it.id)) {
+                          copies.push({
+                            ...it,
+                            id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                            name: `${it.name} (نسخة)`,
+                          });
+                        }
+                      });
+                      return [...prev, ...copies];
+                    });
+                    toast.success(`تم نسخ ${ids.size} بند`);
+                  }}
+                  onDelete={() => {
+                    if (!confirm(`حذف ${selectedIds.size} بند؟`)) return;
+                    const ids = new Set(selectedIds);
+                    setItems((prev) => prev.filter((it) => !ids.has(it.id)));
+                    clearSelection();
+                    toast.success(`تم الحذف`);
+                  }}
+                  onAnalyzeAi={async () => {
+                    const targets = items.filter(
+                      (it) =>
+                        selectedIds.has(it.id) &&
+                        it.aiSuggestedProductivity == null &&
+                        it.aiSuggestedRent == null,
+                    );
+                    if (targets.length === 0) {
+                      toast.info("جميع البنود المحددة لها اقتراح AI");
+                      return;
+                    }
+                    toast.info(`تحليل ${targets.length} بند...`);
+                    for (const it of targets) {
+                      await analyzeWithAI(it.id, it.name);
+                    }
+                  }}
+                  onApplyAi={() => {
+                    setItems((prev) =>
+                      prev.map((it) => {
+                        if (!selectedIds.has(it.id)) return it;
+                        if (!it.aiSuggestedProductivity && !it.aiSuggestedRent) return it;
+                        const p = it.aiSuggestedProductivity || it.dailyProductivity;
+                        const r = it.aiSuggestedRent || it.dailyRent;
+                        return {
+                          ...it,
+                          dailyProductivity: p,
+                          dailyRent: r,
+                          costPerUnit: p > 0 ? r / p : 0,
+                        };
+                      }),
+                    );
+                    toast.success("تم تطبيق اقتراحات AI على المحدد");
+                  }}
+                  onExport={() => {
+                    const rows = items.filter((it) => selectedIds.has(it.id));
+                    if (rows.length === 0) return;
+                    const csv = [
+                      ["اسم البند", "الإنتاجية", "الإيجار", "تكلفة الوحدة"].join(","),
+                      ...rows.map((r) =>
+                        [
+                          `"${(r.name ?? "").replace(/"/g, '""')}"`,
+                          r.dailyProductivity,
+                          r.dailyRent,
+                          r.costPerUnit,
+                        ].join(","),
+                      ),
+                    ].join("\n");
+                    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `cost-items-${Date.now()}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    toast.success(`تم تصدير ${rows.length} بند`);
+                  }}
+                />
+
                 {isFilterActive && visibleItems.length > 0 && (
                   <div className="flex flex-wrap items-center gap-2 mb-2 p-2 rounded-md border border-primary/30 bg-primary/5">
                     <span className="text-xs font-medium">
