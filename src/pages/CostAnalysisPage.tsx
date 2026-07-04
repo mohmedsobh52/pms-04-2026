@@ -191,18 +191,36 @@ function SortableRow({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const v = visibility ?? defaultColumnVisibility;
   return (
-    <TableRow ref={setNodeRef} style={style} className="hover:bg-muted/50">
-      <TableCell className="cursor-grab" {...attributes} {...listeners}>
-        <GripVertical className="w-4 h-4 text-muted-foreground" />
+    <TableRow
+      ref={setNodeRef}
+      style={style}
+      className={`hover:bg-muted/50 ${selected ? "bg-primary/5" : ""}`}
+      data-state={selected ? "selected" : undefined}
+    >
+      <TableCell className="flex items-center gap-1 w-[60px]">
+        {onToggleSelect && (
+          <Checkbox
+            checked={!!selected}
+            onCheckedChange={(c) => onToggleSelect(item.id, c === true)}
+            aria-label="تحديد البند"
+          />
+        )}
+        <span className="cursor-grab" {...attributes} {...listeners}>
+          <GripVertical className="w-4 h-4 text-muted-foreground" />
+        </span>
       </TableCell>
-      <TableCell className="text-right font-medium">
-        <Input
-          value={item.name}
-          onChange={(e) => handleItemChange(item.id, 'name', e.target.value)}
-          className="text-right h-7 text-sm border-0 bg-transparent focus:bg-background"
-        />
-      </TableCell>
+      {v.workItem && (
+        <TableCell className="text-right font-medium">
+          <Input
+            value={item.name}
+            onChange={(e) => handleItemChange(item.id, 'name', e.target.value)}
+            className="text-right h-7 text-sm border-0 bg-transparent focus:bg-background"
+          />
+        </TableCell>
+      )}
+
       <TableCell className="text-center">
         <Input
           type="number"
