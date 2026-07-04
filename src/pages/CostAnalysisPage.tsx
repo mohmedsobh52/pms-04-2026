@@ -605,9 +605,52 @@ export default function CostAnalysisPage() {
     (itemsFilter.preset ?? "all") !== "all";
 
 
+  // Phase 4: row selection + column visibility (+ page size)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>(() => {
+    try {
+      const stored = localStorage.getItem("cost_analysis_columns_visible");
+      return stored ? { ...defaultColumnVisibility, ...JSON.parse(stored) } : defaultColumnVisibility;
+    } catch {
+      return defaultColumnVisibility;
+    }
+  });
+  useEffect(() => {
+    localStorage.setItem("cost_analysis_columns_visible", JSON.stringify(columnVisibility));
+  }, [columnVisibility]);
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const s = Number(localStorage.getItem("cost_analysis_page_size"));
+    return s === 25 || s === 50 || s === 100 || s === 200 ? s : 50;
+  });
+  useEffect(() => {
+    localStorage.setItem("cost_analysis_page_size", String(pageSize));
+  }, [pageSize]);
+
+  const pagedItems = useMemo(
+    () => (pageSize >= 9999 ? visibleItems : visibleItems.slice(0, pageSize)),
+    [visibleItems, pageSize],
+  );
+
+  const toggleRowSelect = useCallback((id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const selectAllVisible = useCallback(() => {
+    setSelectedIds(new Set(visibleItems.map((it) => it.id)));
+  }, [visibleItems]);
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+
   // Phase 3: Item details drawer
   const [detailsItemId, setDetailsItemId] = useState<string | null>(null);
   const detailsItem = detailsItemId ? items.find((it) => it.id === detailsItemId) ?? null : null;
+
+
 
   // Debug log for items changes
   useEffect(() => {
