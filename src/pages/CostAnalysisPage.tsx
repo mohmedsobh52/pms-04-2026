@@ -156,6 +156,9 @@ interface SortableRowProps {
   applyAISuggestion: (id: string, field: 'productivity' | 'rent') => void;
   calculateDifference: (manual: number, ai: number | undefined) => { value: number; type: 'up' | 'down' | 'same' } | null;
   formatNumber: (num: number) => string;
+  selected?: boolean;
+  onToggleSelect?: (id: string, checked: boolean) => void;
+  visibility?: ColumnVisibility;
 }
 
 function SortableRow({
@@ -168,7 +171,11 @@ function SortableRow({
   applyAISuggestion,
   calculateDifference,
   formatNumber,
+  selected,
+  onToggleSelect,
+  visibility,
 }: SortableRowProps) {
+
   const {
     attributes,
     listeners,
