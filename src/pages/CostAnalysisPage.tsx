@@ -411,30 +411,152 @@ export default function CostAnalysisPage() {
   const [startX, setStartX] = useState(0);
   const [startWidth, setStartWidth] = useState(0);
 
-  // Phase 2: Items filter (search / cost-range / AI-only)
+  // Phase 3: Items filter (search / cost-range / AI / sort / presets)
   const [itemsFilter, setItemsFilter] = useState<CostItemsFilter>({
     query: "",
     minCost: "",
     maxCost: "",
+    minProductivity: "",
+    maxProductivity: "",
+    minRent: "",
+    maxRent: "",
     onlyAi: false,
+    onlyMissing: false,
+    onlyNeedsReview: false,
+    onlyWithGap: false,
+    hideZeroCost: false,
+    sortField: "none",
+    sortDir: "asc",
+    preset: "all",
   });
+
   const visibleItems = useMemo(() => {
     const q = itemsFilter.query.trim().toLowerCase();
     const min = itemsFilter.minCost === "" ? null : parseFloat(itemsFilter.minCost);
     const max = itemsFilter.maxCost === "" ? null : parseFloat(itemsFilter.maxCost);
-    return items.filter((it) => {
+    const minP = itemsFilter.minProductivity ? parseFloat(itemsFilter.minProductivity) : null;
+    const maxP = itemsFilter.maxProductivity ? parseFloat(itemsFilter.maxProductivity) : null;
+    const minR = itemsFilter.minRent ? parseFloat(itemsFilter.minRent) : null;
+    const maxR = itemsFilter.maxRent ? parseFloat(itemsFilter.maxRent) : null;
+
+    // نحسب عتبات topCost/lowCost بناءً على 20%
+    const costs = items.map((i) => i.costPerUnit).filter((c) => c > 0).sort((a, b) => a - b);
+    const p20 = costs.length ? costs[Math.floor(costs.length * 0.2)] : 0;
+    const p80 = costs.length ? costs[Math.floor(costs.length * 0.8)] : 0;
+
+    const gapPct = (a: number, b?: number) =>
+      b == null || a === 0 ? 0 : Math.abs((b - a) / a) * 100;
+
+    let result = items.filter((it) => {
       if (q && !String(it.name ?? "").toLowerCase().includes(q)) return false;
       if (min != null && !Number.isNaN(min) && it.costPerUnit < min) return false;
       if (max != null && !Number.isNaN(max) && it.costPerUnit > max) return false;
-      if (itemsFilter.onlyAi && it.aiSuggestedProductivity == null && it.aiSuggestedRent == null) return false;
+      if (minP != null && !Number.isNaN(minP) && it.dailyProductivity < minP) return false;
+      if (maxP != null && !Number.isNaN(maxP) && it.dailyProductivity > maxP) return false;
+      if (minR != null && !Number.isNaN(minR) && it.dailyRent < minR) return false;
+      if (maxR != null && !Number.isNaN(maxR) && it.dailyRent > maxR) return false;
+      if (itemsFilter.onlyAi && it.aiSuggestedProductivity == null && it.aiSuggestedRent == null)
+        return false;
+      if (itemsFilter.hideZeroCost && it.costPerUnit === 0) return false;
+      if (
+        itemsFilter.onlyMissing &&
+        it.costPerUnit > 0 &&
+        it.dailyProductivity > 0 &&
+        it.dailyRent > 0 &&
+        !!it.name?.trim()
+      )
+        return false;
+      if (
+        itemsFilter.onlyNeedsReview &&
+        !(it.name?.trim() && (it.costPerUnit === 0 || it.dailyProductivity === 0))
+      )
+        return false;
+      if (
+        itemsFilter.onlyWithGap &&
+        Math.max(
+          gapPct(it.dailyProductivity, it.aiSuggestedProductivity),
+          gapPct(it.dailyRent, it.aiSuggestedRent),
+        ) < 20
+      )
+        return false;
+
+      // presets
+      switch (itemsFilter.preset) {
+        case "missing":
+          if (it.costPerUnit > 0 && it.dailyProductivity > 0 && it.dailyRent > 0) return false;
+          break;
+        case "needsReview":
+          if (!(it.name?.trim() && (it.costPerUnit === 0 || it.dailyProductivity === 0)))
+            return false;
+          break;
+        case "withAi":
+          if (it.aiSuggestedProductivity == null && it.aiSuggestedRent == null) return false;
+          break;
+        case "highGap":
+          if (
+            Math.max(
+              gapPct(it.dailyProductivity, it.aiSuggestedProductivity),
+              gapPct(it.dailyRent, it.aiSuggestedRent),
+            ) < 20
+          )
+            return false;
+          break;
+        case "topCost":
+          if (!p80 || it.costPerUnit < p80) return false;
+          break;
+        case "lowCost":
+          if (!p20 || it.costPerUnit > p20) return false;
+          break;
+      }
       return true;
     });
+
+    // ترتيب
+    const sf = itemsFilter.sortField ?? "none";
+    if (sf !== "none") {
+      const dir = itemsFilter.sortDir === "desc" ? -1 : 1;
+      result = [...result].sort((a, b) => {
+        const va =
+          sf === "gap"
+            ? Math.max(
+                gapPct(a.dailyProductivity, a.aiSuggestedProductivity),
+                gapPct(a.dailyRent, a.aiSuggestedRent),
+              )
+            : (a as any)[sf];
+        const vb =
+          sf === "gap"
+            ? Math.max(
+                gapPct(b.dailyProductivity, b.aiSuggestedProductivity),
+                gapPct(b.dailyRent, b.aiSuggestedRent),
+              )
+            : (b as any)[sf];
+        if (va == null && vb == null) return 0;
+        if (va == null) return 1;
+        if (vb == null) return -1;
+        if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
+        return String(va).localeCompare(String(vb)) * dir;
+      });
+    }
+
+    return result;
   }, [items, itemsFilter]);
+
   const isFilterActive =
     itemsFilter.query.trim() !== "" ||
     itemsFilter.minCost !== "" ||
     itemsFilter.maxCost !== "" ||
-    itemsFilter.onlyAi;
+    !!itemsFilter.minProductivity ||
+    !!itemsFilter.maxProductivity ||
+    !!itemsFilter.minRent ||
+    !!itemsFilter.maxRent ||
+    itemsFilter.onlyAi ||
+    !!itemsFilter.onlyMissing ||
+    !!itemsFilter.onlyNeedsReview ||
+    !!itemsFilter.onlyWithGap ||
+    !!itemsFilter.hideZeroCost ||
+    (itemsFilter.sortField ?? "none") !== "none" ||
+    (itemsFilter.preset ?? "all") !== "all";
+
 
   // Phase 3: Item details drawer
   const [detailsItemId, setDetailsItemId] = useState<string | null>(null);
