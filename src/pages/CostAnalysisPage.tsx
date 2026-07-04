@@ -221,152 +221,165 @@ function SortableRow({
         </TableCell>
       )}
 
-      <TableCell className="text-center">
-        <Input
-          type="number"
-          value={item.dailyProductivity || ""}
-          onChange={(e) => handleItemChange(item.id, 'dailyProductivity', parseFloat(e.target.value) || 0)}
-          className="text-center h-7 w-16 mx-auto text-sm"
-          placeholder="0"
-        />
-      </TableCell>
-      <TableCell className="text-center">
-        {item.isLoadingAI ? (
-          <Loader2 className="w-4 h-4 animate-spin mx-auto text-primary" />
-        ) : item.aiSuggestedProductivity ? (
-          <div className="flex flex-col items-center gap-0.5">
+      {v.productivity && (
+        <TableCell className="text-center">
+          <Input
+            type="number"
+            value={item.dailyProductivity || ""}
+            onChange={(e) => handleItemChange(item.id, 'dailyProductivity', parseFloat(e.target.value) || 0)}
+            className="text-center h-7 w-16 mx-auto text-sm"
+            placeholder="0"
+          />
+        </TableCell>
+      )}
+      {v.aiProductivity && (
+        <TableCell className="text-center">
+          {item.isLoadingAI ? (
+            <Loader2 className="w-4 h-4 animate-spin mx-auto text-primary" />
+          ) : item.aiSuggestedProductivity ? (
+            <div className="flex flex-col items-center gap-0.5">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => applyAISuggestion(item.id, 'productivity')}
+                className="h-5 px-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700"
+              >
+                {item.aiSuggestedProductivity}
+              </Button>
+              {(() => {
+                const diff = calculateDifference(item.dailyProductivity, item.aiSuggestedProductivity);
+                if (!diff) return null;
+                return (
+                  <Badge
+                    variant="outline"
+                    className={`text-[9px] px-1 py-0 h-4 ${
+                      diff.type === 'up' ? 'text-green-600 border-green-300 bg-green-50' :
+                      diff.type === 'down' ? 'text-red-600 border-red-300 bg-red-50' :
+                      'text-muted-foreground'
+                    }`}
+                  >
+                    {diff.type === 'up' && <TrendingUp className="w-2 h-2 mr-0.5" />}
+                    {diff.type === 'down' && <TrendingDown className="w-2 h-2 mr-0.5" />}
+                    {diff.type === 'same' && <Minus className="w-2 h-2 mr-0.5" />}
+                    {diff.value.toFixed(0)}%
+                  </Badge>
+                );
+              })()}
+            </div>
+          ) : (
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => applyAISuggestion(item.id, 'productivity')}
-              className="h-5 px-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700"
+              onClick={() => analyzeWithAI(item.id, item.name)}
+              className="h-6 w-6 p-0 text-amber-600 hover:bg-amber-100"
             >
-              {item.aiSuggestedProductivity}
-            </Button>
-            {(() => {
-              const diff = calculateDifference(item.dailyProductivity, item.aiSuggestedProductivity);
-              if (!diff) return null;
-              return (
-                <Badge 
-                  variant="outline" 
-                  className={`text-[9px] px-1 py-0 h-4 ${
-                    diff.type === 'up' ? 'text-green-600 border-green-300 bg-green-50' : 
-                    diff.type === 'down' ? 'text-red-600 border-red-300 bg-red-50' : 
-                    'text-muted-foreground'
-                  }`}
-                >
-                  {diff.type === 'up' && <TrendingUp className="w-2 h-2 mr-0.5" />}
-                  {diff.type === 'down' && <TrendingDown className="w-2 h-2 mr-0.5" />}
-                  {diff.type === 'same' && <Minus className="w-2 h-2 mr-0.5" />}
-                  {diff.value.toFixed(0)}%
-                </Badge>
-              );
-            })()}
-          </div>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => analyzeWithAI(item.id, item.name)}
-            className="h-6 w-6 p-0 text-amber-600 hover:bg-amber-100"
-          >
-            <Sparkles className="w-3 h-3" />
-          </Button>
-        )}
-      </TableCell>
-      <TableCell className="text-center">
-        <Input
-          type="number"
-          value={item.dailyRent || ""}
-          onChange={(e) => handleItemChange(item.id, 'dailyRent', parseFloat(e.target.value) || 0)}
-          className="text-center h-7 w-14 mx-auto text-sm"
-          placeholder="0"
-        />
-      </TableCell>
-      <TableCell className="text-center">
-        {item.isLoadingAI ? (
-          <Loader2 className="w-4 h-4 animate-spin mx-auto text-primary" />
-        ) : item.aiSuggestedRent ? (
-          <div className="flex flex-col items-center gap-0.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => applyAISuggestion(item.id, 'rent')}
-              className="h-5 px-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700"
-            >
-              {item.aiSuggestedRent}
-            </Button>
-            {(() => {
-              const diff = calculateDifference(item.dailyRent, item.aiSuggestedRent);
-              if (!diff) return null;
-              return (
-                <Badge 
-                  variant="outline" 
-                  className={`text-[9px] px-1 py-0 h-4 ${
-                    diff.type === 'up' ? 'text-red-600 border-red-300 bg-red-50' : 
-                    diff.type === 'down' ? 'text-green-600 border-green-300 bg-green-50' : 
-                    'text-muted-foreground'
-                  }`}
-                >
-                  {diff.type === 'up' && <TrendingUp className="w-2 h-2 mr-0.5" />}
-                  {diff.type === 'down' && <TrendingDown className="w-2 h-2 mr-0.5" />}
-                  {diff.type === 'same' && <Minus className="w-2 h-2 mr-0.5" />}
-                  {diff.value.toFixed(0)}%
-                </Badge>
-              );
-            })()}
-          </div>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => analyzeWithAI(item.id, item.name)}
-            className="h-6 w-6 p-0 text-amber-600 hover:bg-amber-100"
-            disabled={item.aiSuggestedProductivity !== undefined}
-          >
-            <Sparkles className="w-3 h-3" />
-          </Button>
-        )}
-      </TableCell>
-      <TableCell className="text-center">
-        <Badge variant="secondary" className="font-mono text-xs px-2 py-0.5">
-          {formatNumber(item.costPerUnit)}
-        </Badge>
-      </TableCell>
-      <TableCell>
-        <div className="flex gap-1">
-          {handleOpenDetails && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleOpenDetails(item.id)}
-              className="h-6 w-6 p-0 text-blue-600 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
-              title="تفاصيل البند"
-            >
-              <Info className="w-3 h-3" />
+              <Sparkles className="w-3 h-3" />
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleCopyItem(item.id)}
-            className="h-6 w-6 p-0 text-primary hover:text-primary hover:bg-primary/10"
-            title="نسخ الصف"
-          >
-            <Copy className="w-3 h-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleRemoveItem(item.id)}
-            className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-            title="حذف الصف"
-          >
-            <Trash2 className="w-3 h-3" />
-          </Button>
-        </div>
-      </TableCell>
+        </TableCell>
+      )}
+      {v.dailyRent && (
+        <TableCell className="text-center">
+          <Input
+            type="number"
+            value={item.dailyRent || ""}
+            onChange={(e) => handleItemChange(item.id, 'dailyRent', parseFloat(e.target.value) || 0)}
+            className="text-center h-7 w-14 mx-auto text-sm"
+            placeholder="0"
+          />
+        </TableCell>
+      )}
+      {v.aiRent && (
+        <TableCell className="text-center">
+          {item.isLoadingAI ? (
+            <Loader2 className="w-4 h-4 animate-spin mx-auto text-primary" />
+          ) : item.aiSuggestedRent ? (
+            <div className="flex flex-col items-center gap-0.5">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => applyAISuggestion(item.id, 'rent')}
+                className="h-5 px-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700"
+              >
+                {item.aiSuggestedRent}
+              </Button>
+              {(() => {
+                const diff = calculateDifference(item.dailyRent, item.aiSuggestedRent);
+                if (!diff) return null;
+                return (
+                  <Badge
+                    variant="outline"
+                    className={`text-[9px] px-1 py-0 h-4 ${
+                      diff.type === 'up' ? 'text-red-600 border-red-300 bg-red-50' :
+                      diff.type === 'down' ? 'text-green-600 border-green-300 bg-green-50' :
+                      'text-muted-foreground'
+                    }`}
+                  >
+                    {diff.type === 'up' && <TrendingUp className="w-2 h-2 mr-0.5" />}
+                    {diff.type === 'down' && <TrendingDown className="w-2 h-2 mr-0.5" />}
+                    {diff.type === 'same' && <Minus className="w-2 h-2 mr-0.5" />}
+                    {diff.value.toFixed(0)}%
+                  </Badge>
+                );
+              })()}
+            </div>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => analyzeWithAI(item.id, item.name)}
+              className="h-6 w-6 p-0 text-amber-600 hover:bg-amber-100"
+              disabled={item.aiSuggestedProductivity !== undefined}
+            >
+              <Sparkles className="w-3 h-3" />
+            </Button>
+          )}
+        </TableCell>
+      )}
+      {v.costPerUnit && (
+        <TableCell className="text-center">
+          <Badge variant="secondary" className="font-mono text-xs px-2 py-0.5">
+            {formatNumber(item.costPerUnit)}
+          </Badge>
+        </TableCell>
+      )}
+      {v.actions && (
+        <TableCell>
+          <div className="flex gap-1">
+            {handleOpenDetails && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleOpenDetails(item.id)}
+                className="h-6 w-6 p-0 text-blue-600 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+                title="تفاصيل البند"
+              >
+                <Info className="w-3 h-3" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleCopyItem(item.id)}
+              className="h-6 w-6 p-0 text-primary hover:text-primary hover:bg-primary/10"
+              title="نسخ الصف"
+            >
+              <Copy className="w-3 h-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleRemoveItem(item.id)}
+              className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+              title="حذف الصف"
+            >
+              <Trash2 className="w-3 h-3" />
+            </Button>
+          </div>
+        </TableCell>
+      )}
     </TableRow>
+
   );
 }
 
