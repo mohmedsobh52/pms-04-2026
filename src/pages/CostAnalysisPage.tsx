@@ -1387,6 +1387,20 @@ export default function CostAnalysisPage() {
           currency={currency}
         />
 
+        {/* Phase 6: Anomaly detection (15 rules) */}
+        <AnomalyDetectorPanel
+          items={items.map((i) => ({
+            id: i.id,
+            name: i.name,
+            dailyProductivity: i.dailyProductivity,
+            dailyRent: i.dailyRent,
+            costPerUnit: i.costPerUnit,
+            aiSuggestedProductivity: i.aiSuggestedProductivity,
+            aiSuggestedRent: i.aiSuggestedRent,
+          }))}
+          currency={currency}
+        />
+
         {/* Phase 5: AI Advisor with approval workflow */}
         <AiCostAdvisorPanel
           items={items.map((i) => ({
