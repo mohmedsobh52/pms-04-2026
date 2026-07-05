@@ -56,6 +56,7 @@ import { ItemDetailsDrawer } from "@/components/cost-analysis/ItemDetailsDrawer"
 import { SensitivityScenarios } from "@/components/cost-analysis/SensitivityScenarios";
 import { AiCostAdvisorPanel } from "@/components/cost-analysis/AiCostAdvisorPanel";
 import { CostVersionsPanel } from "@/components/cost-analysis/CostVersionsPanel";
+import { AnomalyDetectorPanel } from "@/components/cost-analysis/AnomalyDetectorPanel";
 import { CostBulkActionsBar } from "@/components/cost-analysis/CostBulkActionsBar";
 import {
   CostColumnVisibility,
