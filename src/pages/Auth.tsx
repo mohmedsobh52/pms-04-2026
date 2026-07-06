@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Mail, Lock, Loader2, AlertCircle } from "lucide-react";
 import { SuspenseFallback } from "@/components/ui/loading-states";
 import { PMSLogo } from "@/components/PMSLogo";
