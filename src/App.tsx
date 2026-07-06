@@ -167,6 +167,7 @@ const App = () => (
                         <Route path="/projects/compare" element={<ProjectsComparePage />} />
                         <Route path="/technical-proposal" element={<TechnicalProposalGeneratorPage />} />
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                        <Route path="/.lovable/oauth/consent" element={<OAuthConsentPage />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </Suspense>
