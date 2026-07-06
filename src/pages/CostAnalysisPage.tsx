@@ -57,6 +57,7 @@ import { SensitivityScenarios } from "@/components/cost-analysis/SensitivityScen
 import { AiCostAdvisorPanel } from "@/components/cost-analysis/AiCostAdvisorPanel";
 import { CostVersionsPanel } from "@/components/cost-analysis/CostVersionsPanel";
 import { AnomalyDetectorPanel } from "@/components/cost-analysis/AnomalyDetectorPanel";
+import { Phase7ToolsPanel } from "@/components/cost-analysis/Phase7ToolsPanel";
 import { CostBulkActionsBar } from "@/components/cost-analysis/CostBulkActionsBar";
 import {
   CostColumnVisibility,
