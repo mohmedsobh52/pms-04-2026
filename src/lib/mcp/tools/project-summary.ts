@@ -17,7 +17,7 @@ export default defineTool({
   name: "project_summary",
   title: "Project financial summary",
   description:
-    "Return a cost/quantity summary for a project by aggregating its BOQ items.",
+    "Aggregate BOQ items for a project and return item count, total value, and total quantity.",
   inputSchema: {
     projectId: z.string().uuid().describe("Project UUID to summarize."),
   },
@@ -27,7 +27,7 @@ export default defineTool({
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
     const { data, error } = await supabaseForUser(ctx)
-      .from("boq_items")
+      .from("project_items")
       .select("total_price, quantity")
       .eq("project_id", projectId);
     if (error) {

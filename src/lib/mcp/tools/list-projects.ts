@@ -16,7 +16,7 @@ function supabaseForUser(ctx: ToolContext) {
 export default defineTool({
   name: "list_projects",
   title: "List projects",
-  description: "List the signed-in user's projects with basic metadata.",
+  description: "List the signed-in user's saved construction projects.",
   inputSchema: {
     limit: z.number().int().min(1).max(100).default(20).describe("Max rows to return."),
   },
@@ -26,8 +26,8 @@ export default defineTool({
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
     const { data, error } = await supabaseForUser(ctx)
-      .from("projects")
-      .select("id, name, status, created_at, updated_at")
+      .from("saved_projects")
+      .select("id, name, file_name, status, created_at, updated_at")
       .order("updated_at", { ascending: false })
       .limit(limit);
     if (error) {

@@ -16,7 +16,7 @@ function supabaseForUser(ctx: ToolContext) {
 export default defineTool({
   name: "get_project",
   title: "Get project",
-  description: "Fetch a single project by ID, including its BOQ item count.",
+  description: "Fetch a single project by ID, including its item count.",
   inputSchema: {
     projectId: z.string().uuid().describe("The project UUID."),
   },
@@ -27,8 +27,8 @@ export default defineTool({
     }
     const sb = supabaseForUser(ctx);
     const { data: project, error } = await sb
-      .from("projects")
-      .select("*")
+      .from("saved_projects")
+      .select("id, name, file_name, status, created_at, updated_at")
       .eq("id", projectId)
       .maybeSingle();
     if (error) {
@@ -38,10 +38,10 @@ export default defineTool({
       return { content: [{ type: "text", text: "Project not found" }], isError: true };
     }
     const { count } = await sb
-      .from("boq_items")
+      .from("project_items")
       .select("*", { count: "exact", head: true })
       .eq("project_id", projectId);
-    const result = { project, boqItemCount: count ?? 0 };
+    const result = { project, itemCount: count ?? 0 };
     return {
       content: [{ type: "text", text: JSON.stringify(result) }],
       structuredContent: result,

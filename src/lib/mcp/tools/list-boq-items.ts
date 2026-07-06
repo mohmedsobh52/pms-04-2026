@@ -27,10 +27,12 @@ export default defineTool({
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
     const { data, error } = await supabaseForUser(ctx)
-      .from("boq_items")
-      .select("id, item_number, description, unit, quantity, unit_price, total_price")
+      .from("project_items")
+      .select(
+        "id, item_number, description, unit, quantity, unit_price, total_price, category",
+      )
       .eq("project_id", projectId)
-      .order("item_number", { ascending: true })
+      .order("sort_order", { ascending: true })
       .limit(limit);
     if (error) {
       return { content: [{ type: "text", text: error.message }], isError: true };
