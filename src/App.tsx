@@ -33,6 +33,7 @@ const AdminVersions = lazy(() => import("./pages/AdminVersions"));
 const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
 const ApprovalsInboxPage = lazy(() => import("./pages/ApprovalsInboxPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const OAuthConsentPage = lazy(() => import("./pages/OAuthConsentPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const ProcurementPage = lazy(() => import("./pages/ProcurementPage"));
 const SubcontractorsPage = lazy(() => import("./pages/SubcontractorsPage"));
