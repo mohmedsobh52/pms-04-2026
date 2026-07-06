@@ -33,6 +33,7 @@ const AdminVersions = lazy(() => import("./pages/AdminVersions"));
 const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
 const ApprovalsInboxPage = lazy(() => import("./pages/ApprovalsInboxPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const OAuthConsentPage = lazy(() => import("./pages/OAuthConsentPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const ProcurementPage = lazy(() => import("./pages/ProcurementPage"));
 const SubcontractorsPage = lazy(() => import("./pages/SubcontractorsPage"));
@@ -166,6 +167,7 @@ const App = () => (
                         <Route path="/projects/compare" element={<ProjectsComparePage />} />
                         <Route path="/technical-proposal" element={<TechnicalProposalGeneratorPage />} />
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                        <Route path="/.lovable/oauth/consent" element={<OAuthConsentPage />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </Suspense>

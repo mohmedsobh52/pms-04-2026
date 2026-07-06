@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Mail, Lock, Loader2, AlertCircle } from "lucide-react";
 import { SuspenseFallback } from "@/components/ui/loading-states";
 import { PMSLogo } from "@/components/PMSLogo";
@@ -24,13 +24,22 @@ export default function Auth() {
   
   const { signIn, signUp, user, loading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
+
+  // Only allow same-origin relative paths for `next` to prevent open redirects.
+  const rawNext = searchParams.get("next");
+  const nextPath = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
 
   useEffect(() => {
     if (!loading && user) {
-      navigate("/");
+      if (nextPath.startsWith("/.lovable/")) {
+        window.location.href = nextPath;
+      } else {
+        navigate(nextPath);
+      }
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, nextPath]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
