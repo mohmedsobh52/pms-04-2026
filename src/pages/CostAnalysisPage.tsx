@@ -1402,6 +1402,50 @@ export default function CostAnalysisPage() {
           currency={currency}
         />
 
+        {/* Phase 7: Suppliers · Templates · Import · Reports */}
+        <Phase7ToolsPanel
+          items={items.map((i) => ({
+            id: i.id,
+            name: i.name,
+            dailyProductivity: i.dailyProductivity,
+            dailyRent: i.dailyRent,
+            costPerUnit: i.costPerUnit,
+            aiSuggestedProductivity: i.aiSuggestedProductivity,
+            aiSuggestedRent: i.aiSuggestedRent,
+          }))}
+          currency={currency}
+          wastePct={wastePercentage}
+          adminPct={adminPercentage}
+          projectName={meta?.projectName}
+          onImportItems={(rows) =>
+            setItems((prev) => [
+              ...prev,
+              ...rows.map((r, idx) => ({
+                id: `imp7-${Date.now()}-${idx}`,
+                name: r.name,
+                dailyProductivity: r.dailyProductivity,
+                dailyRent: r.dailyRent,
+                costPerUnit: r.costPerUnit,
+                isEditable: true,
+              })),
+            ])
+          }
+          onLoadTemplate={(tpl) => {
+            setItems(
+              tpl.items.map((it, idx) => ({
+                id: `tpl7-${Date.now()}-${idx}`,
+                name: it.name,
+                dailyProductivity: it.dailyProductivity,
+                dailyRent: it.dailyRent,
+                costPerUnit: it.costPerUnit,
+                isEditable: true,
+              })),
+            );
+            setWastePercentage(tpl.wastePct);
+            setAdminPercentage(tpl.adminPct);
+          }}
+        />
+
         {/* Phase 5: AI Advisor with approval workflow */}
         <AiCostAdvisorPanel
           items={items.map((i) => ({
