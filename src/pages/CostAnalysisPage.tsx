@@ -58,6 +58,7 @@ import { AiCostAdvisorPanel } from "@/components/cost-analysis/AiCostAdvisorPane
 import { CostVersionsPanel } from "@/components/cost-analysis/CostVersionsPanel";
 import { AnomalyDetectorPanel } from "@/components/cost-analysis/AnomalyDetectorPanel";
 import { Phase7ToolsPanel } from "@/components/cost-analysis/Phase7ToolsPanel";
+import { Phase8CollaborationPanel } from "@/components/cost-analysis/Phase8CollaborationPanel";
 import { CostBulkActionsBar } from "@/components/cost-analysis/CostBulkActionsBar";
 import {
   CostColumnVisibility,
@@ -1444,6 +1445,12 @@ export default function CostAnalysisPage() {
             setWastePercentage(tpl.wastePct);
             setAdminPercentage(tpl.adminPct);
           }}
+        />
+
+        {/* Phase 8: Approval workflow, comments, permissions, activity */}
+        <Phase8CollaborationPanel
+          analysisKey={meta?.projectName || "default"}
+          projectId={null}
         />
 
         {/* Phase 5: AI Advisor with approval workflow */}
