@@ -59,6 +59,7 @@ import { CostVersionsPanel } from "@/components/cost-analysis/CostVersionsPanel"
 import { AnomalyDetectorPanel } from "@/components/cost-analysis/AnomalyDetectorPanel";
 import { Phase7ToolsPanel } from "@/components/cost-analysis/Phase7ToolsPanel";
 import { Phase8CollaborationPanel } from "@/components/cost-analysis/Phase8CollaborationPanel";
+import { SystemTipsPanel } from "@/components/cost-analysis/SystemTipsPanel";
 import { CostBulkActionsBar } from "@/components/cost-analysis/CostBulkActionsBar";
 import {
   CostColumnVisibility,
@@ -1386,6 +1387,20 @@ export default function CostAnalysisPage() {
           wastePct={wastePercentage}
           adminPct={adminPercentage}
           taxPct={meta?.taxPct ?? 0}
+          currency={currency}
+        />
+
+        {/* Proactive system tips */}
+        <SystemTipsPanel
+          items={items.map((i) => ({
+            id: i.id,
+            name: i.name,
+            dailyProductivity: i.dailyProductivity,
+            dailyRent: i.dailyRent,
+            costPerUnit: i.costPerUnit,
+          }))}
+          wastePct={wastePercentage}
+          adminPct={adminPercentage}
           currency={currency}
         />
 
