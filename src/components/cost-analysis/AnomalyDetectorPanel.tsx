@@ -33,12 +33,20 @@ export type AnomalyKind =
   | "productivity_outlier_high"
   | "productivity_outlier_low"
   | "rent_outlier_high"
+  | "rent_outlier_low"
   | "duplicate_name"
+  | "duplicate_cost_profile"
   | "large_ai_gap_prod"
   | "large_ai_gap_rent"
+  | "ai_suggests_zero"
   | "missing_ai"
+  | "high_cost_without_ai"
   | "negative_value"
   | "extreme_ratio"
+  | "cost_formula_mismatch"
+  | "rent_without_productivity"
+  | "productivity_without_rent"
+  | "name_too_short"
   | "empty_name";
 
 export type Severity = "info" | "warning" | "critical";
@@ -63,12 +71,20 @@ const KIND_LABEL: Record<AnomalyKind, string> = {
   productivity_outlier_high: "إنتاجية شاذة عالية",
   productivity_outlier_low: "إنتاجية شاذة منخفضة",
   rent_outlier_high: "إيجار شاذ مرتفع",
+  rent_outlier_low: "إيجار شاذ منخفض",
   duplicate_name: "اسم مكرر",
+  duplicate_cost_profile: "قيم تكلفة مكررة",
   large_ai_gap_prod: "فجوة كبيرة مع اقتراح AI (إنتاجية)",
   large_ai_gap_rent: "فجوة كبيرة مع اقتراح AI (إيجار)",
+  ai_suggests_zero: "اقتراح AI صفري",
   missing_ai: "لا يوجد اقتراح AI",
+  high_cost_without_ai: "مرتفع بدون اقتراح AI",
   negative_value: "قيمة سالبة",
   extreme_ratio: "نسبة إيجار/إنتاجية متطرفة",
+  cost_formula_mismatch: "معادلة تكلفة غير متطابقة",
+  rent_without_productivity: "إيجار بدون إنتاجية",
+  productivity_without_rent: "إنتاجية بدون إيجار",
+  name_too_short: "اسم قصير جداً",
   empty_name: "اسم فارغ",
 };
 
@@ -106,9 +122,14 @@ function detect(items: Item[]): Anomaly[] {
   const rentMed = median(rents);
 
   const nameCount = new Map<string, number>();
+  const profileCount = new Map<string, number>();
   items.forEach((i) => {
     const key = i.name.trim().toLowerCase();
     if (key) nameCount.set(key, (nameCount.get(key) || 0) + 1);
+    const profile = `${i.dailyProductivity}::${i.dailyRent}::${i.costPerUnit}`;
+    if (i.dailyProductivity > 0 || i.dailyRent > 0 || i.costPerUnit > 0) {
+      profileCount.set(profile, (profileCount.get(profile) || 0) + 1);
+    }
   });
 
   items.forEach((i) => {
@@ -132,14 +153,28 @@ function detect(items: Item[]): Anomaly[] {
     };
 
     if (!i.name || !i.name.trim()) push("empty_name", "warning", "اسم البند فارغ");
+    else if (i.name.trim().length < 3) push("name_too_short", "info", "اسم البند قصير ولا يكفي للمطابقة");
     if (i.dailyProductivity === 0)
       push("zero_productivity", "critical", "الإنتاجية اليومية = 0");
     if (i.dailyRent === 0) push("zero_rent", "warning", "الإيجار اليومي = 0");
     if (i.costPerUnit === 0) push("zero_cost", "warning", "تكلفة الوحدة = 0");
+    if (i.dailyRent > 0 && i.dailyProductivity <= 0)
+      push("rent_without_productivity", "critical", "يوجد إيجار لكن الإنتاجية غير صالحة");
+    if (i.dailyProductivity > 0 && i.dailyRent <= 0)
+      push("productivity_without_rent", "warning", "يوجد إنتاجية لكن لا توجد تكلفة/إيجار");
     if (i.dailyProductivity < 0)
       push("negative_value", "critical", "الإنتاجية سالبة", i.dailyProductivity);
     if (i.dailyRent < 0)
       push("negative_value", "critical", "الإيجار سالب", i.dailyRent);
+    if (i.costPerUnit < 0)
+      push("negative_value", "critical", "تكلفة الوحدة سالبة", i.costPerUnit);
+
+    if (i.dailyProductivity > 0 && i.dailyRent >= 0 && i.costPerUnit > 0) {
+      const expected = i.dailyRent / i.dailyProductivity;
+      const diff = expected > 0 ? Math.abs(i.costPerUnit - expected) / expected : 0;
+      if (diff > 0.05)
+        push("cost_formula_mismatch", "warning", `تكلفة الوحدة لا تساوي الإيجار ÷ الإنتاجية (${expected.toFixed(2)})`, i.costPerUnit, expected);
+    }
 
     if (costMed > 0 && i.costPerUnit > costMed * 3)
       push(
@@ -181,9 +216,14 @@ function detect(items: Item[]): Anomaly[] {
         i.dailyRent,
         rentMed,
       );
+    if (rentMed > 0 && i.dailyRent > 0 && i.dailyRent < rentMed * 0.2)
+      push("rent_outlier_low", "info", `إيجار أقل من 20% من الوسيط (${rentMed.toFixed(2)})`, i.dailyRent, rentMed);
 
     if (i.name && nameCount.get(i.name.trim().toLowerCase())! > 1)
       push("duplicate_name", "info", "يوجد بند آخر بنفس الاسم");
+    const profile = `${i.dailyProductivity}::${i.dailyRent}::${i.costPerUnit}`;
+    if (profileCount.get(profile)! > 1 && items.length > 2)
+      push("duplicate_cost_profile", "info", "الإنتاجية والإيجار والتكلفة مكررة مع بند آخر");
 
     if (
       typeof i.aiSuggestedProductivity === "number" &&
@@ -210,8 +250,14 @@ function detect(items: Item[]): Anomaly[] {
         i.dailyRent,
       );
 
+    if (i.aiSuggestedProductivity === 0 || i.aiSuggestedRent === 0)
+      push("ai_suggests_zero", "warning", "اقتراح AI يحتوي قيمة صفرية ويحتاج إعادة تحليل");
+
     if (i.aiSuggestedProductivity == null && i.aiSuggestedRent == null)
       push("missing_ai", "info", "لا يوجد اقتراح AI لهذا البند");
+
+    if (costMed > 0 && i.costPerUnit > costMed * 1.5 && i.aiSuggestedProductivity == null && i.aiSuggestedRent == null)
+      push("high_cost_without_ai", "warning", "البند مرتفع التكلفة ولا يوجد له اقتراح AI للمقارنة", i.costPerUnit, costMed);
 
     if (i.dailyProductivity > 0 && i.dailyRent / i.dailyProductivity > 10000)
       push("extreme_ratio", "warning", "نسبة إيجار/إنتاجية عالية جداً");

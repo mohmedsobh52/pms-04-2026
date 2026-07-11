@@ -309,6 +309,7 @@ export function AiCostAdvisorPanel({
       toast.error("لا توجد بنود لتحليلها");
       return;
     }
+    const deterministic = buildDeterministicSuggestions(items, wastePct, adminPct, currency);
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("cost-optimizer-ai", {
@@ -317,9 +318,8 @@ export function AiCostAdvisorPanel({
       if (error) throw error;
       if (data?.error) {
         toast.error(data.error);
-        return;
       }
-      const list: AiSuggestion[] = data?.suggestions ?? [];
+      const list: AiSuggestion[] = mergeSuggestions([...(data?.suggestions ?? []), ...deterministic]);
       if (list.length === 0) {
         toast.info("لم تُرجع المهمة أي اقتراحات");
         return;
@@ -336,7 +336,18 @@ export function AiCostAdvisorPanel({
       toast.success(`تم استلام ${list.length} اقتراح`);
     } catch (e) {
       console.error(e);
-      toast.error("فشل توليد الاقتراحات");
+      if (deterministic.length > 0) {
+        const existingMap = new Map(stored.map((s) => [s.id, s]));
+        const merged: Stored[] = deterministic.map((s) => {
+          const id = makeId(s);
+          const prev = existingMap.get(id);
+          return prev ? { ...prev, s } : { id, s, decision: "pending" as Decision };
+        });
+        persist([...merged, ...stored.filter((s) => s.decision !== "pending")]);
+        toast.success(`تم توليد ${deterministic.length} اقتراح محلياً`);
+      } else {
+        toast.error("فشل توليد الاقتراحات");
+      }
     } finally {
       setLoading(false);
     }
