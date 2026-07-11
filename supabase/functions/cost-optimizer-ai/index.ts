@@ -25,10 +25,19 @@ interface OutSuggestion {
     | "scope"
     | "risk"
     | "pricing_source"
+    | "historical_price"
+    | "material_alternative"
+    | "unit_optimization"
+    | "bulk_discount"
     | "quantity"
     | "supplier"
     | "schedule"
     | "quality"
+    | "cash_flow"
+    | "contract_terms"
+    | "logistics"
+    | "safety"
+    | "data_quality"
     | "other";
   severity: "low" | "medium" | "high";
   title: string;
@@ -63,9 +72,31 @@ Deno.serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY missing");
 
     const isAr = language !== "en";
+    const categories = [
+      "productivity",
+      "rent",
+      "waste",
+      "scope",
+      "risk",
+      "pricing_source",
+      "historical_price",
+      "material_alternative",
+      "unit_optimization",
+      "bulk_discount",
+      "quantity",
+      "supplier",
+      "schedule",
+      "quality",
+      "cash_flow",
+      "contract_terms",
+      "logistics",
+      "safety",
+      "data_quality",
+      "other",
+    ];
     const systemPrompt = isAr
-      ? `أنت خبير تحليل تكاليف إنشاءات. حلّل بنود التكلفة المُعطاة واقترح فرص تحسين عملية. لكل بند ذو قيمة، أعد اقتراحاً واحداً على الأكثر باستخدام إحدى الفئات: productivity, rent, waste, scope, risk, pricing_source, quantity, supplier, schedule, quality, other. مع تصنيف وشدة وسبب مختصر بالعربية. عند اقتراح إنتاجية أو إيجار جديد، ابقَ ضمن ±30% من الحالي. لا تخترع بنوداً غير موجودة.`
-      : `You are a senior construction cost analyst. Review the given items and propose actionable optimizations. Use one of the categories: productivity, rent, waste, scope, risk, pricing_source, quantity, supplier, schedule, quality, other. Return at most ONE suggestion per item, with a clear category, severity, and concise rationale. When recommending new productivity or rent, stay within ±30% of current values. Never invent items.`;
+      ? `أنت خبير تحليل تكاليف إنشاءات. حلّل بنود التكلفة المُعطاة واقترح فرص تحسين عملية. استخدم إحدى الفئات التالية فقط: ${categories.join(", ")}. غطِّ عند الحاجة: الأسعار التاريخية، بدائل المواد، تحسين الوحدة/المعادلة، خصومات الكميات، مصادر الأسعار، الموردين، الجدولة، الجودة، التدفق النقدي، الشروط التعاقدية، اللوجستيات، السلامة وجودة البيانات. أعد اقتراحاً واحداً إلى ثلاثة لكل بند مهم فقط، مع تصنيف وشدة وسبب مختصر بالعربية. عند اقتراح إنتاجية أو إيجار جديد، ابقَ ضمن ±30% من الحالي. لا تخترع بنوداً غير موجودة.`
+      : `You are a senior construction cost analyst. Review the given items and propose actionable optimizations. Use only these categories: ${categories.join(", ")}. Cover when relevant: historical pricing, material alternatives, unit/formula optimization, quantity discounts, pricing sources, suppliers, schedule, quality, cash flow, contract terms, logistics, safety, and data quality. Return one to three suggestions only for important items, with clear category, severity, and concise rationale. When recommending new productivity or rent, stay within ±30% of current values. Never invent items.`;
 
     const payload = {
       currency: currency || "SAR",
@@ -108,19 +139,7 @@ Deno.serve(async (req) => {
                       itemId: { type: "string" },
                       category: {
                         type: "string",
-                        enum: [
-                          "productivity",
-                          "rent",
-                          "waste",
-                          "scope",
-                          "risk",
-                          "pricing_source",
-                          "quantity",
-                          "supplier",
-                          "schedule",
-                          "quality",
-                          "other",
-                        ],
+                        enum: categories,
                       },
                       severity: { type: "string", enum: ["low", "medium", "high"] },
                       title: { type: "string" },

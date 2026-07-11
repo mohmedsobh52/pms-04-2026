@@ -10,6 +10,8 @@ interface Item {
   dailyProductivity: number;
   dailyRent: number;
   costPerUnit: number;
+  aiSuggestedProductivity?: number;
+  aiSuggestedRent?: number;
 }
 
 interface Tip {
@@ -45,6 +47,31 @@ function buildTips(items: Item[], wastePct: number, adminPct: number): Tip[] {
   const missingProd = items.filter((i) => i.dailyProductivity <= 0).length;
   const missingCost = items.filter((i) => i.costPerUnit <= 0).length;
   const missingRent = items.filter((i) => i.dailyRent <= 0).length;
+  const negativeValues = items.filter(
+    (i) => i.dailyProductivity < 0 || i.dailyRent < 0 || i.costPerUnit < 0,
+  ).length;
+  const formulaMismatch = items.filter((i) => {
+    if (i.dailyProductivity <= 0 || i.dailyRent < 0 || i.costPerUnit <= 0) return false;
+    const expected = i.dailyRent / i.dailyProductivity;
+    return expected > 0 && Math.abs(i.costPerUnit - expected) / expected > 0.05;
+  }).length;
+  const duplicateNames = new Map<string, number>();
+  items.forEach((i) => {
+    const key = i.name.trim().toLowerCase();
+    if (key) duplicateNames.set(key, (duplicateNames.get(key) || 0) + 1);
+  });
+  const duplicateCount = [...duplicateNames.values()].filter((c) => c > 1).reduce((s, c) => s + c, 0);
+  const aiGapCount = items.filter((i) => {
+    const prodGap =
+      typeof i.aiSuggestedProductivity === "number" && i.dailyProductivity > 0
+        ? Math.abs(i.aiSuggestedProductivity - i.dailyProductivity) / i.dailyProductivity
+        : 0;
+    const rentGap =
+      typeof i.aiSuggestedRent === "number" && i.dailyRent > 0
+        ? Math.abs(i.aiSuggestedRent - i.dailyRent) / i.dailyRent
+        : 0;
+    return Math.max(prodGap, rentGap) >= 0.2;
+  }).length;
 
   if (missingProd > 0)
     tips.push({
@@ -68,6 +95,38 @@ function buildTips(items: Item[], wastePct: number, adminPct: number): Tip[] {
       kind: "info",
       title: "أكثر من نصف البنود بدون إيجار",
       message: "إذا كان المشروع لا يعتمد على معدات، هذا طبيعي؛ وإلا راجع البنود.",
+    });
+
+  if (negativeValues > 0)
+    tips.push({
+      id: "negative-values",
+      kind: "warning",
+      title: `${negativeValues} بند يحتوي قيماً سالبة`,
+      message: "صحّح القيم السالبة قبل التصدير لأنها تشوّه الإجمالي ونسب المقارنة.",
+    });
+
+  if (formulaMismatch > 0)
+    tips.push({
+      id: "formula-mismatch",
+      kind: "warning",
+      title: `${formulaMismatch} بند بتكلفة غير متطابقة`,
+      message: "تكلفة الوحدة يجب أن تساوي الإيجار اليومي ÷ الإنتاجية اليومية.",
+    });
+
+  if (duplicateCount > 0)
+    tips.push({
+      id: "duplicate-names",
+      kind: "info",
+      title: `${duplicateCount} بند باسم مكرر`,
+      message: "ميّز البنود المكررة أو ادمجها لتجنب ازدواجية السعر والنطاق.",
+    });
+
+  if (aiGapCount > 0)
+    tips.push({
+      id: "ai-gap",
+      kind: "info",
+      title: `${aiGapCount} بند بفجوة AI ≥ 20%`,
+      message: "راجع الفروقات الكبيرة بين القيم اليدوية واقتراحات AI قبل الاعتماد.",
     });
 
   if (wastePct > 15)
@@ -97,9 +156,42 @@ function buildTips(items: Item[], wastePct: number, adminPct: number): Tip[] {
         title: `تركّز 70%+ في 3 بنود فقط`,
         message: `الأثر الأكبر: ${top.map((t) => t.name).join(" · ")}. ركّز التفاوض عليها.`,
       });
+    const positiveCosts = items.map((i) => i.costPerUnit).filter((v) => v > 0).sort((a, b) => a - b);
+    const min = positiveCosts[0] || 0;
+    const max = positiveCosts[positiveCosts.length - 1] || 0;
+    if (min > 0 && max / min > 25)
+      tips.push({
+        id: "wide-cost-spread",
+        kind: "info",
+        title: "تباين كبير جداً بين أسعار الوحدة",
+        message: "استخدم كاشف الشذوذ لتحديد هل السبب اختلاف نطاق/وحدة أم خطأ إدخال.",
+      });
   }
 
-  if (missingProd === 0 && missingCost === 0 && wastePct <= 10 && adminPct <= 15)
+  if (total > 0 && total < 5)
+    tips.push({
+      id: "small-sample",
+      kind: "info",
+      title: "العينة صغيرة للمقارنة الإحصائية",
+      message: "أضف بنوداً أو استورد ملفاً كاملاً لرفع دقة الوسيط والشذوذ والاقتراحات.",
+    });
+
+  if (items.length >= 3 && items.every((i) => i.aiSuggestedProductivity == null && i.aiSuggestedRent == null))
+    tips.push({
+      id: "no-ai-suggestions",
+      kind: "info",
+      title: "لا توجد اقتراحات AI على البنود",
+      message: "شغّل تحليل AI أو مستشار التكاليف لتفعيل فلاتر الفجوات والمراجعات الذكية.",
+    });
+
+  if (
+    missingProd === 0 &&
+    missingCost === 0 &&
+    negativeValues === 0 &&
+    formulaMismatch === 0 &&
+    wastePct <= 10 &&
+    adminPct <= 15
+  )
     tips.push({
       id: "healthy",
       kind: "success",
