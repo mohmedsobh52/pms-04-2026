@@ -46,10 +46,19 @@ export interface AiSuggestion {
     | "scope"
     | "risk"
     | "pricing_source"
+    | "historical_price"
+    | "material_alternative"
+    | "unit_optimization"
+    | "bulk_discount"
     | "quantity"
     | "supplier"
     | "schedule"
     | "quality"
+    | "cash_flow"
+    | "contract_terms"
+    | "logistics"
+    | "safety"
+    | "data_quality"
     | "other";
   severity: "low" | "medium" | "high";
   title: string;
@@ -98,10 +107,19 @@ const CAT_LABEL: Record<AiSuggestion["category"], string> = {
   scope: "نطاق",
   risk: "مخاطرة",
   pricing_source: "مصدر سعر",
+  historical_price: "سعر تاريخي",
+  material_alternative: "بديل مادة",
+  unit_optimization: "تحسين وحدة",
+  bulk_discount: "خصم كمية",
   quantity: "كمية",
   supplier: "مورّد",
   schedule: "جدولة",
   quality: "جودة",
+  cash_flow: "تدفق نقدي",
+  contract_terms: "شروط تعاقدية",
+  logistics: "لوجستيات",
+  safety: "سلامة",
+  data_quality: "جودة البيانات",
   other: "أخرى",
 };
 
@@ -111,6 +129,151 @@ function makeId(s: AiSuggestion) {
 
 function firstToken(name: string) {
   return name.trim().toLowerCase().split(/\s+/)[0] || "";
+}
+
+function round2(value: number) {
+  return Number.isFinite(value) ? Math.round(value * 100) / 100 : 0;
+}
+
+function median(values: number[]) {
+  const sorted = values.filter((v) => Number.isFinite(v) && v > 0).sort((a, b) => a - b);
+  if (sorted.length === 0) return 0;
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function safeTarget(current: number, target: number) {
+  if (!Number.isFinite(target) || target <= 0) return undefined;
+  if (!Number.isFinite(current) || current <= 0) return round2(target);
+  return round2(Math.min(current * 1.3, Math.max(current * 0.7, target)));
+}
+
+function pctSaving(current: number, target?: number) {
+  if (!target || current <= 0 || target >= current) return null;
+  return round2(((current - target) / current) * 100);
+}
+
+function normalizeName(name: string) {
+  return name.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function hasAny(name: string, words: string[]) {
+  const n = normalizeName(name);
+  return words.some((w) => n.includes(w));
+}
+
+function mergeSuggestions(list: AiSuggestion[]) {
+  const map = new Map<string, AiSuggestion>();
+  list.forEach((s) => {
+    if (!s?.itemId || !s?.title) return;
+    map.set(makeId(s), s);
+  });
+  return [...map.values()];
+}
+
+function buildDeterministicSuggestions(
+  items: Item[],
+  wastePct: number,
+  adminPct: number,
+  currency: string,
+): AiSuggestion[] {
+  const out: AiSuggestion[] = [];
+  const costs = items.map((i) => i.costPerUnit).filter((v) => v > 0);
+  const prods = items.map((i) => i.dailyProductivity).filter((v) => v > 0);
+  const rents = items.map((i) => i.dailyRent).filter((v) => v > 0);
+  const costMed = median(costs);
+  const prodMed = median(prods);
+  const rentMed = median(rents);
+  const nameCounts = new Map<string, number>();
+  const tokenGroups = new Map<string, Item[]>();
+
+  items.forEach((i) => {
+    const name = normalizeName(i.name);
+    if (name) nameCounts.set(name, (nameCounts.get(name) || 0) + 1);
+    const token = firstToken(i.name);
+    if (token) tokenGroups.set(token, [...(tokenGroups.get(token) || []), i]);
+  });
+
+  const push = (s: AiSuggestion) => out.push(s);
+  const topByCost = [...items].sort((a, b) => b.costPerUnit - a.costPerUnit).slice(0, 4);
+  const topIds = new Set(topByCost.map((i) => i.id));
+
+  items.forEach((item) => {
+    if (!item.name.trim()) {
+      push({ itemId: item.id, category: "data_quality", severity: "medium", title: "استكمال اسم البند قبل التسعير", rationale: "اسم البند الفارغ يمنع مطابقة الأسعار التاريخية وعروض الموردين بدقة." });
+    }
+
+    if (item.dailyProductivity <= 0) {
+      push({ itemId: item.id, category: "productivity", severity: "high", title: "إضافة إنتاجية تقديرية للبند", rationale: "الإنتاجية صفرية؛ تكلفة الوحدة لن تكون موثوقة حتى يتم إدخال إنتاجية يومية قابلة للمراجعة.", suggestedProductivity: safeTarget(item.dailyProductivity, prodMed || 100) });
+    }
+
+    if (item.dailyRent <= 0 && rentMed > 0) {
+      push({ itemId: item.id, category: "rent", severity: "medium", title: "استكمال إيجار/تكلفة المورد اليومية", rationale: `الإيجار صفر. وسيط البنود الحالية يقارب ${rentMed.toFixed(2)} ${currency} ويمكن استخدامه كنقطة بداية.`, suggestedRent: safeTarget(item.dailyRent, rentMed) });
+    }
+
+    if (item.dailyProductivity < 0 || item.dailyRent < 0 || item.costPerUnit < 0) {
+      push({ itemId: item.id, category: "data_quality", severity: "high", title: "تصحيح قيمة سالبة", rationale: "وجود قيم سالبة في الإنتاجية أو الإيجار أو تكلفة الوحدة يسبب انحرافاً في الإجماليات والتقارير." });
+    }
+
+    if (prodMed > 0 && item.dailyProductivity > 0 && item.dailyProductivity < prodMed * 0.55) {
+      const suggestedProductivity = safeTarget(item.dailyProductivity, prodMed);
+      push({ itemId: item.id, category: "productivity", severity: "medium", title: "رفع الإنتاجية إلى مستوى البنود المشابهة", rationale: `الإنتاجية أقل بكثير من وسيط العينة (${prodMed.toFixed(2)}). راجع الطاقم أو طريقة التنفيذ.`, suggestedProductivity, estimatedSavingPct: pctSaving(item.costPerUnit, item.dailyRent / (suggestedProductivity || item.dailyProductivity)) });
+    }
+
+    if (costMed > 0 && item.costPerUnit > costMed * 1.75 && item.dailyProductivity > 0) {
+      const targetRent = safeTarget(item.dailyRent, costMed * item.dailyProductivity);
+      push({ itemId: item.id, category: "historical_price", severity: item.costPerUnit > costMed * 3 ? "high" : "medium", title: "مراجعة السعر مقابل الوسيط التاريخي/الداخلي", rationale: `تكلفة الوحدة أعلى من وسيط البنود (${costMed.toFixed(2)} ${currency})؛ اطلب سعر مورد أو مرجع تاريخي قبل الاعتماد.`, suggestedRent: targetRent, estimatedSavingPct: pctSaving(item.costPerUnit, targetRent ? targetRent / item.dailyProductivity : undefined) });
+    }
+
+    if (rentMed > 0 && item.dailyRent > rentMed * 1.6) {
+      const suggestedRent = safeTarget(item.dailyRent, rentMed);
+      push({ itemId: item.id, category: "supplier", severity: "medium", title: "طلب عرض مورد بديل", rationale: `الإيجار أعلى من وسيط العروض/البنود (${rentMed.toFixed(2)} ${currency}). قارن مع موردين اثنين على الأقل.`, suggestedRent, estimatedSavingPct: pctSaving(item.dailyRent, suggestedRent) });
+    }
+
+    const tokenGroup = tokenGroups.get(firstToken(item.name)) || [];
+    if (tokenGroup.length >= 2 && item.costPerUnit > 0) {
+      const groupMed = median(tokenGroup.map((i) => i.costPerUnit));
+      if (groupMed > 0 && item.costPerUnit > groupMed * 1.45 && item.dailyProductivity > 0) {
+        const suggestedRent = safeTarget(item.dailyRent, groupMed * item.dailyProductivity);
+        push({ itemId: item.id, category: "unit_optimization", severity: "medium", title: "توحيد منطق تكلفة البنود المشابهة", rationale: `بنود تبدأ بنفس الوصف لها وسيط تكلفة ${groupMed.toFixed(2)} ${currency}. راجع الوحدة/المعادلة لهذا البند.`, suggestedRent, estimatedSavingPct: pctSaving(item.costPerUnit, suggestedRent ? suggestedRent / item.dailyProductivity : undefined) });
+      }
+    }
+
+    if (nameCounts.get(normalizeName(item.name))! > 1) {
+      push({ itemId: item.id, category: "scope", severity: "low", title: "دمج أو تمييز بند مكرر", rationale: "يوجد أكثر من بند بنفس الاسم؛ ميّز نطاق كل بند أو ادمجها لمنع تكرار التكلفة." });
+    }
+
+    if (costMed > 0 && item.costPerUnit > 0 && item.costPerUnit < costMed * 0.35) {
+      push({ itemId: item.id, category: "quality", severity: "low", title: "مراجعة جودة/نطاق السعر المنخفض", rationale: "السعر أقل بكثير من الوسيط؛ تحقق من أن المواصفة، النقل، الاختبارات، والهامش مشمولة." });
+    }
+
+    if (topIds.has(item.id) && items.length >= 3) {
+      push({ itemId: item.id, category: "bulk_discount", severity: "medium", title: "تجميع الكميات للحصول على خصم", rationale: "هذا البند ضمن أعلى البنود أثراً؛ اطلب تسعير كمية/مدة مجمّعة بدلاً من سعر يومي منفصل.", estimatedSavingPct: 5 });
+    }
+
+    if (hasAny(item.name, ["خرسانة", "concrete", "حديد", "rebar", "بلاط", "سيراميك", "tiles", "أسفلت", "asphalt"]) && (costMed === 0 || item.costPerUnit >= costMed)) {
+      push({ itemId: item.id, category: "material_alternative", severity: "low", title: "فحص بديل مادة أو مواصفة مكافئة", rationale: "البند قابل غالباً للمقارنة بين مواصفات/مصادر مختلفة؛ اطلب بدائل معتمدة فنياً قبل تثبيت السعر.", estimatedSavingPct: 3 });
+    }
+
+    if (prodMed > 0 && rentMed > 0 && item.dailyProductivity > 0 && item.dailyProductivity < prodMed * 0.7 && item.dailyRent > rentMed) {
+      const suggestedProductivity = safeTarget(item.dailyProductivity, prodMed);
+      push({ itemId: item.id, category: "schedule", severity: "medium", title: "تقليل أثر مدة التنفيذ على الإيجار", rationale: "إنتاجية منخفضة مع إيجار أعلى من الوسيط؛ تحسين الجدولة أو مضاعفة الموارد قد يخفض أيام الإيجار.", suggestedProductivity, estimatedSavingPct: pctSaving(item.costPerUnit, item.dailyRent / (suggestedProductivity || item.dailyProductivity)) });
+    }
+  });
+
+  if (wastePct > 12) {
+    topByCost.forEach((item) => push({ itemId: item.id, category: "waste", severity: wastePct > 18 ? "high" : "medium", title: "خفض افتراض الهالك على البنود الأعلى أثراً", rationale: `الهالك الحالي ${wastePct}%. راجع القص/النقل/التخزين لهذا البند لأنه من الأعلى أثراً على الإجمالي.`, estimatedSavingPct: round2(Math.max(1, wastePct - 10)) }));
+  }
+
+  if (adminPct > 18 && topByCost[0]) {
+    push({ itemId: topByCost[0].id, category: "contract_terms", severity: adminPct > 25 ? "high" : "medium", title: "مراجعة الإدارية والهامش قبل الاعتماد", rationale: `نسبة الإدارية/الهامش ${adminPct}%؛ اربطها بشروط الدفع والضمان والاحتجاز لتجنب تضخيم العرض.`, estimatedSavingPct: round2(Math.max(1, adminPct - 15)) });
+  }
+
+  if (items.length >= 6 && topByCost[0]) {
+    push({ itemId: topByCost[0].id, category: "cash_flow", severity: "low", title: "ربط البند الأعلى أثراً بخطة الدفع", rationale: "رتّب دفعات المورد أو المعدة حسب تقدم التنفيذ حتى لا يضغط البند الأكبر على التدفق النقدي." });
+  }
+
+  return mergeSuggestions(out).slice(0, 48);
 }
 
 export function AiCostAdvisorPanel({
@@ -146,6 +309,7 @@ export function AiCostAdvisorPanel({
       toast.error("لا توجد بنود لتحليلها");
       return;
     }
+    const deterministic = buildDeterministicSuggestions(items, wastePct, adminPct, currency);
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("cost-optimizer-ai", {
@@ -154,9 +318,8 @@ export function AiCostAdvisorPanel({
       if (error) throw error;
       if (data?.error) {
         toast.error(data.error);
-        return;
       }
-      const list: AiSuggestion[] = data?.suggestions ?? [];
+      const list: AiSuggestion[] = mergeSuggestions([...(data?.suggestions ?? []), ...deterministic]);
       if (list.length === 0) {
         toast.info("لم تُرجع المهمة أي اقتراحات");
         return;
@@ -173,7 +336,18 @@ export function AiCostAdvisorPanel({
       toast.success(`تم استلام ${list.length} اقتراح`);
     } catch (e) {
       console.error(e);
-      toast.error("فشل توليد الاقتراحات");
+      if (deterministic.length > 0) {
+        const existingMap = new Map(stored.map((s) => [s.id, s]));
+        const merged: Stored[] = deterministic.map((s) => {
+          const id = makeId(s);
+          const prev = existingMap.get(id);
+          return prev ? { ...prev, s } : { id, s, decision: "pending" as Decision };
+        });
+        persist([...merged, ...stored.filter((s) => s.decision !== "pending")]);
+        toast.success(`تم توليد ${deterministic.length} اقتراح محلياً`);
+      } else {
+        toast.error("فشل توليد الاقتراحات");
+      }
     } finally {
       setLoading(false);
     }

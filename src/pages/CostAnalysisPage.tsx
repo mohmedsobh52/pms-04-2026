@@ -1368,6 +1368,11 @@ export default function CostAnalysisPage() {
                           ? { dailyProductivity: patch.dailyProductivity }
                           : {}),
                         ...(patch.dailyRent !== undefined ? { dailyRent: patch.dailyRent } : {}),
+                        costPerUnit:
+                          (patch.dailyProductivity ?? it.dailyProductivity) > 0
+                            ? (patch.dailyRent ?? it.dailyRent) /
+                              (patch.dailyProductivity ?? it.dailyProductivity)
+                            : 0,
                       }
                     : it,
                 ),
@@ -1398,6 +1403,8 @@ export default function CostAnalysisPage() {
             dailyProductivity: i.dailyProductivity,
             dailyRent: i.dailyRent,
             costPerUnit: i.costPerUnit,
+            aiSuggestedProductivity: i.aiSuggestedProductivity,
+            aiSuggestedRent: i.aiSuggestedRent,
           }))}
           wastePct={wastePercentage}
           adminPct={adminPercentage}
@@ -1416,6 +1423,7 @@ export default function CostAnalysisPage() {
             aiSuggestedRent: i.aiSuggestedRent,
           }))}
           currency={currency}
+          onFocusItem={(id) => setDetailsItemId(id)}
         />
 
         {/* Phase 7: Suppliers · Templates · Import · Reports */}
@@ -1492,6 +1500,11 @@ export default function CostAnalysisPage() {
                       ...(patch.dailyRent !== undefined
                         ? { dailyRent: patch.dailyRent }
                         : {}),
+                      costPerUnit:
+                        (patch.dailyProductivity ?? it.dailyProductivity) > 0
+                          ? (patch.dailyRent ?? it.dailyRent) /
+                            (patch.dailyProductivity ?? it.dailyProductivity)
+                          : 0,
                     }
                   : it,
               ),
