@@ -18,7 +18,18 @@ interface InItem {
 
 interface OutSuggestion {
   itemId: string;
-  category: "productivity" | "rent" | "waste" | "scope" | "risk" | "other";
+  category:
+    | "productivity"
+    | "rent"
+    | "waste"
+    | "scope"
+    | "risk"
+    | "pricing_source"
+    | "quantity"
+    | "supplier"
+    | "schedule"
+    | "quality"
+    | "other";
   severity: "low" | "medium" | "high";
   title: string;
   rationale: string;
