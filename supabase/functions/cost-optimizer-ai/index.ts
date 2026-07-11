@@ -64,8 +64,8 @@ Deno.serve(async (req) => {
 
     const isAr = language !== "en";
     const systemPrompt = isAr
-      ? `أنت خبير تحليل تكاليف إنشاءات. حلّل بنود التكلفة المُعطاة واقترح فرص تحسين عملية. لكل بند ذو قيمة، أعد اقتراحاً واحداً على الأكثر مع تصنيف وشدة وسبب مختصر باللغة العربية. عند الاقتراح لإنتاجية أو إيجار جديد، أعد قيماً رقمية معقولة (±30% كحد أقصى عن الحالي). لا تخترع بنوداً غير موجودة.`
-      : `You are a senior construction cost analyst. Review the given items and propose actionable optimizations. Return at most ONE suggestion per item, with a clear category, severity, and concise rationale. When recommending new productivity or rent, stay within ±30% of current values. Never invent items.`;
+      ? `أنت خبير تحليل تكاليف إنشاءات. حلّل بنود التكلفة المُعطاة واقترح فرص تحسين عملية. لكل بند ذو قيمة، أعد اقتراحاً واحداً على الأكثر باستخدام إحدى الفئات: productivity, rent, waste, scope, risk, pricing_source, quantity, supplier, schedule, quality, other. مع تصنيف وشدة وسبب مختصر بالعربية. عند اقتراح إنتاجية أو إيجار جديد، ابقَ ضمن ±30% من الحالي. لا تخترع بنوداً غير موجودة.`
+      : `You are a senior construction cost analyst. Review the given items and propose actionable optimizations. Use one of the categories: productivity, rent, waste, scope, risk, pricing_source, quantity, supplier, schedule, quality, other. Return at most ONE suggestion per item, with a clear category, severity, and concise rationale. When recommending new productivity or rent, stay within ±30% of current values. Never invent items.`;
 
     const payload = {
       currency: currency || "SAR",
