@@ -1424,6 +1424,19 @@ export default function CostAnalysisPage() {
           }))}
           currency={currency}
           onFocusItem={(id) => setDetailsItemId(id)}
+          onApply={(rowId, patch) => {
+            setItems((prev) =>
+              prev.map((it) => {
+                if (it.id !== rowId) return it;
+                const next = { ...it, ...patch };
+                if (patch.dailyProductivity !== undefined || patch.dailyRent !== undefined) {
+                  next.costPerUnit =
+                    next.dailyProductivity > 0 ? next.dailyRent / next.dailyProductivity : 0;
+                }
+                return next;
+              }),
+            );
+          }}
         />
 
         {/* Phase 7: Suppliers · Templates · Import · Reports */}

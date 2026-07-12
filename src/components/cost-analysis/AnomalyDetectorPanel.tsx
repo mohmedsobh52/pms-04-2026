@@ -11,8 +11,13 @@ import {
   Info,
   EyeOff,
   Eye,
+  Download,
+  Wand2,
+  RotateCcw,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
+
 
 interface Item {
   id: string;
@@ -270,12 +275,17 @@ interface Props {
   items: Item[];
   currency: string;
   onFocusItem?: (id: string) => void;
+  onApply?: (
+    id: string,
+    patch: Partial<{ dailyProductivity: number; dailyRent: number; costPerUnit: number }>,
+  ) => void;
 }
 
-export function AnomalyDetectorPanel({ items, currency, onFocusItem }: Props) {
+export function AnomalyDetectorPanel({ items, currency, onFocusItem, onApply }: Props) {
   const [dismissed, setDismissed] = useState<Set<string>>(loadDismissed);
   const [showDismissed, setShowDismissed] = useState(false);
   const [severityFilter, setSeverityFilter] = useState<Severity | "all">("all");
+
 
   const persist = (next: Set<string>) => {
     setDismissed(new Set(next));
@@ -313,6 +323,118 @@ export function AnomalyDetectorPanel({ items, currency, onFocusItem }: Props) {
     next.delete(id);
     persist(next);
   };
+
+  const dismissAllVisible = () => {
+    const next = new Set(dismissed);
+    visible.forEach((a) => next.add(a.id));
+    persist(next);
+    toast.success(`تم تجاهل ${visible.length} حالة`);
+  };
+
+  const restoreAll = () => {
+    persist(new Set());
+    toast.success("تم استعادة كل الحالات");
+  };
+
+  const itemsById = useMemo(() => {
+    const m = new Map<string, Item>();
+    items.forEach((i) => m.set(i.id, i));
+    return m;
+  }, [items]);
+
+  const medians = useMemo(() => {
+    return {
+      cost: median(items.map((i) => i.costPerUnit).filter((v) => v > 0)),
+      prod: median(items.map((i) => i.dailyProductivity).filter((v) => v > 0)),
+      rent: median(items.map((i) => i.dailyRent).filter((v) => v > 0)),
+    };
+  }, [items]);
+
+  const quickFix = (a: Anomaly) => {
+    if (!onApply) return;
+    const it = itemsById.get(a.itemId);
+    if (!it) return;
+    switch (a.kind) {
+      case "zero_productivity":
+      case "productivity_outlier_low":
+      case "productivity_outlier_high":
+        if (it.aiSuggestedProductivity && it.aiSuggestedProductivity > 0) {
+          onApply(it.id, { dailyProductivity: it.aiSuggestedProductivity });
+        } else if (medians.prod > 0) {
+          onApply(it.id, { dailyProductivity: Number(medians.prod.toFixed(2)) });
+        }
+        break;
+      case "zero_rent":
+      case "rent_outlier_low":
+      case "rent_outlier_high":
+        if (it.aiSuggestedRent && it.aiSuggestedRent > 0) {
+          onApply(it.id, { dailyRent: it.aiSuggestedRent });
+        } else if (medians.rent > 0) {
+          onApply(it.id, { dailyRent: Number(medians.rent.toFixed(2)) });
+        }
+        break;
+      case "cost_formula_mismatch":
+        if (it.dailyProductivity > 0) {
+          onApply(it.id, {
+            costPerUnit: Number((it.dailyRent / it.dailyProductivity).toFixed(2)),
+          });
+        }
+        break;
+      case "negative_value":
+        onApply(it.id, {
+          dailyProductivity: Math.max(0, it.dailyProductivity),
+          dailyRent: Math.max(0, it.dailyRent),
+          costPerUnit: Math.max(0, it.costPerUnit),
+        });
+        break;
+      case "large_ai_gap_prod":
+        if (it.aiSuggestedProductivity)
+          onApply(it.id, { dailyProductivity: it.aiSuggestedProductivity });
+        break;
+      case "large_ai_gap_rent":
+        if (it.aiSuggestedRent) onApply(it.id, { dailyRent: it.aiSuggestedRent });
+        break;
+      default:
+        toast.info("لا يوجد إصلاح تلقائي لهذه الحالة");
+        return;
+    }
+    toast.success("تم تطبيق الإصلاح");
+  };
+
+  const canQuickFix = (a: Anomaly) => {
+    if (!onApply) return false;
+    return [
+      "zero_productivity",
+      "zero_rent",
+      "productivity_outlier_low",
+      "productivity_outlier_high",
+      "rent_outlier_low",
+      "rent_outlier_high",
+      "cost_formula_mismatch",
+      "negative_value",
+      "large_ai_gap_prod",
+      "large_ai_gap_rent",
+    ].includes(a.kind);
+  };
+
+  const exportCsv = () => {
+    const header = ["item", "kind", "severity", "message", "value", "reference"];
+    const rows = visible.map((a) =>
+      [a.itemName, KIND_LABEL[a.kind], a.severity, a.message, a.value ?? "", a.reference ?? ""]
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+        .join(","),
+    );
+    const csv = "\uFEFF" + [header.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `anomalies-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("تم تصدير ملف CSV");
+  };
+
 
   return (
     <Card className="mb-6">
@@ -365,7 +487,37 @@ export function AnomalyDetectorPanel({ items, currency, onFocusItem }: Props) {
                 </>
               )}
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1"
+              onClick={exportCsv}
+              disabled={visible.length === 0}
+            >
+              <Download className="w-3 h-3" /> تصدير CSV
+            </Button>
+            {visible.length > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 gap-1 text-muted-foreground"
+                onClick={dismissAllVisible}
+              >
+                <EyeOff className="w-3 h-3" /> تجاهل الكل
+              </Button>
+            )}
+            {dismissed.size > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 gap-1 text-muted-foreground"
+                onClick={restoreAll}
+              >
+                <RotateCcw className="w-3 h-3" /> استعادة الكل
+              </Button>
+            )}
           </div>
+
         </div>
       </CardHeader>
       <CardContent>
@@ -428,6 +580,17 @@ export function AnomalyDetectorPanel({ items, currency, onFocusItem }: Props) {
                             فحص
                           </Button>
                         )}
+                        {!isDismissed && canQuickFix(a) && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="h-6 px-2 text-[10px] gap-1"
+                            onClick={() => quickFix(a)}
+                          >
+                            <Wand2 className="w-3 h-3" /> إصلاح
+                          </Button>
+                        )}
+
                         {isDismissed ? (
                           <Button
                             size="sm"
