@@ -487,7 +487,37 @@ export function AnomalyDetectorPanel({ items, currency, onFocusItem, onApply }: 
                 </>
               )}
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1"
+              onClick={exportCsv}
+              disabled={visible.length === 0}
+            >
+              <Download className="w-3 h-3" /> تصدير CSV
+            </Button>
+            {visible.length > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 gap-1 text-muted-foreground"
+                onClick={dismissAllVisible}
+              >
+                <EyeOff className="w-3 h-3" /> تجاهل الكل
+              </Button>
+            )}
+            {dismissed.size > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 gap-1 text-muted-foreground"
+                onClick={restoreAll}
+              >
+                <RotateCcw className="w-3 h-3" /> استعادة الكل
+              </Button>
+            )}
           </div>
+
         </div>
       </CardHeader>
       <CardContent>
