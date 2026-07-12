@@ -580,6 +580,17 @@ export function AnomalyDetectorPanel({ items, currency, onFocusItem, onApply }: 
                             فحص
                           </Button>
                         )}
+                        {!isDismissed && canQuickFix(a) && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="h-6 px-2 text-[10px] gap-1"
+                            onClick={() => quickFix(a)}
+                          >
+                            <Wand2 className="w-3 h-3" /> إصلاح
+                          </Button>
+                        )}
+
                         {isDismissed ? (
                           <Button
                             size="sm"
