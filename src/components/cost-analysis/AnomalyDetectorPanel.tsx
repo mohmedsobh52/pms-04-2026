@@ -275,12 +275,17 @@ interface Props {
   items: Item[];
   currency: string;
   onFocusItem?: (id: string) => void;
+  onApply?: (
+    id: string,
+    patch: Partial<{ dailyProductivity: number; dailyRent: number; costPerUnit: number }>,
+  ) => void;
 }
 
-export function AnomalyDetectorPanel({ items, currency, onFocusItem }: Props) {
+export function AnomalyDetectorPanel({ items, currency, onFocusItem, onApply }: Props) {
   const [dismissed, setDismissed] = useState<Set<string>>(loadDismissed);
   const [showDismissed, setShowDismissed] = useState(false);
   const [severityFilter, setSeverityFilter] = useState<Severity | "all">("all");
+
 
   const persist = (next: Set<string>) => {
     setDismissed(new Set(next));
