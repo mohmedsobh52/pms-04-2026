@@ -1375,6 +1375,7 @@ export default function CostAnalysisPage() {
         </div>
 
         {/* Phase 4: Sensitivity & Scenarios */}
+        <div id="section-sensitivity" className="scroll-mt-32" />
         <SensitivityScenarios
           items={items.map((i) => ({
             name: i.name,
@@ -1388,7 +1389,8 @@ export default function CostAnalysisPage() {
           currency={currency}
         />
 
-        {/* Proactive system tips */}
+        {/* Proactive system tips + Anomalies */}
+        <div id="section-anomalies" className="scroll-mt-32" />
         <SystemTipsPanel
           items={items.map((i) => ({
             id: i.id,
@@ -1431,6 +1433,23 @@ export default function CostAnalysisPage() {
             );
           }}
         />
+
+        {/* Integrations Hub — link with the rest of the program */}
+        <div id="section-integrations" className="scroll-mt-32 rounded-2xl bg-card border border-border shadow-sm p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="w-1.5 h-6 bg-accent rounded-full" />
+            <Link2 className="w-5 h-5 text-primary" />
+            <div>
+              <h2 className="text-base font-bold">الربط والتقارير</h2>
+              <p className="text-[11px] text-muted-foreground">
+                ربط تحليل التكاليف مع BOQ ومكتبة الأسعار والموردين والعقود والتقارير.
+              </p>
+            </div>
+          </div>
+          <IntegrationsHub />
+        </div>
+
+
 
         {/* Phase 7: Suppliers · Templates · Import · Reports */}
         <Phase7ToolsPanel
