@@ -1266,11 +1266,9 @@ export default function CostAnalysisPage() {
 
       {/* Project info bar + extended KPIs (Phase 1) */}
       <div id="section-overview" className="scroll-mt-32 space-y-4">
-        <ProjectInfoBar onChange={setMeta} />
-
-
         {/* Project info bar + extended KPIs (Phase 1) */}
         <ProjectInfoBar onChange={setMeta} />
+
         <CostKpiGrid
           totals={deriveTotals(
             items.map((i) => ({
