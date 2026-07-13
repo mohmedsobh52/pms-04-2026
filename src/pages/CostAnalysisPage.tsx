@@ -1496,12 +1496,14 @@ export default function CostAnalysisPage() {
         />
 
         {/* Phase 8: Approval workflow, comments, permissions, activity */}
+        <div id="section-collab" className="scroll-mt-32" />
         <Phase8CollaborationPanel
           analysisKey={meta?.projectName || "default"}
           projectId={null}
         />
 
         {/* Phase 5: AI Advisor with approval workflow */}
+        <div id="section-suggestions" className="scroll-mt-32" />
         <AiCostAdvisorPanel
           items={items.map((i) => ({
             id: i.id,
@@ -1537,6 +1539,7 @@ export default function CostAnalysisPage() {
           }}
         />
 
+        <div id="section-versions" className="scroll-mt-32" />
         <CostVersionsPanel
           items={items as unknown as Parameters<typeof CostVersionsPanel>[0]["items"]}
           wastePercentage={wastePercentage}
@@ -1550,14 +1553,8 @@ export default function CostAnalysisPage() {
           }}
         />
 
+        <div id="section-table" className="scroll-mt-32 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-
-
-
-
-
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Table - 2/3 width */}
           <div className="lg:col-span-2 space-y-4">
             {/* Template Management */}
