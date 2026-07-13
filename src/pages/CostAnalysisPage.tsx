@@ -1255,30 +1255,19 @@ export default function CostAnalysisPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card border-b sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Calculator className="w-6 h-6 text-primary" />
-              <h1 className="text-xl font-bold">تحليل تكاليف البنود</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <Link to="/">
-                <Button variant="outline" size="sm" className="gap-1">
-                  <ArrowRight className="w-4 h-4" />
-                  العودة للرئيسية
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
+    <CostAnalysisShell
+      title="تحليل تكاليف البنود"
+      subtitle={meta?.projectName ? `مشروع: ${meta.projectName}` : "محرك تحليل ذكي متكامل"}
+      currency={currency}
+    >
+      <div className="hidden">
+        <ColorLegend type="category" isArabic={false} />
+      </div>
 
-      <main className="container mx-auto px-4 py-6">
-        <ColorLegend type="category" isArabic={false} className="mb-4" />
+      {/* Project info bar + extended KPIs (Phase 1) */}
+      <div id="section-overview" className="scroll-mt-32 space-y-4">
+        <ProjectInfoBar onChange={setMeta} />
+
 
         {/* Project info bar + extended KPIs (Phase 1) */}
         <ProjectInfoBar onChange={setMeta} />
