@@ -2254,6 +2254,7 @@ export default function CostAnalysisPage() {
         costPerUnit={detailsItem?.costPerUnit ?? 0}
         currency={currency}
       />
-    </div>
+    </CostAnalysisShell>
+
   );
 }
