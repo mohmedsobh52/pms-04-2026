@@ -2244,7 +2244,7 @@ export default function CostAnalysisPage() {
             </Card>
           </div>
         </div>
-      </main>
+      
 
       <ItemDetailsDrawer
         open={detailsItemId !== null}
