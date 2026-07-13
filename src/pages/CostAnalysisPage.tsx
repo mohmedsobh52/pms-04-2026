@@ -1339,7 +1339,8 @@ export default function CostAnalysisPage() {
       {/* /section-overview */}
 
       {/* Smart Cost Engine */}
-      <div id="section-engine" className="scroll-mt-32">
+      <div id="section-engine" className="scroll-mt-32 mb-6">
+
 
           <SmartCostEnginePanel
             pageRows={items.map((i) => ({
