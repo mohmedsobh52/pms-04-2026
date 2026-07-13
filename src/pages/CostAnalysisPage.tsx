@@ -69,6 +69,10 @@ import {
 } from "@/components/cost-analysis/CostColumnVisibility";
 import { Checkbox } from "@/components/ui/checkbox";
 import { deriveTotals } from "@/lib/cost-analysis/derive-totals";
+import { CostAnalysisShell } from "@/components/cost-analysis/CostAnalysisShell";
+import { IntegrationsHub } from "@/components/cost-analysis/IntegrationsHub";
+
+
 
 
 interface CostItem {
