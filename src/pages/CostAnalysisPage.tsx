@@ -1335,11 +1335,12 @@ export default function CostAnalysisPage() {
             </CardContent>
           </Card>
         </div>
+      </div>
+      {/* /section-overview */}
 
+      {/* Smart Cost Engine */}
+      <div id="section-engine" className="scroll-mt-32">
 
-
-        {/* Smart Cost Engine */}
-        <div className="mb-6">
           <SmartCostEnginePanel
             pageRows={items.map((i) => ({
               id: i.id,
