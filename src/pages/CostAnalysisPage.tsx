@@ -69,6 +69,10 @@ import {
 } from "@/components/cost-analysis/CostColumnVisibility";
 import { Checkbox } from "@/components/ui/checkbox";
 import { deriveTotals } from "@/lib/cost-analysis/derive-totals";
+import { CostAnalysisShell } from "@/components/cost-analysis/CostAnalysisShell";
+import { IntegrationsHub } from "@/components/cost-analysis/IntegrationsHub";
+
+
 
 
 interface CostItem {
@@ -1251,33 +1255,20 @@ export default function CostAnalysisPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card border-b sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Calculator className="w-6 h-6 text-primary" />
-              <h1 className="text-xl font-bold">تحليل تكاليف البنود</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <Link to="/">
-                <Button variant="outline" size="sm" className="gap-1">
-                  <ArrowRight className="w-4 h-4" />
-                  العودة للرئيسية
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
+    <CostAnalysisShell
+      title="تحليل تكاليف البنود"
+      subtitle={meta?.projectName ? `مشروع: ${meta.projectName}` : "محرك تحليل ذكي متكامل"}
+      currency={currency}
+    >
+      <div className="hidden">
+        <ColorLegend type="category" isArabic={false} />
+      </div>
 
-      <main className="container mx-auto px-4 py-6">
-        <ColorLegend type="category" isArabic={false} className="mb-4" />
-
+      {/* Project info bar + extended KPIs (Phase 1) */}
+      <div id="section-overview" className="scroll-mt-32 space-y-4">
         {/* Project info bar + extended KPIs (Phase 1) */}
         <ProjectInfoBar onChange={setMeta} />
+
         <CostKpiGrid
           totals={deriveTotals(
             items.map((i) => ({
@@ -1344,11 +1335,13 @@ export default function CostAnalysisPage() {
             </CardContent>
           </Card>
         </div>
+      </div>
+      {/* /section-overview */}
+
+      {/* Smart Cost Engine */}
+      <div id="section-engine" className="scroll-mt-32 mb-6">
 
 
-
-        {/* Smart Cost Engine */}
-        <div className="mb-6">
           <SmartCostEnginePanel
             pageRows={items.map((i) => ({
               id: i.id,
@@ -1382,6 +1375,7 @@ export default function CostAnalysisPage() {
         </div>
 
         {/* Phase 4: Sensitivity & Scenarios */}
+        <div id="section-sensitivity" className="scroll-mt-32" />
         <SensitivityScenarios
           items={items.map((i) => ({
             name: i.name,
@@ -1395,7 +1389,8 @@ export default function CostAnalysisPage() {
           currency={currency}
         />
 
-        {/* Proactive system tips */}
+        {/* Proactive system tips + Anomalies */}
+        <div id="section-anomalies" className="scroll-mt-32" />
         <SystemTipsPanel
           items={items.map((i) => ({
             id: i.id,
@@ -1438,6 +1433,23 @@ export default function CostAnalysisPage() {
             );
           }}
         />
+
+        {/* Integrations Hub — link with the rest of the program */}
+        <div id="section-integrations" className="scroll-mt-32 rounded-2xl bg-card border border-border shadow-sm p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="w-1.5 h-6 bg-accent rounded-full" />
+            <Link2 className="w-5 h-5 text-primary" />
+            <div>
+              <h2 className="text-base font-bold">الربط والتقارير</h2>
+              <p className="text-[11px] text-muted-foreground">
+                ربط تحليل التكاليف مع BOQ ومكتبة الأسعار والموردين والعقود والتقارير.
+              </p>
+            </div>
+          </div>
+          <IntegrationsHub />
+        </div>
+
+
 
         {/* Phase 7: Suppliers · Templates · Import · Reports */}
         <Phase7ToolsPanel
@@ -1484,12 +1496,14 @@ export default function CostAnalysisPage() {
         />
 
         {/* Phase 8: Approval workflow, comments, permissions, activity */}
+        <div id="section-collab" className="scroll-mt-32" />
         <Phase8CollaborationPanel
           analysisKey={meta?.projectName || "default"}
           projectId={null}
         />
 
         {/* Phase 5: AI Advisor with approval workflow */}
+        <div id="section-suggestions" className="scroll-mt-32" />
         <AiCostAdvisorPanel
           items={items.map((i) => ({
             id: i.id,
@@ -1525,6 +1539,7 @@ export default function CostAnalysisPage() {
           }}
         />
 
+        <div id="section-versions" className="scroll-mt-32" />
         <CostVersionsPanel
           items={items as unknown as Parameters<typeof CostVersionsPanel>[0]["items"]}
           wastePercentage={wastePercentage}
@@ -1538,14 +1553,8 @@ export default function CostAnalysisPage() {
           }}
         />
 
+        <div id="section-table" className="scroll-mt-32 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-
-
-
-
-
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Table - 2/3 width */}
           <div className="lg:col-span-2 space-y-4">
             {/* Template Management */}
@@ -2251,7 +2260,7 @@ export default function CostAnalysisPage() {
             </Card>
           </div>
         </div>
-      </main>
+      
 
       <ItemDetailsDrawer
         open={detailsItemId !== null}
@@ -2261,6 +2270,7 @@ export default function CostAnalysisPage() {
         costPerUnit={detailsItem?.costPerUnit ?? 0}
         currency={currency}
       />
-    </div>
+    </CostAnalysisShell>
+
   );
 }
