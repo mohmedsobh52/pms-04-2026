@@ -60,6 +60,7 @@ import { AnomalyDetectorPanel } from "@/components/cost-analysis/AnomalyDetector
 import { Phase7ToolsPanel } from "@/components/cost-analysis/Phase7ToolsPanel";
 import { Phase8CollaborationPanel } from "@/components/cost-analysis/Phase8CollaborationPanel";
 import { SystemTipsPanel } from "@/components/cost-analysis/SystemTipsPanel";
+import { MarketComparisonPanel } from "@/components/cost-analysis/MarketComparisonPanel";
 import { CostBulkActionsBar } from "@/components/cost-analysis/CostBulkActionsBar";
 import {
   CostColumnVisibility,
@@ -1602,6 +1603,34 @@ export default function CostAnalysisPage() {
             );
           }}
         />
+
+        {/* Market comparison against material_prices library */}
+        <div id="section-market" className="scroll-mt-32" />
+        <MarketComparisonPanel
+          items={items.map((i) => ({
+            id: i.id,
+            name: i.name,
+            costPerUnit: i.costPerUnit,
+            dailyProductivity: i.dailyProductivity,
+            dailyRent: i.dailyRent,
+          }))}
+          currency={currency}
+          onApplyMarketPrice={(rowId, newRent) => {
+            setItems((prev) =>
+              prev.map((it) =>
+                it.id === rowId
+                  ? {
+                      ...it,
+                      dailyRent: newRent,
+                      costPerUnit:
+                        it.dailyProductivity > 0 ? newRent / it.dailyProductivity : it.costPerUnit,
+                    }
+                  : it,
+              ),
+            );
+          }}
+        />
+
 
         <div id="section-versions" className="scroll-mt-32" />
         <CostVersionsPanel

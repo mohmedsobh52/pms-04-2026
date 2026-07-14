@@ -13,6 +13,7 @@ import {
   ArrowRight,
   ChevronsLeft,
   ChevronsRight,
+  LineChart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -43,6 +44,7 @@ const SECTIONS: NavSection[] = [
   { id: "section-overview", label: "نظرة عامة", icon: LayoutGrid },
   { id: "section-engine", label: "محرك التحليل الذكي", icon: Cpu },
   { id: "section-suggestions", label: "الاقتراحات (AI)", icon: Sparkles },
+  { id: "section-market", label: "المقارنة مع السوق", icon: LineChart },
   { id: "section-sensitivity", label: "تحليل الحساسية", icon: Lightbulb },
   { id: "section-anomalies", label: "كاشف الشذوذ", icon: AlertTriangle },
   { id: "section-table", label: "جدول البنود", icon: TableIcon },
