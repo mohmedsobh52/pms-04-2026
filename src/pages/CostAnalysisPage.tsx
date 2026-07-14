@@ -1604,6 +1604,34 @@ export default function CostAnalysisPage() {
           }}
         />
 
+        {/* Market comparison against material_prices library */}
+        <div id="section-market" className="scroll-mt-32" />
+        <MarketComparisonPanel
+          items={items.map((i) => ({
+            id: i.id,
+            name: i.name,
+            costPerUnit: i.costPerUnit,
+            dailyProductivity: i.dailyProductivity,
+            dailyRent: i.dailyRent,
+          }))}
+          currency={currency}
+          onApplyMarketPrice={(rowId, newRent) => {
+            setItems((prev) =>
+              prev.map((it) =>
+                it.id === rowId
+                  ? {
+                      ...it,
+                      dailyRent: newRent,
+                      costPerUnit:
+                        it.dailyProductivity > 0 ? newRent / it.dailyProductivity : it.costPerUnit,
+                    }
+                  : it,
+              ),
+            );
+          }}
+        />
+
+
         <div id="section-versions" className="scroll-mt-32" />
         <CostVersionsPanel
           items={items as unknown as Parameters<typeof CostVersionsPanel>[0]["items"]}
