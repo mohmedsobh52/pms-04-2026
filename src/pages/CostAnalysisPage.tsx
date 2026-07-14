@@ -1446,7 +1446,71 @@ export default function CostAnalysisPage() {
               </p>
             </div>
           </div>
-          <IntegrationsHub />
+          <IntegrationsHub
+            itemCount={items.length}
+            grandTotal={items.reduce((s, it) => s + (it.costPerUnit || 0), 0)}
+            currency={currency}
+            onExportExcel={exportToExcel}
+            onExportPdf={exportToPDF}
+            onImportBoq={() => {
+              const input = document.createElement("input");
+              input.type = "file";
+              input.accept = ".xlsx,.xls,.pdf";
+              input.onchange = (e) => handleFileImport(e as unknown as React.ChangeEvent<HTMLInputElement>);
+              input.click();
+            }}
+            onSyncPrices={() => {
+              try {
+                const exportData = {
+                  items: items.map((it) => ({
+                    name: it.name,
+                    unit_price: it.costPerUnit,
+                    productivity: it.dailyProductivity,
+                    daily_rent: it.dailyRent,
+                  })),
+                  currency,
+                  savedAt: new Date().toISOString(),
+                };
+                localStorage.setItem(COST_ANALYSIS_EXPORT_KEY, JSON.stringify(exportData));
+                toast.success("تم تحضير البنود للربط مع مكتبة الأسعار");
+              } catch {
+                toast.error("تعذر تحضير البيانات");
+              }
+            }}
+            onSendToContracts={() => {
+              try {
+                const baseline = {
+                  items: items.map((it) => ({
+                    name: it.name,
+                    unit_price: it.costPerUnit,
+                  })),
+                  currency,
+                  createdAt: new Date().toISOString(),
+                  source: "cost-analysis",
+                };
+                localStorage.setItem("cost_control_baseline_pending", JSON.stringify(baseline));
+                toast.success("تم تجهيز خط الأساس للترحيل إلى مراقبة التكلفة");
+              } catch {
+                toast.error("تعذر تجهيز خط الأساس");
+              }
+            }}
+            onSendToSuppliers={() => {
+              try {
+                localStorage.setItem(
+                  "suppliers_rfq_pending",
+                  JSON.stringify({
+                    items: items.map((it) => ({ name: it.name, unit_price: it.costPerUnit })),
+                    currency,
+                    createdAt: new Date().toISOString(),
+                  }),
+                );
+                toast.success("تم إرسال البنود لطلب عروض من الموردين");
+              } catch {
+                toast.error("تعذر الإرسال");
+              }
+            }}
+          />
+
         </div>
 
 
