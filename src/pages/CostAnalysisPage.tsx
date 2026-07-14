@@ -60,6 +60,7 @@ import { AnomalyDetectorPanel } from "@/components/cost-analysis/AnomalyDetector
 import { Phase7ToolsPanel } from "@/components/cost-analysis/Phase7ToolsPanel";
 import { Phase8CollaborationPanel } from "@/components/cost-analysis/Phase8CollaborationPanel";
 import { SystemTipsPanel } from "@/components/cost-analysis/SystemTipsPanel";
+import { MarketComparisonPanel } from "@/components/cost-analysis/MarketComparisonPanel";
 import { CostBulkActionsBar } from "@/components/cost-analysis/CostBulkActionsBar";
 import {
   CostColumnVisibility,
