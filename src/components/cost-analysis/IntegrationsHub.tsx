@@ -68,9 +68,18 @@ export function IntegrationsHub({
       desc: "حدّث تكاليف الاعتماد من مكتبتك وأسعار السوق التاريخية.",
       icon: Database,
       tone: "info",
-      href: "/reference-prices",
-      cta: "مكتبة الأسعار",
+      href: "/historical-pricing",
+      cta: "الأسعار التاريخية",
       onClick: onSyncPrices,
+    },
+    {
+      key: "material-prices",
+      title: "مكتبة أسعار المواد",
+      desc: "حدّث تكاليف المواد من مكتبة الأسعار المرجعية.",
+      icon: Database,
+      tone: "info",
+      href: "/material-prices",
+      cta: "أسعار المواد",
     },
     {
       key: "suppliers",
@@ -78,8 +87,8 @@ export function IntegrationsHub({
       desc: "أرسل البنود المحدّدة لطلب عروض من الموردين واختيار الأنسب.",
       icon: Truck,
       tone: "accent",
-      href: "/suppliers",
-      cta: "الموردون",
+      href: "/procurement",
+      cta: "المشتريات والموردون",
       onClick: onSendToSuppliers,
     },
     {
@@ -88,8 +97,8 @@ export function IntegrationsHub({
       desc: "استخدم التكاليف كخط أساس (Baseline) للعقود ومستخلصات المشروع.",
       icon: Wallet,
       tone: "warn",
-      href: "/cost-control",
-      cta: "مراقبة التكلفة",
+      href: "/cost-control-evm",
+      cta: "مراقبة التكلفة (EVM)",
       onClick: onSendToContracts,
     },
     {
@@ -98,18 +107,19 @@ export function IntegrationsHub({
       desc: "قوالب تقارير جاهزة (تنفيذي، تفصيلي، مقارنة) بضغطة واحدة.",
       icon: FileText,
       tone: "success",
-      href: "/reports",
-      cta: "مركز التقارير",
+      href: "/executive-summary",
+      cta: "الملخص التنفيذي",
     },
     {
       key: "boq-lib",
       title: "قوالب البنود",
-      desc: "استخدم قوالب معيارية للبنود المتكررة (سعودي BOQ / مصري).",
+      desc: "استخدم قوالب معيارية للبنود المتكررة.",
       icon: BookOpen,
       tone: "primary",
-      href: "/boq-templates",
+      href: "/templates",
       cta: "القوالب",
     },
+
   ];
 
   return (
