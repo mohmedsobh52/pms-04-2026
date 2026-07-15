@@ -1838,7 +1838,8 @@ export default function CostAnalysisPage() {
                         <SelectItem value="50">50 / صفحة</SelectItem>
                         <SelectItem value="100">100 / صفحة</SelectItem>
                         <SelectItem value="200">200 / صفحة</SelectItem>
-                        <SelectItem value="9999">الكل</SelectItem>
+                        <SelectItem value="500">500 / صفحة</SelectItem>
+                        <SelectItem value="9999">الكل (ديناميكي)</SelectItem>
                       </SelectContent>
                     </Select>
                     <CostColumnVisibility
