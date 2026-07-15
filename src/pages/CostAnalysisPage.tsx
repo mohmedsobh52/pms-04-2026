@@ -124,14 +124,14 @@ interface ColumnWidths {
 }
 
 const defaultColumnWidths: ColumnWidths = {
-  drag: 30,
-  workItem: 160,
-  productivity: 80,
-  aiProductivity: 100,
-  dailyRent: 60,
-  aiRent: 100,
-  costPerUnit: 80,
-  actions: 80,
+  drag: 40,
+  workItem: 320,
+  productivity: 110,
+  aiProductivity: 110,
+  dailyRent: 100,
+  aiRent: 110,
+  costPerUnit: 110,
+  actions: 100,
 };
 
 // Shared storage keys for linking with main analysis
@@ -629,7 +629,7 @@ export default function CostAnalysisPage() {
   }, [columnVisibility]);
   const [pageSize, setPageSize] = useState<number>(() => {
     const s = Number(localStorage.getItem("cost_analysis_page_size"));
-    return s === 25 || s === 50 || s === 100 || s === 200 ? s : 50;
+    return [25, 50, 100, 200, 500, 9999].includes(s) ? s : 9999;
   });
   useEffect(() => {
     localStorage.setItem("cost_analysis_page_size", String(pageSize));
@@ -1646,10 +1646,10 @@ export default function CostAnalysisPage() {
           }}
         />
 
-        <div id="section-table" className="scroll-mt-32 grid grid-cols-1 xl:grid-cols-4 gap-6">
+        <div id="section-table" className="scroll-mt-32 space-y-6">
 
-          {/* Main Table - 3/4 width on xl */}
-          <div className="xl:col-span-3 space-y-4 min-w-0">
+          {/* Main Table - full width */}
+          <div className="space-y-4 min-w-0">
             {/* Template Management */}
             <Card className="border-dashed border-accent/50 bg-accent/5">
               <CardContent className="pt-4">
@@ -1838,7 +1838,8 @@ export default function CostAnalysisPage() {
                         <SelectItem value="50">50 / صفحة</SelectItem>
                         <SelectItem value="100">100 / صفحة</SelectItem>
                         <SelectItem value="200">200 / صفحة</SelectItem>
-                        <SelectItem value="9999">الكل</SelectItem>
+                        <SelectItem value="500">500 / صفحة</SelectItem>
+                        <SelectItem value="9999">الكل (ديناميكي)</SelectItem>
                       </SelectContent>
                     </Select>
                     <CostColumnVisibility
@@ -2276,9 +2277,9 @@ export default function CostAnalysisPage() {
             </Card>
           </div>
 
-          {/* Chart & Export - 1/4 width, sticky on xl */}
-          <aside className="space-y-4 xl:sticky xl:top-32 xl:self-start">
-            <Card>
+          {/* Below-table row: pie chart (wide) + export/autosave */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="lg:col-span-2">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-sm">
                   <PieChartIcon className="w-4 h-4 text-primary" />
@@ -2286,15 +2287,15 @@ export default function CostAnalysisPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[280px]">
+                <div className="h-[360px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={chartData}
-                        cx="50%"
+                        cx="35%"
                         cy="50%"
-                        innerRadius={40}
-                        outerRadius={80}
+                        innerRadius={70}
+                        outerRadius={130}
                         fill="#8884d8"
                         paddingAngle={2}
                         dataKey="value"
@@ -2304,9 +2305,12 @@ export default function CostAnalysisPage() {
                         ))}
                       </Pie>
                       <Tooltip content={<CustomTooltip />} />
-                      <Legend 
+                      <Legend
+                        layout="vertical"
+                        align="right"
+                        verticalAlign="middle"
                         formatter={(value) => <span className="text-xs">{value}</span>}
-                        wrapperStyle={{ fontSize: '10px' }}
+                        wrapperStyle={{ fontSize: '12px', paddingInlineStart: 16 }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -2314,6 +2318,7 @@ export default function CostAnalysisPage() {
               </CardContent>
             </Card>
 
+            <div className="space-y-4">
             {/* Export Buttons */}
             <Card>
               <CardHeader className="pb-2">
@@ -2351,8 +2356,10 @@ export default function CostAnalysisPage() {
                 </div>
               </CardContent>
             </Card>
-          </aside>
+            </div>
+          </div>
         </div>
+
       
 
       <ItemDetailsDrawer
