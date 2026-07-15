@@ -2356,8 +2356,10 @@ export default function CostAnalysisPage() {
                 </div>
               </CardContent>
             </Card>
-          </aside>
+            </div>
+          </div>
         </div>
+
       
 
       <ItemDetailsDrawer
