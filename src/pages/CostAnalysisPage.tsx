@@ -2277,9 +2277,9 @@ export default function CostAnalysisPage() {
             </Card>
           </div>
 
-          {/* Chart & Export - 1/4 width, sticky on xl */}
-          <aside className="space-y-4 xl:sticky xl:top-32 xl:self-start">
-            <Card>
+          {/* Below-table row: pie chart (wide) + export/autosave */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="lg:col-span-2">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-sm">
                   <PieChartIcon className="w-4 h-4 text-primary" />
@@ -2287,15 +2287,15 @@ export default function CostAnalysisPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[280px]">
+                <div className="h-[360px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={chartData}
-                        cx="50%"
+                        cx="35%"
                         cy="50%"
-                        innerRadius={40}
-                        outerRadius={80}
+                        innerRadius={70}
+                        outerRadius={130}
                         fill="#8884d8"
                         paddingAngle={2}
                         dataKey="value"
@@ -2305,9 +2305,12 @@ export default function CostAnalysisPage() {
                         ))}
                       </Pie>
                       <Tooltip content={<CustomTooltip />} />
-                      <Legend 
+                      <Legend
+                        layout="vertical"
+                        align="right"
+                        verticalAlign="middle"
                         formatter={(value) => <span className="text-xs">{value}</span>}
-                        wrapperStyle={{ fontSize: '10px' }}
+                        wrapperStyle={{ fontSize: '12px', paddingInlineStart: 16 }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
