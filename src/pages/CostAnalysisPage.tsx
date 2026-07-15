@@ -2318,6 +2318,7 @@ export default function CostAnalysisPage() {
               </CardContent>
             </Card>
 
+            <div className="space-y-4">
             {/* Export Buttons */}
             <Card>
               <CardHeader className="pb-2">
