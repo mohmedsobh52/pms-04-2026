@@ -124,14 +124,14 @@ interface ColumnWidths {
 }
 
 const defaultColumnWidths: ColumnWidths = {
-  drag: 30,
-  workItem: 160,
-  productivity: 80,
-  aiProductivity: 100,
-  dailyRent: 60,
-  aiRent: 100,
-  costPerUnit: 80,
-  actions: 80,
+  drag: 40,
+  workItem: 320,
+  productivity: 110,
+  aiProductivity: 110,
+  dailyRent: 100,
+  aiRent: 110,
+  costPerUnit: 110,
+  actions: 100,
 };
 
 // Shared storage keys for linking with main analysis
