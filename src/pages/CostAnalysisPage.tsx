@@ -1646,10 +1646,10 @@ export default function CostAnalysisPage() {
           }}
         />
 
-        <div id="section-table" className="scroll-mt-32 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div id="section-table" className="scroll-mt-32 grid grid-cols-1 xl:grid-cols-4 gap-6">
 
-          {/* Main Table - 2/3 width */}
-          <div className="lg:col-span-2 space-y-4">
+          {/* Main Table - 3/4 width on xl */}
+          <div className="xl:col-span-3 space-y-4 min-w-0">
             {/* Template Management */}
             <Card className="border-dashed border-accent/50 bg-accent/5">
               <CardContent className="pt-4">
