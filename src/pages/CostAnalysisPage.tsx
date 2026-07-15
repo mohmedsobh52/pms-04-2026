@@ -2276,8 +2276,8 @@ export default function CostAnalysisPage() {
             </Card>
           </div>
 
-          {/* Chart - 1/3 width */}
-          <div className="space-y-4">
+          {/* Chart & Export - 1/4 width, sticky on xl */}
+          <aside className="space-y-4 xl:sticky xl:top-32 xl:self-start">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-sm">
