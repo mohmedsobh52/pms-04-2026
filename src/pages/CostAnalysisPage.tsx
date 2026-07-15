@@ -629,7 +629,7 @@ export default function CostAnalysisPage() {
   }, [columnVisibility]);
   const [pageSize, setPageSize] = useState<number>(() => {
     const s = Number(localStorage.getItem("cost_analysis_page_size"));
-    return s === 25 || s === 50 || s === 100 || s === 200 ? s : 50;
+    return [25, 50, 100, 200, 500, 9999].includes(s) ? s : 9999;
   });
   useEffect(() => {
     localStorage.setItem("cost_analysis_page_size", String(pageSize));
