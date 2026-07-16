@@ -910,13 +910,8 @@ export default function CostAnalysisPage() {
     return { productivity: 100, rent: 300, reason: 'تقدير عام مبدئي — يرجى المراجعة' };
   }, []);
 
-  const calculateDifference = useCallback((manual: number, ai: number | undefined): { value: number; type: 'up' | 'down' | 'same' } | null => {
-    if (!ai || ai === 0) return null;
-    if (manual === 0) return { value: 100, type: 'up' };
-    const diff = ((ai - manual) / manual) * 100;
-    if (Math.abs(diff) < 0.1) return { value: 0, type: 'same' };
-    return { value: Math.abs(diff), type: diff > 0 ? 'up' : 'down' };
-  }, []);
+
+
 
   const analyzeWithAI = useCallback(async (itemId: string, itemName: string) => {
     setItems(prev => prev.map(item =>
