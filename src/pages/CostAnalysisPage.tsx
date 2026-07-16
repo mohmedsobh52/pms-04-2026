@@ -236,7 +236,7 @@ function SortableRow({
             type="number"
             value={item.dailyProductivity || ""}
             onChange={(e) => handleItemChange(item.id, 'dailyProductivity', parseFloat(e.target.value) || 0)}
-            className="text-center h-7 w-16 mx-auto text-sm"
+            className="text-center h-7 w-24 mx-auto text-sm tabular-nums"
             placeholder="0"
           />
         </TableCell>
