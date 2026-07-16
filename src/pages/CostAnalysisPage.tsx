@@ -1239,7 +1239,16 @@ export default function CostAnalysisPage() {
     toast.success("تم تصدير PDF بنجاح");
   }, [items, calculations, wastePercentage, adminPercentage, currency, headers]);
 
-  const formatNumber = (num: number) => num.toLocaleString('ar-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const formatNumber = (num: number) => {
+    if (!Number.isFinite(num)) return "0";
+    const abs = Math.abs(num);
+    // Smart precision: keep 3 decimals for very small numbers, 2 for medium, 0 for large
+    const fractionDigits = abs === 0 ? 2 : abs < 1 ? 3 : abs < 1000 ? 2 : abs < 100000 ? 1 : 0;
+    return num.toLocaleString('ar-SA', {
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    });
+  };
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
