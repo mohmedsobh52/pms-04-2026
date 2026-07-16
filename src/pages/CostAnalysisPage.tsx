@@ -1005,8 +1005,10 @@ export default function CostAnalysisPage() {
   }, []);
 
   const calculateCostPerUnit = useCallback((dailyProductivity: number, dailyRent: number): number => {
-    if (dailyProductivity <= 0) return 0;
-    return dailyRent / dailyProductivity;
+    if (dailyProductivity <= 0 || dailyRent <= 0) return 0;
+    const raw = dailyRent / dailyProductivity;
+    // Preserve precision for small values (<1) — round to 4 decimals, otherwise 2
+    return raw < 1 ? Math.round(raw * 10000) / 10000 : Math.round(raw * 100) / 100;
   }, []);
 
   const calculations = useMemo(() => {
