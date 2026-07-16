@@ -124,14 +124,14 @@ interface ColumnWidths {
 }
 
 const defaultColumnWidths: ColumnWidths = {
-  drag: 40,
-  workItem: 320,
-  productivity: 110,
-  aiProductivity: 110,
-  dailyRent: 100,
-  aiRent: 110,
-  costPerUnit: 110,
-  actions: 100,
+  drag: 44,
+  workItem: 340,
+  productivity: 130,
+  aiProductivity: 120,
+  dailyRent: 130,
+  aiRent: 120,
+  costPerUnit: 130,
+  actions: 110,
 };
 
 // Shared storage keys for linking with main analysis
@@ -236,7 +236,7 @@ function SortableRow({
             type="number"
             value={item.dailyProductivity || ""}
             onChange={(e) => handleItemChange(item.id, 'dailyProductivity', parseFloat(e.target.value) || 0)}
-            className="text-center h-7 w-16 mx-auto text-sm"
+            className="text-center h-7 w-24 mx-auto text-sm tabular-nums"
             placeholder="0"
           />
         </TableCell>
@@ -293,7 +293,7 @@ function SortableRow({
             type="number"
             value={item.dailyRent || ""}
             onChange={(e) => handleItemChange(item.id, 'dailyRent', parseFloat(e.target.value) || 0)}
-            className="text-center h-7 w-14 mx-auto text-sm"
+            className="text-center h-7 w-24 mx-auto text-sm tabular-nums"
             placeholder="0"
           />
         </TableCell>
@@ -347,7 +347,7 @@ function SortableRow({
       )}
       {v.costPerUnit && (
         <TableCell className="text-center">
-          <Badge variant="secondary" className="font-mono text-xs px-2 py-0.5">
+          <Badge variant="secondary" className="font-mono text-xs px-2 py-0.5 tabular-nums whitespace-nowrap">
             {formatNumber(item.costPerUnit)}
           </Badge>
         </TableCell>
@@ -882,10 +882,53 @@ export default function CostAnalysisPage() {
     return { value: Math.abs(diff), type: diff > 0 ? 'up' : 'down' };
   }, []);
 
+  // Local heuristic fallback — Saudi market defaults for common excavation & site items.
+  // Guarantees a non-zero suggestion even when the AI endpoint fails or returns 0.
+  const getLocalSuggestion = useCallback((itemName: string): { productivity: number; rent: number; reason: string } => {
+    const n = (itemName || "").toLowerCase().trim();
+    const dict: Array<{ keys: string[]; productivity: number; rent: number; reason: string }> = [
+      { keys: ['بوكلين', 'حفارة', 'excavator'], productivity: 1200, rent: 1500, reason: 'حفارة متوسطة — إنتاجية عالية' },
+      { keys: ['شيول', 'لودر', 'loader'], productivity: 900, rent: 1200, reason: 'لودر — أعمال تحميل' },
+      { keys: ['بلدوزر', 'دوزر', 'bulldozer'], productivity: 700, rent: 1400, reason: 'بلدوزر — تسوية' },
+      { keys: ['قلاب', 'شاحنة', 'truck', 'دينا'], productivity: 600, rent: 800, reason: 'قلاب ترحيل داخلي' },
+      { keys: ['تربلا', 'ترحيل خارجي', 'trailer'], productivity: 75, rent: 1200, reason: 'ترحيل خارجي بتربلا' },
+      { keys: ['رص', 'دك', 'compactor', 'كباس'], productivity: 400, rent: 600, reason: 'دك وتسوية' },
+      { keys: ['حفر يدوي', 'يدوي'], productivity: 8, rent: 250, reason: 'حفر يدوي بعمالة' },
+      { keys: ['نزح', 'مضخة', 'pump'], productivity: 50, rent: 300, reason: 'نزح مياه بمضخة' },
+      { keys: ['خرسانة', 'صب', 'concrete'], productivity: 60, rent: 2500, reason: 'صب خرسانة جاهزة' },
+      { keys: ['حديد', 'تسليح', 'rebar', 'steel'], productivity: 1500, rent: 350, reason: 'أعمال حدادة تسليح' },
+      { keys: ['شدة', 'قالب', 'formwork'], productivity: 40, rent: 220, reason: 'شدة معدنية/خشبية' },
+      { keys: ['طابوق', 'بلوك', 'block'], productivity: 25, rent: 200, reason: 'بناء طابوق' },
+      { keys: ['أسفلت', 'اسفلت', 'asphalt'], productivity: 800, rent: 2200, reason: 'رصف أسفلت' },
+      { keys: ['بلاط', 'سيراميك', 'tile'], productivity: 30, rent: 220, reason: 'أعمال بلاط' },
+      { keys: ['دهان', 'طلاء', 'paint'], productivity: 120, rent: 180, reason: 'أعمال دهان' },
+      { keys: ['عزل', 'insulation'], productivity: 200, rent: 250, reason: 'أعمال عزل' },
+    ];
+    for (const entry of dict) {
+      if (entry.keys.some((k) => n.includes(k))) return entry;
+    }
+    return { productivity: 100, rent: 300, reason: 'تقدير عام مبدئي — يرجى المراجعة' };
+  }, []);
+
+
+
+
   const analyzeWithAI = useCallback(async (itemId: string, itemName: string) => {
-    setItems(prev => prev.map(item => 
+    setItems(prev => prev.map(item =>
       item.id === itemId ? { ...item, isLoadingAI: true } : item
     ));
+
+    const applySuggestion = (prod: number, rent: number) => {
+      setItems(prev => prev.map(item => {
+        if (item.id !== itemId) return item;
+        return {
+          ...item,
+          aiSuggestedProductivity: prod || 0,
+          aiSuggestedRent: rent || 0,
+          isLoadingAI: false,
+        };
+      }));
+    };
 
     try {
       const { data, error } = await supabase.functions.invoke('analyze-costs', {
@@ -894,25 +937,24 @@ export default function CostAnalysisPage() {
 
       if (error) throw error;
 
-      setItems(prev => prev.map(item => {
-        if (item.id !== itemId) return item;
-        return {
-          ...item,
-          aiSuggestedProductivity: data?.suggestedProductivity || 0,
-          aiSuggestedRent: data?.suggestedRent || 0,
-          isLoadingAI: false
-        };
-      }));
-
+      let prod = Number(data?.suggestedProductivity) || 0;
+      let rent = Number(data?.suggestedRent) || 0;
+      // If AI returned nothing useful, fall back to local heuristic
+      if (prod <= 0 || rent <= 0) {
+        const local = getLocalSuggestion(itemName);
+        if (prod <= 0) prod = local.productivity;
+        if (rent <= 0) rent = local.rent;
+      }
+      applySuggestion(prod, rent);
       toast.success("تم تحليل البند بواسطة AI");
     } catch (error) {
       console.error('AI analysis error:', error);
-      setItems(prev => prev.map(item => 
-        item.id === itemId ? { ...item, isLoadingAI: false } : item
-      ));
-      toast.error("فشل تحليل AI، يرجى المحاولة مرة أخرى");
+      // Never leave the user without a suggestion — use local heuristic
+      const local = getLocalSuggestion(itemName);
+      applySuggestion(local.productivity, local.rent);
+      toast.message("تم استخدام تقدير محلي (تعذر الاتصال بـ AI)");
     }
-  }, []);
+  }, [getLocalSuggestion]);
 
   const analyzeAllWithAI = useCallback(async () => {
     setIsAnalyzingAll(true);
@@ -932,39 +974,46 @@ export default function CostAnalysisPage() {
     let failCount = 0;
 
     for (const item of itemsToAnalyze) {
+      let prod = 0;
+      let rent = 0;
+      let usedFallback = false;
       try {
         const { data, error } = await supabase.functions.invoke('analyze-costs', {
           body: { itemName: item.name, type: 'excavation_productivity' }
         });
-
         if (error) throw error;
-
-        setItems(prev => prev.map(i => {
-          if (i.id !== item.id) return i;
-          return {
-            ...i,
-            aiSuggestedProductivity: data?.suggestedProductivity || 0,
-            aiSuggestedRent: data?.suggestedRent || 0,
-            isLoadingAI: false
-          };
-        }));
-        successCount++;
+        prod = Number(data?.suggestedProductivity) || 0;
+        rent = Number(data?.suggestedRent) || 0;
       } catch (error) {
         console.error(`AI analysis error for ${item.name}:`, error);
-        setItems(prev => prev.map(i => 
-          i.id === item.id ? { ...i, isLoadingAI: false } : i
-        ));
         failCount++;
       }
+
+      if (prod <= 0 || rent <= 0) {
+        const local = getLocalSuggestion(item.name);
+        if (prod <= 0) prod = local.productivity;
+        if (rent <= 0) rent = local.rent;
+        usedFallback = true;
+      }
+
+      setItems(prev => prev.map(i =>
+        i.id === item.id
+          ? { ...i, aiSuggestedProductivity: prod, aiSuggestedRent: rent, isLoadingAI: false }
+          : i
+      ));
+      if (!usedFallback) successCount++;
     }
 
     setIsAnalyzingAll(false);
-    if (successCount > 0) {
-      toast.success(`تم تحليل ${successCount} بند بنجاح${failCount > 0 ? ` (فشل ${failCount})` : ''}`);
+    const fallbackCount = itemsToAnalyze.length - successCount;
+    if (successCount > 0 && fallbackCount === 0) {
+      toast.success(`تم تحليل ${successCount} بند بواسطة AI`);
+    } else if (successCount > 0) {
+      toast.success(`AI: ${successCount} · تقدير محلي: ${fallbackCount}`);
     } else {
-      toast.error("فشل تحليل جميع البنود");
+      toast.message(`تم توليد ${fallbackCount} اقتراح محلي (تعذّر الوصول لـ AI)`);
     }
-  }, [items]);
+  }, [items, getLocalSuggestion]);
 
   const applyAISuggestion = useCallback((itemId: string, field: 'productivity' | 'rent') => {
     setItems(prev => prev.map(item => {
@@ -1005,8 +1054,10 @@ export default function CostAnalysisPage() {
   }, []);
 
   const calculateCostPerUnit = useCallback((dailyProductivity: number, dailyRent: number): number => {
-    if (dailyProductivity <= 0) return 0;
-    return dailyRent / dailyProductivity;
+    if (dailyProductivity <= 0 || dailyRent <= 0) return 0;
+    const raw = dailyRent / dailyProductivity;
+    // Preserve precision for small values (<1) — round to 4 decimals, otherwise 2
+    return raw < 1 ? Math.round(raw * 10000) / 10000 : Math.round(raw * 100) / 100;
   }, []);
 
   const calculations = useMemo(() => {
@@ -1239,7 +1290,16 @@ export default function CostAnalysisPage() {
     toast.success("تم تصدير PDF بنجاح");
   }, [items, calculations, wastePercentage, adminPercentage, currency, headers]);
 
-  const formatNumber = (num: number) => num.toLocaleString('ar-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const formatNumber = (num: number) => {
+    if (!Number.isFinite(num)) return "0";
+    const abs = Math.abs(num);
+    // Smart precision: keep 3 decimals for very small numbers, 2 for medium, 0 for large
+    const fractionDigits = abs === 0 ? 2 : abs < 1 ? 3 : abs < 1000 ? 2 : abs < 100000 ? 1 : 0;
+    return num.toLocaleString('ar-SA', {
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    });
+  };
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
