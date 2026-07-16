@@ -347,7 +347,7 @@ function SortableRow({
       )}
       {v.costPerUnit && (
         <TableCell className="text-center">
-          <Badge variant="secondary" className="font-mono text-xs px-2 py-0.5">
+          <Badge variant="secondary" className="font-mono text-xs px-2 py-0.5 tabular-nums whitespace-nowrap">
             {formatNumber(item.costPerUnit)}
           </Badge>
         </TableCell>
