@@ -1815,7 +1815,32 @@ export default function CostAnalysisPage() {
                     <Zap className="w-4 h-4 text-amber-500" />
                     <h4 className="font-semibold text-sm">تحليل AI السريع</h4>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        let count = 0;
+                        setItems(prev => prev.map(it => {
+                          if (!it.name.trim()) return it;
+                          if (it.aiSuggestedProductivity && it.aiSuggestedRent) return it;
+                          const local = getLocalSuggestion(it.name);
+                          count++;
+                          return {
+                            ...it,
+                            aiSuggestedProductivity: it.aiSuggestedProductivity || local.productivity,
+                            aiSuggestedRent: it.aiSuggestedRent || local.rent,
+                          };
+                        }));
+                        if (count > 0) toast.success(`تم توليد ${count} اقتراح محلي فوري`);
+                        else toast.info("جميع البنود لديها اقتراحات");
+                      }}
+                      className="gap-1 h-8 text-xs"
+                      title="اقتراحات فورية بدون الحاجة للاتصال بـ AI"
+                    >
+                      <Zap className="w-3 h-3 text-amber-600" />
+                      تقدير محلي سريع
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
