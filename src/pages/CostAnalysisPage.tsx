@@ -974,39 +974,46 @@ export default function CostAnalysisPage() {
     let failCount = 0;
 
     for (const item of itemsToAnalyze) {
+      let prod = 0;
+      let rent = 0;
+      let usedFallback = false;
       try {
         const { data, error } = await supabase.functions.invoke('analyze-costs', {
           body: { itemName: item.name, type: 'excavation_productivity' }
         });
-
         if (error) throw error;
-
-        setItems(prev => prev.map(i => {
-          if (i.id !== item.id) return i;
-          return {
-            ...i,
-            aiSuggestedProductivity: data?.suggestedProductivity || 0,
-            aiSuggestedRent: data?.suggestedRent || 0,
-            isLoadingAI: false
-          };
-        }));
-        successCount++;
+        prod = Number(data?.suggestedProductivity) || 0;
+        rent = Number(data?.suggestedRent) || 0;
       } catch (error) {
         console.error(`AI analysis error for ${item.name}:`, error);
-        setItems(prev => prev.map(i => 
-          i.id === item.id ? { ...i, isLoadingAI: false } : i
-        ));
         failCount++;
       }
+
+      if (prod <= 0 || rent <= 0) {
+        const local = getLocalSuggestion(item.name);
+        if (prod <= 0) prod = local.productivity;
+        if (rent <= 0) rent = local.rent;
+        usedFallback = true;
+      }
+
+      setItems(prev => prev.map(i =>
+        i.id === item.id
+          ? { ...i, aiSuggestedProductivity: prod, aiSuggestedRent: rent, isLoadingAI: false }
+          : i
+      ));
+      if (!usedFallback) successCount++;
     }
 
     setIsAnalyzingAll(false);
-    if (successCount > 0) {
-      toast.success(`تم تحليل ${successCount} بند بنجاح${failCount > 0 ? ` (فشل ${failCount})` : ''}`);
+    const fallbackCount = itemsToAnalyze.length - successCount;
+    if (successCount > 0 && fallbackCount === 0) {
+      toast.success(`تم تحليل ${successCount} بند بواسطة AI`);
+    } else if (successCount > 0) {
+      toast.success(`AI: ${successCount} · تقدير محلي: ${fallbackCount}`);
     } else {
-      toast.error("فشل تحليل جميع البنود");
+      toast.message(`تم توليد ${fallbackCount} اقتراح محلي (تعذّر الوصول لـ AI)`);
     }
-  }, [items]);
+  }, [items, getLocalSuggestion]);
 
   const applyAISuggestion = useCallback((itemId: string, field: 'productivity' | 'rent') => {
     setItems(prev => prev.map(item => {
