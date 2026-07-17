@@ -174,6 +174,7 @@ const App = () => (
                       </Routes>
                     </Suspense>
                   </ErrorBoundary>
+                  </GlobalSuggestionsProvider>
                 </GlobalSearchProvider>
               </BrowserRouter>
             </TooltipProvider>
