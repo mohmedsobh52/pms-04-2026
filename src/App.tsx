@@ -9,6 +9,7 @@ import { LanguageProvider } from "@/hooks/useLanguage";
 import { AnalysisProvider } from "@/hooks/useAnalysisData";
 import { AnalysisTrackingProvider } from "@/hooks/useAnalysisTracking";
 import { GlobalSearchProvider } from "@/contexts/GlobalSearchContext";
+import { GlobalSuggestionsProvider } from "@/contexts/GlobalSuggestionsContext";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import BackgroundImage from "@/components/BackgroundImage";
 import { FloatingBackButton } from "@/components/FloatingBackButton";
@@ -104,6 +105,7 @@ const App = () => (
               <Sonner />
               <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                 <GlobalSearchProvider>
+                  <GlobalSuggestionsProvider>
                   <ScrollToTop />
                   <ErrorBoundary fallback={<InlineErrorFallback message="Search unavailable" />}>
                     <GlobalSearch />
@@ -172,6 +174,7 @@ const App = () => (
                       </Routes>
                     </Suspense>
                   </ErrorBoundary>
+                  </GlobalSuggestionsProvider>
                 </GlobalSearchProvider>
               </BrowserRouter>
             </TooltipProvider>

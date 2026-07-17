@@ -58,6 +58,8 @@ import { AiCostAdvisorPanel } from "@/components/cost-analysis/AiCostAdvisorPane
 import { CostVersionsPanel } from "@/components/cost-analysis/CostVersionsPanel";
 import { AnomalyDetectorPanel } from "@/components/cost-analysis/AnomalyDetectorPanel";
 import { Phase7ToolsPanel } from "@/components/cost-analysis/Phase7ToolsPanel";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildAllForCostAnalysis } from "@/lib/suggestion-generators";
 import { Phase8CollaborationPanel } from "@/components/cost-analysis/Phase8CollaborationPanel";
 import { SystemTipsPanel } from "@/components/cost-analysis/SystemTipsPanel";
 import { MarketComparisonPanel } from "@/components/cost-analysis/MarketComparisonPanel";
@@ -414,6 +416,27 @@ export default function CostAnalysisPage() {
       id: `item-${index}-${Date.now()}`,
     }));
   });
+
+  // Sync suggestions into the global unified inbox
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    const mapped = items.map((it: any) => ({
+      id: it.id,
+      description_ar: it.name || it.description_ar,
+      description: it.name || it.description,
+      unit: it.unit,
+      quantity: Number(it.quantity) || 0,
+      unit_price: Number(it.unitPrice ?? it.unit_price) || 0,
+      total_price: Number(it.total ?? it.total_price) || 0,
+      ai_rent: Number(it.aiSuggestedRent ?? it.ai_rent) || 0,
+      ai_productivity: Number(it.aiSuggestedProductivity ?? it.ai_productivity) || 0,
+    }));
+    const drafts = buildAllForCostAnalysis(mapped, {
+      hasBaseline: !!localStorage.getItem("cost-analysis-baseline"),
+      lastExportAt: localStorage.getItem("cost-analysis-last-export"),
+    });
+    replaceBySource("cost-analysis", drafts);
+  }, [items, replaceBySource]);
 
   const [wastePercentage, setWastePercentage] = useState(() => {
     try {
