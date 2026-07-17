@@ -7,6 +7,7 @@ import { PageTipsBox } from "./PageTipsBox";
 import BackgroundImage from "./BackgroundImage";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { SuggestionsBox } from "./historical/SuggestionsBox";
+import { GlobalSuggestionsInbox } from "./GlobalSuggestionsInbox";
 
 interface PageLayoutProps {
   children: ReactNode;
