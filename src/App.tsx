@@ -105,6 +105,7 @@ const App = () => (
               <Sonner />
               <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                 <GlobalSearchProvider>
+                  <GlobalSuggestionsProvider>
                   <ScrollToTop />
                   <ErrorBoundary fallback={<InlineErrorFallback message="Search unavailable" />}>
                     <GlobalSearch />
