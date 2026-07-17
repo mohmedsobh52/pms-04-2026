@@ -54,6 +54,7 @@ export function PageLayout({ children, showBackground = false, className = "" }:
       </footer>
 
       <SuggestionsBox />
+      <GlobalSuggestionsInbox />
     </div>
   );
 }
