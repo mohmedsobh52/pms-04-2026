@@ -1844,6 +1844,31 @@ export default function CostAnalysisPage() {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => {
+                        let count = 0;
+                        setItems(prev => prev.map(it => {
+                          if (!it.name.trim()) return it;
+                          if (it.dailyProductivity > 0 && it.dailyRent > 0) return it;
+                          const local = getLocalSuggestion(it.name);
+                          count++;
+                          return {
+                            ...it,
+                            dailyProductivity: it.dailyProductivity > 0 ? it.dailyProductivity : local.productivity,
+                            dailyRent: it.dailyRent > 0 ? it.dailyRent : local.rent,
+                          };
+                        }));
+                        if (count > 0) toast.success(`تم ملء ${count} بند بقيم افتراضية محلية`);
+                        else toast.info("جميع البنود مملوءة");
+                      }}
+                      className="gap-1 h-8 text-xs"
+                      title="يملأ البنود الفارغة مباشرة بقيم افتراضية دون تحويلها لاقتراح"
+                    >
+                      <Zap className="w-3 h-3 text-emerald-600" />
+                      ملء الفارغ فوراً
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={analyzeAllWithAI}
                       disabled={isAnalyzingAll}
                       className="gap-1 h-8 text-xs bg-amber-50 hover:bg-amber-100 border-amber-300"
