@@ -58,6 +58,8 @@ import { AiCostAdvisorPanel } from "@/components/cost-analysis/AiCostAdvisorPane
 import { CostVersionsPanel } from "@/components/cost-analysis/CostVersionsPanel";
 import { AnomalyDetectorPanel } from "@/components/cost-analysis/AnomalyDetectorPanel";
 import { Phase7ToolsPanel } from "@/components/cost-analysis/Phase7ToolsPanel";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildAllForCostAnalysis } from "@/lib/suggestion-generators";
 import { Phase8CollaborationPanel } from "@/components/cost-analysis/Phase8CollaborationPanel";
 import { SystemTipsPanel } from "@/components/cost-analysis/SystemTipsPanel";
 import { MarketComparisonPanel } from "@/components/cost-analysis/MarketComparisonPanel";
