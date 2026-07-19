@@ -38,6 +38,8 @@ const TabFallback = () => <SuspenseFallback />;
 
 import { ProcurementWorkflow } from "@/components/procurement/ProcurementWorkflow";
 import { SupplierComparisonMatrix } from "@/components/cost/SupplierComparisonMatrix";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildProcurementSuggestions } from "@/lib/suggestion-generators";
 
 
 const TAB_KEY = "procurement:active-tab";
