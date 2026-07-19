@@ -97,11 +97,17 @@ const ContractsPage = () => {
     duePaymentsAmount: 0,
   });
 
+  const { replaceBySource } = useGlobalSuggestions();
+
   useEffect(() => {
     if (user) {
       fetchStats();
     }
   }, [user]);
+
+  useEffect(() => {
+    replaceBySource("contracts-page", buildContractsSuggestions(stats));
+  }, [stats, replaceBySource]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
