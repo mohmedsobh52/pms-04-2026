@@ -59,6 +59,17 @@ const ProcurementPage = () => {
     if (typeof window !== "undefined") localStorage.setItem(TAB_KEY, activeTab);
   }, [activeTab]);
 
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    replaceBySource("procurement-page", buildProcurementSuggestions({
+      partnersCount: partners.length,
+      contractsCount: extra.contracts,
+      offersCount: extra.offers,
+      contractsValue: extra.contractsValue,
+    }));
+  }, [partners.length, extra, replaceBySource]);
+
+
   useEffect(() => {
     if (!user) return;
     (async () => {
