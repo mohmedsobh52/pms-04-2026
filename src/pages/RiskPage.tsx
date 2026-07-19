@@ -30,6 +30,12 @@ const RiskPage = () => {
   const [heatmap, setHeatmap] = useState<number[][]>(() => Array.from({length:5},()=>Array(5).fill(0)));
   const [topRisks, setTopRisks] = useState<any[]>([]);
   const [risksRaw, setRisksRaw] = useState<any[]>([]);
+  const { replaceBySource } = useGlobalSuggestions();
+
+  useEffect(() => {
+    if (!risksRaw.length) return;
+    replaceBySource("risk-page", buildRiskSuggestions(risksRaw));
+  }, [risksRaw, replaceBySource]);
 
 
   useEffect(() => {
