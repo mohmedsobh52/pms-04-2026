@@ -31,6 +31,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { differenceInDays } from "date-fns";
 import { toast } from "sonner";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildContractsSuggestions } from "@/lib/suggestion-generators";
 
 // Lazy-load heavy tabs to keep first paint fast
 const FIDICContractTemplates = lazy(() =>
