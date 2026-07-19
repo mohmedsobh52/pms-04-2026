@@ -17,6 +17,8 @@ import { RiskHeatmap } from "@/components/risk/RiskHeatmap";
 import { RiskMatrix } from "@/components/risk/RiskMatrix";
 import { RiskAlertsPanel } from "@/components/risk/RiskAlertsPanel";
 import { RiskTrendCard } from "@/components/risk/RiskTrendCard";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildRiskSuggestions } from "@/lib/suggestion-generators";
 
 
 const RiskPage = () => {
