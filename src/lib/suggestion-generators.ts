@@ -375,6 +375,89 @@ export function buildProcurementSuggestions(input: {
   return out;
 }
 
+/** Approvals-inbox suggestions. */
+export function buildApprovalsSuggestions(input: {
+  pendingCount: number;
+  myPendingCount: number;
+  oldestPendingDays?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "approvals";
+  if (input.myPendingCount > 0) {
+    out.push({
+      category: "workflow",
+      severity: input.myPendingCount >= 5 ? "critical" : "warning",
+      title: `${input.myPendingCount} طلب موافقة بانتظار قرارك`,
+      sourceScreen: screen,
+      sourceRoute: "/approvals",
+      applyLabel: "فتح صندوق الموافقات",
+    });
+  }
+  if ((input.oldestPendingDays ?? 0) >= 7) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `طلبات موافقة معلّقة منذ ${input.oldestPendingDays} يوم`,
+      description: "قد يؤثر التأخر على الجدول الزمني للمشروع.",
+      sourceScreen: screen,
+      sourceRoute: "/approvals",
+    });
+  }
+  return out;
+}
+
+/** Material-prices suggestions. */
+export function buildMaterialPricesSuggestions(input: {
+  total: number;
+  verified: number;
+  expiringCount: number;
+  expiredCount: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "material-prices";
+  if (input.total === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: "قاعدة بيانات الأسعار فارغة",
+      description: "استورد أسعاراً من Excel أو ابحث في السوق للبدء.",
+      sourceScreen: screen,
+      sourceRoute: "/material-prices",
+    });
+    return out;
+  }
+  if (input.expiredCount > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "critical",
+      title: `${input.expiredCount} سعر منتهي الصلاحية`,
+      sourceScreen: screen,
+      sourceRoute: "/material-prices",
+      applyLabel: "تحديث الأسعار",
+    });
+  }
+  if (input.expiringCount > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.expiringCount} سعر ينتهي خلال 30 يوماً`,
+      sourceScreen: screen,
+      sourceRoute: "/material-prices",
+    });
+  }
+  const verifiedPct = input.total > 0 ? (input.verified / input.total) * 100 : 0;
+  if (input.total >= 20 && verifiedPct < 50) {
+    out.push({
+      category: "ai-pricing",
+      severity: "info",
+      title: `فقط ${verifiedPct.toFixed(0)}% من الأسعار موثّقة`,
+      description: "راجع الأسعار لضمان دقة تقديرات المشاريع.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
 export const CATEGORY_META: Record<SuggestionCategory, { ar: string; en: string; color: string }> = {
   "ai-pricing": { ar: "أسعار وإنتاجية (AI)", en: "AI Pricing", color: "text-violet-600" },
   "data-quality": { ar: "جودة البيانات", en: "Data Quality", color: "text-amber-600" },
