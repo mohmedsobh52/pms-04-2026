@@ -90,6 +90,17 @@ const MaterialPricesPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    replaceBySource("material-prices-page", buildMaterialPricesSuggestions({
+      total: stats.total,
+      verified: stats.verified,
+      expiringCount,
+      expiredCount,
+    }));
+  }, [stats, expiringCount, expiredCount, replaceBySource]);
+
+
   const cards = [
     { icon: Package, label: isArabic ? "إجمالي الأسعار" : "Total Prices", value: String(stats.total), color: "text-primary", bg: "bg-primary/10" },
     { icon: ShieldCheck, label: isArabic ? "موثقة" : "Verified", value: String(stats.verified), color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10" },
