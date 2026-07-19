@@ -90,6 +90,20 @@ export default function ApprovalsInboxPage() {
     });
   }, [rows, user, roles, isAdmin]);
 
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    const oldest = rows.reduce((max, r) => {
+      const t = r.instance?.started_at ? new Date(r.instance.started_at).getTime() : 0;
+      return t && t < max ? t : max;
+    }, Date.now());
+    const days = Math.floor((Date.now() - oldest) / 86_400_000);
+    replaceBySource("approvals-page", buildApprovalsSuggestions({
+      pendingCount: rows.length,
+      myPendingCount: myRows.length,
+      oldestPendingDays: rows.length ? days : 0,
+    }));
+  }, [rows, myRows, replaceBySource]);
+
   return (
     <AppShell>
       <div className="mb-4">
