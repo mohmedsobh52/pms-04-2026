@@ -225,6 +225,156 @@ export function buildAllForCostAnalysis(items: GenericItem[], extras?: {
   ];
 }
 
+/** Risk-module suggestions. */
+export function buildRiskSuggestions(risks: any[]): Draft[] {
+  const out: Draft[] = [];
+  const screen = "risk";
+  if (!risks?.length) return out;
+
+  const high = risks.filter((r) => {
+    const s = Number(r.risk_score) || (Number(r.probability_score) || 0) * (Number(r.impact_score) || 0);
+    return s >= 15 && r.status !== "mitigated" && r.status !== "closed";
+  });
+  if (high.length) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${high.length} مخاطر عالية بدون معالجة`,
+      description: "يوصى بإضافة خطط استجابة فورية.",
+      sourceScreen: screen,
+      sourceRoute: "/risk",
+      applyLabel: "فتح إدارة المخاطر",
+    });
+  }
+
+  const now = Date.now();
+  const dueSoon = risks.filter((r) => {
+    if (!r.review_date) return false;
+    const t = new Date(r.review_date).getTime();
+    return t >= now && t <= now + 14 * 86_400_000;
+  });
+  if (dueSoon.length) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${dueSoon.length} مخاطر مستحقة المراجعة خلال 14 يوماً`,
+      sourceScreen: screen,
+      sourceRoute: "/risk",
+    });
+  }
+
+  const noOwner = risks.filter((r) => !r.owner && !r.assigned_to);
+  if (noOwner.length >= 3) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${noOwner.length} مخاطر بدون مسؤول مُعيَّن`,
+      sourceScreen: screen,
+    });
+  }
+
+  return out;
+}
+
+/** Contracts-module suggestions. */
+export function buildContractsSuggestions(stats: {
+  expiringContracts?: number;
+  overdueContracts?: number;
+  duePayments?: number;
+  duePaymentsAmount?: number;
+  upcomingMilestones?: number;
+  totalContracts?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "contracts";
+
+  if ((stats.overdueContracts ?? 0) > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${stats.overdueContracts} عقد متأخر عن تاريخ الانتهاء`,
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+      applyLabel: "فتح العقود",
+    });
+  }
+  if ((stats.expiringContracts ?? 0) > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${stats.expiringContracts} عقد ينتهي خلال 30 يوماً`,
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if ((stats.duePayments ?? 0) > 0) {
+    out.push({
+      category: "reports",
+      severity: "warning",
+      title: `${stats.duePayments} دفعة مستحقة قريباً`,
+      description: (stats.duePaymentsAmount ?? 0) > 0
+        ? `إجمالي المستحق: ${stats.duePaymentsAmount!.toLocaleString()}`
+        : undefined,
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if ((stats.upcomingMilestones ?? 0) > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: `${stats.upcomingMilestones} معالم قادمة خلال 30 يوماً`,
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  return out;
+}
+
+/** Procurement-module suggestions. */
+export function buildProcurementSuggestions(input: {
+  partnersCount: number;
+  contractsCount: number;
+  offersCount: number;
+  contractsValue: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "procurement";
+
+  if (input.partnersCount === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: "لا يوجد موردون مسجلون",
+      description: "أضف الموردين لمقارنة الأسعار والحصول على أفضل العروض.",
+      sourceScreen: screen,
+      sourceRoute: "/procurement",
+      applyLabel: "إضافة موردين",
+    });
+  }
+  if (input.partnersCount > 0 && input.offersCount === 0) {
+    out.push({
+      category: "ai-pricing",
+      severity: "info",
+      title: "لم يتم طلب أي عرض سعر بعد",
+      description: "أرسل طلبات عروض لمقارنة أسعار الموردين تلقائياً.",
+      sourceScreen: screen,
+      sourceRoute: "/quotations",
+      applyLabel: "فتح عروض الأسعار",
+    });
+  }
+  if (input.contractsCount >= 5 && input.contractsValue > 0) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: "جاهز لتقرير تحليل موردين",
+      description: `${input.contractsCount} عقد بإجمالي ${input.contractsValue.toLocaleString()}`,
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
 export const CATEGORY_META: Record<SuggestionCategory, { ar: string; en: string; color: string }> = {
   "ai-pricing": { ar: "أسعار وإنتاجية (AI)", en: "AI Pricing", color: "text-violet-600" },
   "data-quality": { ar: "جودة البيانات", en: "Data Quality", color: "text-amber-600" },

@@ -38,6 +38,8 @@ const TabFallback = () => <SuspenseFallback />;
 
 import { ProcurementWorkflow } from "@/components/procurement/ProcurementWorkflow";
 import { SupplierComparisonMatrix } from "@/components/cost/SupplierComparisonMatrix";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildProcurementSuggestions } from "@/lib/suggestion-generators";
 
 
 const TAB_KEY = "procurement:active-tab";
@@ -56,6 +58,17 @@ const ProcurementPage = () => {
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem(TAB_KEY, activeTab);
   }, [activeTab]);
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    replaceBySource("procurement-page", buildProcurementSuggestions({
+      partnersCount: partners.length,
+      contractsCount: extra.contracts,
+      offersCount: extra.offers,
+      contractsValue: extra.contractsValue,
+    }));
+  }, [partners.length, extra, replaceBySource]);
+
 
   useEffect(() => {
     if (!user) return;
