@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { AppShell } from "@/components/layout/AppShell";
 import { ApprovalPanel } from "@/components/workflow/ApprovalPanel";
 import type { Database } from "@/integrations/supabase/types";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildApprovalsSuggestions } from "@/lib/suggestion-generators";
 
 type Instance = Database["public"]["Tables"]["workflow_instances"]["Row"];
 type Step = Database["public"]["Tables"]["workflow_steps"]["Row"];
