@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { AppShell } from "@/components/layout/AppShell";
 import { ApprovalPanel } from "@/components/workflow/ApprovalPanel";
 import type { Database } from "@/integrations/supabase/types";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildApprovalsSuggestions } from "@/lib/suggestion-generators";
 
 type Instance = Database["public"]["Tables"]["workflow_instances"]["Row"];
 type Step = Database["public"]["Tables"]["workflow_steps"]["Row"];
@@ -87,6 +89,20 @@ export default function ApprovalsInboxPage() {
       return false;
     });
   }, [rows, user, roles, isAdmin]);
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    const oldest = rows.reduce((max, r) => {
+      const t = r.instance?.started_at ? new Date(r.instance.started_at).getTime() : 0;
+      return t && t < max ? t : max;
+    }, Date.now());
+    const days = Math.floor((Date.now() - oldest) / 86_400_000);
+    replaceBySource("approvals-page", buildApprovalsSuggestions({
+      pendingCount: rows.length,
+      myPendingCount: myRows.length,
+      oldestPendingDays: rows.length ? days : 0,
+    }));
+  }, [rows, myRows, replaceBySource]);
 
   return (
     <AppShell>

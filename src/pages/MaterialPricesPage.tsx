@@ -14,6 +14,8 @@ import { ColorLegend } from "@/components/ui/color-code";
 import { Package, ShieldCheck, Layers, DollarSign, Building2, AlertTriangle, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildMaterialPricesSuggestions } from "@/lib/suggestion-generators";
 
 interface SupplierAgg { name: string; count: number; total: number; }
 
@@ -87,6 +89,17 @@ const MaterialPricesPage = () => {
     loadStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    replaceBySource("material-prices-page", buildMaterialPricesSuggestions({
+      total: stats.total,
+      verified: stats.verified,
+      expiringCount,
+      expiredCount,
+    }));
+  }, [stats, expiringCount, expiredCount, replaceBySource]);
+
 
   const cards = [
     { icon: Package, label: isArabic ? "إجمالي الأسعار" : "Total Prices", value: String(stats.total), color: "text-primary", bg: "bg-primary/10" },
