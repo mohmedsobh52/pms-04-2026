@@ -15,6 +15,8 @@ import { toast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { generateProposalDocx } from "@/lib/proposalDocx";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildTechnicalProposalSuggestions } from "@/lib/suggestion-generators";
 
 type SavedProject = { id: string; name: string };
 type ProposalRow = {
