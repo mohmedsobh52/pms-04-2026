@@ -32,6 +32,8 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
 import { AppShell } from "@/components/layout/AppShell";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildSavedProjectsSuggestions } from "@/lib/suggestion-generators";
 import {
   AlertDialog,
   AlertDialogAction,
