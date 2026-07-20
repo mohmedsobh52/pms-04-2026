@@ -1,7 +1,10 @@
+import { useEffect } from "react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { CompanySettingsPanel } from "@/components/CompanySettingsPanel";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildCompanySettingsSuggestions } from "@/lib/suggestion-generators";
 import { Button } from "@/components/ui/button";
 import { RotateCcw, Building2, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
