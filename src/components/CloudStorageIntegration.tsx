@@ -116,14 +116,17 @@ export function CloudStorageIntegration({ projectId }: CloudStorageIntegrationPr
 
   return (
     <>
-      <Button 
-        variant="outline" 
-        size="sm" 
+      <Button
+        variant="outline"
+        size="sm"
         className="gap-2"
         onClick={() => setShowDialog(true)}
       >
         <Cloud className="w-4 h-4" />
         {isArabic ? "التخزين السحابي" : "Cloud Storage"}
+        {connectedCount > 0 && (
+          <Badge variant="secondary" className="ms-1 h-5 px-1.5 text-[10px]">{connectedCount}</Badge>
+        )}
       </Button>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
@@ -134,61 +137,65 @@ export function CloudStorageIntegration({ projectId }: CloudStorageIntegrationPr
               {isArabic ? "ربط التخزين السحابي" : "Cloud Storage Integration"}
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              {isArabic 
-                ? "اربط مشروعك مع خدمات التخزين السحابي لحفظ الملفات تلقائياً ومزامنتها عبر الأجهزة." 
-                : "Connect your project with cloud storage services to auto-save files and sync across devices."}
+              {isArabic
+                ? "الصق روابط مجلدات مشروعك من Google Drive أو OneDrive. الروابط تُحفظ محلياً لهذا المشروع ويمكن فتحها من هنا بضغطة واحدة."
+                : "Paste your project folder links from Google Drive or OneDrive. Links are saved locally per project and openable from here in one click."}
             </p>
 
             <div className="space-y-3">
-              {services.map(service => {
+              {services.map((service) => {
                 const Icon = service.icon;
+                const connected = Boolean(links[service.id]);
                 return (
                   <Card key={service.id} className={`transition-all ${service.color}`}>
-                    <CardContent className="p-4">
+                    <CardContent className="p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-background">
-                            <Icon />
-                          </div>
+                          <div className="p-2 rounded-lg bg-background"><Icon /></div>
                           <div>
                             <h4 className="font-medium flex items-center gap-2">
                               {service.name}
-                              {service.connected && (
+                              {connected && (
                                 <Badge variant="outline" className="text-green-600 border-green-500/30 bg-green-500/10">
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  {isArabic ? "متصل" : "Connected"}
+                                  <CheckCircle className="w-3 h-3 me-1" />
+                                  {isArabic ? "مرتبط" : "Linked"}
                                 </Badge>
                               )}
                             </h4>
-                            <p className="text-xs text-muted-foreground">{service.description}</p>
+                            <p className="text-xs text-muted-foreground">{service.hint}</p>
                           </div>
                         </div>
-                        <Button
-                          variant={service.connected ? "outline" : "default"}
-                          size="sm"
-                          disabled={connecting === service.id}
-                          onClick={() => handleConnect(service.id)}
-                        >
-                          {connecting === service.id ? (
-                            <span className="flex items-center gap-2">
-                              <span className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
-                              {isArabic ? "جاري الاتصال..." : "Connecting..."}
-                            </span>
-                          ) : service.connected ? (
-                            <>
-                              <FolderSync className="w-4 h-4 mr-1" />
-                              {isArabic ? "مزامنة" : "Sync"}
-                            </>
-                          ) : (
-                            <>
-                              <ExternalLink className="w-4 h-4 mr-1" />
-                              {isArabic ? "ربط" : "Connect"}
-                            </>
-                          )}
-                        </Button>
+                        {connected && (
+                          <div className="flex items-center gap-1">
+                            <Button size="sm" variant="outline" asChild>
+                              <a href={links[service.id]} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="w-4 h-4 me-1" />
+                                {isArabic ? "فتح" : "Open"}
+                              </a>
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => handleRemove(service.id)} aria-label={isArabic ? "إزالة" : "Remove"}>
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs">{isArabic ? "رابط المجلد" : "Folder URL"}</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            type="url"
+                            placeholder="https://..."
+                            value={drafts[service.id] || ""}
+                            onChange={(e) => setDrafts({ ...drafts, [service.id]: e.target.value })}
+                          />
+                          <Button size="sm" onClick={() => handleSave(service.id)} disabled={!drafts[service.id]?.trim() || drafts[service.id] === links[service.id]}>
+                            {isArabic ? "حفظ" : "Save"}
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -202,9 +209,9 @@ export function CloudStorageIntegration({ projectId }: CloudStorageIntegrationPr
                 <div>
                   <p className="text-sm font-medium">{isArabic ? "ملاحظة" : "Note"}</p>
                   <p className="text-xs text-muted-foreground">
-                    {isArabic 
-                      ? "يتطلب الربط مع الخدمات السحابية تسجيل الدخول وإعطاء الصلاحيات اللازمة. ملفاتك محمية وآمنة." 
-                      : "Connecting to cloud services requires authentication and permissions. Your files are protected and secure."}
+                    {isArabic
+                      ? "الملفات نفسها تُحفظ في تخزين Lovable Cloud الآمن. الروابط هنا للوصول السريع لمجلدات إضافية على منصات خارجية."
+                      : "Files themselves are stored in secure Lovable Cloud storage. Links here provide quick access to external folders."}
                   </p>
                 </div>
               </div>
@@ -213,9 +220,9 @@ export function CloudStorageIntegration({ projectId }: CloudStorageIntegrationPr
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <HardDrive className="w-4 h-4" />
               <span>
-                {isArabic 
-                  ? "يتم حفظ الملفات حالياً في تخزين Lovable Cloud الآمن" 
-                  : "Files are currently saved in secure Lovable Cloud storage"}
+                {isArabic
+                  ? "التخزين الأساسي: Lovable Cloud"
+                  : "Primary storage: Lovable Cloud"}
               </span>
             </div>
           </div>
@@ -224,3 +231,4 @@ export function CloudStorageIntegration({ projectId }: CloudStorageIntegrationPr
     </>
   );
 }
+
