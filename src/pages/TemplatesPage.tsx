@@ -11,6 +11,8 @@ import { Layers, TrendingUp, FolderTree, ListChecks } from "lucide-react";
 import { ColorLegend } from "@/components/ui/color-code";
 import { supabase } from "@/integrations/supabase/client";
 import { ErrorState, SuspenseFallback } from "@/components/ui/loading-states";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildTemplatesSuggestions } from "@/lib/suggestion-generators";
 
 interface TplRow {
   id: string;
@@ -51,6 +53,17 @@ const TemplatesPage = () => {
   useEffect(() => {
     loadTemplates();
   }, []);
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    const totalUsage = rows.reduce((s, r) => s + (r.usage_count || 0), 0);
+    const publicCount = rows.filter((r) => r.is_public).length;
+    replaceBySource("templates", buildTemplatesSuggestions({
+      total: rows.length,
+      totalUsage,
+      publicCount,
+    }));
+  }, [rows, replaceBySource]);
 
   const total = rows.length;
   const totalUsage = rows.reduce((s, r) => s + (r.usage_count || 0), 0);
