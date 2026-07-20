@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildP6ExportSuggestions } from "@/lib/suggestion-generators";
 import {
   ListChecks,
   Sparkles,
