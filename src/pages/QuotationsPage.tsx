@@ -1,4 +1,6 @@
 import { PageSuggestions } from "@/components/PageSuggestions";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildQuotationsSuggestions } from "@/lib/suggestion-generators";
 import { Plus, Upload, Search, GitCompare, Sparkles, Grid3x3, FileSignature, Bell, BookmarkPlus, Link2, Star, History } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { QuotationUpload } from "@/components/QuotationUpload";
