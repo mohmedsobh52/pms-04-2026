@@ -1216,6 +1216,152 @@ export function buildTechnicalProposalSuggestions(input: {
 }
 
 
+export function buildSavedProjectsSuggestions(input: {
+  total: number;
+  distinctCurrencies: number;
+  missingContract: number;
+  missingAttachments: number;
+}, screen = "saved-projects"): Draft[] {
+  const out: Draft[] = [];
+  if (input.total === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لا توجد مشاريع محفوظة",
+      description: "ابدأ بإنشاء مشروع جديد أو استيراد جدول كميات.",
+      sourceScreen: screen,
+      sourceRoute: "/new-project",
+    });
+    return out;
+  }
+  if (input.distinctCurrencies >= 3) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `تعدّد العملات (${input.distinctCurrencies})`,
+      description: "وحّد العملة الافتراضية لتسهيل التقارير المقارنة.",
+      sourceScreen: screen,
+    });
+  }
+  if (input.missingContract > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.missingContract} مشروع بدون عقد مرتبط`,
+      description: "اربط كل مشروع بعقده لتفعيل تحليل الالتزامات والدفعات.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if (input.missingAttachments > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.missingAttachments} مشروع بلا مرفقات`,
+      description: "أضف الرسومات والمواصفات لتحسين التحليل والتدقيق.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
+export function buildProjectDetailsSuggestions(input: {
+  itemsCount: number;
+  attachmentsCount: number;
+  unpricedItems: number;
+  hasBaseline: boolean;
+}, screen = "project-details"): Draft[] {
+  const out: Draft[] = [];
+  if (input.itemsCount === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: "لا توجد بنود في المشروع",
+      description: "ارفع جدول الكميات لبدء التسعير والتحليل.",
+      sourceScreen: screen,
+    });
+    return out;
+  }
+  if (input.unpricedItems > 0) {
+    const pct = Math.round((input.unpricedItems / input.itemsCount) * 100);
+    out.push({
+      category: "ai-pricing",
+      severity: pct >= 30 ? "warning" : "info",
+      title: `${input.unpricedItems} بند بدون تسعير (${pct}%)`,
+      description: "شغّل التسعير الآلي (AI) لملء الفراغات.",
+      sourceScreen: screen,
+    });
+  }
+  if (input.attachmentsCount === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "لا توجد مرفقات",
+      description: "ارفع الرسومات والمواصفات لتوثيق النطاق.",
+      sourceScreen: screen,
+      sourceRoute: "/attachments",
+    });
+  }
+  if (!input.hasBaseline && input.itemsCount > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لم يتم تثبيت خط أساس",
+      description: "ثبّت خط أساس للمشروع لتفعيل مقارنات الإصدارات و EVM.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
+export function buildCostControlSuggestions(input: {
+  hasProject: boolean;
+  itemsCount: number;
+  hasProgress: boolean;
+  hasDates: boolean;
+}, screen = "cost-control"): Draft[] {
+  const out: Draft[] = [];
+  if (!input.hasProject) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لم يتم اختيار مشروع لتقرير التحكم بالتكاليف",
+      description: "اختر مشروعًا لعرض تقارير EVM والمنحنيات التراكمية.",
+      sourceScreen: screen,
+    });
+    return out;
+  }
+  if (input.itemsCount === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: "المشروع لا يحتوي على بنود قابلة للتحكم",
+      description: "أضف جدول الكميات المفصّل لتفعيل التقارير.",
+      sourceScreen: screen,
+    });
+  }
+  if (input.hasProject && !input.hasDates) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: "تواريخ المشروع غير مضبوطة",
+      description: "حدّد تاريخ بداية ونهاية دقيقين لحساب SPI و CPI.",
+      sourceScreen: screen,
+    });
+  }
+  if (input.itemsCount > 0 && !input.hasProgress) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: "لا يوجد سجل تقدم مسجّل",
+      description: "سجّل نسب الإنجاز الأسبوعية لبناء منحنى S-Curve.",
+      sourceScreen: screen,
+      sourceRoute: "/progress-certificates",
+    });
+  }
+  return out;
+}
+
 
 export const CATEGORY_META: Record<SuggestionCategory, { ar: string; en: string; color: string }> = {
   "ai-pricing": { ar: "أسعار وإنتاجية (AI)", en: "AI Pricing", color: "text-violet-600" },
