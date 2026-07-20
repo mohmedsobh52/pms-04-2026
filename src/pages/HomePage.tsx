@@ -6,6 +6,8 @@ import { AppShell } from "@/components/layout/AppShell";
 import { DashboardKpiCard } from "@/components/dashboard/DashboardKpiCard";
 import { QuickActionsBar } from "@/components/dashboard/QuickActionsBar";
 import { supabase } from "@/integrations/supabase/client";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildHomeSuggestions } from "@/lib/suggestion-generators";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import {
@@ -117,6 +119,18 @@ export default function HomePage() {
   const [counts, setCounts] = useState<CountsMap>({});
   const [recent, setRecent] = useState<RecentItem[]>([]);
   const [loadingCounts, setLoadingCounts] = useState(true);
+  const { replaceBySource } = useGlobalSuggestions();
+
+  useEffect(() => {
+    if (loadingCounts) return;
+    replaceBySource("home", buildHomeSuggestions({
+      projectsCount: counts["saved_projects"] || 0,
+      contractsCount: counts["contracts"] || 0,
+      itemsCount: counts["project_items"] || 0,
+      risksCount: counts["risks"] || 0,
+      certificatesCount: counts["progress_certificates"] || 0,
+    }));
+  }, [counts, loadingCounts, replaceBySource]);
 
   useEffect(() => {
     let cancelled = false;
