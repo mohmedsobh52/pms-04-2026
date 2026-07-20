@@ -87,6 +87,22 @@ const NewCertificatePage = () => {
   const [selectedContractValue, setSelectedContractValue] = useState<number | null>(null);
 
   const currentWorkDone = useMemo(() => formItems.reduce((s, i) => s + i.current_amount, 0), [formItems]);
+
+  // Global suggestions sync
+  {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const { replaceBySource } = useGlobalSuggestions();
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useEffect(() => {
+      replaceBySource("new-certificate", buildNewCertificateSuggestions({
+        hasProject: !!formProjectId,
+        hasContract: !!formContractId,
+        itemsCount: formItems.length,
+        itemsWithProgress: formItems.filter(i => i.current_quantity > 0).length,
+        currentAmount: currentWorkDone,
+      }));
+    }, [formProjectId, formContractId, formItems, currentWorkDone, replaceBySource]);
+  }
   const previousWorkDone = useMemo(() => formItems.reduce((s, i) => s + (i.previous_quantity * i.unit_price), 0), [formItems]);
   const totalWorkDone = currentWorkDone + previousWorkDone;
   const retentionAmount = (currentWorkDone * formRetention) / 100;
