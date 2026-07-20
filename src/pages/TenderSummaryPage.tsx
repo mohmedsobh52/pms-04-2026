@@ -33,6 +33,8 @@ import TenderCostAlerts from "@/components/tender/TenderCostAlerts";
 import PricingScenarios from "@/components/tender/PricingScenarios";
 import TenderSubcontractorsTab from "@/components/tender/TenderSubcontractorsTab";
 import { PricingAccuracyTab } from "@/components/tender/PricingAccuracyTab";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildTenderSummarySuggestions } from "@/lib/suggestion-generators";
 
 interface ProjectData {
   id: string;
@@ -172,6 +174,22 @@ export default function TenderSummaryPage() {
       loadData();
     }
   }, [projectId, user]);
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    const items = Array.isArray(project?.analysis_data?.items) ? project.analysis_data.items : [];
+    replaceBySource(
+      `tender-summary:${projectId ?? "none"}`,
+      buildTenderSummarySuggestions({
+        contractValue: pricingSettings.contractValue,
+        profitMargin: pricingSettings.profitMargin,
+        contingency: pricingSettings.contingency,
+        riskLevel: pricingSettings.riskLevel,
+        itemsCount: items.length,
+      }),
+    );
+  }, [project, projectId, pricingSettings.contractValue, pricingSettings.profitMargin, pricingSettings.contingency, pricingSettings.riskLevel, replaceBySource]);
+
 
   const loadData = async () => {
     try {
