@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildNewCertificateSuggestions } from "@/lib/suggestion-generators";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
