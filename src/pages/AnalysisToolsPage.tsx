@@ -6,7 +6,7 @@ import { SmartCostEnginePanel } from "@/components/cost-engine/SmartCostEnginePa
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageLayout } from "@/components/PageLayout";
+import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { ColorLegend } from "@/components/ui/color-code";
 import { Database, DollarSign, FileStack, TrendingUp } from "lucide-react";
 

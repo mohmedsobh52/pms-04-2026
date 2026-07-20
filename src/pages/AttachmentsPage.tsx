@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
 import { buildAttachmentsSuggestions } from "@/lib/suggestion-generators";
 import { useSearchParams } from "react-router-dom";
-import { PageLayout } from "@/components/PageLayout";
+import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { ProjectAttachments } from "@/components/ProjectAttachments";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";

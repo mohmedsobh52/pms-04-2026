@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { SuspenseFallback } from "@/components/ui/loading-states";
 import { useLanguage } from "@/hooks/useLanguage";
-import { PageLayout } from "@/components/PageLayout";
+import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Brain, Bell, Activity, Building2, Info, Database } from "lucide-react";
 

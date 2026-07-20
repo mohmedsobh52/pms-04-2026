@@ -5,7 +5,7 @@ import { SuspenseFallback } from "@/components/ui/loading-states";
 const RiskManagement = lazy(() =>
   import("@/components/RiskManagement").then((m) => ({ default: m.RiskManagement }))
 );
-import { PageLayout } from "@/components/PageLayout";
+import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShieldAlert, AlertTriangle, ShieldCheck, Activity, Clock, Layers } from "lucide-react";
 import { ColorLegend } from "@/components/ui/color-code";

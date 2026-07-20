@@ -1,5 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from "react";
-import { PageLayout } from "@/components/PageLayout";
+import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { useLanguage } from "@/hooks/useLanguage";
 import { SuspenseFallback } from "@/components/ui/loading-states";
 

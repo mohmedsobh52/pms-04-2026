@@ -27,7 +27,7 @@ import { extractRawDataFromExcel } from "@/lib/excel-utils";
 import { createWorkbook, addJsonSheet, downloadWorkbook } from "@/lib/exceljs-utils";
 import * as pdfjsLib from 'pdfjs-dist';
 import { Link } from "react-router-dom";
-import { PageLayout } from "@/components/PageLayout";
+import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { HistoricalPricingStats } from "@/components/HistoricalPricingStats";
 import { HistoricalPricingPDFReport } from "@/components/HistoricalPricingPDFReport";
 import { ImportFromSavedProjects } from "@/components/ImportFromSavedProjects";
