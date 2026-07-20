@@ -1421,6 +1421,78 @@ export function buildAdminDashboardSuggestions(input: {
   return out;
 }
 
+export function buildNewProjectSuggestions(input: {
+  hasName: boolean;
+  hasClient: boolean;
+  hasLocation: boolean;
+  hasStartDate: boolean;
+  hasEndDate: boolean;
+  hasEstimatedValue: boolean;
+  durationDays: number | null;
+}, screen = "new-project"): Draft[] {
+  const out: Draft[] = [];
+  if (!input.hasName) out.push({ category: "data-quality", severity: "warning", title: "اسم المشروع مطلوب", description: "أدخل اسمًا واضحًا للمشروع قبل الحفظ.", sourceScreen: screen });
+  if (!input.hasClient) out.push({ category: "data-quality", severity: "info", title: "بيانات العميل ناقصة", description: "أضف اسم العميل لتحسين التقارير والفوترة.", sourceScreen: screen });
+  if (!input.hasLocation) out.push({ category: "data-quality", severity: "info", title: "الموقع غير محدد", description: "أضف موقع المشروع لتحسين تقديرات النقل والخدمات.", sourceScreen: screen });
+  if (!input.hasStartDate || !input.hasEndDate) out.push({ category: "workflow", severity: "info", title: "تواريخ المشروع ناقصة", description: "حدّد تاريخ البدء والانتهاء لتفعيل جدولة EVM ومنحنى S.", sourceScreen: screen });
+  if (input.durationDays !== null && input.durationDays <= 0) out.push({ category: "data-quality", severity: "critical", title: "مدة المشروع غير صالحة", description: "تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء.", sourceScreen: screen });
+  if (!input.hasEstimatedValue) out.push({ category: "data-quality", severity: "info", title: "القيمة التقديرية غير مدخلة", description: "أدخل قيمة تقديرية للمقارنة مع التكلفة الفعلية لاحقًا.", sourceScreen: screen });
+  return out;
+}
+
+export function buildNewCertificateSuggestions(input: {
+  hasProject: boolean;
+  hasContract: boolean;
+  itemsCount: number;
+  itemsWithProgress: number;
+  currentAmount: number;
+}, screen = "new-certificate"): Draft[] {
+  const out: Draft[] = [];
+  if (!input.hasProject) out.push({ category: "workflow", severity: "warning", title: "لم يتم اختيار المشروع", description: "اختر المشروع لتحميل بنود العقد تلقائيًا.", sourceScreen: screen });
+  else if (!input.hasContract) out.push({ category: "workflow", severity: "warning", title: "لا يوجد عقد مرتبط", description: "اربط المستخلص بعقد لتطبيق نسب الاحتجاز والدفعة المقدمة.", sourceScreen: screen, sourceRoute: "/contracts" });
+  if (input.hasProject && input.itemsCount === 0) out.push({ category: "data-quality", severity: "info", title: "لا توجد بنود في المستخلص", description: "استورد بنود المشروع أو أضفها يدويًا قبل الاعتماد.", sourceScreen: screen });
+  if (input.itemsCount > 0 && input.itemsWithProgress === 0) out.push({ category: "data-quality", severity: "warning", title: "لم يُسجَّل تقدم لأي بند", description: "أدخل الكميات المنفذة الحالية لحساب قيمة المستخلص.", sourceScreen: screen });
+  if (input.itemsCount > 0 && input.currentAmount === 0 && input.itemsWithProgress > 0) out.push({ category: "data-quality", severity: "info", title: "قيمة المستخلص صفر", description: "راجع أسعار الوحدة والكميات المنفذة.", sourceScreen: screen });
+  return out;
+}
+
+export function buildSettingsSuggestions(input: {
+  hasCompanyLogo: boolean;
+  hasAiModel: boolean;
+  notificationsEnabled: boolean;
+}, screen = "settings"): Draft[] {
+  const out: Draft[] = [];
+  if (!input.hasCompanyLogo) out.push({ category: "data-quality", severity: "info", title: "شعار الشركة غير مضاف", description: "أضف شعار الشركة من تبويب الشركة لتحسين التقارير المطبوعة.", sourceScreen: screen, sourceRoute: "/company-settings" });
+  if (!input.hasAiModel) out.push({ category: "ai-pricing", severity: "info", title: "لم يتم اختيار نموذج AI", description: "حدّد نموذج AI افتراضي لتفعيل التسعير التلقائي والاقتراحات الذكية.", sourceScreen: screen });
+  if (!input.notificationsEnabled) out.push({ category: "workflow", severity: "info", title: "الإشعارات معطّلة", description: "فعّل الإشعارات لمتابعة الموافقات والتنبيهات الهامة.", sourceScreen: screen });
+  return out;
+}
+
+export function buildP6ExportSuggestions(input: {
+  hasProject: boolean;
+  itemsCount: number;
+  projectStatus: string;
+}, screen = "p6-export"): Draft[] {
+  const out: Draft[] = [];
+  if (!input.hasProject) out.push({ category: "workflow", severity: "info", title: "اختر مشروعًا للتصدير", description: "حدّد مشروعًا من القائمة لتصدير جدوله إلى Primavera P6.", sourceScreen: screen });
+  else if (input.projectStatus === "invalid" || input.projectStatus === "error") out.push({ category: "data-quality", severity: "warning", title: "المشروع غير صالح للتصدير", description: "راجع بيانات المشروع وأصلح الأخطاء قبل التصدير.", sourceScreen: screen });
+  else if (input.itemsCount === 0) out.push({ category: "data-quality", severity: "warning", title: "لا توجد بنود قابلة للتصدير", description: "أضف بنود BOQ إلى المشروع قبل تصديره إلى P6.", sourceScreen: screen });
+  else if (input.itemsCount < 5) out.push({ category: "reports", severity: "info", title: "عدد قليل من البنود للتصدير", description: "أضف مزيدًا من البنود للاستفادة الكاملة من جدولة P6.", sourceScreen: screen });
+  return out;
+}
+
+export function buildCompareVersionsSuggestions(input: {
+  hasCurrentItems: boolean;
+  itemsCount: number;
+}, screen = "compare-versions"): Draft[] {
+  const out: Draft[] = [];
+  if (!input.hasCurrentItems) out.push({ category: "workflow", severity: "info", title: "لا توجد نسخة حالية للمقارنة", description: "حمّل تحليلًا أو مشروعًا لبدء مقارنة النسخ.", sourceScreen: screen, sourceRoute: "/saved-projects" });
+  else if (input.itemsCount < 2) out.push({ category: "data-quality", severity: "info", title: "بنود غير كافية للمقارنة", description: "احفظ نسخة أخرى من BOQ لعرض الفروقات بين النسختين.", sourceScreen: screen });
+  return out;
+}
+
+
+
 
 export const CATEGORY_META: Record<SuggestionCategory, { ar: string; en: string; color: string }> = {
   "ai-pricing": { ar: "أسعار وإنتاجية (AI)", en: "AI Pricing", color: "text-violet-600" },

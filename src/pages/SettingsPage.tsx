@@ -1,9 +1,11 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { SuspenseFallback } from "@/components/ui/loading-states";
 import { useLanguage } from "@/hooks/useLanguage";
 import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Brain, Bell, Activity, Building2, Info, Database } from "lucide-react";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildSettingsSuggestions } from "@/lib/suggestion-generators";
 
 // Lazy-load heavy settings panels to keep first paint fast
 const CompanySettingsPanel = lazy(() =>
@@ -29,6 +31,18 @@ const TabFallback = () => <SuspenseFallback label="Loading…" />;
 
 const SettingsPage = () => {
   const { isArabic } = useLanguage();
+  const { replaceBySource } = useGlobalSuggestions();
+
+  useEffect(() => {
+    const hasCompanyLogo = typeof window !== "undefined" && !!localStorage.getItem("company-logo");
+    const hasAiModel = typeof window !== "undefined" && !!localStorage.getItem("selected-ai-model");
+    const notificationsEnabled = typeof window !== "undefined" && localStorage.getItem("notifications-enabled") !== "false";
+    replaceBySource(
+      "settings",
+      buildSettingsSuggestions({ hasCompanyLogo, hasAiModel, notificationsEnabled })
+    );
+  }, [replaceBySource]);
+
 
   return (
     <PageLayout>

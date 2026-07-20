@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildNewProjectSuggestions } from "@/lib/suggestion-generators";
 import { useNavigate, Link } from "react-router-dom";
 import { Plus, ArrowLeft, Briefcase, Building2, DollarSign, FileText, Loader2, Home, MapPin, Users, CalendarIcon, Clock, Flag } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -78,6 +80,19 @@ export default function NewProjectPage() {
   const durationDays = formData.startDate && formData.endDate 
     ? Math.ceil((new Date(formData.endDate).getTime() - new Date(formData.startDate).getTime()) / (1000 * 60 * 60 * 24))
     : null;
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    replaceBySource("new-project", buildNewProjectSuggestions({
+      hasName: !!formData.name.trim(),
+      hasClient: !!formData.clientName.trim(),
+      hasLocation: !!formData.location.trim(),
+      hasStartDate: !!formData.startDate,
+      hasEndDate: !!formData.endDate,
+      hasEstimatedValue: !!formData.estimatedValue && Number(formData.estimatedValue) > 0,
+      durationDays,
+    }));
+  }, [formData, durationDays, replaceBySource]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
