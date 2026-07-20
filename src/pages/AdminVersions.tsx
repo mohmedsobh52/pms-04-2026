@@ -15,6 +15,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRoles } from "@/hooks/useUserRoles";
 import { supabase } from "@/integrations/supabase/client";
 import { SuspenseFallback } from "@/components/ui/loading-states";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildAdminVersionsSuggestions } from "@/lib/suggestion-generators";
 
 interface AppVersion {
   id: string;
@@ -40,6 +42,18 @@ const AdminVersions = () => {
   const [versions, setVersions] = useState<AppVersion[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { replaceBySource } = useGlobalSuggestions();
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const latest = versions.find(v => v.is_latest);
+    const ageDays = latest ? Math.floor((Date.now() - new Date(latest.release_date).getTime()) / 86400000) : null;
+    replaceBySource("admin-versions", buildAdminVersionsSuggestions({
+      versionsCount: versions.length,
+      hasLatest: !!latest,
+      latestReleaseAgeDays: ageDays,
+    }));
+  }, [versions, isAdmin, replaceBySource]);
   const [editingId, setEditingId] = useState<string | null>(null);
   
   // New version form
