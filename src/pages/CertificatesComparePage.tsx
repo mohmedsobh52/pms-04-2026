@@ -10,6 +10,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, GitCompare } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildCertificatesCompareSuggestions } from "@/lib/suggestion-generators";
 
 interface Cert {
   id: string;
