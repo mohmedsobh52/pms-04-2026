@@ -1175,6 +1175,46 @@ export function buildTenderSummarySuggestions(input: {
   return out;
 }
 
+export function buildTechnicalProposalSuggestions(input: {
+  historyCount: number;
+  hasCurrent: boolean;
+  sectionsSelected: number;
+  totalSections: number;
+  hasClient: boolean;
+  hasScope: boolean;
+}, screen = "technical-proposal"): Draft[] {
+  const out: Draft[] = [];
+  if (input.historyCount === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لا توجد عروض فنية محفوظة",
+      description: "ابدأ بإنشاء عرض فني جديد لتوليد مكتبة قابلة لإعادة الاستخدام.",
+      sourceScreen: screen,
+      sourceRoute: "/technical-proposal",
+    });
+  }
+  if (input.hasCurrent && (!input.hasClient || !input.hasScope)) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: "بيانات العرض غير مكتملة",
+      description: "أضف اسم العميل ونطاق الأعمال قبل توليد المستند.",
+      sourceScreen: screen,
+    });
+  }
+  if (input.sectionsSelected < Math.ceil(input.totalSections * 0.5)) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: `عدد أقسام محدودة (${input.sectionsSelected}/${input.totalSections})`,
+      description: "اختر أقسامًا إضافية لتقديم عرض أشمل واحترافي.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
 
 
 export const CATEGORY_META: Record<SuggestionCategory, { ar: string; en: string; color: string }> = {

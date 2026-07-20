@@ -15,6 +15,8 @@ import { toast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { generateProposalDocx } from "@/lib/proposalDocx";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildTechnicalProposalSuggestions } from "@/lib/suggestion-generators";
 
 type SavedProject = { id: string; name: string };
 type ProposalRow = {
@@ -146,6 +148,21 @@ export default function TechnicalProposalGeneratorPage() {
   useEffect(() => { localStorage.setItem("tp_validity_days", validityDays); }, [validityDays]);
   useEffect(() => { localStorage.setItem("tp_payment_terms", paymentTerms); }, [paymentTerms]);
   useEffect(() => { localStorage.setItem("tp_autosave", autoSave ? "1" : "0"); }, [autoSave]);
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    const drafts = buildTechnicalProposalSuggestions({
+      historyCount: history.length,
+      hasCurrent: !!content,
+      sectionsSelected: sections.length,
+      totalSections: ALL_SECTIONS.length,
+      hasClient: !!client.trim(),
+      hasScope: !!scope.trim(),
+    });
+    replaceBySource("technical-proposal", drafts);
+  }, [history.length, content, sections.length, client, scope, replaceBySource]);
+
+
 
 
   // Branding & signature (persisted locally)

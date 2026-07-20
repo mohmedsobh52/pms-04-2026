@@ -2,7 +2,7 @@ import { PageSuggestions } from "@/components/PageSuggestions";
 import { Plus, Upload, Search, GitCompare, Sparkles, Grid3x3, FileSignature, FileText, Bell, BookmarkPlus, Download, Link2, Star, Users, History } from "lucide-react";
 import React, { useEffect, useState } from 'react';
 import { useLanguage } from '@/hooks/useLanguage';
-import { PageLayout } from '@/components/PageLayout';
+import { AppShell as PageLayout } from '@/components/layout/AppShell';
 import { NavigationBar } from '@/components/NavigationBar';
 import { PricingAccuracyTab } from '@/components/tender/PricingAccuracyTab';
 import { MarketPositionChart } from '@/components/pricing/MarketPositionChart';
