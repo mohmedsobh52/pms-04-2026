@@ -115,7 +115,15 @@ const AttachmentsPage = () => {
   };
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
-  
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    replaceBySource("attachments", buildAttachmentsSuggestions({
+      total: stats.total,
+      missingCategory: Math.max(0, stats.total - stats.analyzed),
+    }));
+  }, [stats, replaceBySource]);
+
   return (
     <PageLayout>
       <div className="container mx-auto px-4 py-8" dir={isArabic ? "rtl" : "ltr"}>
