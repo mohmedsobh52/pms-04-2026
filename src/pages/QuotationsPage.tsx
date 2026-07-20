@@ -157,7 +157,16 @@ const QuotationsPage = () => {
     },
   ];
 
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    replaceBySource("quotations", buildQuotationsSuggestions({
+      total: stats.total, approved: stats.approved, pending: stats.pending,
+      suppliers: stats.suppliers, totalValue: stats.totalValue,
+    }));
+  }, [stats, replaceBySource]);
+
   return (
+
     <PageLayout>
       <ErrorBoundary>
         <PageSuggestions
