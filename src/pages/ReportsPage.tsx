@@ -19,6 +19,8 @@ import { Loader2, FileDown as FileDownIcon } from "lucide-react";
 import { ErrorState } from "@/components/ui/loading-states";
 import { exportReportsPDF } from "@/lib/reports-pdf-utils";
 import { toast } from "sonner";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildReportsHubSuggestions } from "@/lib/suggestion-generators";
 
 // Lazy-load heavy report tabs to keep first paint fast
 const ExportTab = lazy(() => import("@/components/reports/ExportTab").then((m) => ({ default: m.ExportTab })));
