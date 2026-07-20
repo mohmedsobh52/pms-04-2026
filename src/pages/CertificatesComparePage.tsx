@@ -35,6 +35,15 @@ const CertificatesComparePage = () => {
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const { replaceBySource } = useGlobalSuggestions();
+
+  useEffect(() => {
+    replaceBySource("certificates-compare", buildCertificatesCompareSuggestions({
+      totalCerts: certs.length,
+      selectedCount: selected.length,
+      hasProjects: projects.length > 0,
+    }));
+  }, [certs.length, selected.length, projects.length, replaceBySource]);
 
   useEffect(() => {
     if (!user) return;
