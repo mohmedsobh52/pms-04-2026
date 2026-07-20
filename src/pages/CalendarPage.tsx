@@ -21,6 +21,8 @@ const CalendarFallback = () => <SuspenseFallback label="Loading…" />;
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ColorLegend } from "@/components/ui/color-code";
 import { supabase } from "@/integrations/supabase/client";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildCalendarSuggestions } from "@/lib/suggestion-generators";
 
 interface UpcomingItem {
   type: "project" | "contract" | "milestone";
@@ -35,6 +37,7 @@ export default function CalendarPage() {
   const [stats, setStats] = useState({ projects: 0, contracts: 0, upcoming: 0, overdue: 0, completed: 0 });
   const [upcomingList, setUpcomingList] = useState<UpcomingItem[]>([]);
   const [allUpcoming, setAllUpcoming] = useState<UpcomingItem[]>([]);
+  const { replaceBySource } = useGlobalSuggestions();
 
   useEffect(() => {
     if (!user) return;
@@ -80,6 +83,15 @@ export default function CalendarPage() {
       setAllUpcoming(sorted);
     })();
   }, [user]);
+
+  useEffect(() => {
+    replaceBySource("calendar", buildCalendarSuggestions({
+      overdue: stats.overdue,
+      upcoming: stats.upcoming,
+      projects: stats.projects,
+      contracts: stats.contracts,
+    }));
+  }, [stats, replaceBySource]);
 
   const cards = [
     { label: isArabic ? 'المشاريع' : 'Projects', value: stats.projects, icon: CalendarDays, color: 'text-primary', bg: 'bg-primary/10' },
