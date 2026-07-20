@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildFastExtractionSuggestions } from "@/lib/suggestion-generators";
 import { Link, useNavigate } from "react-router-dom";
 import { Home, Upload, History, Lightbulb, FolderOpen, ArrowLeft, ChevronLeft } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -28,6 +30,21 @@ export default function FastExtractionPage() {
 
   const readyFilesCount = files.filter((f) => f.status === "success").length;
   const hasDrawingFiles = files.some((f) => f.category === "drawings" && f.status === "success");
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    const drawingsCount = files.filter((f) => f.category === "drawings").length;
+    replaceBySource(
+      "fast-extraction",
+      buildFastExtractionSuggestions({
+        filesCount: files.length,
+        readyCount: readyFilesCount,
+        drawingsCount,
+        step: currentStep,
+      }),
+    );
+  }, [files, readyFilesCount, currentStep, replaceBySource]);
+
 
   const handleUploadComplete = () => {
     // Auto-advance to classify when files are uploaded
