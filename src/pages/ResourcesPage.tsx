@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildResourcesSuggestions } from "@/lib/suggestion-generators";
 import { useNavigate } from "react-router-dom";
 import { 
   Users, 
