@@ -1,4 +1,6 @@
 import { PageSuggestions } from "@/components/PageSuggestions";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildCertificatesSuggestions } from "@/lib/suggestion-generators";
 import { Upload, Search, GitCompare, Sparkles, Grid3x3, FileSignature, Bell, BookmarkPlus, Link2, Star, Users, History } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
