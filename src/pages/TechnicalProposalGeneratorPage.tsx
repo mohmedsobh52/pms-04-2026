@@ -149,6 +149,21 @@ export default function TechnicalProposalGeneratorPage() {
   useEffect(() => { localStorage.setItem("tp_payment_terms", paymentTerms); }, [paymentTerms]);
   useEffect(() => { localStorage.setItem("tp_autosave", autoSave ? "1" : "0"); }, [autoSave]);
 
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    const drafts = buildTechnicalProposalSuggestions({
+      historyCount: history.length,
+      hasCurrent: !!content,
+      sectionsSelected: sections.length,
+      totalSections: ALL_SECTIONS.length,
+      hasClient: !!client.trim(),
+      hasScope: !!scope.trim(),
+    });
+    replaceBySource("technical-proposal", drafts);
+  }, [history.length, content, sections.length, client, scope, replaceBySource]);
+
+
+
 
   // Branding & signature (persisted locally)
   const [companyName, setCompanyName] = useState<string>(() => localStorage.getItem("tp_company_name") || "");
