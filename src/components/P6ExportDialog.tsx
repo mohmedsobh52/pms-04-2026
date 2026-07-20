@@ -231,6 +231,114 @@ export function P6ExportDialog({ items, projectName = "Project", trigger }: P6Ex
     });
   };
 
+  const triggerDownload = (content: string, filename: string, mime: string) => {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadXER = () => {
+    if (!exportResult) return;
+    const today = new Date().toISOString().split("T")[0];
+    const tab = "\t";
+    const lines: string[] = [];
+    // XER header
+    lines.push(`ERMHDR${tab}18.8${tab}${today}${tab}Project${tab}Lovable${tab}Lovable${tab}dbxDatabaseNoName${tab}Project Management${tab}USD`);
+
+    // PROJECT
+    lines.push(`%T${tab}PROJECT`);
+    lines.push(`%F${tab}proj_id${tab}proj_short_name${tab}plan_start_date${tab}plan_end_date`);
+    lines.push(`%R${tab}1${tab}${(exportResult.project_info.name || "PROJ").replace(/\s+/g, "_").slice(0, 20)}${tab}${exportResult.project_info.start_date}${tab}${exportResult.project_info.finish_date}`);
+
+    // PROJWBS
+    lines.push(`%T${tab}PROJWBS`);
+    lines.push(`%F${tab}wbs_id${tab}proj_id${tab}parent_wbs_id${tab}wbs_short_name${tab}wbs_name`);
+    exportResult.wbs_structure.forEach((w, i) => {
+      lines.push(`%R${tab}${i + 1}${tab}1${tab}${w.parent_wbs_id ?? ""}${tab}${w.wbs_id}${tab}${w.wbs_name}`);
+    });
+
+    // TASK
+    lines.push(`%T${tab}TASK`);
+    lines.push(`%F${tab}task_id${tab}proj_id${tab}wbs_id${tab}task_code${tab}task_name${tab}target_drtn_hr_cnt${tab}target_start_date${tab}target_end_date${tab}status_code${tab}phys_complete_pct`);
+    exportResult.activities.forEach((a, i) => {
+      const hrs = Math.round(a.original_duration * settings.hoursPerDay);
+      lines.push(`%R${tab}${i + 1}${tab}1${tab}${a.wbs_id}${tab}${a.activity_id}${tab}${a.activity_name}${tab}${hrs}${tab}${a.start_date}${tab}${a.finish_date}${tab}${a.status || "TK_NotStart"}${tab}${a.physical_percent || 0}`);
+    });
+
+    // TASKPRED
+    if (exportResult.activities.some((a) => a.predecessor_ids?.length)) {
+      lines.push(`%T${tab}TASKPRED`);
+      lines.push(`%F${tab}task_pred_id${tab}task_id${tab}pred_task_id${tab}pred_type`);
+      let pid = 1;
+      exportResult.activities.forEach((a, i) => {
+        (a.predecessor_ids || []).forEach((pred) => {
+          const predIdx = exportResult.activities.findIndex((x) => x.activity_id === pred);
+          if (predIdx >= 0) {
+            lines.push(`%R${tab}${pid++}${tab}${i + 1}${tab}${predIdx + 1}${tab}PR_FS`);
+          }
+        });
+      });
+    }
+    lines.push(`%E`);
+    triggerDownload(lines.join("\n"), `${projectName}_P6.xer`, "text/plain");
+    toast({
+      title: isArabic ? "تم التحميل" : "Downloaded",
+      description: isArabic ? "تم إنشاء ملف XER" : "XER file generated",
+    });
+  };
+
+  const downloadXML = () => {
+    if (!exportResult) return;
+    const esc = (s: string) => String(s ?? "").replace(/[<>&"']/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&apos;" }[c]!));
+    const wbsXml = exportResult.wbs_structure.map((w) => `
+    <WBS ObjectId="${esc(w.wbs_id)}">
+      <Code>${esc(w.wbs_id)}</Code>
+      <Name>${esc(w.wbs_name)}</Name>
+      <ParentObjectId>${esc(w.parent_wbs_id || "")}</ParentObjectId>
+      <SequenceNumber>${w.level}</SequenceNumber>
+    </WBS>`).join("");
+    const actXml = exportResult.activities.map((a) => `
+    <Activity ObjectId="${esc(a.activity_id)}">
+      <Id>${esc(a.activity_id)}</Id>
+      <Name>${esc(a.activity_name)}</Name>
+      <WBSObjectId>${esc(a.wbs_id)}</WBSObjectId>
+      <PlannedDuration>${a.original_duration * settings.hoursPerDay}</PlannedDuration>
+      <PlannedStartDate>${a.start_date}</PlannedStartDate>
+      <PlannedFinishDate>${a.finish_date}</PlannedFinishDate>
+      <Status>${esc(a.status || "Not Started")}</Status>
+      <PercentComplete>${a.physical_percent || 0}</PercentComplete>
+      <PlannedTotalCost>${a.budget_cost || 0}</PlannedTotalCost>
+      ${(a.predecessor_ids || []).map((p) => `<Predecessor><ActivityObjectId>${esc(p)}</ActivityObjectId><Type>Finish to Start</Type></Predecessor>`).join("")}
+    </Activity>`).join("");
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects" Version="19.12">
+  <Project ObjectId="1">
+    <Id>${esc(exportResult.project_info.name)}</Id>
+    <Name>${esc(exportResult.project_info.name)}</Name>
+    <PlannedStartDate>${exportResult.project_info.start_date}</PlannedStartDate>
+    <MustFinishByDate>${exportResult.project_info.finish_date}</MustFinishByDate>
+    <Currency>${esc(exportResult.project_info.currency)}</Currency>${wbsXml}${actXml}
+  </Project>
+</APIBusinessObjects>`;
+    triggerDownload(xml, `${projectName}_P6.xml`, "application/xml");
+    toast({
+      title: isArabic ? "تم التحميل" : "Downloaded",
+      description: isArabic ? "تم إنشاء ملف XML" : "XML file generated",
+    });
+  };
+
+  const handleDownload = () => {
+    if (settings.exportFormat === "xer") downloadXER();
+    else if (settings.exportFormat === "xml") downloadXML();
+    else downloadExcel();
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -314,8 +422,8 @@ export function P6ExportDialog({ items, projectName = "Project", trigger }: P6Ex
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="xlsx">Excel (.xlsx)</SelectItem>
-                      <SelectItem value="xer" disabled>P6 XER (قريباً)</SelectItem>
-                      <SelectItem value="xml" disabled>P6 XML (قريباً)</SelectItem>
+                      <SelectItem value="xer">Primavera XER (.xer)</SelectItem>
+                      <SelectItem value="xml">Primavera XML (.xml)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -443,9 +551,9 @@ export function P6ExportDialog({ items, projectName = "Project", trigger }: P6Ex
 
         <DialogFooter className="gap-2">
           {exportResult && (
-            <Button onClick={downloadExcel} className="gap-2">
+            <Button onClick={handleDownload} className="gap-2">
               <Download className="h-4 w-4" />
-              {isArabic ? "تحميل Excel" : "Download Excel"}
+              {isArabic ? `تحميل ${settings.exportFormat.toUpperCase()}` : `Download ${settings.exportFormat.toUpperCase()}`}
             </Button>
           )}
           <Button variant="outline" onClick={() => setOpen(false)}>

@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Cloud, CheckCircle, ExternalLink, FolderSync, HardDrive, AlertCircle } from "lucide-react";
+import { Cloud, CheckCircle, ExternalLink, HardDrive, AlertCircle, Trash2 } from "lucide-react";
 
 // Google Drive icon SVG
 const GoogleDriveIcon = () => (
@@ -19,7 +21,6 @@ const GoogleDriveIcon = () => (
   </svg>
 );
 
-// OneDrive icon SVG  
 const OneDriveIcon = () => (
   <svg viewBox="0 0 24 24" className="w-6 h-6">
     <path d="M12.25 4.25a5.5 5.5 0 0 1 5.44 4.68A4.25 4.25 0 0 1 19.5 17H6.75a4.75 4.75 0 0 1-.93-9.4A5.5 5.5 0 0 1 12.25 4.25z" fill="#0364b8"/>
@@ -34,60 +35,98 @@ interface CloudStorageIntegrationProps {
   onSync?: () => void;
 }
 
-export function CloudStorageIntegration({ projectId, onSync }: CloudStorageIntegrationProps) {
+type Provider = "google-drive" | "onedrive";
+type LinkMap = Partial<Record<Provider, string>>;
+
+const STORAGE_KEY = (pid: string) => `cloud-links-${pid || "global"}`;
+
+export function CloudStorageIntegration({ projectId }: CloudStorageIntegrationProps) {
   const { isArabic } = useLanguage();
   const { toast } = useToast();
   const [showDialog, setShowDialog] = useState(false);
-  const [connecting, setConnecting] = useState<string | null>(null);
+  const [links, setLinks] = useState<LinkMap>({});
+  const [drafts, setDrafts] = useState<LinkMap>({});
 
-  const services = [
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY(projectId || ""));
+      if (raw) {
+        const parsed = JSON.parse(raw) as LinkMap;
+        setLinks(parsed);
+        setDrafts(parsed);
+      }
+    } catch { /* ignore */ }
+  }, [projectId]);
+
+  const persist = (next: LinkMap) => {
+    setLinks(next);
+    try {
+      localStorage.setItem(STORAGE_KEY(projectId || ""), JSON.stringify(next));
+    } catch { /* ignore */ }
+  };
+
+  const services: { id: Provider; name: string; icon: () => JSX.Element; hint: string; color: string }[] = [
     {
       id: "google-drive",
       name: "Google Drive",
       icon: GoogleDriveIcon,
-      description: isArabic 
-        ? "حفظ ومزامنة الملفات تلقائياً مع Google Drive" 
-        : "Auto-save and sync files with Google Drive",
+      hint: isArabic ? "الصق رابط مجلد المشروع على Google Drive" : "Paste your project folder link from Google Drive",
       color: "bg-blue-500/10 border-blue-500/20",
-      connected: false
     },
     {
       id: "onedrive",
       name: "OneDrive",
       icon: OneDriveIcon,
-      description: isArabic 
-        ? "ربط مع Microsoft OneDrive للحفظ السحابي" 
-        : "Connect with Microsoft OneDrive for cloud storage",
+      hint: isArabic ? "الصق رابط مجلد المشروع على OneDrive/SharePoint" : "Paste your project folder link from OneDrive/SharePoint",
       color: "bg-sky-500/10 border-sky-500/20",
-      connected: false
-    }
+    },
   ];
 
-  const handleConnect = async (serviceId: string) => {
-    setConnecting(serviceId);
-    
-    // Show info toast that this feature requires additional setup
-    setTimeout(() => {
+  const handleSave = (id: Provider) => {
+    const val = (drafts[id] || "").trim();
+    if (!val) return;
+    try {
+      // eslint-disable-next-line no-new
+      new URL(val);
+    } catch {
       toast({
-        title: isArabic ? "قريباً" : "Coming Soon",
-        description: isArabic 
-          ? "هذه الميزة قيد التطوير. ستتوفر قريباً!" 
-          : "This feature is under development. Coming soon!",
+        title: isArabic ? "رابط غير صالح" : "Invalid URL",
+        description: isArabic ? "يرجى إدخال رابط صحيح يبدأ بـ https://" : "Please enter a valid https:// URL",
+        variant: "destructive",
       });
-      setConnecting(null);
-    }, 1500);
+      return;
+    }
+    const next = { ...links, [id]: val };
+    persist(next);
+    toast({
+      title: isArabic ? "تم الحفظ" : "Saved",
+      description: isArabic ? "تم ربط مجلد التخزين بالمشروع" : "Cloud folder linked to project",
+    });
   };
+
+  const handleRemove = (id: Provider) => {
+    const next = { ...links };
+    delete next[id];
+    persist(next);
+    setDrafts(next);
+  };
+
+  const connectedCount = Object.keys(links).length;
+
 
   return (
     <>
-      <Button 
-        variant="outline" 
-        size="sm" 
+      <Button
+        variant="outline"
+        size="sm"
         className="gap-2"
         onClick={() => setShowDialog(true)}
       >
         <Cloud className="w-4 h-4" />
         {isArabic ? "التخزين السحابي" : "Cloud Storage"}
+        {connectedCount > 0 && (
+          <Badge variant="secondary" className="ms-1 h-5 px-1.5 text-[10px]">{connectedCount}</Badge>
+        )}
       </Button>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
@@ -98,61 +137,65 @@ export function CloudStorageIntegration({ projectId, onSync }: CloudStorageInteg
               {isArabic ? "ربط التخزين السحابي" : "Cloud Storage Integration"}
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              {isArabic 
-                ? "اربط مشروعك مع خدمات التخزين السحابي لحفظ الملفات تلقائياً ومزامنتها عبر الأجهزة." 
-                : "Connect your project with cloud storage services to auto-save files and sync across devices."}
+              {isArabic
+                ? "الصق روابط مجلدات مشروعك من Google Drive أو OneDrive. الروابط تُحفظ محلياً لهذا المشروع ويمكن فتحها من هنا بضغطة واحدة."
+                : "Paste your project folder links from Google Drive or OneDrive. Links are saved locally per project and openable from here in one click."}
             </p>
 
             <div className="space-y-3">
-              {services.map(service => {
+              {services.map((service) => {
                 const Icon = service.icon;
+                const connected = Boolean(links[service.id]);
                 return (
                   <Card key={service.id} className={`transition-all ${service.color}`}>
-                    <CardContent className="p-4">
+                    <CardContent className="p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-background">
-                            <Icon />
-                          </div>
+                          <div className="p-2 rounded-lg bg-background"><Icon /></div>
                           <div>
                             <h4 className="font-medium flex items-center gap-2">
                               {service.name}
-                              {service.connected && (
+                              {connected && (
                                 <Badge variant="outline" className="text-green-600 border-green-500/30 bg-green-500/10">
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  {isArabic ? "متصل" : "Connected"}
+                                  <CheckCircle className="w-3 h-3 me-1" />
+                                  {isArabic ? "مرتبط" : "Linked"}
                                 </Badge>
                               )}
                             </h4>
-                            <p className="text-xs text-muted-foreground">{service.description}</p>
+                            <p className="text-xs text-muted-foreground">{service.hint}</p>
                           </div>
                         </div>
-                        <Button
-                          variant={service.connected ? "outline" : "default"}
-                          size="sm"
-                          disabled={connecting === service.id}
-                          onClick={() => handleConnect(service.id)}
-                        >
-                          {connecting === service.id ? (
-                            <span className="flex items-center gap-2">
-                              <span className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
-                              {isArabic ? "جاري الاتصال..." : "Connecting..."}
-                            </span>
-                          ) : service.connected ? (
-                            <>
-                              <FolderSync className="w-4 h-4 mr-1" />
-                              {isArabic ? "مزامنة" : "Sync"}
-                            </>
-                          ) : (
-                            <>
-                              <ExternalLink className="w-4 h-4 mr-1" />
-                              {isArabic ? "ربط" : "Connect"}
-                            </>
-                          )}
-                        </Button>
+                        {connected && (
+                          <div className="flex items-center gap-1">
+                            <Button size="sm" variant="outline" asChild>
+                              <a href={links[service.id]} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="w-4 h-4 me-1" />
+                                {isArabic ? "فتح" : "Open"}
+                              </a>
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => handleRemove(service.id)} aria-label={isArabic ? "إزالة" : "Remove"}>
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs">{isArabic ? "رابط المجلد" : "Folder URL"}</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            type="url"
+                            placeholder="https://..."
+                            value={drafts[service.id] || ""}
+                            onChange={(e) => setDrafts({ ...drafts, [service.id]: e.target.value })}
+                          />
+                          <Button size="sm" onClick={() => handleSave(service.id)} disabled={!drafts[service.id]?.trim() || drafts[service.id] === links[service.id]}>
+                            {isArabic ? "حفظ" : "Save"}
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -166,9 +209,9 @@ export function CloudStorageIntegration({ projectId, onSync }: CloudStorageInteg
                 <div>
                   <p className="text-sm font-medium">{isArabic ? "ملاحظة" : "Note"}</p>
                   <p className="text-xs text-muted-foreground">
-                    {isArabic 
-                      ? "يتطلب الربط مع الخدمات السحابية تسجيل الدخول وإعطاء الصلاحيات اللازمة. ملفاتك محمية وآمنة." 
-                      : "Connecting to cloud services requires authentication and permissions. Your files are protected and secure."}
+                    {isArabic
+                      ? "الملفات نفسها تُحفظ في تخزين Lovable Cloud الآمن. الروابط هنا للوصول السريع لمجلدات إضافية على منصات خارجية."
+                      : "Files themselves are stored in secure Lovable Cloud storage. Links here provide quick access to external folders."}
                   </p>
                 </div>
               </div>
@@ -177,9 +220,9 @@ export function CloudStorageIntegration({ projectId, onSync }: CloudStorageInteg
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <HardDrive className="w-4 h-4" />
               <span>
-                {isArabic 
-                  ? "يتم حفظ الملفات حالياً في تخزين Lovable Cloud الآمن" 
-                  : "Files are currently saved in secure Lovable Cloud storage"}
+                {isArabic
+                  ? "التخزين الأساسي: Lovable Cloud"
+                  : "Primary storage: Lovable Cloud"}
               </span>
             </div>
           </div>
@@ -188,3 +231,4 @@ export function CloudStorageIntegration({ projectId, onSync }: CloudStorageInteg
     </>
   );
 }
+
