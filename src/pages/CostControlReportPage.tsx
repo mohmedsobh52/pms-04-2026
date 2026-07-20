@@ -20,6 +20,8 @@ import { Label } from "@/components/ui/label";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { useLanguage } from "@/hooks/useLanguage";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildCostControlSuggestions } from "@/lib/suggestion-generators";
 import { supabase } from "@/integrations/supabase/client";
 import { createWorkbook, addJsonSheet, downloadWorkbook } from "@/lib/exceljs-utils";
 import { toast } from "sonner";
