@@ -75,6 +75,8 @@ const PartnerDetailsPage = () => {
         .eq("user_id", user?.id)
         .not("project_id", "is", null);
 
+      setContractsCount(contractsData?.length || 0);
+
       if (contractsData && contractsData.length > 0) {
         const projectIds = [...new Set(contractsData.map(c => c.project_id).filter(Boolean))];
         
@@ -87,6 +89,15 @@ const PartnerDetailsPage = () => {
           setAssociatedProjects(projectsData || []);
         }
       }
+
+      // Fetch reviews count (best-effort)
+      try {
+        const { count } = await supabase
+          .from("partner_reviews" as any)
+          .select("id", { count: "exact", head: true })
+          .eq("partner_id", partnerId);
+        setReviewsCount(count || 0);
+      } catch { /* ignore */ }
     } catch (error) {
       console.error("Error fetching partner:", error);
       toast.error(isArabic ? "خطأ في تحميل بيانات الشريك" : "Error loading partner data");
