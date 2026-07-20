@@ -31,6 +31,18 @@ const TabFallback = () => <SuspenseFallback label="Loading…" />;
 
 const SettingsPage = () => {
   const { isArabic } = useLanguage();
+  const { replaceBySource } = useGlobalSuggestions();
+
+  useEffect(() => {
+    const hasCompanyLogo = typeof window !== "undefined" && !!localStorage.getItem("company-logo");
+    const hasAiModel = typeof window !== "undefined" && !!localStorage.getItem("selected-ai-model");
+    const notificationsEnabled = typeof window !== "undefined" && localStorage.getItem("notifications-enabled") !== "false";
+    replaceBySource(
+      "settings",
+      buildSettingsSuggestions({ hasCompanyLogo, hasAiModel, notificationsEnabled })
+    );
+  }, [replaceBySource]);
+
 
   return (
     <PageLayout>
