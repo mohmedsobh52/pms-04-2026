@@ -23,8 +23,21 @@ import { useToast } from "@/hooks/use-toast";
 
 const CompanySettingsPage = () => {
   const { isArabic } = useLanguage();
-  const { resetSettings } = useCompanySettings();
+  const { settings, resetSettings } = useCompanySettings();
   const { toast } = useToast();
+  const { replaceBySource } = useGlobalSuggestions();
+
+  useEffect(() => {
+    const hasLogo = typeof window !== "undefined" && !!localStorage.getItem("company-logo");
+    const drafts = buildCompanySettingsSuggestions({
+      hasLogo,
+      hasTaxNumber: !!settings.taxNumber?.trim(),
+      hasEmail: !!settings.email?.trim(),
+      hasPhone: !!settings.phone?.trim(),
+      hasAddress: !!settings.address?.trim(),
+    });
+    replaceBySource("company-settings", drafts);
+  }, [settings, replaceBySource]);
 
   const handleReset = () => {
     resetSettings();
