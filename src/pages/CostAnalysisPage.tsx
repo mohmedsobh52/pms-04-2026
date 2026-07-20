@@ -886,8 +886,54 @@ export default function CostAnalysisPage() {
           toast.error("لم يتم العثور على بنود في الملف");
         }
       } else if (isPDF) {
-        toast.info("جاري معالجة ملف PDF...");
-        toast.error("استيراد PDF قيد التطوير، يُرجى استخدام ملف Excel");
+        toast.info("جاري استخراج البنود من ملف PDF...");
+        const pdfjs: any = await import("pdfjs-dist");
+        try {
+          const workerUrl = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
+          pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+        } catch {
+          /* worker already configured elsewhere */
+        }
+        const buf = await file.arrayBuffer();
+        const doc = await pdfjs.getDocument({ data: buf }).promise;
+        const parsedItems: CostItem[] = [];
+        for (let p = 1; p <= doc.numPages; p++) {
+          const page = await doc.getPage(p);
+          const tc = await page.getTextContent();
+          // Reconstruct lines by their y-position
+          const rows = new Map<number, string[]>();
+          (tc.items as any[]).forEach((it) => {
+            const y = Math.round((it.transform?.[5] ?? 0) * 10) / 10;
+            if (!rows.has(y)) rows.set(y, []);
+            rows.get(y)!.push(String(it.str || "").trim());
+          });
+          for (const parts of rows.values()) {
+            const line = parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+            if (line.length < 4) continue;
+            // capture last 2 numeric tokens as quantity + unit price
+            const nums = line.match(/-?\d+(?:[.,]\d+)?/g)?.map((n) => Number(n.replace(",", ""))) ?? [];
+            if (nums.length < 2) continue;
+            const unitPrice = nums[nums.length - 1];
+            const quantity = nums[nums.length - 2];
+            if (!isFinite(unitPrice) || !isFinite(quantity) || unitPrice <= 0) continue;
+            const name = line.replace(/[\d.,\s]+$/, "").trim();
+            if (!name || name.length < 3) continue;
+            parsedItems.push({
+              id: `pdf-${Date.now()}-${parsedItems.length}`,
+              name,
+              dailyProductivity: quantity,
+              dailyRent: unitPrice,
+              costPerUnit: quantity ? unitPrice / quantity : 0,
+              isEditable: true,
+            });
+          }
+        }
+        if (parsedItems.length === 0) {
+          toast.error("لم يتم العثور على بنود قابلة للاستخراج في ملف PDF");
+        } else {
+          setItems((prev) => [...prev, ...parsedItems]);
+          toast.success(`تم استيراد ${parsedItems.length} بند من ملف PDF`);
+        }
       }
     } catch (error) {
       console.error("Import error:", error);

@@ -1039,6 +1039,144 @@ export function buildExecutiveSummarySuggestions(input: {
   return out;
 }
 
+/** Projects-compare suggestions. */
+export function buildProjectsCompareSuggestions(input: {
+  total: number;
+  selected: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "projects-compare";
+  if (input.total < 2) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "أنشئ مشروعين على الأقل لتفعيل المقارنة",
+      sourceScreen: screen,
+      sourceRoute: "/new-project",
+    });
+    return out;
+  }
+  if (input.selected < 2) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "اختر مشروعين للمقارنة الفورية",
+      description: `${input.total} مشروع متاح — قارن الأداء والقيم.`,
+      sourceScreen: screen,
+      sourceRoute: "/projects-compare",
+    });
+  }
+  if (input.total >= 5) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: "قاعدة مشاريع غنية — أنشئ تقرير Portfolio",
+      sourceScreen: screen,
+      sourceRoute: "/executive-summary",
+    });
+  }
+  return out;
+}
+
+/** Fast-extraction suggestions. */
+export function buildFastExtractionSuggestions(input: {
+  filesCount: number;
+  readyCount: number;
+  drawingsCount: number;
+  step: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "fast-extraction";
+  if (input.filesCount === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "ابدأ برفع ملفات BOQ أو مخططات لاستخراج تلقائي",
+      sourceScreen: screen,
+      sourceRoute: "/fast-extraction",
+    });
+    return out;
+  }
+  if (input.readyCount < input.filesCount) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.filesCount - input.readyCount} ملف لم يكتمل رفعه بعد`,
+      sourceScreen: screen,
+    });
+  }
+  if (input.drawingsCount > 0 && input.step < 3) {
+    out.push({
+      category: "ai-pricing",
+      severity: "info",
+      title: `${input.drawingsCount} مخطط جاهز لاستخراج الكميات بالذكاء الاصطناعي`,
+      sourceScreen: screen,
+    });
+  }
+  if (input.readyCount >= 1 && input.step >= 4) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "الاستخراج مكتمل — اربط البيانات بمشروع",
+      sourceScreen: screen,
+      sourceRoute: "/new-project",
+    });
+  }
+  return out;
+}
+
+/** Tender-summary suggestions. */
+export function buildTenderSummarySuggestions(input: {
+  contractValue: number;
+  profitMargin: number;
+  contingency: number;
+  riskLevel?: string;
+  itemsCount: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "tender-summary";
+  if (input.itemsCount === 0) return out;
+  if (input.contractValue === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: "لم يُحدَّد قيمة العقد المستهدفة",
+      description: "أدخل قيمة العقد لحساب هامش الربح والاحتياطي.",
+      sourceScreen: screen,
+    });
+  }
+  if (input.profitMargin > 0 && input.profitMargin < 5) {
+    out.push({
+      category: "reports",
+      severity: "warning",
+      title: `هامش ربح منخفض (${input.profitMargin}%)`,
+      description: "الحد الآمن عادةً ≥ 8% — راجع التسعير أو التكاليف غير المباشرة.",
+      sourceScreen: screen,
+    });
+  }
+  if (input.contingency > 0 && input.contingency < 3) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: `احتياطي طوارئ منخفض (${input.contingency}%)`,
+      description: "زد الاحتياطي عند وجود مخاطر جدولة أو تضخم.",
+      sourceScreen: screen,
+    });
+  }
+  if (input.riskLevel === "high" || input.riskLevel === "very_high") {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: "مستوى المخاطر مرتفع — راجع خطط الاستجابة",
+      sourceScreen: screen,
+      sourceRoute: "/risk",
+    });
+  }
+  return out;
+}
+
+
+
 export const CATEGORY_META: Record<SuggestionCategory, { ar: string; en: string; color: string }> = {
   "ai-pricing": { ar: "أسعار وإنتاجية (AI)", en: "AI Pricing", color: "text-violet-600" },
   "data-quality": { ar: "جودة البيانات", en: "Data Quality", color: "text-amber-600" },

@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { GitCompare, Briefcase } from "lucide-react";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildProjectsCompareSuggestions } from "@/lib/suggestion-generators";
 
 interface ProjectRow {
   id: string;
@@ -42,6 +44,14 @@ export default function ProjectsComparePage() {
       setLoading(false);
     })();
   }, [user]);
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    replaceBySource(
+      "projects-compare",
+      buildProjectsCompareSuggestions({ total: projects.length, selected: selected.size }),
+    );
+  }, [projects.length, selected, replaceBySource]);
 
   const compared = useMemo(() => projects.filter((p) => selected.has(p.id)), [projects, selected]);
   const toggle = (id: string) => {
