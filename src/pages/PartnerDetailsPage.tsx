@@ -14,6 +14,8 @@ import { PartnerPerformance } from "@/components/procurement/PartnerPerformance"
 import { PartnerReviews } from "@/components/procurement/PartnerReviews";
 import { ExternalPartner } from "@/components/procurement/PartnerCard";
 import { ColorLegend } from "@/components/ui/color-code";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildPartnerDetailsSuggestions } from "@/lib/suggestion-generators";
 
 interface SavedProject {
   id: string;
