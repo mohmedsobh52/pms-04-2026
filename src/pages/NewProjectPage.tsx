@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildNewProjectSuggestions } from "@/lib/suggestion-generators";
 import { useNavigate, Link } from "react-router-dom";
 import { Plus, ArrowLeft, Briefcase, Building2, DollarSign, FileText, Loader2, Home, MapPin, Users, CalendarIcon, Clock, Flag } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
