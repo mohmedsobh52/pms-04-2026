@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Sparkles,
   ShieldCheck,
@@ -15,10 +22,16 @@ import {
   X,
   ExternalLink,
   Trash2,
+  Search,
+  Clock,
+  Pin,
+  PinOff,
+  ChevronDown,
+  Layers,
 } from "lucide-react";
-import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { useGlobalSuggestions, isSuggestionSnoozed } from "@/contexts/GlobalSuggestionsContext";
 import { CATEGORY_META, SEVERITY_META } from "@/lib/suggestion-generators";
-import type { SuggestionCategory } from "@/contexts/GlobalSuggestionsContext";
+import type { SuggestionCategory, SuggestionSeverity } from "@/contexts/GlobalSuggestionsContext";
 import { cn } from "@/lib/utils";
 
 const TAB_ICONS: Record<SuggestionCategory | "all", any> = {
@@ -29,26 +42,75 @@ const TAB_ICONS: Record<SuggestionCategory | "all", any> = {
   reports: FileText,
 };
 
+const SEV_WEIGHT: Record<SuggestionSeverity, number> = {
+  critical: 0,
+  warning: 1,
+  info: 2,
+  success: 3,
+};
+
+type SortMode = "severity" | "recent" | "screen";
+
 export function GlobalSuggestionsInbox() {
-  const { suggestions, dismiss, markApplied, clearAll, unreadCount } = useGlobalSuggestions();
+  const {
+    suggestions,
+    dismiss,
+    markApplied,
+    snooze,
+    togglePin,
+    clearAll,
+    unreadCount,
+    criticalCount,
+  } = useGlobalSuggestions();
   const navigate = useNavigate();
   const [tab, setTab] = useState<SuggestionCategory | "all">("all");
+  const [query, setQuery] = useState("");
+  const [sevFilter, setSevFilter] = useState<SuggestionSeverity | "all">("all");
+  const [sort, setSort] = useState<SortMode>("severity");
 
   const active = useMemo(
-    () => suggestions.filter((s) => !s.dismissed && !s.applied),
+    () => suggestions.filter((s) => !s.dismissed && !s.applied && !isSuggestionSnoozed(s)),
     [suggestions],
   );
 
-  const filtered = useMemo(
-    () => (tab === "all" ? active : active.filter((s) => s.category === tab)),
-    [active, tab],
-  );
+  const filtered = useMemo(() => {
+    let list = tab === "all" ? active : active.filter((s) => s.category === tab);
+    if (sevFilter !== "all") list = list.filter((s) => s.severity === sevFilter);
+    const q = query.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (s) =>
+          s.title.toLowerCase().includes(q) ||
+          s.description?.toLowerCase().includes(q) ||
+          s.sourceScreen?.toLowerCase().includes(q),
+      );
+    }
+    // Pinned first
+    const sorted = [...list].sort((a, b) => {
+      if (!!b.pinned !== !!a.pinned) return b.pinned ? 1 : -1;
+      if (sort === "severity") return SEV_WEIGHT[a.severity] - SEV_WEIGHT[b.severity];
+      if (sort === "recent") return b.createdAt.localeCompare(a.createdAt);
+      return (a.sourceScreen ?? "").localeCompare(b.sourceScreen ?? "");
+    });
+    return sorted;
+  }, [active, tab, query, sevFilter, sort]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: active.length };
     for (const s of active) c[s.category] = (c[s.category] || 0) + 1;
     return c;
   }, [active]);
+
+  const grouped = useMemo(() => {
+    if (sort !== "screen") return null;
+    const map = new Map<string, typeof filtered>();
+    for (const s of filtered) {
+      const key = s.sourceScreen || "غير محدد";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(s);
+    }
+    return Array.from(map.entries());
+  }, [filtered, sort]);
 
   return (
     <Sheet>
@@ -65,10 +127,15 @@ export function GlobalSuggestionsInbox() {
               {unreadCount}
             </Badge>
           )}
+          {criticalCount > 0 && (
+            <Badge variant="destructive" className="rounded-full h-5 min-w-5 px-1.5">
+              {criticalCount}
+            </Badge>
+          )}
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-[440px] sm:w-[520px] p-0" dir="rtl">
-        <SheetHeader className="p-6 pb-3 border-b">
+      <SheetContent side="left" className="w-[460px] sm:w-[540px] p-0 flex flex-col" dir="rtl">
+        <SheetHeader className="p-5 pb-3 border-b">
           <SheetTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
             صندوق الاقتراحات الموحد
@@ -76,8 +143,8 @@ export function GlobalSuggestionsInbox() {
           </SheetTitle>
         </SheetHeader>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
-          <TabsList className="grid grid-cols-5 mx-6 mt-3">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full flex-1 flex flex-col min-h-0">
+          <TabsList className="grid grid-cols-5 mx-5 mt-3">
             {(["all", "ai-pricing", "data-quality", "workflow", "reports"] as const).map((k) => {
               const Icon = TAB_ICONS[k];
               return (
@@ -92,98 +159,102 @@ export function GlobalSuggestionsInbox() {
             })}
           </TabsList>
 
-          <div className="flex items-center gap-2 px-6 mt-3">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                if (confirm("مسح كل الاقتراحات؟")) clearAll();
-              }}
-              disabled={active.length === 0}
-              className="gap-1 text-destructive"
-            >
-              <Trash2 className="w-3 h-3" /> مسح الكل
-            </Button>
+          <div className="px-5 mt-3 space-y-2">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="ابحث في الاقتراحات..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="h-8 pr-8 text-xs"
+              />
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {(["all", "critical", "warning", "info"] as const).map((sv) => (
+                <button
+                  key={sv}
+                  onClick={() => setSevFilter(sv as any)}
+                  className={cn(
+                    "text-[10px] px-2 py-0.5 rounded-full border transition-colors",
+                    sevFilter === sv
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "hover:bg-muted",
+                  )}
+                >
+                  {sv === "all" ? "كل الخطورات" : SEVERITY_META[sv].ar}
+                </button>
+              ))}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-6 gap-1 text-[10px] ml-auto">
+                    <Layers className="w-3 h-3" />
+                    {sort === "severity" ? "خطورة" : sort === "recent" ? "أحدث" : "شاشة"}
+                    <ChevronDown className="w-3 h-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="text-xs">
+                  <DropdownMenuItem onClick={() => setSort("severity")}>حسب الخطورة</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSort("recent")}>الأحدث أولاً</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSort("screen")}>تجميع حسب الشاشة</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  if (confirm("مسح كل الاقتراحات؟")) clearAll();
+                }}
+                disabled={active.length === 0}
+                className="h-6 gap-1 text-[10px] text-destructive"
+              >
+                <Trash2 className="w-3 h-3" /> مسح
+              </Button>
+            </div>
           </div>
 
-          <TabsContent value={tab} className="mt-3">
-            <ScrollArea className="h-[calc(100vh-230px)] px-6 pb-6">
+          <TabsContent value={tab} className="mt-3 flex-1 min-h-0">
+            <ScrollArea className="h-full px-5 pb-6">
               {filtered.length === 0 ? (
                 <div className="text-center text-muted-foreground text-sm py-16">
                   <Sparkles className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                  لا توجد اقتراحات نشطة في هذا القسم
+                  لا توجد اقتراحات مطابقة
+                </div>
+              ) : sort === "screen" && grouped ? (
+                <div className="space-y-4">
+                  {grouped.map(([screen, items]) => (
+                    <div key={screen}>
+                      <div className="text-[11px] font-semibold text-muted-foreground mb-1.5 sticky top-0 bg-background/95 backdrop-blur py-1">
+                        {screen} <Badge variant="outline" className="text-[10px] mr-1">{items.length}</Badge>
+                      </div>
+                      <div className="space-y-2">
+                        {items.map((s) => (
+                          <SuggestionCard
+                            key={s.id}
+                            s={s}
+                            onDismiss={dismiss}
+                            onApplied={markApplied}
+                            onSnooze={snooze}
+                            onTogglePin={togglePin}
+                            onNavigate={navigate}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {filtered.map((s) => {
-                    const meta = CATEGORY_META[s.category];
-                    const sev = SEVERITY_META[s.severity];
-                    const Icon = TAB_ICONS[s.category];
-                    return (
-                      <div
-                        key={s.id}
-                        className="p-3 border rounded-lg bg-card hover:bg-muted/30 transition-colors"
-                      >
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Icon className={cn("w-4 h-4 shrink-0", meta.color)} />
-                            <Badge variant="outline" className="text-[10px]">{meta.ar}</Badge>
-                            <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium", sev.badge)}>
-                              {sev.ar}
-                            </span>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 shrink-0"
-                            onClick={() => dismiss(s.id)}
-                            title="تجاهل"
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
-                        </div>
-                        <p className="text-sm font-medium leading-snug">{s.title}</p>
-                        {s.description && (
-                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                            {s.description}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-2 mt-2 flex-wrap">
-                          {s.applyLabel && (s.onApply || s.sourceRoute) && (
-                            <Button
-                              size="sm"
-                              variant="default"
-                              className="h-7 gap-1 text-xs"
-                              onClick={async () => {
-                                if (s.onApply) await s.onApply();
-                                if (s.sourceRoute) navigate(s.sourceRoute);
-                                markApplied(s.id);
-                              }}
-                            >
-                              <Check className="w-3 h-3" />
-                              {s.applyLabel}
-                            </Button>
-                          )}
-                          {s.sourceRoute && !s.applyLabel && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 gap-1 text-xs"
-                              onClick={() => navigate(s.sourceRoute!)}
-                            >
-                              <ExternalLink className="w-3 h-3" />
-                              انتقال
-                            </Button>
-                          )}
-                          {s.sourceScreen && (
-                            <span className="text-[10px] text-muted-foreground ml-auto">
-                              {s.sourceScreen}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {filtered.map((s) => (
+                    <SuggestionCard
+                      key={s.id}
+                      s={s}
+                      onDismiss={dismiss}
+                      onApplied={markApplied}
+                      onSnooze={snooze}
+                      onTogglePin={togglePin}
+                      onNavigate={navigate}
+                    />
+                  ))}
                 </div>
               )}
             </ScrollArea>
@@ -191,5 +262,115 @@ export function GlobalSuggestionsInbox() {
         </Tabs>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function SuggestionCard({
+  s,
+  onDismiss,
+  onApplied,
+  onSnooze,
+  onTogglePin,
+  onNavigate,
+}: {
+  s: any;
+  onDismiss: (id: string) => void;
+  onApplied: (id: string) => void;
+  onSnooze: (id: string, hours: number) => void;
+  onTogglePin: (id: string) => void;
+  onNavigate: (path: string) => void;
+}) {
+  const meta = CATEGORY_META[s.category as SuggestionCategory];
+  const sev = SEVERITY_META[s.severity as SuggestionSeverity];
+  const Icon = TAB_ICONS[s.category as SuggestionCategory];
+  return (
+    <div
+      className={cn(
+        "p-3 border rounded-lg bg-card hover:bg-muted/30 transition-colors",
+        s.pinned && "border-primary/60 ring-1 ring-primary/20",
+      )}
+    >
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+          <Icon className={cn("w-4 h-4 shrink-0", meta.color)} />
+          <Badge variant="outline" className="text-[10px]">{meta.ar}</Badge>
+          <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium", sev.badge)}>
+            {sev.ar}
+          </span>
+        </div>
+        <div className="flex items-center gap-0.5 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => onTogglePin(s.id)}
+            title={s.pinned ? "إلغاء التثبيت" : "تثبيت"}
+          >
+            {s.pinned ? <PinOff className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6" title="غفوة">
+                <Clock className="w-3 h-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="text-xs">
+              <DropdownMenuItem onClick={() => onSnooze(s.id, 1)}>ساعة</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onSnooze(s.id, 4)}>4 ساعات</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onSnooze(s.id, 24)}>يوم</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onSnooze(s.id, 24 * 7)}>أسبوع</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => onDismiss(s.id)}
+            title="تجاهل"
+          >
+            <X className="w-3 h-3" />
+          </Button>
+        </div>
+      </div>
+      <p className="text-sm font-medium leading-snug">{s.title}</p>
+      {s.description && (
+        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+          {s.description}
+        </p>
+      )}
+      <div className="flex items-center gap-2 mt-2 flex-wrap">
+        {s.applyLabel && (s.onApply || s.sourceRoute) && (
+          <Button
+            size="sm"
+            variant="default"
+            className="h-7 gap-1 text-xs"
+            onClick={async () => {
+              if (s.onApply) await s.onApply();
+              if (s.sourceRoute) onNavigate(s.sourceRoute);
+              onApplied(s.id);
+            }}
+          >
+            <Check className="w-3 h-3" />
+            {s.applyLabel}
+          </Button>
+        )}
+        {s.sourceRoute && !s.applyLabel && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1 text-xs"
+            onClick={() => onNavigate(s.sourceRoute!)}
+          >
+            <ExternalLink className="w-3 h-3" />
+            انتقال
+          </Button>
+        )}
+        {s.sourceScreen && (
+          <span className="text-[10px] text-muted-foreground ml-auto">
+            {s.sourceScreen}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
