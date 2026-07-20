@@ -133,6 +133,15 @@ const P6ExportPage = () => {
   const [projectErrorTable, setProjectErrorTable] = useState<string | null>(null);
   const [projectErrorRef, setProjectErrorRef] = useState<string | null>(null);
 
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    replaceBySource("p6-export", buildP6ExportSuggestions({
+      hasProject: !!selectedProjectId,
+      itemsCount: projectItems.length,
+      projectStatus: String(projectStatus),
+    }));
+  }, [selectedProjectId, projectItems.length, projectStatus, replaceBySource]);
+
   useEffect(() => {
     if (!selectedProjectId) {
       setProjectItems([]);
