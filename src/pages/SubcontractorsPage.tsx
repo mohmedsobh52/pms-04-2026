@@ -1,4 +1,6 @@
 import { PageSuggestions } from "@/components/PageSuggestions";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildSubcontractorsSuggestions } from "@/lib/suggestion-generators";
 import { Plus, Upload, Search, GitCompare, Sparkles, Grid3x3, FileSignature, FileText, Bell, BookmarkPlus, Download, Star, History } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { SubcontractorProgressDashboard } from "@/components/SubcontractorProgressDashboard";
