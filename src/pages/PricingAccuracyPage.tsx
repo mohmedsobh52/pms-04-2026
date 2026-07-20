@@ -12,9 +12,12 @@ import { Badge } from '@/components/ui/badge';
 import { ColorLegend } from '@/components/ui/color-code';
 import { Target, CheckCircle2, TrendingUp, AlertTriangle, Database, Activity, BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useGlobalSuggestions } from '@/contexts/GlobalSuggestionsContext';
+import { buildPricingAccuracySuggestions } from '@/lib/suggestion-generators';
 
 const PricingAccuracyPage: React.FC = () => {
   const { isArabic } = useLanguage();
+  const { replaceBySource } = useGlobalSuggestions();
   const [stats, setStats] = useState({ total: 0, approved: 0, avgAccuracy: 0, avgDeviation: 0, highConfidence: 0 });
   const [confidenceDist, setConfidenceDist] = useState<{ label: string; count: number; color: string }[]>([]);
   const [topDeviations, setTopDeviations] = useState<any[]>([]);
@@ -74,6 +77,11 @@ const PricingAccuracyPage: React.FC = () => {
       setAccuracyTrend(trend);
     })();
   }, [isArabic]);
+
+  useEffect(() => {
+    replaceBySource("pricing-accuracy", buildPricingAccuracySuggestions(stats));
+  }, [stats, replaceBySource]);
+
 
   const totalConf = confidenceDist.reduce((s, c) => s + c.count, 0) || 1;
   const maxTrend = Math.max(...accuracyTrend.map((t) => t.avg), 100);

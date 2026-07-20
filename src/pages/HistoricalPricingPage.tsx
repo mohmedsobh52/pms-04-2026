@@ -36,6 +36,8 @@ import { ColorLegend } from "@/components/ui/color-code";
 import { normalizeHistoricalItems, NormalizedHistoricalItem } from "@/lib/historical-data-utils";
 import { PriceTrendsTab } from "@/components/historical/PriceTrendsTab";
 import { MaterialHistoryDialog } from "@/components/historical/MaterialHistoryDialog";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildHistoricalPricingSuggestions } from "@/lib/suggestion-generators";
 
 interface HistoricalFile {
   id: string;
@@ -100,11 +102,32 @@ export default function HistoricalPricingPage() {
   const { user } = useAuth();
   const { isArabic } = useLanguage();
 
+  const { replaceBySource } = useGlobalSuggestions();
+
   useEffect(() => {
     if (user) {
       loadFiles();
     }
   }, [user]);
+
+  useEffect(() => {
+    const totalItems = files.reduce((s, f) => s + (f.items_count || (Array.isArray(f.items) ? f.items.length : 0)), 0);
+    const verified = files.filter((f) => f.is_verified).length;
+    const oldest = files.reduce((min, f) => {
+      const y = f.project_date ? new Date(f.project_date).getFullYear() : new Date(f.created_at).getFullYear();
+      return Math.min(min, y);
+    }, new Date().getFullYear());
+    const oldestYears = new Date().getFullYear() - oldest;
+    replaceBySource(
+      "historical-pricing",
+      buildHistoricalPricingSuggestions({
+        totalFiles: files.length,
+        verifiedFiles: verified,
+        totalItems,
+        oldestYears,
+      }),
+    );
+  }, [files, replaceBySource]);
 
   const loadFiles = async () => {
     try {

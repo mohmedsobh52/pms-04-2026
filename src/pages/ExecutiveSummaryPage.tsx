@@ -8,6 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildExecutiveSummarySuggestions } from "@/lib/suggestion-generators";
 import {
   Briefcase,
   FileSignature,
@@ -38,6 +40,7 @@ const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "#f59e0b", "#ef4444
 export default function ExecutiveSummaryPage() {
   const { user } = useAuth();
   const { isArabic } = useLanguage();
+  const { replaceBySource } = useGlobalSuggestions();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
 
@@ -101,6 +104,17 @@ export default function ExecutiveSummaryPage() {
     })();
     return () => { cancelled = true; };
   }, [user, isArabic]);
+
+  useEffect(() => {
+    if (!data) return;
+    replaceBySource("executive-summary", buildExecutiveSummarySuggestions({
+      projects: data.projectsCount ?? 0,
+      contractsValue: data.totalContractsValue ?? 0,
+      certifiedValue: data.totalCertified ?? 0,
+      openRisks: data.openRisks ?? 0,
+    }));
+  }, [data, replaceBySource]);
+
 
   const handlePrint = () => window.print();
 

@@ -15,6 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BulkAIPriceButton } from "@/components/pricing/BulkAIPriceButton";
 import { PriceAnomalyDetector } from "@/components/pricing/PriceAnomalyDetector";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildAllForCostAnalysis } from "@/lib/suggestion-generators";
 
 const BOQItemsPage = () => {
   const { analysisData, wbsData, setAnalysisData } = useAnalysisData();
@@ -23,6 +25,13 @@ const BOQItemsPage = () => {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [recentProjects, setRecentProjects] = useState<any[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(false);
+  const { replaceBySource } = useGlobalSuggestions();
+
+  useEffect(() => {
+    const items = analysisData?.items ?? [];
+    replaceBySource("boq-items", items.length ? buildAllForCostAnalysis(items as any) : []);
+  }, [analysisData, replaceBySource]);
+
 
   useEffect(() => {
     if (!analysisData && user) {
