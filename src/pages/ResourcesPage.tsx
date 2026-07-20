@@ -406,6 +406,15 @@ const ResourcesPage = () => {
     };
   }, [resources]);
 
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    const overallocated = resources.filter(r => r.utilizationPercentage > 100).length;
+    const unassigned = resources.filter(r => !r.linkedItemNumber).length;
+    replaceBySource("resources", buildResourcesSuggestions({
+      total: resources.length, overallocated, unassigned, utilizationAvg: stats.avgUtilization,
+    }));
+  }, [resources, stats.avgUtilization, replaceBySource]);
+
   // Prepare data for Gantt chart (convert to Activity format)
   const ganttActivities = useMemo(() => {
     if (resources.length === 0) return [];
