@@ -36,6 +36,8 @@ import { TranslationPreviewDialog } from "@/components/project-details/Translati
 import { ProjectDocumentsTab } from "@/components/project-details/ProjectDocumentsTab";
 import { ProjectSettingsTab } from "@/components/project-details/ProjectSettingsTab";
 import { AppShell } from "@/components/layout/AppShell";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildProjectDetailsSuggestions } from "@/lib/suggestion-generators";
 import { ProjectKpiStrip } from "@/components/project-details/ProjectKpiStrip";
 import { ProjectActivityFeed } from "@/components/project-details/ProjectActivityFeed";
 import { EvmSummaryCard } from "@/components/evm/EvmSummaryCard";
