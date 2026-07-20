@@ -551,9 +551,9 @@ export function P6ExportDialog({ items, projectName = "Project", trigger }: P6Ex
 
         <DialogFooter className="gap-2">
           {exportResult && (
-            <Button onClick={downloadExcel} className="gap-2">
+            <Button onClick={handleDownload} className="gap-2">
               <Download className="h-4 w-4" />
-              {isArabic ? "تحميل Excel" : "Download Excel"}
+              {isArabic ? `تحميل ${settings.exportFormat.toUpperCase()}` : `Download ${settings.exportFormat.toUpperCase()}`}
             </Button>
           )}
           <Button variant="outline" onClick={() => setOpen(false)}>
