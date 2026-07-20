@@ -882,6 +882,163 @@ export function buildTemplatesSuggestions(input: {
   return out;
 }
 
+/** Pricing-accuracy suggestions. */
+export function buildPricingAccuracySuggestions(input: {
+  total: number;
+  approved: number;
+  avgAccuracy: number;
+  avgDeviation: number;
+  highConfidence: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "pricing-accuracy";
+  if (input.total === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "لا يوجد سجل تسعير بعد",
+      description: "استخدم التسعير الذكي على البنود لبناء قاعدة دقة قابلة للقياس.",
+      sourceScreen: screen,
+      sourceRoute: "/pricing-accuracy",
+    });
+    return out;
+  }
+  if (input.avgAccuracy > 0 && input.avgAccuracy < 70) {
+    out.push({
+      category: "ai-pricing",
+      severity: "warning",
+      title: `متوسط دقة التسعير منخفض (${input.avgAccuracy}%)`,
+      description: "راجع مصادر الأسعار وحدّث المكتبة والأسعار السوقية.",
+      sourceScreen: screen,
+      sourceRoute: "/pricing-accuracy",
+    });
+  }
+  if (input.avgDeviation >= 20) {
+    out.push({
+      category: "ai-pricing",
+      severity: "critical",
+      title: `انحراف عالٍ بين المُقترح والنهائي (${input.avgDeviation}%)`,
+      description: "افحص بنود القمم في قائمة الانحرافات.",
+      sourceScreen: screen,
+      sourceRoute: "/pricing-accuracy",
+    });
+  }
+  const highPct = input.total > 0 ? (input.highConfidence / input.total) * 100 : 0;
+  if (input.total >= 20 && highPct < 40) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `فقط ${highPct.toFixed(0)}% من التسعيرات بثقة عالية`,
+      description: "أضف مراجع ومصادر لرفع مستوى الثقة.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
+/** Historical-pricing suggestions. */
+export function buildHistoricalPricingSuggestions(input: {
+  totalFiles: number;
+  verifiedFiles: number;
+  totalItems: number;
+  oldestYears?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "historical-pricing";
+  if (input.totalFiles === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: "لا يوجد مرجع تسعير تاريخي",
+      description: "ارفع مشاريع سابقة لمقارنة الأسعار وضبط تقديراتك.",
+      sourceScreen: screen,
+      sourceRoute: "/historical-pricing",
+      applyLabel: "رفع ملف تاريخي",
+    });
+    return out;
+  }
+  const verifiedPct = (input.verifiedFiles / input.totalFiles) * 100;
+  if (input.totalFiles >= 3 && verifiedPct < 50) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `فقط ${verifiedPct.toFixed(0)}% من المراجع التاريخية مُوثَّقة`,
+      description: "راجع وأكّد المشاريع لرفع جودة المقارنة.",
+      sourceScreen: screen,
+    });
+  }
+  if ((input.oldestYears ?? 0) >= 3) {
+    out.push({
+      category: "ai-pricing",
+      severity: "info",
+      title: `بعض الأسعار المرجعية أقدم من ${input.oldestYears} سنوات`,
+      description: "طبّق تعديل تضخم/سوق قبل الاعتماد عليها.",
+      sourceScreen: screen,
+    });
+  }
+  if (input.totalItems >= 100) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: "قاعدة تاريخية غنية جاهزة للتحليل",
+      description: `${input.totalItems} بند مرجعي متاح — أنشئ تقرير اتجاهات أسعار.`,
+      sourceScreen: screen,
+      sourceRoute: "/historical-pricing",
+    });
+  }
+  return out;
+}
+
+/** Executive-summary suggestions. */
+export function buildExecutiveSummarySuggestions(input: {
+  projects: number;
+  contractsValue: number;
+  certifiedValue: number;
+  openRisks: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "executive-summary";
+  if (input.projects === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "لا توجد مشاريع لعرضها في الملخص التنفيذي",
+      sourceScreen: screen,
+      sourceRoute: "/new-project",
+    });
+    return out;
+  }
+  if (input.openRisks >= 5) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.openRisks} مخاطر مفتوحة تستدعي متابعة تنفيذية`,
+      sourceScreen: screen,
+      sourceRoute: "/risk",
+    });
+  }
+  if (input.contractsValue > 0 && input.certifiedValue / input.contractsValue < 0.2 && input.projects >= 2) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: "نسبة الاستخلاص منخفضة مقارنة بالعقود",
+      description: `المُستخلَص ${input.certifiedValue.toLocaleString()} من عقود ${input.contractsValue.toLocaleString()}`,
+      sourceScreen: screen,
+      sourceRoute: "/progress-certificates",
+    });
+  }
+  out.push({
+    category: "reports",
+    severity: "info",
+    title: "تصدير الملخص التنفيذي كملف PDF",
+    description: "شارك المؤشرات مع الإدارة العليا في نقرة واحدة.",
+    sourceScreen: screen,
+    sourceRoute: "/executive-summary",
+    applyLabel: "طباعة PDF",
+  });
+  return out;
+}
+
 export const CATEGORY_META: Record<SuggestionCategory, { ar: string; en: string; color: string }> = {
   "ai-pricing": { ar: "أسعار وإنتاجية (AI)", en: "AI Pricing", color: "text-violet-600" },
   "data-quality": { ar: "جودة البيانات", en: "Data Quality", color: "text-amber-600" },
