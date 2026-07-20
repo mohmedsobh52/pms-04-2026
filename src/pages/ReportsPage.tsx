@@ -275,6 +275,14 @@ const ReportsPage = () => {
     };
   }, [projects, tenderData]);
 
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    replaceBySource("reports", buildReportsHubSuggestions({
+      totalProjects: projects.length,
+      totalValue: stats.totalBOQValue,
+    }));
+  }, [projects.length, stats.totalBOQValue, replaceBySource]);
+
   const typeBreakdown = useMemo(() => {
     const counts: Record<string, number> = {};
     projects.forEach((p) => {
