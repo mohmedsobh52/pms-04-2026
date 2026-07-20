@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Cloud, CheckCircle, ExternalLink, FolderSync, HardDrive, AlertCircle } from "lucide-react";
+import { Cloud, CheckCircle, ExternalLink, HardDrive, AlertCircle, Trash2 } from "lucide-react";
 
 // Google Drive icon SVG
 const GoogleDriveIcon = () => (
@@ -19,7 +21,6 @@ const GoogleDriveIcon = () => (
   </svg>
 );
 
-// OneDrive icon SVG  
 const OneDriveIcon = () => (
   <svg viewBox="0 0 24 24" className="w-6 h-6">
     <path d="M12.25 4.25a5.5 5.5 0 0 1 5.44 4.68A4.25 4.25 0 0 1 19.5 17H6.75a4.75 4.75 0 0 1-.93-9.4A5.5 5.5 0 0 1 12.25 4.25z" fill="#0364b8"/>
@@ -34,49 +35,84 @@ interface CloudStorageIntegrationProps {
   onSync?: () => void;
 }
 
-export function CloudStorageIntegration({ projectId, onSync }: CloudStorageIntegrationProps) {
+type Provider = "google-drive" | "onedrive";
+type LinkMap = Partial<Record<Provider, string>>;
+
+const STORAGE_KEY = (pid: string) => `cloud-links-${pid || "global"}`;
+
+export function CloudStorageIntegration({ projectId }: CloudStorageIntegrationProps) {
   const { isArabic } = useLanguage();
   const { toast } = useToast();
   const [showDialog, setShowDialog] = useState(false);
-  const [connecting, setConnecting] = useState<string | null>(null);
+  const [links, setLinks] = useState<LinkMap>({});
+  const [drafts, setDrafts] = useState<LinkMap>({});
 
-  const services = [
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY(projectId || ""));
+      if (raw) {
+        const parsed = JSON.parse(raw) as LinkMap;
+        setLinks(parsed);
+        setDrafts(parsed);
+      }
+    } catch { /* ignore */ }
+  }, [projectId]);
+
+  const persist = (next: LinkMap) => {
+    setLinks(next);
+    try {
+      localStorage.setItem(STORAGE_KEY(projectId || ""), JSON.stringify(next));
+    } catch { /* ignore */ }
+  };
+
+  const services: { id: Provider; name: string; icon: () => JSX.Element; hint: string; color: string }[] = [
     {
       id: "google-drive",
       name: "Google Drive",
       icon: GoogleDriveIcon,
-      description: isArabic 
-        ? "حفظ ومزامنة الملفات تلقائياً مع Google Drive" 
-        : "Auto-save and sync files with Google Drive",
+      hint: isArabic ? "الصق رابط مجلد المشروع على Google Drive" : "Paste your project folder link from Google Drive",
       color: "bg-blue-500/10 border-blue-500/20",
-      connected: false
     },
     {
       id: "onedrive",
       name: "OneDrive",
       icon: OneDriveIcon,
-      description: isArabic 
-        ? "ربط مع Microsoft OneDrive للحفظ السحابي" 
-        : "Connect with Microsoft OneDrive for cloud storage",
+      hint: isArabic ? "الصق رابط مجلد المشروع على OneDrive/SharePoint" : "Paste your project folder link from OneDrive/SharePoint",
       color: "bg-sky-500/10 border-sky-500/20",
-      connected: false
-    }
+    },
   ];
 
-  const handleConnect = async (serviceId: string) => {
-    setConnecting(serviceId);
-    
-    // Show info toast that this feature requires additional setup
-    setTimeout(() => {
+  const handleSave = (id: Provider) => {
+    const val = (drafts[id] || "").trim();
+    if (!val) return;
+    try {
+      // eslint-disable-next-line no-new
+      new URL(val);
+    } catch {
       toast({
-        title: isArabic ? "قريباً" : "Coming Soon",
-        description: isArabic 
-          ? "هذه الميزة قيد التطوير. ستتوفر قريباً!" 
-          : "This feature is under development. Coming soon!",
+        title: isArabic ? "رابط غير صالح" : "Invalid URL",
+        description: isArabic ? "يرجى إدخال رابط صحيح يبدأ بـ https://" : "Please enter a valid https:// URL",
+        variant: "destructive",
       });
-      setConnecting(null);
-    }, 1500);
+      return;
+    }
+    const next = { ...links, [id]: val };
+    persist(next);
+    toast({
+      title: isArabic ? "تم الحفظ" : "Saved",
+      description: isArabic ? "تم ربط مجلد التخزين بالمشروع" : "Cloud folder linked to project",
+    });
   };
+
+  const handleRemove = (id: Provider) => {
+    const next = { ...links };
+    delete next[id];
+    persist(next);
+    setDrafts(next);
+  };
+
+  const connectedCount = Object.keys(links).length;
+
 
   return (
     <>
