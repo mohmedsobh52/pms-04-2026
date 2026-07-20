@@ -6,7 +6,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { QuotationUpload } from "@/components/QuotationUpload";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageLayout } from "@/components/PageLayout";
+import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Card, CardContent } from "@/components/ui/card";
 import { ColorLegend } from "@/components/ui/color-code";

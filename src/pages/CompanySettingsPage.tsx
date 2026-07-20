@@ -1,6 +1,6 @@
 import { useLanguage } from "@/hooks/useLanguage";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
-import { PageLayout } from "@/components/PageLayout";
+import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { CompanySettingsPanel } from "@/components/CompanySettingsPanel";
 import { Button } from "@/components/ui/button";
 import { RotateCcw, Building2, ChevronRight } from "lucide-react";

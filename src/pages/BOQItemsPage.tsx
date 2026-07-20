@@ -5,7 +5,7 @@ import { AnalysisResults } from "@/components/AnalysisResults";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
-import { PageLayout } from "@/components/PageLayout";
+import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { ColorLegend } from "@/components/ui/color-code";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";

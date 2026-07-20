@@ -1,7 +1,7 @@
 import { PageSuggestions } from "@/components/PageSuggestions";
 import { Plus, Upload, Search, GitCompare, Sparkles, Grid3x3, FileSignature, FileText, Bell, BookmarkPlus, Download, Link2, Star, Users, History } from "lucide-react";
 import { useEffect, useState, lazy, Suspense } from "react";
-import { PageLayout } from "@/components/PageLayout";
+import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { SuspenseFallback, ErrorState } from "@/components/ui/loading-states";
 const MaterialPriceDatabase = lazy(() =>
   import("@/components/MaterialPriceDatabase").then((m) => ({ default: m.MaterialPriceDatabase }))

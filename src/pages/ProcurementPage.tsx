@@ -2,7 +2,7 @@ import { PageSuggestions } from "@/components/PageSuggestions";
 import { Plus, Upload, Search, GitCompare, Grid3x3, TrendingUp, Bell, BookmarkPlus, Download, Link2, History } from "lucide-react";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
-import { PageLayout } from "@/components/PageLayout";
+import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";

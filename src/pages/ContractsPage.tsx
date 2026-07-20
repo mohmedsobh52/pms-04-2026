@@ -4,7 +4,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { ContractManagement } from "@/components/ContractManagement";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageLayout } from "@/components/PageLayout";
+import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { ColorLegend } from "@/components/ui/color-code";
 import { Input } from "@/components/ui/input";

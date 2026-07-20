@@ -18,7 +18,7 @@ import {
 import ExcelJS from "exceljs";
 import { P6Export } from "@/components/P6Export";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
-import { PageLayout } from "@/components/PageLayout";
+import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { ColorLegend } from "@/components/ui/color-code";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Button } from "@/components/ui/button";
