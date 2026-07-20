@@ -1491,6 +1491,39 @@ export function buildCompareVersionsSuggestions(input: {
   return out;
 }
 
+export function buildAdminVersionsSuggestions(input: {
+  versionsCount: number;
+  hasLatest: boolean;
+  latestReleaseAgeDays: number | null;
+}, screen = "admin-versions"): Draft[] {
+  const out: Draft[] = [];
+  if (input.versionsCount === 0) out.push({ category: "workflow", severity: "warning", title: "لا توجد إصدارات مسجّلة", description: "أضف أول إصدار للتطبيق لتفعيل سجل التحديثات.", sourceScreen: screen });
+  else if (!input.hasLatest) out.push({ category: "data-quality", severity: "warning", title: "لم يتم تعليم إصدار كأحدث", description: "حدّد إصدارًا واحدًا كـ Latest ليظهر للمستخدمين.", sourceScreen: screen });
+  if (input.latestReleaseAgeDays !== null && input.latestReleaseAgeDays > 90) out.push({ category: "reports", severity: "info", title: "لم يصدر تحديث منذ +90 يومًا", description: "أضف إصدارًا جديدًا لعرض التطويرات الأخيرة على المستخدمين.", sourceScreen: screen });
+  return out;
+}
+
+export function buildHomeSuggestions(input: {
+  projectsCount: number;
+  contractsCount: number;
+  itemsCount: number;
+  risksCount: number;
+  certificatesCount: number;
+}, screen = "home"): Draft[] {
+  const out: Draft[] = [];
+  if (input.projectsCount === 0) out.push({ category: "workflow", severity: "info", title: "ابدأ بإنشاء أول مشروع", description: "أنشئ مشروعًا لتفعيل التحليلات والتقارير.", sourceScreen: screen, sourceRoute: "/new-project" });
+  else {
+    if (input.contractsCount === 0) out.push({ category: "workflow", severity: "info", title: "لا توجد عقود بعد", description: "أضف عقودًا لتفعيل المستخلصات ومتابعة الالتزامات.", sourceScreen: screen, sourceRoute: "/contracts" });
+    if (input.itemsCount === 0) out.push({ category: "data-quality", severity: "warning", title: "لا توجد بنود BOQ", description: "استورد بنود العقد لبدء التحليل والتسعير.", sourceScreen: screen, sourceRoute: "/boq-items" });
+    if (input.risksCount === 0) out.push({ category: "workflow", severity: "info", title: "سجل المخاطر فارغ", description: "أضف المخاطر المحتملة لتفعيل التتبع والاستجابة.", sourceScreen: screen, sourceRoute: "/risk" });
+    if (input.certificatesCount === 0 && input.contractsCount > 0) out.push({ category: "reports", severity: "info", title: "لا توجد مستخلصات مرحلية", description: "أنشئ أول مستخلص لمتابعة التقدم المالي.", sourceScreen: screen, sourceRoute: "/progress-certificates" });
+  }
+  return out;
+}
+
+
+
+
 
 
 
