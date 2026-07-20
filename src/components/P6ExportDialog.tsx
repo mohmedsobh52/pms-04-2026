@@ -422,8 +422,8 @@ export function P6ExportDialog({ items, projectName = "Project", trigger }: P6Ex
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="xlsx">Excel (.xlsx)</SelectItem>
-                      <SelectItem value="xer" disabled>P6 XER (قريباً)</SelectItem>
-                      <SelectItem value="xml" disabled>P6 XML (قريباً)</SelectItem>
+                      <SelectItem value="xer">Primavera XER (.xer)</SelectItem>
+                      <SelectItem value="xml">Primavera XML (.xml)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
