@@ -727,6 +727,161 @@ export function buildReportsHubSuggestions(input: {
   return out;
 }
 
+/** Calendar suggestions — overdue/upcoming/no milestones. */
+export function buildCalendarSuggestions(input: {
+  overdue?: number;
+  upcoming?: number;
+  projects?: number;
+  contracts?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "calendar";
+  if ((input.overdue ?? 0) > 0) {
+    out.push({
+      category: "workflow",
+      severity: (input.overdue ?? 0) >= 5 ? "critical" : "warning",
+      title: `${input.overdue} عنصر متأخر عن موعده`,
+      description: "راجع المشاريع/العقود المتأخرة وحدّث خطة الإنجاز.",
+      sourceScreen: screen,
+      sourceRoute: "/calendar",
+    });
+  }
+  if ((input.upcoming ?? 0) >= 10) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: `${input.upcoming} استحقاق خلال 30 يوماً`,
+      description: "خطّط للموارد وتأكد من جاهزية الفرق للتسليم.",
+      sourceScreen: screen,
+      sourceRoute: "/calendar",
+    });
+  }
+  if ((input.projects ?? 0) === 0 && (input.contracts ?? 0) === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "لا توجد تواريخ مسجّلة",
+      description: "أضف تواريخ بداية/نهاية للمشاريع والعقود لتفعيل التقويم.",
+      sourceScreen: screen,
+      sourceRoute: "/calendar",
+    });
+  }
+  return out;
+}
+
+/** Dashboard suggestions — highlight empty state / health. */
+export function buildDashboardSuggestions(input: {
+  projects?: number;
+  activeProjects?: number;
+  totalValue?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "dashboard";
+  if ((input.projects ?? 0) === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "لا توجد مشاريع بعد",
+      description: "ابدأ بإنشاء مشروع جديد أو استيراد BOQ.",
+      sourceScreen: screen,
+      sourceRoute: "/new-project",
+    });
+  }
+  if ((input.projects ?? 0) > 0 && (input.activeProjects ?? 0) === 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: "لا توجد مشاريع نشطة حالياً",
+      description: "فعّل أو حدّث حالة المشاريع لمتابعتها.",
+      sourceScreen: screen,
+      sourceRoute: "/projects",
+    });
+  }
+  return out;
+}
+
+/** Library suggestions — empty catalog / stale pricing. */
+export function buildLibrarySuggestions(input: {
+  materials?: number;
+  labor?: number;
+  equipment?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "library";
+  const total = (input.materials ?? 0) + (input.labor ?? 0) + (input.equipment ?? 0);
+  if (total === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: "المكتبة فارغة",
+      description: "أضف مواد/عمالة/معدات لبناء قاعدة تسعير موثوقة.",
+      sourceScreen: screen,
+      sourceRoute: "/library",
+    });
+  }
+  if ((input.materials ?? 0) > 0 && (input.labor ?? 0) === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "لا توجد معدلات عمالة مسجّلة",
+      sourceScreen: screen,
+      sourceRoute: "/library",
+    });
+  }
+  if ((input.materials ?? 0) > 0 && (input.equipment ?? 0) === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "لا توجد معدلات معدات مسجّلة",
+      sourceScreen: screen,
+      sourceRoute: "/library",
+    });
+  }
+  return out;
+}
+
+/** Templates suggestions — usage / publishing / emptiness. */
+export function buildTemplatesSuggestions(input: {
+  total?: number;
+  totalUsage?: number;
+  publicCount?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "templates";
+  if ((input.total ?? 0) === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "لا توجد قوالب بعد",
+      description: "احفظ تحليلاتك المتكررة كقوالب لتسريع المشاريع القادمة.",
+      sourceScreen: screen,
+      sourceRoute: "/templates",
+    });
+    return out;
+  }
+  if ((input.totalUsage ?? 0) === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لم تُستخدم أي قالب بعد",
+      description: "طبّق قالباً على مشروع جديد لتوفير الوقت.",
+      sourceScreen: screen,
+      sourceRoute: "/templates",
+    });
+  }
+  if ((input.total ?? 0) >= 5 && (input.publicCount ?? 0) === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لا توجد قوالب عامة",
+      description: "شارك بعض القوالب مع الفريق لتعظيم الاستفادة.",
+      sourceScreen: screen,
+      sourceRoute: "/templates",
+    });
+  }
+  return out;
+}
+
 export const CATEGORY_META: Record<SuggestionCategory, { ar: string; en: string; color: string }> = {
   "ai-pricing": { ar: "أسعار وإنتاجية (AI)", en: "AI Pricing", color: "text-violet-600" },
   "data-quality": { ar: "جودة البيانات", en: "Data Quality", color: "text-amber-600" },

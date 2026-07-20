@@ -19,6 +19,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import { PriceLibraryHistory } from "@/components/cost/PriceLibraryHistory";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildLibrarySuggestions } from "@/lib/suggestion-generators";
 
 
 interface RecentItem {
@@ -36,6 +38,15 @@ const LibraryPage = () => {
   const [stats, setStats] = useState({ materials: 0, labor: 0, equipment: 0, avgMaterialPrice: 0 });
   const [recent, setRecent] = useState<RecentItem[]>([]);
   const [topCategories, setTopCategories] = useState<{ name: string; count: number }[]>([]);
+  const { replaceBySource } = useGlobalSuggestions();
+
+  useEffect(() => {
+    replaceBySource("library", buildLibrarySuggestions({
+      materials: stats.materials,
+      labor: stats.labor,
+      equipment: stats.equipment,
+    }));
+  }, [stats, replaceBySource]);
 
   useEffect(() => {
     if (!user) return;

@@ -1,10 +1,13 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useLanguage } from "@/hooks/useLanguage";
 import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { ColorLegend } from "@/components/ui/color-code";
 import { SuspenseFallback } from "@/components/ui/loading-states";
+import { supabase } from "@/integrations/supabase/client";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildDashboardSuggestions } from "@/lib/suggestion-generators";
 
 const MainDashboard = lazy(() =>
   import("@/components/MainDashboard").then((m) => ({ default: m.MainDashboard }))
@@ -57,6 +60,27 @@ const DashboardPage = () => {
   const { user } = useAuth();
   const { isArabic } = useLanguage();
   const { setAnalysisData, setWbsData } = useAnalysisData();
+  const { replaceBySource } = useGlobalSuggestions();
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from("saved_projects")
+        .select("id,status")
+        .eq("user_id", user.id)
+        .limit(1000);
+      const rows = (data as any[]) || [];
+      const active = rows.filter((r) => {
+        const s = String(r.status || "").toLowerCase();
+        return s && s !== "completed" && s !== "archived" && s !== "مكتمل" && s !== "مؤرشف";
+      }).length;
+      replaceBySource("dashboard", buildDashboardSuggestions({
+        projects: rows.length,
+        activeProjects: active,
+      }));
+    })();
+  }, [user, replaceBySource]);
 
   if (!user) {
     return (
