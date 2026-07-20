@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useLanguage } from "@/hooks/useLanguage";
-import { PageLayout } from "@/components/PageLayout";
+import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { ColorLegend } from "@/components/ui/color-code";
 import { SuspenseFallback } from "@/components/ui/loading-states";
 
