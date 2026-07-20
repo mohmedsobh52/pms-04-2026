@@ -58,6 +58,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildAdminDashboardSuggestions } from "@/lib/suggestion-generators";
 
 interface StatCard {
   key: string;
@@ -115,10 +117,23 @@ const AdminDashboardPage = () => {
   const [statusDist, setStatusDist] = useState<{ name: string; value: number; color: string }[]>([]);
   const [activity, setActivity] = useState<{ id: string; action: string; created_at: string; project?: string | null }[]>([]);
 
+  const { replaceBySource } = useGlobalSuggestions();
+
   useEffect(() => {
     if (!user) return;
     void loadAll();
   }, [user]);
+
+  useEffect(() => {
+    replaceBySource("admin-dashboard", buildAdminDashboardSuggestions({
+      usersCount: stats.users,
+      activeProjects30d: stats.active30,
+      totalProjects: stats.projects,
+      pendingRisks: financial.pendingRisks,
+      contractsCount: stats.contracts,
+    }));
+  }, [stats, financial.pendingRisks, replaceBySource]);
+
 
   const loadAll = async () => {
     setLoading(true);

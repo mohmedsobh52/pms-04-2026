@@ -14,6 +14,8 @@ import { PartnerPerformance } from "@/components/procurement/PartnerPerformance"
 import { PartnerReviews } from "@/components/procurement/PartnerReviews";
 import { ExternalPartner } from "@/components/procurement/PartnerCard";
 import { ColorLegend } from "@/components/ui/color-code";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildPartnerDetailsSuggestions } from "@/lib/suggestion-generators";
 
 interface SavedProject {
   id: string;
@@ -29,12 +31,28 @@ const PartnerDetailsPage = () => {
   const [partner, setPartner] = useState<ExternalPartner | null>(null);
   const [associatedProjects, setAssociatedProjects] = useState<SavedProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [contractsCount, setContractsCount] = useState(0);
+  const [reviewsCount, setReviewsCount] = useState(0);
+  const { replaceBySource } = useGlobalSuggestions();
 
   useEffect(() => {
     if (user && partnerId) {
       fetchPartnerDetails();
     }
   }, [user, partnerId]);
+
+  useEffect(() => {
+    if (!partner) return;
+    const anyPartner = partner as any;
+    const hasContactInfo = !!(anyPartner.phone || anyPartner.email || anyPartner.contact_person);
+    replaceBySource("partner-details", buildPartnerDetailsSuggestions({
+      partnerName: partner.name,
+      hasContracts: contractsCount > 0,
+      hasReviews: reviewsCount > 0,
+      hasContactInfo,
+    }));
+  }, [partner, contractsCount, reviewsCount, replaceBySource]);
+
 
   const fetchPartnerDetails = async () => {
     try {
@@ -57,6 +75,8 @@ const PartnerDetailsPage = () => {
         .eq("user_id", user?.id)
         .not("project_id", "is", null);
 
+      setContractsCount(contractsData?.length || 0);
+
       if (contractsData && contractsData.length > 0) {
         const projectIds = [...new Set(contractsData.map(c => c.project_id).filter(Boolean))];
         
@@ -69,6 +89,15 @@ const PartnerDetailsPage = () => {
           setAssociatedProjects(projectsData || []);
         }
       }
+
+      // Fetch reviews count (best-effort)
+      try {
+        const { count } = await supabase
+          .from("partner_reviews" as any)
+          .select("id", { count: "exact", head: true })
+          .eq("partner_id", partnerId);
+        setReviewsCount(count || 0);
+      } catch { /* ignore */ }
     } catch (error) {
       console.error("Error fetching partner:", error);
       toast.error(isArabic ? "خطأ في تحميل بيانات الشريك" : "Error loading partner data");

@@ -1363,6 +1363,65 @@ export function buildCostControlSuggestions(input: {
 }
 
 
+export function buildCompanySettingsSuggestions(input: {
+  hasLogo: boolean;
+  hasTaxNumber: boolean;
+  hasEmail: boolean;
+  hasPhone: boolean;
+  hasAddress: boolean;
+}, screen = "company-settings"): Draft[] {
+  const out: Draft[] = [];
+  if (!input.hasLogo) out.push({ category: "data-quality", severity: "warning", title: "شعار الشركة غير مضبوط", description: "أضف شعار الشركة لتحسين مظهر التقارير والعروض.", sourceScreen: screen, sourceRoute: "/settings/company" });
+  if (!input.hasTaxNumber) out.push({ category: "data-quality", severity: "warning", title: "الرقم الضريبي مفقود", description: "أدخل الرقم الضريبي لظهوره في الفواتير والمستخلصات.", sourceScreen: screen, sourceRoute: "/settings/company" });
+  if (!input.hasEmail || !input.hasPhone) out.push({ category: "data-quality", severity: "info", title: "بيانات التواصل ناقصة", description: "أضف البريد ورقم الهاتف لظهورها في ترويسة العروض.", sourceScreen: screen, sourceRoute: "/settings/company" });
+  if (!input.hasAddress) out.push({ category: "data-quality", severity: "info", title: "عنوان الشركة غير مسجّل", description: "أضف العنوان التفصيلي لتوثيق العقود بشكل رسمي.", sourceScreen: screen, sourceRoute: "/settings/company" });
+  return out;
+}
+
+export function buildCertificatesCompareSuggestions(input: {
+  totalCerts: number;
+  selectedCount: number;
+  hasProjects: boolean;
+}, screen = "certificates-compare"): Draft[] {
+  const out: Draft[] = [];
+  if (input.totalCerts === 0) {
+    out.push({ category: "data-quality", severity: "info", title: "لا توجد مستخلصات للمقارنة", description: "أنشئ مستخلصات مرحلية أولًا من شاشة المستخلصات.", sourceScreen: screen, sourceRoute: "/progress-certificates" });
+    return out;
+  }
+  if (input.totalCerts < 2) out.push({ category: "reports", severity: "info", title: "مستخلص واحد فقط متاح", description: "أضف مستخلصًا آخر لتفعيل المقارنة جنبًا إلى جنب.", sourceScreen: screen });
+  if (input.selectedCount === 0 && input.totalCerts >= 2) out.push({ category: "workflow", severity: "info", title: "لم يتم اختيار مستخلصات للمقارنة", description: "حدّد مستخلصين على الأقل لعرض المقارنة التفصيلية.", sourceScreen: screen });
+  return out;
+}
+
+export function buildPartnerDetailsSuggestions(input: {
+  partnerName: string;
+  hasContracts: boolean;
+  hasReviews: boolean;
+  hasContactInfo: boolean;
+}, screen = "partner-details"): Draft[] {
+  const out: Draft[] = [];
+  if (!input.hasContracts) out.push({ category: "workflow", severity: "info", title: `لا توجد عقود للشريك ${input.partnerName}`, description: "أضف عقودًا لتتبع الأداء المالي والتزامن مع المشاريع.", sourceScreen: screen });
+  if (!input.hasReviews) out.push({ category: "data-quality", severity: "info", title: "لا توجد تقييمات مسجّلة", description: "أضف تقييم مدير المشروع لتحسين قرارات الاختيار مستقبلًا.", sourceScreen: screen });
+  if (!input.hasContactInfo) out.push({ category: "data-quality", severity: "warning", title: "بيانات التواصل ناقصة", description: "أضف رقم الهاتف والبريد لتسهيل التنسيق مع الشريك.", sourceScreen: screen });
+  return out;
+}
+
+export function buildAdminDashboardSuggestions(input: {
+  usersCount: number;
+  activeProjects30d: number;
+  totalProjects: number;
+  pendingRisks: number;
+  contractsCount: number;
+}, screen = "admin-dashboard"): Draft[] {
+  const out: Draft[] = [];
+  if (input.usersCount <= 1) out.push({ category: "workflow", severity: "info", title: "لا يوجد فريق مضاف", description: "أضف أعضاء الفريق وحدّد أدوارهم لتفعيل سير الموافقات.", sourceScreen: screen, sourceRoute: "/admin" });
+  if (input.totalProjects > 0 && input.activeProjects30d === 0) out.push({ category: "data-quality", severity: "warning", title: "لا يوجد نشاط خلال 30 يومًا", description: "المشاريع لم تُحدَّث حديثًا — راجع التقدم أو أرشف المشاريع الخاملة.", sourceScreen: screen });
+  if (input.pendingRisks >= 5) out.push({ category: "workflow", severity: "warning", title: `${input.pendingRisks} مخاطر مفتوحة`, description: "راجع سجل المخاطر واعتمد خطط الاستجابة.", sourceScreen: screen, sourceRoute: "/risk" });
+  if (input.totalProjects >= 3 && input.contractsCount === 0) out.push({ category: "data-quality", severity: "warning", title: "لا توجد عقود مرتبطة", description: "أنشئ عقودًا للمشاريع لمتابعة الالتزامات المالية.", sourceScreen: screen, sourceRoute: "/contracts" });
+  return out;
+}
+
+
 export const CATEGORY_META: Record<SuggestionCategory, { ar: string; en: string; color: string }> = {
   "ai-pricing": { ar: "أسعار وإنتاجية (AI)", en: "AI Pricing", color: "text-violet-600" },
   "data-quality": { ar: "جودة البيانات", en: "Data Quality", color: "text-amber-600" },

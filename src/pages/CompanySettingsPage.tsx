@@ -1,7 +1,10 @@
+import { useEffect } from "react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { CompanySettingsPanel } from "@/components/CompanySettingsPanel";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildCompanySettingsSuggestions } from "@/lib/suggestion-generators";
 import { Button } from "@/components/ui/button";
 import { RotateCcw, Building2, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -20,8 +23,21 @@ import { useToast } from "@/hooks/use-toast";
 
 const CompanySettingsPage = () => {
   const { isArabic } = useLanguage();
-  const { resetSettings } = useCompanySettings();
+  const { settings, resetSettings } = useCompanySettings();
   const { toast } = useToast();
+  const { replaceBySource } = useGlobalSuggestions();
+
+  useEffect(() => {
+    const hasLogo = typeof window !== "undefined" && !!localStorage.getItem("company-logo");
+    const drafts = buildCompanySettingsSuggestions({
+      hasLogo,
+      hasTaxNumber: !!settings.taxNumber?.trim(),
+      hasEmail: !!settings.email?.trim(),
+      hasPhone: !!settings.phone?.trim(),
+      hasAddress: !!settings.address?.trim(),
+    });
+    replaceBySource("company-settings", drafts);
+  }, [settings, replaceBySource]);
 
   const handleReset = () => {
     resetSettings();
