@@ -458,6 +458,275 @@ export function buildMaterialPricesSuggestions(input: {
   return out;
 }
 
+/** Quotations-module suggestions. */
+export function buildQuotationsSuggestions(input: {
+  total: number;
+  approved: number;
+  pending: number;
+  suppliers: number;
+  totalValue?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "quotations";
+  if (input.total === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: "لا توجد عروض أسعار مسجّلة بعد",
+      description: "ارفع عرض سعر أو أنشئ طلب عروض لبدء المقارنة.",
+      sourceScreen: screen,
+      sourceRoute: "/quotations",
+      applyLabel: "رفع عرض سعر",
+    });
+    return out;
+  }
+  if (input.pending > 0) {
+    out.push({
+      category: "workflow",
+      severity: input.pending >= 5 ? "warning" : "info",
+      title: `${input.pending} عرض سعر بانتظار المراجعة`,
+      sourceScreen: screen,
+      sourceRoute: "/quotations",
+    });
+  }
+  if (input.suppliers < 3 && input.total >= 3) {
+    out.push({
+      category: "ai-pricing",
+      severity: "info",
+      title: `عدد الموردين محدود (${input.suppliers})`,
+      description: "يوصى بالحصول على 3 عروض على الأقل لكل بند.",
+      sourceScreen: screen,
+    });
+  }
+  if (input.approved === 0 && input.total >= 3) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: "لا يوجد عرض معتمَد",
+      description: "اعتمد أفضل عرض لتفعيل مسار التعاقد.",
+      sourceScreen: screen,
+      sourceRoute: "/quotations",
+    });
+  }
+  return out;
+}
+
+/** Certificates (progress-billing) suggestions. */
+export function buildCertificatesSuggestions(input: {
+  total: number;
+  draft: number;
+  approved: number;
+  totalNet?: number;
+  overdueReviewDays?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "certificates";
+  if (input.total === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "لم يتم إصدار مستخلصات بعد",
+      description: "ابدأ بإنشاء مستخلص أول لتتبع الإنجاز المالي.",
+      sourceScreen: screen,
+      sourceRoute: "/progress-certificates",
+      applyLabel: "إنشاء مستخلص",
+    });
+    return out;
+  }
+  if (input.draft > 0) {
+    out.push({
+      category: "workflow",
+      severity: input.draft >= 3 ? "warning" : "info",
+      title: `${input.draft} مستخلص في وضع المسودة`,
+      description: "أرسله للاعتماد لتحديث التدفق النقدي.",
+      sourceScreen: screen,
+      sourceRoute: "/progress-certificates",
+    });
+  }
+  if (input.total >= 2) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: "جاهز لعرض منحنى S المقارن",
+      description: "قارن الإنجاز الفعلي مع المخطط.",
+      sourceScreen: screen,
+      sourceRoute: "/certificates-compare",
+      applyLabel: "فتح المقارنة",
+    });
+  }
+  return out;
+}
+
+/** Resources / scheduling suggestions. */
+export function buildResourcesSuggestions(input: {
+  total: number;
+  overallocated?: number;
+  unassigned?: number;
+  utilizationAvg?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "resources";
+  if (input.total === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "لم تُضف موارد بعد",
+      description: "أضف عمالة/معدات/مواد لتفعيل تحليل التحميل.",
+      sourceScreen: screen,
+      sourceRoute: "/resources",
+    });
+    return out;
+  }
+  if ((input.overallocated ?? 0) > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${input.overallocated} مورد بحمل زائد (>100%)`,
+      description: "شغّل الموازنة التلقائية لإعادة التوزيع.",
+      sourceScreen: screen,
+      sourceRoute: "/resources",
+      applyLabel: "موازنة الموارد",
+    });
+  }
+  if ((input.unassigned ?? 0) >= 3) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.unassigned} مورد بدون ربط ببند`,
+      sourceScreen: screen,
+    });
+  }
+  if ((input.utilizationAvg ?? 0) > 0 && (input.utilizationAvg ?? 0) < 40) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: `متوسط استغلال الموارد منخفض (${(input.utilizationAvg ?? 0).toFixed(0)}%)`,
+      description: "راجع الجدول الزمني لتقليل الفترات الخاملة.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
+/** Attachments / documents suggestions. */
+export function buildAttachmentsSuggestions(input: {
+  total: number;
+  expiringSoon?: number;
+  expired?: number;
+  missingCategory?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "attachments";
+  if (input.total === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "لم يتم رفع مرفقات بعد",
+      description: "ارفع العقود والرسومات والشهادات لأرشفة مركزية.",
+      sourceScreen: screen,
+      sourceRoute: "/attachments",
+    });
+    return out;
+  }
+  if ((input.expired ?? 0) > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "critical",
+      title: `${input.expired} مستند منتهي الصلاحية`,
+      sourceScreen: screen,
+      sourceRoute: "/attachments",
+    });
+  }
+  if ((input.expiringSoon ?? 0) > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.expiringSoon} مستند ينتهي خلال 30 يوماً`,
+      sourceScreen: screen,
+      sourceRoute: "/attachments",
+    });
+  }
+  if ((input.missingCategory ?? 0) >= 5) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.missingCategory} مستند بدون تصنيف`,
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
+/** Subcontractors suggestions. */
+export function buildSubcontractorsSuggestions(input: {
+  total: number;
+  active?: number;
+  expiringContracts?: number;
+  lowRating?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "subcontractors";
+  if (input.total === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "لا يوجد مقاولون من الباطن مسجّلون",
+      sourceScreen: screen,
+      sourceRoute: "/subcontractors",
+    });
+    return out;
+  }
+  if ((input.expiringContracts ?? 0) > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.expiringContracts} عقد باطن ينتهي قريباً`,
+      sourceScreen: screen,
+      sourceRoute: "/subcontractors",
+    });
+  }
+  if ((input.lowRating ?? 0) > 0) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: `${input.lowRating} مقاول بتقييم منخفض (<3)`,
+      description: "راجع الأداء قبل التجديد.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
+/** Reports-module suggestions. */
+export function buildReportsHubSuggestions(input: {
+  totalReports?: number;
+  scheduledReports?: number;
+  lastGeneratedDaysAgo?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "reports";
+  if ((input.scheduledReports ?? 0) === 0) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: "لم تجدول أي تقرير دوري",
+      description: "فعّل جدولة أسبوعية/شهرية لأصحاب المصلحة.",
+      sourceScreen: screen,
+      sourceRoute: "/reports",
+    });
+  }
+  if ((input.lastGeneratedDaysAgo ?? 0) > 14) {
+    out.push({
+      category: "reports",
+      severity: "warning",
+      title: `آخر تقرير منذ ${input.lastGeneratedDaysAgo} يوماً`,
+      sourceScreen: screen,
+      sourceRoute: "/reports",
+    });
+  }
+  return out;
+}
+
 export const CATEGORY_META: Record<SuggestionCategory, { ar: string; en: string; color: string }> = {
   "ai-pricing": { ar: "أسعار وإنتاجية (AI)", en: "AI Pricing", color: "text-violet-600" },
   "data-quality": { ar: "جودة البيانات", en: "Data Quality", color: "text-amber-600" },

@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildAttachmentsSuggestions } from "@/lib/suggestion-generators";
 import { useSearchParams } from "react-router-dom";
 import { PageLayout } from "@/components/PageLayout";
 import { ProjectAttachments } from "@/components/ProjectAttachments";
@@ -115,7 +117,15 @@ const AttachmentsPage = () => {
   };
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
-  
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    replaceBySource("attachments", buildAttachmentsSuggestions({
+      total: stats.total,
+      missingCategory: Math.max(0, stats.total - stats.analyzed),
+    }));
+  }, [stats, replaceBySource]);
+
   return (
     <PageLayout>
       <div className="container mx-auto px-4 py-8" dir={isArabic ? "rtl" : "ltr"}>

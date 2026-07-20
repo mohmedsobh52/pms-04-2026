@@ -1,4 +1,6 @@
 import { PageSuggestions } from "@/components/PageSuggestions";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildSubcontractorsSuggestions } from "@/lib/suggestion-generators";
 import { Plus, Upload, Search, GitCompare, Sparkles, Grid3x3, FileSignature, FileText, Bell, BookmarkPlus, Download, Star, History } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { SubcontractorProgressDashboard } from "@/components/SubcontractorProgressDashboard";
@@ -140,6 +142,21 @@ const SubcontractorsPage = () => {
       maximumFractionDigits: 0,
     }).format(value);
   };
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    const now = Date.now();
+    const expiring = assignments.filter(a => {
+      if (!a.end_date) return false;
+      const t = new Date(a.end_date).getTime();
+      return t >= now && t <= now + 30 * 86_400_000;
+    }).length;
+    replaceBySource("subcontractors", buildSubcontractorsSuggestions({
+      total: stats.totalSubcontractors,
+      active: stats.activeSubcontractors,
+      expiringContracts: expiring,
+    }));
+  }, [stats, assignments, replaceBySource]);
 
   return (
     <PageLayout>

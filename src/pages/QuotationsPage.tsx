@@ -1,4 +1,6 @@
 import { PageSuggestions } from "@/components/PageSuggestions";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildQuotationsSuggestions } from "@/lib/suggestion-generators";
 import { Plus, Upload, Search, GitCompare, Sparkles, Grid3x3, FileSignature, Bell, BookmarkPlus, Link2, Star, History } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { QuotationUpload } from "@/components/QuotationUpload";
@@ -157,7 +159,16 @@ const QuotationsPage = () => {
     },
   ];
 
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    replaceBySource("quotations", buildQuotationsSuggestions({
+      total: stats.total, approved: stats.approved, pending: stats.pending,
+      suppliers: stats.suppliers, totalValue: stats.totalValue,
+    }));
+  }, [stats, replaceBySource]);
+
   return (
+
     <PageLayout>
       <ErrorBoundary>
         <PageSuggestions

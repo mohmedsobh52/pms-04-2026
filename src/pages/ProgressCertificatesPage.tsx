@@ -1,4 +1,6 @@
 import { PageSuggestions } from "@/components/PageSuggestions";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildCertificatesSuggestions } from "@/lib/suggestion-generators";
 import { Upload, Search, GitCompare, Sparkles, Grid3x3, FileSignature, Bell, BookmarkPlus, Link2, Star, Users, History } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
@@ -297,6 +299,14 @@ const ProgressCertificatesPage = () => {
   const totalNet = filtered.reduce((s, c) => s + (c.net_amount || 0), 0);
   const totalCurrent = filtered.reduce((s, c) => s + (c.current_work_done || 0), 0);
   const approvedCount = filtered.filter(c => c.status === 'approved' || c.status === 'paid').length;
+  const draftCount = filtered.filter(c => (c.status || 'draft') === 'draft').length;
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    replaceBySource("certificates", buildCertificatesSuggestions({
+      total: filtered.length, draft: draftCount, approved: approvedCount, totalNet,
+    }));
+  }, [filtered.length, draftCount, approvedCount, totalNet, replaceBySource]);
 
   return (
     <PageLayout>

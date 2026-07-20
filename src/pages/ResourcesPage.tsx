@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildResourcesSuggestions } from "@/lib/suggestion-generators";
 import { useNavigate } from "react-router-dom";
 import { 
   Users, 
@@ -405,6 +407,15 @@ const ResourcesPage = () => {
         : 0
     };
   }, [resources]);
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    const overallocated = resources.filter(r => r.utilizationPercentage > 100).length;
+    const unassigned = resources.filter(r => !r.linkedItemNumber).length;
+    replaceBySource("resources", buildResourcesSuggestions({
+      total: resources.length, overallocated, unassigned, utilizationAvg: stats.avgUtilization,
+    }));
+  }, [resources, stats.avgUtilization, replaceBySource]);
 
   // Prepare data for Gantt chart (convert to Activity format)
   const ganttActivities = useMemo(() => {
