@@ -278,10 +278,9 @@ const ReportsPage = () => {
   const { replaceBySource } = useGlobalSuggestions();
   useEffect(() => {
     replaceBySource("reports", buildReportsHubSuggestions({
-      totalProjects: projects.length,
-      totalValue: stats.totalBOQValue,
+      totalReports: projects.length,
     }));
-  }, [projects.length, stats.totalBOQValue, replaceBySource]);
+  }, [projects.length, replaceBySource]);
 
   const typeBreakdown = useMemo(() => {
     const counts: Record<string, number> = {};
