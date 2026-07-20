@@ -141,6 +141,21 @@ const SubcontractorsPage = () => {
     }).format(value);
   };
 
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    const now = Date.now();
+    const expiring = assignments.filter(a => {
+      if (!a.end_date) return false;
+      const t = new Date(a.end_date).getTime();
+      return t >= now && t <= now + 30 * 86_400_000;
+    }).length;
+    replaceBySource("subcontractors", buildSubcontractorsSuggestions({
+      total: stats.totalSubcontractors,
+      active: stats.activeSubcontractors,
+      expiringContracts: expiring,
+    }));
+  }, [stats, assignments, replaceBySource]);
+
   return (
     <PageLayout>
       <PageSuggestions
