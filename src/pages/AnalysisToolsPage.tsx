@@ -9,10 +9,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { ColorLegend } from "@/components/ui/color-code";
 import { Database, DollarSign, FileStack, TrendingUp } from "lucide-react";
+import { useEffect } from "react";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildAllForCostAnalysis } from "@/lib/suggestion-generators";
 
 const AnalysisToolsPage = () => {
   const { analysisData, setAnalysisData } = useAnalysisData();
   const { isArabic } = useLanguage();
+
+  const { replaceBySource } = useGlobalSuggestions();
+
+  useEffect(() => {
+    const items = (analysisData?.items ?? []) as any[];
+    replaceBySource("analysis-tools", items.length ? buildAllForCostAnalysis(items) : []);
+  }, [analysisData, replaceBySource]);
 
   const handleApplyRate = (itemNumber: string, rate: number) => {
     if (!analysisData?.items) return;
