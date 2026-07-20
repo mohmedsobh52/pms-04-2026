@@ -102,6 +102,18 @@ export default function ProjectDetailsPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    const unpriced = items.filter((it: any) => !(Number(it.unit_price) > 0)).length;
+    replaceBySource("project-details", buildProjectDetailsSuggestions({
+      itemsCount: items.length,
+      attachmentsCount: attachments.length,
+      unpricedItems: unpriced,
+      hasBaseline: !!(project as any)?.baseline_locked_at,
+    }));
+  }, [items, attachments, project, replaceBySource]);
+
   const [itemsSearch, setItemsSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(() => {
