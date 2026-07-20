@@ -31,12 +31,28 @@ const PartnerDetailsPage = () => {
   const [partner, setPartner] = useState<ExternalPartner | null>(null);
   const [associatedProjects, setAssociatedProjects] = useState<SavedProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [contractsCount, setContractsCount] = useState(0);
+  const [reviewsCount, setReviewsCount] = useState(0);
+  const { replaceBySource } = useGlobalSuggestions();
 
   useEffect(() => {
     if (user && partnerId) {
       fetchPartnerDetails();
     }
   }, [user, partnerId]);
+
+  useEffect(() => {
+    if (!partner) return;
+    const anyPartner = partner as any;
+    const hasContactInfo = !!(anyPartner.phone || anyPartner.email || anyPartner.contact_person);
+    replaceBySource("partner-details", buildPartnerDetailsSuggestions({
+      partnerName: partner.name,
+      hasContracts: contractsCount > 0,
+      hasReviews: reviewsCount > 0,
+      hasContactInfo,
+    }));
+  }, [partner, contractsCount, reviewsCount, replaceBySource]);
+
 
   const fetchPartnerDetails = async () => {
     try {
