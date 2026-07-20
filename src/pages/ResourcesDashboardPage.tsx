@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { AppShell as PageLayout } from "@/components/layout/AppShell";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildResourcesSuggestions } from "@/lib/suggestion-generators";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SuspenseFallback, ErrorState, EmptyState } from "@/components/ui/loading-states";
@@ -109,6 +111,21 @@ const ResourcesDashboardPage = () => {
     fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    const total = materials.length + labor.length + equipment.length;
+    replaceBySource(
+      "resources-dashboard",
+      buildResourcesSuggestions({
+        total,
+        unassigned: 0,
+        overallocated: 0,
+        utilizationAvg: 0,
+      }),
+    );
+  }, [materials.length, labor.length, equipment.length, replaceBySource]);
+
 
   const counters = useMemo(() => {
     const matValue = materials.reduce((s, r) => s + (Number(r.unit_price) || 0), 0);
