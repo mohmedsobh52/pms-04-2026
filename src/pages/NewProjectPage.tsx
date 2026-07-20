@@ -81,6 +81,19 @@ export default function NewProjectPage() {
     ? Math.ceil((new Date(formData.endDate).getTime() - new Date(formData.startDate).getTime()) / (1000 * 60 * 60 * 24))
     : null;
 
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    replaceBySource("new-project", buildNewProjectSuggestions({
+      hasName: !!formData.name.trim(),
+      hasClient: !!formData.clientName.trim(),
+      hasLocation: !!formData.location.trim(),
+      hasStartDate: !!formData.startDate,
+      hasEndDate: !!formData.endDate,
+      hasEstimatedValue: !!formData.estimatedValue && Number(formData.estimatedValue) > 0,
+      durationDays,
+    }));
+  }, [formData, durationDays, replaceBySource]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
