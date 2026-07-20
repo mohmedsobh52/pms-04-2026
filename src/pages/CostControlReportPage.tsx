@@ -20,6 +20,8 @@ import { Label } from "@/components/ui/label";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { useLanguage } from "@/hooks/useLanguage";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildCostControlSuggestions } from "@/lib/suggestion-generators";
 import { supabase } from "@/integrations/supabase/client";
 import { createWorkbook, addJsonSheet, downloadWorkbook } from "@/lib/exceljs-utils";
 import { toast } from "sonner";
@@ -565,6 +567,17 @@ export default function CostControlReportPage() {
     setProjectEndDate(val);
     try { val ? localStorage.setItem(endDateKey, val) : localStorage.removeItem(endDateKey); } catch {}
   }, [endDateKey]);
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    replaceBySource("cost-control", buildCostControlSuggestions({
+      hasProject: !!selectedProjectId,
+      itemsCount: projectItems.length,
+      hasProgress: !!(progressHistory && Object.keys(progressHistory).length > 0),
+      hasDates: !!(projectStartDate && projectEndDate),
+    }));
+  }, [selectedProjectId, projectItems.length, progressHistory, projectStartDate, projectEndDate, replaceBySource]);
+
   const projectDuration = useMemo(() => {
     if (!projectStartDate) return null;
     const start = new Date(projectStartDate);

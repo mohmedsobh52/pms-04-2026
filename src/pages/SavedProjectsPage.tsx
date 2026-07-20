@@ -32,6 +32,8 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
 import { AppShell } from "@/components/layout/AppShell";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildSavedProjectsSuggestions } from "@/lib/suggestion-generators";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -125,6 +127,21 @@ export default function SavedProjectsPage() {
                      urlTab === "analyze" ? "analyze" : "projects";
   const [activeTab, setActiveTab] = useState(initialTab);
   const [extractionMode, setExtractionMode] = useState(urlMode === "extraction");
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    const distinctCurrencies = new Set(projects.map((p) => p.currency).filter(Boolean)).size;
+    const missingContract = projects.filter((p) => !(contractMap[p.id] > 0)).length;
+    const missingAttachments = projects.filter((p) => !(attachmentMap[p.id] > 0)).length;
+    replaceBySource("saved-projects", buildSavedProjectsSuggestions({
+      total: projects.length,
+      distinctCurrencies,
+      missingContract,
+      missingAttachments,
+    }));
+  }, [projects, contractMap, attachmentMap, replaceBySource]);
+
+
 
   // Update tab when URL changes
   useEffect(() => {

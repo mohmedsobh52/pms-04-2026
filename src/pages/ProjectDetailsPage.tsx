@@ -36,6 +36,8 @@ import { TranslationPreviewDialog } from "@/components/project-details/Translati
 import { ProjectDocumentsTab } from "@/components/project-details/ProjectDocumentsTab";
 import { ProjectSettingsTab } from "@/components/project-details/ProjectSettingsTab";
 import { AppShell } from "@/components/layout/AppShell";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildProjectDetailsSuggestions } from "@/lib/suggestion-generators";
 import { ProjectKpiStrip } from "@/components/project-details/ProjectKpiStrip";
 import { ProjectActivityFeed } from "@/components/project-details/ProjectActivityFeed";
 import { EvmSummaryCard } from "@/components/evm/EvmSummaryCard";
@@ -100,6 +102,18 @@ export default function ProjectDetailsPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
+
+  const { replaceBySource } = useGlobalSuggestions();
+  useEffect(() => {
+    const unpriced = items.filter((it: any) => !(Number(it.unit_price) > 0)).length;
+    replaceBySource("project-details", buildProjectDetailsSuggestions({
+      itemsCount: items.length,
+      attachmentsCount: attachments.length,
+      unpricedItems: unpriced,
+      hasBaseline: !!(project as any)?.baseline_locked_at,
+    }));
+  }, [items, attachments, project, replaceBySource]);
+
   const [itemsSearch, setItemsSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(() => {
