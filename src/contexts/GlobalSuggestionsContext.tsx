@@ -31,10 +31,13 @@ interface Ctx {
   markApplied: (id: string) => void;
   snooze: (id: string, hours: number) => void;
   togglePin: (id: string) => void;
+  restore: (id: string) => void;
+  restoreAll: () => void;
   clearAll: () => void;
   clearBySource: (sourceKey: string) => void;
   unreadCount: number;
   criticalCount: number;
+  dismissedCount: number;
 }
 
 const STORAGE_KEY = "global_suggestions_v1";
