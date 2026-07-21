@@ -164,6 +164,8 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
       addSuggestions,
       replaceBySource,
       dismiss,
+      dismissMany,
+      snoozeMany,
       markApplied,
       snooze,
       togglePin,
@@ -172,7 +174,7 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
       unreadCount,
       criticalCount,
     }),
-    [suggestions, addSuggestions, replaceBySource, dismiss, markApplied, snooze, togglePin, clearAll, clearBySource, unreadCount, criticalCount],
+    [suggestions, addSuggestions, replaceBySource, dismiss, dismissMany, snoozeMany, markApplied, snooze, togglePin, clearAll, clearBySource, unreadCount, criticalCount],
   );
 
   return <GlobalSuggestionsCtx.Provider value={value}>{children}</GlobalSuggestionsCtx.Provider>;
