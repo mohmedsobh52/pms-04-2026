@@ -54,6 +54,10 @@ const SEV_WEIGHT: Record<SuggestionSeverity, number> = {
 
 type SortMode = "severity" | "recent" | "screen";
 
+function counts_bySev(list: any[], sev: SuggestionSeverity) {
+  return list.filter((s) => s.severity === sev).length;
+}
+
 export function GlobalSuggestionsInbox() {
   const {
     suggestions,
