@@ -146,13 +146,49 @@ export function GlobalSuggestionsInbox() {
     return Array.from(map.entries());
   }, [filtered, sort]);
 
+  const exportCSV = () => {
+    const rows = [
+      ["Severity", "Category", "Title", "Description", "Screen", "Route", "Created"],
+      ...filtered.map((s) => [
+        s.severity,
+        s.category,
+        (s.title || "").replace(/"/g, '""'),
+        (s.description || "").replace(/"/g, '""'),
+        s.sourceScreen || "",
+        s.sourceRoute || "",
+        s.createdAt,
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `suggestions-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "تم تصدير الاقتراحات", description: `${filtered.length} صف CSV` });
+  };
+
+  const dismissView = () => {
+    if (filtered.length === 0) return;
+    if (confirm(`تجاهل ${filtered.length} اقتراح ظاهر؟`)) dismissMany(filtered.map((s) => s.id));
+  };
+
+  const snoozeView = (hours: number) => {
+    if (filtered.length === 0) return;
+    snoozeMany(filtered.map((s) => s.id), hours);
+    toast({ title: `تم تأجيل ${filtered.length} اقتراح` });
+  };
+
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button
           variant="default"
           className="fixed bottom-6 left-40 z-40 shadow-elegant gap-2 rounded-full h-12 px-5"
           aria-label="global suggestions"
+          title="الاقتراحات الذكية (Ctrl+/)"
         >
           <Sparkles className="w-4 h-4" />
           الاقتراحات الذكية
@@ -175,6 +211,21 @@ export function GlobalSuggestionsInbox() {
             صندوق الاقتراحات الموحد
             <Badge variant="secondary" className="ml-auto">{active.length}</Badge>
           </SheetTitle>
+          <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1">
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
+              حرِج: {counts_bySev(active, "critical")}
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              تحذير: {counts_bySev(active, "warning")}
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+              معلومة: {counts_bySev(active, "info")}
+            </span>
+            <span className="ml-auto opacity-70">Ctrl+/ للفتح</span>
+          </div>
         </SheetHeader>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full flex-1 flex flex-col min-h-0">
