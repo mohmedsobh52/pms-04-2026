@@ -28,7 +28,10 @@ import {
   PinOff,
   ChevronDown,
   Layers,
+  Download,
+  CheckSquare,
 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import { useGlobalSuggestions, isSuggestionSnoozed } from "@/contexts/GlobalSuggestionsContext";
 import { CATEGORY_META, SEVERITY_META } from "@/lib/suggestion-generators";
 import type { SuggestionCategory, SuggestionSeverity } from "@/contexts/GlobalSuggestionsContext";
