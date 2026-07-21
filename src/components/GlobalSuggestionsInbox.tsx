@@ -67,9 +67,11 @@ export function GlobalSuggestionsInbox() {
     markApplied,
     snooze,
     togglePin,
+    restoreAll,
     clearAll,
     unreadCount,
     criticalCount,
+    dismissedCount,
   } = useGlobalSuggestions();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
