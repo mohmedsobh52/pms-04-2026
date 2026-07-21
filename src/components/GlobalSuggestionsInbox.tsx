@@ -287,6 +287,35 @@ export function GlobalSuggestionsInbox() {
                   <DropdownMenuItem onClick={() => setSort("screen")}>تجميع حسب الشاشة</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 gap-1 text-[10px]"
+                    disabled={filtered.length === 0}
+                    title="إجراءات جماعية على المعروض"
+                  >
+                    <CheckSquare className="w-3 h-3" /> جماعي
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="text-xs">
+                  <DropdownMenuItem onClick={dismissView}>تجاهل المعروض ({filtered.length})</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => snoozeView(1)}>تأجيل ساعة</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => snoozeView(24)}>تأجيل يوم</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => snoozeView(24 * 7)}>تأجيل أسبوع</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={exportCSV}
+                disabled={filtered.length === 0}
+                className="h-6 gap-1 text-[10px]"
+                title="تصدير CSV"
+              >
+                <Download className="w-3 h-3" /> CSV
+              </Button>
               <Button
                 size="sm"
                 variant="ghost"
@@ -300,6 +329,7 @@ export function GlobalSuggestionsInbox() {
               </Button>
             </div>
           </div>
+
 
           <TabsContent value={tab} className="mt-3 flex-1 min-h-0">
             <ScrollArea className="h-full px-5 pb-6">
