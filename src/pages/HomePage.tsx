@@ -8,6 +8,7 @@ import { QuickActionsBar } from "@/components/dashboard/QuickActionsBar";
 import { supabase } from "@/integrations/supabase/client";
 import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
 import { buildHomeSuggestions } from "@/lib/suggestion-generators";
+import { SuggestionsSummaryWidget } from "@/components/SuggestionsSummaryWidget";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import {
