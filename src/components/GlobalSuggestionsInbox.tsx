@@ -106,10 +106,6 @@ export function GlobalSuggestionsInbox() {
     lastCriticalIds.current = currentIds;
   }, [active, open]);
 
-  const active = useMemo(
-    () => suggestions.filter((s) => !s.dismissed && !s.applied && !isSuggestionSnoozed(s)),
-    [suggestions],
-  );
 
   const filtered = useMemo(() => {
     let list = tab === "all" ? active : active.filter((s) => s.category === tab);
