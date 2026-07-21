@@ -118,6 +118,17 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
     setSuggestions((prev) => prev.map((s) => (s.id === id ? { ...s, dismissed: true } : s)));
   }, []);
 
+  const dismissMany = useCallback((ids: string[]) => {
+    const set = new Set(ids);
+    setSuggestions((prev) => prev.map((s) => (set.has(s.id) ? { ...s, dismissed: true } : s)));
+  }, []);
+
+  const snoozeMany = useCallback((ids: string[], hours: number) => {
+    const set = new Set(ids);
+    const until = new Date(Date.now() + hours * 3600 * 1000).toISOString();
+    setSuggestions((prev) => prev.map((s) => (set.has(s.id) ? { ...s, snoozedUntil: until } : s)));
+  }, []);
+
   const markApplied = useCallback((id: string) => {
     setSuggestions((prev) => prev.map((s) => (s.id === id ? { ...s, applied: true } : s)));
   }, []);
