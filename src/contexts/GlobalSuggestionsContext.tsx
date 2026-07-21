@@ -151,6 +151,16 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
     setSuggestions((prev) => prev.filter((s) => s.meta?.sourceKey !== sourceKey));
   }, []);
 
+  const restore = useCallback((id: string) => {
+    setSuggestions((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, dismissed: false, applied: false, snoozedUntil: null } : s)),
+    );
+  }, []);
+
+  const restoreAll = useCallback(() => {
+    setSuggestions((prev) => prev.map((s) => ({ ...s, dismissed: false, applied: false, snoozedUntil: null })));
+  }, []);
+
   const activeAll = useMemo(
     () => suggestions.filter((s) => !s.dismissed && !s.applied && !isSnoozed(s)),
     [suggestions],
@@ -159,6 +169,10 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
   const criticalCount = useMemo(
     () => activeAll.filter((s) => s.severity === "critical").length,
     [activeAll],
+  );
+  const dismissedCount = useMemo(
+    () => suggestions.filter((s) => s.dismissed || s.applied || isSnoozed(s)).length,
+    [suggestions],
   );
 
   const value = useMemo<Ctx>(
@@ -172,12 +186,15 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
       markApplied,
       snooze,
       togglePin,
+      restore,
+      restoreAll,
       clearAll,
       clearBySource,
       unreadCount,
       criticalCount,
+      dismissedCount,
     }),
-    [suggestions, addSuggestions, replaceBySource, dismiss, dismissMany, snoozeMany, markApplied, snooze, togglePin, clearAll, clearBySource, unreadCount, criticalCount],
+    [suggestions, addSuggestions, replaceBySource, dismiss, dismissMany, snoozeMany, markApplied, snooze, togglePin, restore, restoreAll, clearAll, clearBySource, unreadCount, criticalCount, dismissedCount],
   );
 
   return <GlobalSuggestionsCtx.Provider value={value}>{children}</GlobalSuggestionsCtx.Provider>;
