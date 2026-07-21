@@ -176,6 +176,18 @@ export function GlobalSuggestionsInbox() {
     toast({ title: "تم تصدير الاقتراحات", description: `${filtered.length} صف CSV` });
   };
 
+  const exportJSON = () => {
+    const payload = filtered.map(({ onApply, ...rest }) => rest);
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `suggestions-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "تم تصدير JSON", description: `${filtered.length} عنصر` });
+  };
+
   const dismissView = () => {
     if (filtered.length === 0) return;
     if (confirm(`تجاهل ${filtered.length} اقتراح ظاهر؟`)) dismissMany(filtered.map((s) => s.id));
