@@ -58,6 +58,8 @@ export function GlobalSuggestionsInbox() {
   const {
     suggestions,
     dismiss,
+    dismissMany,
+    snoozeMany,
     markApplied,
     snooze,
     togglePin,
@@ -66,10 +68,43 @@ export function GlobalSuggestionsInbox() {
     criticalCount,
   } = useGlobalSuggestions();
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<SuggestionCategory | "all">("all");
   const [query, setQuery] = useState("");
   const [sevFilter, setSevFilter] = useState<SuggestionSeverity | "all">("all");
   const [sort, setSort] = useState<SortMode>("severity");
+  const lastCriticalIds = useRef<Set<string>>(new Set());
+
+  // Keyboard shortcut: Ctrl+/ or Cmd+/ to toggle
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "/") {
+        e.preventDefault();
+        setOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const active = useMemo(
+    () => suggestions.filter((s) => !s.dismissed && !s.applied && !isSuggestionSnoozed(s)),
+    [suggestions],
+  );
+
+  // Toast on newly-arrived critical suggestions
+  useEffect(() => {
+    const currentCritical = active.filter((s) => s.severity === "critical");
+    const currentIds = new Set(currentCritical.map((s) => s.id));
+    const fresh = currentCritical.filter((s) => !lastCriticalIds.current.has(s.id));
+    if (lastCriticalIds.current.size > 0 && fresh.length > 0 && !open) {
+      toast({
+        title: `${fresh.length} تنبيه حرِج جديد`,
+        description: fresh[0].title,
+      });
+    }
+    lastCriticalIds.current = currentIds;
+  }, [active, open]);
 
   const active = useMemo(
     () => suggestions.filter((s) => !s.dismissed && !s.applied && !isSuggestionSnoozed(s)),
