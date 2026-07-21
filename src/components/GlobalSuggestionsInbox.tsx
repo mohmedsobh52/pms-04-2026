@@ -333,6 +333,30 @@ export function GlobalSuggestionsInbox() {
               <Button
                 size="sm"
                 variant="ghost"
+                onClick={exportJSON}
+                disabled={filtered.length === 0}
+                className="h-6 gap-1 text-[10px]"
+                title="تصدير JSON"
+              >
+                <Download className="w-3 h-3" /> JSON
+              </Button>
+              {dismissedCount > 0 && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    restoreAll();
+                    toast({ title: `تم استرجاع ${dismissedCount} اقتراح` });
+                  }}
+                  className="h-6 gap-1 text-[10px]"
+                  title="استرجاع المتجاهَل والمؤجَّل"
+                >
+                  استرجاع ({dismissedCount})
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
                 onClick={() => {
                   if (confirm("مسح كل الاقتراحات؟")) clearAll();
                 }}
