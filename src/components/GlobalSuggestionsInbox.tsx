@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,10 @@ import {
   PinOff,
   ChevronDown,
   Layers,
+  Download,
+  CheckSquare,
 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import { useGlobalSuggestions, isSuggestionSnoozed } from "@/contexts/GlobalSuggestionsContext";
 import { CATEGORY_META, SEVERITY_META } from "@/lib/suggestion-generators";
 import type { SuggestionCategory, SuggestionSeverity } from "@/contexts/GlobalSuggestionsContext";
@@ -51,10 +54,16 @@ const SEV_WEIGHT: Record<SuggestionSeverity, number> = {
 
 type SortMode = "severity" | "recent" | "screen";
 
+function counts_bySev(list: any[], sev: SuggestionSeverity) {
+  return list.filter((s) => s.severity === sev).length;
+}
+
 export function GlobalSuggestionsInbox() {
   const {
     suggestions,
     dismiss,
+    dismissMany,
+    snoozeMany,
     markApplied,
     snooze,
     togglePin,
@@ -63,15 +72,44 @@ export function GlobalSuggestionsInbox() {
     criticalCount,
   } = useGlobalSuggestions();
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<SuggestionCategory | "all">("all");
   const [query, setQuery] = useState("");
   const [sevFilter, setSevFilter] = useState<SuggestionSeverity | "all">("all");
   const [sort, setSort] = useState<SortMode>("severity");
+  const lastCriticalIds = useRef<Set<string>>(new Set());
+
+  // Keyboard shortcut: Ctrl+/ or Cmd+/ to toggle
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "/") {
+        e.preventDefault();
+        setOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const active = useMemo(
     () => suggestions.filter((s) => !s.dismissed && !s.applied && !isSuggestionSnoozed(s)),
     [suggestions],
   );
+
+  // Toast on newly-arrived critical suggestions
+  useEffect(() => {
+    const currentCritical = active.filter((s) => s.severity === "critical");
+    const currentIds = new Set(currentCritical.map((s) => s.id));
+    const fresh = currentCritical.filter((s) => !lastCriticalIds.current.has(s.id));
+    if (lastCriticalIds.current.size > 0 && fresh.length > 0 && !open) {
+      toast({
+        title: `${fresh.length} تنبيه حرِج جديد`,
+        description: fresh[0].title,
+      });
+    }
+    lastCriticalIds.current = currentIds;
+  }, [active, open]);
+
 
   const filtered = useMemo(() => {
     let list = tab === "all" ? active : active.filter((s) => s.category === tab);
@@ -112,13 +150,49 @@ export function GlobalSuggestionsInbox() {
     return Array.from(map.entries());
   }, [filtered, sort]);
 
+  const exportCSV = () => {
+    const rows = [
+      ["Severity", "Category", "Title", "Description", "Screen", "Route", "Created"],
+      ...filtered.map((s) => [
+        s.severity,
+        s.category,
+        (s.title || "").replace(/"/g, '""'),
+        (s.description || "").replace(/"/g, '""'),
+        s.sourceScreen || "",
+        s.sourceRoute || "",
+        s.createdAt,
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `suggestions-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "تم تصدير الاقتراحات", description: `${filtered.length} صف CSV` });
+  };
+
+  const dismissView = () => {
+    if (filtered.length === 0) return;
+    if (confirm(`تجاهل ${filtered.length} اقتراح ظاهر؟`)) dismissMany(filtered.map((s) => s.id));
+  };
+
+  const snoozeView = (hours: number) => {
+    if (filtered.length === 0) return;
+    snoozeMany(filtered.map((s) => s.id), hours);
+    toast({ title: `تم تأجيل ${filtered.length} اقتراح` });
+  };
+
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button
           variant="default"
           className="fixed bottom-6 left-40 z-40 shadow-elegant gap-2 rounded-full h-12 px-5"
           aria-label="global suggestions"
+          title="الاقتراحات الذكية (Ctrl+/)"
         >
           <Sparkles className="w-4 h-4" />
           الاقتراحات الذكية
@@ -141,6 +215,21 @@ export function GlobalSuggestionsInbox() {
             صندوق الاقتراحات الموحد
             <Badge variant="secondary" className="ml-auto">{active.length}</Badge>
           </SheetTitle>
+          <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1">
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
+              حرِج: {counts_bySev(active, "critical")}
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              تحذير: {counts_bySev(active, "warning")}
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+              معلومة: {counts_bySev(active, "info")}
+            </span>
+            <span className="ml-auto opacity-70">Ctrl+/ للفتح</span>
+          </div>
         </SheetHeader>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full flex-1 flex flex-col min-h-0">
@@ -198,6 +287,35 @@ export function GlobalSuggestionsInbox() {
                   <DropdownMenuItem onClick={() => setSort("screen")}>تجميع حسب الشاشة</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 gap-1 text-[10px]"
+                    disabled={filtered.length === 0}
+                    title="إجراءات جماعية على المعروض"
+                  >
+                    <CheckSquare className="w-3 h-3" /> جماعي
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="text-xs">
+                  <DropdownMenuItem onClick={dismissView}>تجاهل المعروض ({filtered.length})</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => snoozeView(1)}>تأجيل ساعة</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => snoozeView(24)}>تأجيل يوم</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => snoozeView(24 * 7)}>تأجيل أسبوع</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={exportCSV}
+                disabled={filtered.length === 0}
+                className="h-6 gap-1 text-[10px]"
+                title="تصدير CSV"
+              >
+                <Download className="w-3 h-3" /> CSV
+              </Button>
               <Button
                 size="sm"
                 variant="ghost"
@@ -211,6 +329,7 @@ export function GlobalSuggestionsInbox() {
               </Button>
             </div>
           </div>
+
 
           <TabsContent value={tab} className="mt-3 flex-1 min-h-0">
             <ScrollArea className="h-full px-5 pb-6">
