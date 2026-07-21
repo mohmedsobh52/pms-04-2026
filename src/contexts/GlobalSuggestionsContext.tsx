@@ -26,6 +26,8 @@ interface Ctx {
   addSuggestions: (list: Omit<GlobalSuggestion, "id" | "createdAt">[], sourceKey?: string) => void;
   replaceBySource: (sourceKey: string, list: Omit<GlobalSuggestion, "id" | "createdAt">[]) => void;
   dismiss: (id: string) => void;
+  dismissMany: (ids: string[]) => void;
+  snoozeMany: (ids: string[], hours: number) => void;
   markApplied: (id: string) => void;
   snooze: (id: string, hours: number) => void;
   togglePin: (id: string) => void;
