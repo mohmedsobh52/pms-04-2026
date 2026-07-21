@@ -67,9 +67,11 @@ export function GlobalSuggestionsInbox() {
     markApplied,
     snooze,
     togglePin,
+    restoreAll,
     clearAll,
     unreadCount,
     criticalCount,
+    dismissedCount,
   } = useGlobalSuggestions();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -172,6 +174,18 @@ export function GlobalSuggestionsInbox() {
     a.click();
     URL.revokeObjectURL(url);
     toast({ title: "تم تصدير الاقتراحات", description: `${filtered.length} صف CSV` });
+  };
+
+  const exportJSON = () => {
+    const payload = filtered.map(({ onApply, ...rest }) => rest);
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `suggestions-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "تم تصدير JSON", description: `${filtered.length} عنصر` });
   };
 
   const dismissView = () => {
@@ -316,6 +330,30 @@ export function GlobalSuggestionsInbox() {
               >
                 <Download className="w-3 h-3" /> CSV
               </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={exportJSON}
+                disabled={filtered.length === 0}
+                className="h-6 gap-1 text-[10px]"
+                title="تصدير JSON"
+              >
+                <Download className="w-3 h-3" /> JSON
+              </Button>
+              {dismissedCount > 0 && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    restoreAll();
+                    toast({ title: `تم استرجاع ${dismissedCount} اقتراح` });
+                  }}
+                  className="h-6 gap-1 text-[10px]"
+                  title="استرجاع المتجاهَل والمؤجَّل"
+                >
+                  استرجاع ({dismissedCount})
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="ghost"

@@ -8,6 +8,7 @@ import { QuickActionsBar } from "@/components/dashboard/QuickActionsBar";
 import { supabase } from "@/integrations/supabase/client";
 import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
 import { buildHomeSuggestions } from "@/lib/suggestion-generators";
+import { SuggestionsSummaryWidget } from "@/components/SuggestionsSummaryWidget";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import {
@@ -240,9 +241,10 @@ export default function HomePage() {
             />
           </section>
 
-          {/* Module groups + Recent activity sidebar */}
+          {/* Suggestions summary + Module groups + Recent activity sidebar */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <section className="lg:col-span-2 space-y-6">
+              <SuggestionsSummaryWidget />
               {groups.map((group) => (
                 <div key={group.titleEn}>
                   <div className="flex items-center justify-between mb-3">
