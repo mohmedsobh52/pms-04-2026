@@ -220,6 +220,19 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
     [suggestions],
   );
 
+  // Apply preferences to visible active suggestions
+  const activeAfterPrefs = useMemo(() => {
+    const sevRank = { critical: 0, warning: 1, info: 2, success: 3 } as const;
+    const minRank = sevRank[preferences.minSeverity];
+    return activeAll.filter((s) => {
+      if (preferences.mutedCategories.includes(s.category)) return false;
+      if (s.meta?.sourceKey && preferences.mutedSources.includes(String(s.meta.sourceKey))) return false;
+      if (s.sourceScreen && preferences.mutedScreens.includes(s.sourceScreen)) return false;
+      if (sevRank[s.severity] > minRank) return false;
+      return true;
+    });
+  }, [activeAll, preferences]);
+
   const value = useMemo<Ctx>(
     () => ({
       suggestions,
@@ -235,15 +248,19 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
       restoreAll,
       clearAll,
       clearBySource,
-      unreadCount,
-      criticalCount,
+      unreadCount: activeAfterPrefs.length,
+      criticalCount: activeAfterPrefs.filter((s) => s.severity === "critical").length,
       dismissedCount,
+      preferences,
+      updatePreferences,
+      resetPreferences,
     }),
-    [suggestions, addSuggestions, replaceBySource, dismiss, dismissMany, snoozeMany, markApplied, snooze, togglePin, restore, restoreAll, clearAll, clearBySource, unreadCount, criticalCount, dismissedCount],
+    [suggestions, addSuggestions, replaceBySource, dismiss, dismissMany, snoozeMany, markApplied, snooze, togglePin, restore, restoreAll, clearAll, clearBySource, activeAfterPrefs, dismissedCount, preferences, updatePreferences, resetPreferences],
   );
 
   return <GlobalSuggestionsCtx.Provider value={value}>{children}</GlobalSuggestionsCtx.Provider>;
 }
+
 
 export function useGlobalSuggestions() {
   const ctx = useContext(GlobalSuggestionsCtx);
