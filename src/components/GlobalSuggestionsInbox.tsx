@@ -227,7 +227,19 @@ export function GlobalSuggestionsInbox() {
           <SheetTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
             صندوق الاقتراحات الموحد
-            <Badge variant="secondary" className="ml-auto">{active.length}</Badge>
+            <Badge variant="secondary" className="mr-auto">{active.length}</Badge>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-[11px] gap-1"
+              onClick={() => {
+                setOpen(false);
+                navigate("/suggestions");
+              }}
+              title="فتح المركز الكامل"
+            >
+              <ExternalLink className="w-3 h-3" /> المركز
+            </Button>
           </SheetTitle>
           <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1">
             <span className="flex items-center gap-1">
