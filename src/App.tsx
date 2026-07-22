@@ -31,6 +31,7 @@ const About = lazy(() => import("./pages/About"));
 const CostAnalysisPage = lazy(() => import("./pages/CostAnalysisPage"));
 const Changelog = lazy(() => import("./pages/Changelog"));
 const AdminVersions = lazy(() => import("./pages/AdminVersions"));
+const SuggestionsCenterPage = lazy(() => import("./pages/SuggestionsCenterPage"));
 const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
 const ApprovalsInboxPage = lazy(() => import("./pages/ApprovalsInboxPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
