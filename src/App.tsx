@@ -31,6 +31,7 @@ const About = lazy(() => import("./pages/About"));
 const CostAnalysisPage = lazy(() => import("./pages/CostAnalysisPage"));
 const Changelog = lazy(() => import("./pages/Changelog"));
 const AdminVersions = lazy(() => import("./pages/AdminVersions"));
+const SuggestionsCenterPage = lazy(() => import("./pages/SuggestionsCenterPage"));
 const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
 const ApprovalsInboxPage = lazy(() => import("./pages/ApprovalsInboxPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -120,6 +121,7 @@ const App = () => (
                       <Routes>
                         <Route path="/" element={<HomePage />} />
                         <Route path="/analyze" element={<Navigate to="/projects" replace />} />
+                        <Route path="/suggestions" element={<SuggestionsCenterPage />} />
                         <Route path="/auth" element={<Auth />} />
                         <Route path="/shared/:shareCode" element={<SharedView />} />
                         <Route path="/projects" element={<SavedProjectsPage />} />

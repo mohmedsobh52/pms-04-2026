@@ -134,18 +134,28 @@ export function SuggestionsSummaryWidget() {
         </div>
       )}
 
-      <Button
-        variant="outline"
-        size="sm"
-        className="w-full h-8 text-xs gap-1.5"
-        onClick={() => {
-          // Trigger the global inbox via keyboard shortcut event
-          window.dispatchEvent(new KeyboardEvent("keydown", { key: "/", ctrlKey: true }));
-        }}
-      >
-        <Sparkles className="w-3.5 h-3.5" />
-        فتح مركز الاقتراحات (Ctrl+/)
-      </Button>
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 text-xs gap-1.5"
+          onClick={() => navigate("/suggestions")}
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          مركز الاقتراحات
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 text-xs gap-1.5"
+          onClick={() => {
+            window.dispatchEvent(new KeyboardEvent("keydown", { key: "/", ctrlKey: true }));
+          }}
+        >
+          صندوق سريع (Ctrl+/)
+        </Button>
+      </div>
+
     </Card>
   );
 }

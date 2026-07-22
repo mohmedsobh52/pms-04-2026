@@ -21,6 +21,22 @@ export interface GlobalSuggestion {
   pinned?: boolean;
 }
 
+export interface SuggestionPreferences {
+  mutedCategories: SuggestionCategory[];
+  mutedSources: string[]; // sourceKey values
+  mutedScreens: string[]; // sourceScreen values
+  minSeverity: SuggestionSeverity; // filter out below this
+  desktopToastForCritical: boolean;
+}
+
+const DEFAULT_PREFS: SuggestionPreferences = {
+  mutedCategories: [],
+  mutedSources: [],
+  mutedScreens: [],
+  minSeverity: "info",
+  desktopToastForCritical: true,
+};
+
 interface Ctx {
   suggestions: GlobalSuggestion[];
   addSuggestions: (list: Omit<GlobalSuggestion, "id" | "createdAt">[], sourceKey?: string) => void;
@@ -38,9 +54,14 @@ interface Ctx {
   unreadCount: number;
   criticalCount: number;
   dismissedCount: number;
+  preferences: SuggestionPreferences;
+  updatePreferences: (patch: Partial<SuggestionPreferences>) => void;
+  resetPreferences: () => void;
 }
 
 const STORAGE_KEY = "global_suggestions_v1";
+const PREFS_KEY = "global_suggestions_prefs_v1";
+
 const GlobalSuggestionsCtx = createContext<Ctx | null>(null);
 
 function makeId() {
@@ -63,6 +84,15 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
     }
   });
 
+  const [preferences, setPreferences] = useState<SuggestionPreferences>(() => {
+    try {
+      const raw = localStorage.getItem(PREFS_KEY);
+      return raw ? { ...DEFAULT_PREFS, ...JSON.parse(raw) } : DEFAULT_PREFS;
+    } catch {
+      return DEFAULT_PREFS;
+    }
+  });
+
   useEffect(() => {
     try {
       const serializable = suggestions.map(({ onApply, ...rest }) => rest);
@@ -71,6 +101,21 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
       /* quota */
     }
   }, [suggestions]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(preferences));
+    } catch {
+      /* quota */
+    }
+  }, [preferences]);
+
+  const updatePreferences = useCallback(
+    (patch: Partial<SuggestionPreferences>) => setPreferences((p) => ({ ...p, ...patch })),
+    [],
+  );
+  const resetPreferences = useCallback(() => setPreferences(DEFAULT_PREFS), []);
+
 
   const addSuggestions: Ctx["addSuggestions"] = useCallback((list, sourceKey) => {
     setSuggestions((prev) => {
@@ -175,6 +220,19 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
     [suggestions],
   );
 
+  // Apply preferences to visible active suggestions
+  const activeAfterPrefs = useMemo(() => {
+    const sevRank = { critical: 0, warning: 1, info: 2, success: 3 } as const;
+    const minRank = sevRank[preferences.minSeverity];
+    return activeAll.filter((s) => {
+      if (preferences.mutedCategories.includes(s.category)) return false;
+      if (s.meta?.sourceKey && preferences.mutedSources.includes(String(s.meta.sourceKey))) return false;
+      if (s.sourceScreen && preferences.mutedScreens.includes(s.sourceScreen)) return false;
+      if (sevRank[s.severity] > minRank) return false;
+      return true;
+    });
+  }, [activeAll, preferences]);
+
   const value = useMemo<Ctx>(
     () => ({
       suggestions,
@@ -190,15 +248,19 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
       restoreAll,
       clearAll,
       clearBySource,
-      unreadCount,
-      criticalCount,
+      unreadCount: activeAfterPrefs.length,
+      criticalCount: activeAfterPrefs.filter((s) => s.severity === "critical").length,
       dismissedCount,
+      preferences,
+      updatePreferences,
+      resetPreferences,
     }),
-    [suggestions, addSuggestions, replaceBySource, dismiss, dismissMany, snoozeMany, markApplied, snooze, togglePin, restore, restoreAll, clearAll, clearBySource, unreadCount, criticalCount, dismissedCount],
+    [suggestions, addSuggestions, replaceBySource, dismiss, dismissMany, snoozeMany, markApplied, snooze, togglePin, restore, restoreAll, clearAll, clearBySource, activeAfterPrefs, dismissedCount, preferences, updatePreferences, resetPreferences],
   );
 
   return <GlobalSuggestionsCtx.Provider value={value}>{children}</GlobalSuggestionsCtx.Provider>;
 }
+
 
 export function useGlobalSuggestions() {
   const ctx = useContext(GlobalSuggestionsCtx);
