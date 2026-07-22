@@ -21,6 +21,22 @@ export interface GlobalSuggestion {
   pinned?: boolean;
 }
 
+export interface SuggestionPreferences {
+  mutedCategories: SuggestionCategory[];
+  mutedSources: string[]; // sourceKey values
+  mutedScreens: string[]; // sourceScreen values
+  minSeverity: SuggestionSeverity; // filter out below this
+  desktopToastForCritical: boolean;
+}
+
+const DEFAULT_PREFS: SuggestionPreferences = {
+  mutedCategories: [],
+  mutedSources: [],
+  mutedScreens: [],
+  minSeverity: "info",
+  desktopToastForCritical: true,
+};
+
 interface Ctx {
   suggestions: GlobalSuggestion[];
   addSuggestions: (list: Omit<GlobalSuggestion, "id" | "createdAt">[], sourceKey?: string) => void;
@@ -38,9 +54,14 @@ interface Ctx {
   unreadCount: number;
   criticalCount: number;
   dismissedCount: number;
+  preferences: SuggestionPreferences;
+  updatePreferences: (patch: Partial<SuggestionPreferences>) => void;
+  resetPreferences: () => void;
 }
 
 const STORAGE_KEY = "global_suggestions_v1";
+const PREFS_KEY = "global_suggestions_prefs_v1";
+
 const GlobalSuggestionsCtx = createContext<Ctx | null>(null);
 
 function makeId() {
