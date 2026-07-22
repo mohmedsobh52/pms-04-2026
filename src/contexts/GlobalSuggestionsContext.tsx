@@ -84,6 +84,15 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
     }
   });
 
+  const [preferences, setPreferences] = useState<SuggestionPreferences>(() => {
+    try {
+      const raw = localStorage.getItem(PREFS_KEY);
+      return raw ? { ...DEFAULT_PREFS, ...JSON.parse(raw) } : DEFAULT_PREFS;
+    } catch {
+      return DEFAULT_PREFS;
+    }
+  });
+
   useEffect(() => {
     try {
       const serializable = suggestions.map(({ onApply, ...rest }) => rest);
@@ -92,6 +101,21 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
       /* quota */
     }
   }, [suggestions]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(preferences));
+    } catch {
+      /* quota */
+    }
+  }, [preferences]);
+
+  const updatePreferences = useCallback(
+    (patch: Partial<SuggestionPreferences>) => setPreferences((p) => ({ ...p, ...patch })),
+    [],
+  );
+  const resetPreferences = useCallback(() => setPreferences(DEFAULT_PREFS), []);
+
 
   const addSuggestions: Ctx["addSuggestions"] = useCallback((list, sourceKey) => {
     setSuggestions((prev) => {
