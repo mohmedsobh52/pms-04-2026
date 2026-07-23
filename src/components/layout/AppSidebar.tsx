@@ -111,6 +111,9 @@ const adminGroup: NavGroup = {
   labelEn: "Administration", labelAr: "الإدارة",
   items: [
     { titleEn: "Admin Dashboard", titleAr: "لوحة المدير",     url: "/admin",            icon: Shield,   roles: ["admin"] },
+    { titleEn: "Team",            titleAr: "الفريق",          url: "/team",             icon: Users,     roles: ["admin"] },
+    { titleEn: "Audit Logs",      titleAr: "سجل التدقيق",     url: "/audit-logs",       icon: ScrollText, roles: ["admin"] },
+    { titleEn: "Notifications",   titleAr: "التنبيهات",       url: "/notifications",    icon: Inbox },
     { titleEn: "Company",         titleAr: "إعدادات الشركة", url: "/company-settings", icon: Building2, roles: ["admin"] },
     { titleEn: "Settings",        titleAr: "الإعدادات",       url: "/settings",         icon: Settings },
     { titleEn: "Versions",        titleAr: "الإصدارات",       url: "/admin/versions",   icon: Layers,    roles: ["admin"] },
