@@ -62,7 +62,7 @@ export function useGlobalSuggestionsBootstrap() {
       // Notifications
       const unread = notif.data ?? [];
       const criticalUnread = unread.filter(
-        (n: any) => n.priority === "critical" || n.priority === "high",
+        (n: any) => n.severity === "critical" || n.severity === "warning",
       ).length;
       const oldestUnreadDays = unread.length
         ? Math.round(
