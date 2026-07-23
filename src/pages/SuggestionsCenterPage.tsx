@@ -48,6 +48,8 @@ import {
   Pie,
   Cell,
   Legend,
+  LineChart,
+  Line,
 } from "recharts";
 
 const CAT_ICONS: Record<SuggestionCategory, any> = {
