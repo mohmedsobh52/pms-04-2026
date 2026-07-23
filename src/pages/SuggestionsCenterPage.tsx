@@ -516,7 +516,24 @@ export default function SuggestionsCenterPage() {
                 </ResponsiveContainer>
               </div>
             </Card>
+            <Card className="p-4 lg:col-span-2">
+              <div className="text-sm font-semibold mb-3">اتجاه آخر 14 يوماً</div>
+              <div style={{ height: 240 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trendData}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <RTooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="total" name="الكل" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="critical" name="حرِج" stroke="hsl(var(--destructive))" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
           </TabsContent>
+
 
           <TabsContent value="preferences" className="mt-4 space-y-4">
             <Card className="p-4 space-y-4">
