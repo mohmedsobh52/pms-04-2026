@@ -49,7 +49,14 @@ const ProcurementPage = () => {
   const { isArabic } = useLanguage();
   const { user } = useAuth();
   const [partners, setPartners] = useState<ExternalPartner[]>([]);
-  const [extra, setExtra] = useState({ contracts: 0, contractsValue: 0, offers: 0 });
+  const [extra, setExtra] = useState({
+    contracts: 0,
+    contractsValue: 0,
+    offers: 0,
+    itemsCount: 0,
+    overdueItems: 0,
+    criticalLeadItems: 0,
+  });
   const [activeTab, setActiveTab] = useState<string>(() => {
     if (typeof window === "undefined") return "partners";
     return localStorage.getItem(TAB_KEY) || "partners";
@@ -61,19 +68,27 @@ const ProcurementPage = () => {
 
   const { replaceBySource } = useGlobalSuggestions();
   useEffect(() => {
+    const inactivePartners = partners.filter((p: any) => (p.status || "active") !== "active").length;
+    const lowRatedPartners = partners.filter((p: any) => Number(p.rating) > 0 && Number(p.rating) < 3).length;
     replaceBySource("procurement-page", buildProcurementSuggestions({
       partnersCount: partners.length,
       contractsCount: extra.contracts,
       offersCount: extra.offers,
       contractsValue: extra.contractsValue,
+      itemsCount: extra.itemsCount,
+      overdueItems: extra.overdueItems,
+      criticalLeadItems: extra.criticalLeadItems,
+      inactivePartners,
+      lowRatedPartners,
     }));
-  }, [partners.length, extra, replaceBySource]);
+  }, [partners, extra, replaceBySource]);
 
 
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const [partnersRes, pc, off] = await Promise.all([
+      const now = new Date();
+      const [partnersRes, pc, off, items] = await Promise.all([
         supabase
           .from("external_partners")
           .select("*")
@@ -82,12 +97,26 @@ const ProcurementPage = () => {
           .order("created_at", { ascending: false }),
         supabase.from("partner_contracts").select("contract_value").eq("user_id", user.id).limit(500),
         supabase.from("offer_requests").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+        supabase
+          .from("procurement_items")
+          .select("id,delivery_date,lead_time_days,status")
+          .eq("user_id", user.id)
+          .limit(1000),
       ]);
       setPartners((partnersRes.data as ExternalPartner[]) || []);
+      const rows = (items.data as any[]) || [];
+      const overdue = rows.filter((r) => {
+        if (!r.delivery_date || r.status === "delivered") return false;
+        return new Date(r.delivery_date).getTime() < now.getTime();
+      }).length;
+      const criticalLead = rows.filter((r) => Number(r.lead_time_days) > 60).length;
       setExtra({
         contracts: pc.data?.length || 0,
         contractsValue: (pc.data || []).reduce((s: number, r: any) => s + (Number(r.contract_value) || 0), 0),
         offers: off.count || 0,
+        itemsCount: rows.length,
+        overdueItems: overdue,
+        criticalLeadItems: criticalLead,
       });
     })();
   }, [user]);
