@@ -134,6 +134,24 @@ export function AppTopbar() {
         </DropdownMenuContent>
       </DropdownMenu>
 
+      <Button
+        variant="ghost"
+        size="icon"
+        className="relative h-9 w-9"
+        onClick={() => navigate("/suggestions")}
+        aria-label={isArabic ? "مركز الاقتراحات" : "Suggestions center"}
+        title={isArabic ? `${unreadCount} اقتراح نشط` : `${unreadCount} active suggestions`}
+      >
+        <Lightbulb className="h-4 w-4" />
+        {unreadCount > 0 && (
+          <Badge
+            variant={criticalCount > 0 ? "destructive" : "secondary"}
+            className="absolute -top-1 -end-1 h-4 min-w-4 px-1 text-[9px] leading-none flex items-center justify-center"
+          >
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </Badge>
+        )}
+      </Button>
       <NotificationsPopover />
       <LanguageToggle />
       <ThemeToggle />
