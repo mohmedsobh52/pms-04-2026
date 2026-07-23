@@ -3,7 +3,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Home, Search, Plus, FolderOpen, FileSignature, Briefcase, Award, ChevronDown,
+  Home, Search, Plus, FolderOpen, FileSignature, Briefcase, Award, ChevronDown, Lightbulb,
 } from "lucide-react";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -15,11 +15,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useProjectContext } from "@/hooks/useProjectContext";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
 
 export function AppTopbar() {
   const { isArabic } = useLanguage();
   const navigate = useNavigate();
   const { inProjectMode, currentProject, projectId } = useProjectContext();
+  const { unreadCount, criticalCount } = useGlobalSuggestions();
 
   const scoped = (path: string) =>
     projectId ? `${path}${path.includes("?") ? "&" : "?"}projectId=${projectId}` : path;
@@ -132,6 +134,24 @@ export function AppTopbar() {
         </DropdownMenuContent>
       </DropdownMenu>
 
+      <Button
+        variant="ghost"
+        size="icon"
+        className="relative h-9 w-9"
+        onClick={() => navigate("/suggestions")}
+        aria-label={isArabic ? "مركز الاقتراحات" : "Suggestions center"}
+        title={isArabic ? `${unreadCount} اقتراح نشط` : `${unreadCount} active suggestions`}
+      >
+        <Lightbulb className="h-4 w-4" />
+        {unreadCount > 0 && (
+          <Badge
+            variant={criticalCount > 0 ? "destructive" : "secondary"}
+            className="absolute -top-1 -end-1 h-4 min-w-4 px-1 text-[9px] leading-none flex items-center justify-center"
+          >
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </Badge>
+        )}
+      </Button>
       <NotificationsPopover />
       <LanguageToggle />
       <ThemeToggle />

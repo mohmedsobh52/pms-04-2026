@@ -4,6 +4,7 @@ import { AppSidebar } from "./AppSidebar";
 import { AppTopbar } from "./AppTopbar";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { GlobalSuggestionsInbox } from "@/components/GlobalSuggestionsInbox";
 import { useLanguage } from "@/hooks/useLanguage";
 
 interface AppShellProps {
@@ -38,6 +39,7 @@ export function AppShell({ children, className = "", hideBreadcrumbs, fullBleed 
             <ErrorBoundary>{children}</ErrorBoundary>
           </main>
         </div>
+        <GlobalSuggestionsInbox />
       </div>
     </SidebarProvider>
   );
