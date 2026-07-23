@@ -48,6 +48,8 @@ import {
   Pie,
   Cell,
   Legend,
+  LineChart,
+  Line,
 } from "recharts";
 
 const CAT_ICONS: Record<SuggestionCategory, any> = {
@@ -133,6 +135,37 @@ export default function SuggestionsCenterPage() {
       .slice(0, 10)
       .map(([name, value]) => ({ name, value }));
   }, [active]);
+
+  // 14-day creation trend
+  const trendData = useMemo(() => {
+    const days = 14;
+    const buckets: { name: string; total: number; critical: number }[] = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(today.getTime() - i * 86400000);
+      const key = d.toISOString().slice(5, 10); // MM-DD
+      buckets.push({ name: key, total: 0, critical: 0 });
+    }
+    for (const s of suggestions) {
+      const t = new Date(s.createdAt).getTime();
+      const diff = Math.floor((today.getTime() - new Date(new Date(t).setHours(0, 0, 0, 0)).getTime()) / 86400000);
+      if (diff < 0 || diff >= days) continue;
+      const idx = days - 1 - diff;
+      buckets[idx].total += 1;
+      if (s.severity === "critical") buckets[idx].critical += 1;
+    }
+    return buckets;
+  }, [suggestions]);
+
+  // Snoozed subset (sorted by wake time)
+  const snoozed = useMemo(
+    () =>
+      suggestions
+        .filter((s) => isSuggestionSnoozed(s) && !s.dismissed && !s.applied)
+        .sort((a, b) => new Date(a.snoozedUntil!).getTime() - new Date(b.snoozedUntil!).getTime()),
+    [suggestions],
+  );
 
   // Unique sources & screens for preferences
   const allSources = useMemo(() => {
@@ -334,6 +367,28 @@ export default function SuggestionsCenterPage() {
           </TabsContent>
 
           <TabsContent value="archive" className="mt-4 space-y-3">
+            {snoozed.length > 0 && (
+              <Card className="p-3 border-warning/40 bg-warning/5">
+                <div className="text-sm font-semibold mb-2 flex items-center gap-2">
+                  ⏰ مؤجَّل ({snoozed.length}) — يعود تلقائياً في موعده
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {snoozed.slice(0, 8).map((s) => (
+                    <div key={s.id} className="flex items-center justify-between gap-2 text-xs border rounded-md p-2 bg-background">
+                      <div className="truncate">
+                        <div className="font-medium truncate">{s.title}</div>
+                        <div className="text-muted-foreground text-[10px]">
+                          يعود في {new Date(s.snoozedUntil!).toLocaleString("ar")}
+                        </div>
+                      </div>
+                      <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => restore(s.id)}>
+                        إيقاظ الآن
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
                 العناصر المتجاهَلة / المطبَّقة / المؤجَّلة.
@@ -461,7 +516,24 @@ export default function SuggestionsCenterPage() {
                 </ResponsiveContainer>
               </div>
             </Card>
+            <Card className="p-4 lg:col-span-2">
+              <div className="text-sm font-semibold mb-3">اتجاه آخر 14 يوماً</div>
+              <div style={{ height: 240 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trendData}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <RTooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="total" name="الكل" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="critical" name="حرِج" stroke="hsl(var(--destructive))" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
           </TabsContent>
+
 
           <TabsContent value="preferences" className="mt-4 space-y-4">
             <Card className="p-4 space-y-4">
