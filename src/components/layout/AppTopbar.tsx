@@ -21,6 +21,7 @@ export function AppTopbar() {
   const { isArabic } = useLanguage();
   const navigate = useNavigate();
   const { inProjectMode, currentProject, projectId } = useProjectContext();
+  const { unreadCount, criticalCount } = useGlobalSuggestions();
 
   const scoped = (path: string) =>
     projectId ? `${path}${path.includes("?") ? "&" : "?"}projectId=${projectId}` : path;
