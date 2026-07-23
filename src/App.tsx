@@ -122,7 +122,8 @@ const App = () => (
                       <Routes>
                         <Route path="/" element={<HomePage />} />
                         <Route path="/analyze" element={<Navigate to="/projects" replace />} />
-                        <Route path="/suggestions" element={<SuggestionsCenterPage />} />
+                       <Route path="/suggestions" element={<SuggestionsCenterPage />} />
+                       <Route path="/notifications" element={<NotificationsPage />} />
                         <Route path="/auth" element={<Auth />} />
                         <Route path="/shared/:shareCode" element={<SharedView />} />
                         <Route path="/projects" element={<SavedProjectsPage />} />
