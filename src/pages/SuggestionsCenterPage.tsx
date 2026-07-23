@@ -136,6 +136,37 @@ export default function SuggestionsCenterPage() {
       .map(([name, value]) => ({ name, value }));
   }, [active]);
 
+  // 14-day creation trend
+  const trendData = useMemo(() => {
+    const days = 14;
+    const buckets: { name: string; total: number; critical: number }[] = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(today.getTime() - i * 86400000);
+      const key = d.toISOString().slice(5, 10); // MM-DD
+      buckets.push({ name: key, total: 0, critical: 0 });
+    }
+    for (const s of suggestions) {
+      const t = new Date(s.createdAt).getTime();
+      const diff = Math.floor((today.getTime() - new Date(new Date(t).setHours(0, 0, 0, 0)).getTime()) / 86400000);
+      if (diff < 0 || diff >= days) continue;
+      const idx = days - 1 - diff;
+      buckets[idx].total += 1;
+      if (s.severity === "critical") buckets[idx].critical += 1;
+    }
+    return buckets;
+  }, [suggestions]);
+
+  // Snoozed subset (sorted by wake time)
+  const snoozed = useMemo(
+    () =>
+      suggestions
+        .filter((s) => isSuggestionSnoozed(s) && !s.dismissed && !s.applied)
+        .sort((a, b) => new Date(a.snoozedUntil!).getTime() - new Date(b.snoozedUntil!).getTime()),
+    [suggestions],
+  );
+
   // Unique sources & screens for preferences
   const allSources = useMemo(() => {
     const set = new Set<string>();
