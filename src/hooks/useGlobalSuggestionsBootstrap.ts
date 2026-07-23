@@ -27,6 +27,7 @@ export function useGlobalSuggestionsBootstrap() {
       if (!user || cancelled) return;
 
       const since14 = new Date(Date.now() - 14 * 86400_000).toISOString();
+      const sb = supabase as any;
 
       const notif: any = await supabase
         .from("notifications")
