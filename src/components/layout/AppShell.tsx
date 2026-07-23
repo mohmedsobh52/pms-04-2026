@@ -6,6 +6,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GlobalSuggestionsInbox } from "@/components/GlobalSuggestionsInbox";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useGlobalSuggestionsBootstrap } from "@/hooks/useGlobalSuggestionsBootstrap";
 
 interface AppShellProps {
   children: ReactNode;
@@ -22,6 +23,7 @@ interface AppShellProps {
  */
 export function AppShell({ children, className = "", hideBreadcrumbs, fullBleed }: AppShellProps) {
   const { isArabic } = useLanguage();
+  useGlobalSuggestionsBootstrap();
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background" dir={isArabic ? "rtl" : "ltr"}>
