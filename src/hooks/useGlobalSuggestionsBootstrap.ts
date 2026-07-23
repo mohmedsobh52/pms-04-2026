@@ -31,9 +31,9 @@ export function useGlobalSuggestionsBootstrap() {
 
       const notif: any = await sb
         .from("notifications")
-        .select("id, is_read, priority, created_at")
-        .eq("user_id", user.id)
-        .eq("is_read", false)
+        .select("id, severity, created_at, read_at")
+        .eq("recipient_id", user.id)
+        .is("read_at", null)
         .limit(500);
       const audit: any = await sb
         .from("financial_audit_logs")
@@ -62,7 +62,7 @@ export function useGlobalSuggestionsBootstrap() {
       // Notifications
       const unread = notif.data ?? [];
       const criticalUnread = unread.filter(
-        (n: any) => n.priority === "critical" || n.priority === "high",
+        (n: any) => n.severity === "critical" || n.severity === "warning",
       ).length;
       const oldestUnreadDays = unread.length
         ? Math.round(
