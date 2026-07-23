@@ -6,6 +6,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GlobalSuggestionsInbox } from "@/components/GlobalSuggestionsInbox";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useGlobalSuggestionsBootstrap } from "@/hooks/useGlobalSuggestionsBootstrap";
 
 interface AppShellProps {
   children: ReactNode;
