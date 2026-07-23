@@ -93,6 +93,9 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
     }
   });
 
+  // Cross-tab broadcast via localStorage 'storage' event (see below)
+
+
   useEffect(() => {
     try {
       const serializable = suggestions.map(({ onApply, ...rest }) => rest);
@@ -109,6 +112,29 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
       /* quota */
     }
   }, [preferences]);
+
+  // Sync from other tabs when localStorage changes
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (!e.newValue) return;
+      try {
+        if (e.key === STORAGE_KEY) {
+          const next = JSON.parse(e.newValue) as GlobalSuggestion[];
+          setSuggestions((prev) => {
+            // Only accept if actually different to avoid render loops
+            if (JSON.stringify(prev.map(({ onApply, ...r }) => r)) === e.newValue) return prev;
+            return next;
+          });
+        } else if (e.key === PREFS_KEY) {
+          setPreferences({ ...DEFAULT_PREFS, ...JSON.parse(e.newValue) });
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const updatePreferences = useCallback(
     (patch: Partial<SuggestionPreferences>) => setPreferences((p) => ({ ...p, ...patch })),
