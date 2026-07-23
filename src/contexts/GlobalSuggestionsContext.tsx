@@ -136,6 +136,28 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
+  // Auto-wake snoozed items every 60s: clear snoozedUntil once expired so they
+  // reappear in active lists without requiring a page reload.
+  useEffect(() => {
+    const tick = () => {
+      setSuggestions((prev) => {
+        const now = Date.now();
+        let changed = false;
+        const next = prev.map((s) => {
+          if (s.snoozedUntil && new Date(s.snoozedUntil).getTime() <= now) {
+            changed = true;
+            return { ...s, snoozedUntil: null };
+          }
+          return s;
+        });
+        return changed ? next : prev;
+      });
+    };
+    tick();
+    const id = window.setInterval(tick, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const updatePreferences = useCallback(
     (patch: Partial<SuggestionPreferences>) => setPreferences((p) => ({ ...p, ...patch })),
     [],
