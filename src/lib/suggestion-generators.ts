@@ -337,6 +337,11 @@ export function buildProcurementSuggestions(input: {
   contractsCount: number;
   offersCount: number;
   contractsValue: number;
+  itemsCount?: number;
+  overdueItems?: number;
+  criticalLeadItems?: number;
+  inactivePartners?: number;
+  lowRatedPartners?: number;
 }): Draft[] {
   const out: Draft[] = [];
   const screen = "procurement";
@@ -370,6 +375,64 @@ export function buildProcurementSuggestions(input: {
       title: "جاهز لتقرير تحليل موردين",
       description: `${input.contractsCount} عقد بإجمالي ${input.contractsValue.toLocaleString()}`,
       sourceScreen: screen,
+    });
+  }
+  if ((input.overdueItems ?? 0) > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `تأخر تسليم ${input.overdueItems} بند مشتريات`,
+      description: "راجع مواعيد التسليم والموردين المسؤولين.",
+      sourceScreen: screen,
+      sourceRoute: "/procurement",
+      applyLabel: "عرض البنود المتأخرة",
+    });
+  }
+  if ((input.criticalLeadItems ?? 0) >= 3) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.criticalLeadItems} بند بمهلة توريد حرجة (>60 يوم)`,
+      description: "ابدأ طلبات الشراء مبكراً لتفادي تعطل المشروع.",
+      sourceScreen: screen,
+    });
+  }
+  if ((input.inactivePartners ?? 0) >= 3) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.inactivePartners} مورد غير نشط`,
+      description: "راجع حالة الموردين وأرشف غير الفعّالين.",
+      sourceScreen: screen,
+    });
+  }
+  if ((input.lowRatedPartners ?? 0) > 0) {
+    out.push({
+      category: "ai-pricing",
+      severity: "warning",
+      title: `${input.lowRatedPartners} مورد بتقييم منخفض (< 3)`,
+      description: "فكّر باستبعادهم من عروض الأسعار القادمة.",
+      sourceScreen: screen,
+    });
+  }
+  if (input.partnersCount >= 10 && input.contractsCount === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لديك موردون كثر بدون أي عقد",
+      description: "حوّل العلاقات النشطة إلى عقود موثّقة.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if ((input.itemsCount ?? 0) === 0 && input.partnersCount > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "لا توجد بنود مشتريات مسجلة",
+      description: "أضف بنود المشتريات من BOQ لتفعيل تتبّع التوريد.",
+      sourceScreen: screen,
+      sourceRoute: "/boq-items",
     });
   }
   return out;
@@ -1526,6 +1589,231 @@ export function buildHomeSuggestions(input: {
 
 
 
+
+/** Notifications-center suggestions. */
+export function buildNotificationsSuggestions(input: {
+  unread: number;
+  criticalUnread: number;
+  oldestUnreadDays?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "notifications";
+  if (input.criticalUnread > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${input.criticalUnread} تنبيه حرِج غير مقروء`,
+      description: "افتح مركز التنبيهات وباشر الإجراءات المطلوبة.",
+      sourceScreen: screen,
+      sourceRoute: "/notifications",
+      applyLabel: "فتح التنبيهات",
+    });
+  } else if (input.unread >= 20) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.unread} تنبيه غير مقروء`,
+      description: "نظّم البريد الوارد بأرشفة القديم منها.",
+      sourceScreen: screen,
+      sourceRoute: "/notifications",
+    });
+  }
+  if ((input.oldestUnreadDays ?? 0) >= 14) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `أقدم تنبيه غير مقروء مضى عليه ${input.oldestUnreadDays} يوماً`,
+      description: "أرشف التنبيهات المنتهية أهميتها.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
+/** Team & permissions suggestions. */
+export function buildTeamSuggestions(input: {
+  members: number;
+  admins: number;
+  pendingInvites?: number;
+  inactive30d?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "team";
+  if (input.members > 0 && input.admins === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "critical",
+      title: "لا يوجد مدير للمساحة",
+      description: "عيّن مسؤولاً واحداً على الأقل لصلاحيات كاملة.",
+      sourceScreen: screen,
+      sourceRoute: "/team",
+      applyLabel: "إدارة الأدوار",
+    });
+  }
+  if (input.members === 1) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "ادعُ زملاءك للتعاون",
+      description: "المشاريع تصير أسرع مع فريق. أضف عضواً جديداً.",
+      sourceScreen: screen,
+      sourceRoute: "/team",
+    });
+  }
+  if ((input.pendingInvites ?? 0) >= 3) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.pendingInvites} دعوة معلّقة`,
+      description: "ذكّر المدعوين أو ألغِ الدعوات المنتهية.",
+      sourceScreen: screen,
+    });
+  }
+  if ((input.inactive30d ?? 0) > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.inactive30d} عضو بدون نشاط منذ 30 يوماً`,
+      description: "راجع صلاحياتهم أو أرشفهم لتقليل التشتت.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
+/** Audit-log suggestions. */
+export function buildAuditLogsSuggestions(input: {
+  entries: number;
+  failedActions?: number;
+  privilegeChanges?: number;
+  lastEntryHoursAgo?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "audit-logs";
+  if ((input.failedActions ?? 0) >= 5) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.failedActions} محاولة فاشلة مسجّلة`,
+      description: "تحقق من محاولات الوصول أو التعديل الفاشلة.",
+      sourceScreen: screen,
+      sourceRoute: "/audit-logs",
+      applyLabel: "فتح السجلات",
+    });
+  }
+  if ((input.privilegeChanges ?? 0) > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.privilegeChanges} تغيير في الصلاحيات مؤخراً`,
+      description: "راجع تغييرات الأدوار وتأكد من مطابقتها للسياسة.",
+      sourceScreen: screen,
+    });
+  }
+  if (input.entries === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "سجلّ التدقيق فارغ",
+      description: "فعّل تسجيل الأنشطة الحساسة لتتبعها لاحقاً.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
+/** Backups suggestions. */
+export function buildBackupsSuggestions(input: {
+  lastBackupDaysAgo?: number | null;
+  totalBackups: number;
+  autoBackup?: boolean;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "backups";
+  if (input.lastBackupDaysAgo == null || input.lastBackupDaysAgo > 30) {
+    out.push({
+      category: "data-quality",
+      severity: "critical",
+      title: "لا توجد نسخة احتياطية حديثة",
+      description: input.lastBackupDaysAgo == null
+        ? "لم يُعثر على أي نسخة احتياطية سابقة."
+        : `آخر نسخة قبل ${input.lastBackupDaysAgo} يوماً — أنشئ نسخة الآن.`,
+      sourceScreen: screen,
+      sourceRoute: "/backups",
+      applyLabel: "إنشاء نسخة احتياطية",
+    });
+  } else if (input.lastBackupDaysAgo > 7) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `آخر نسخة احتياطية قبل ${input.lastBackupDaysAgo} يوماً`,
+      description: "يُنصح بنسخة أسبوعية.",
+      sourceScreen: screen,
+    });
+  }
+  if (!input.autoBackup) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "فعّل النسخ الاحتياطي التلقائي",
+      description: "لتفادي فقدان البيانات في حال النسيان.",
+      sourceScreen: screen,
+      sourceRoute: "/backups",
+    });
+  }
+  if (input.totalBackups >= 20) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: `لديك ${input.totalBackups} نسخة محفوظة`,
+      description: "احذف النسخ القديمة لتوفير المساحة.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
+/** Integrations & connectors suggestions. */
+export function buildIntegrationsSuggestions(input: {
+  connected: number;
+  failing?: number;
+  tokenExpiring7d?: number;
+  available?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "integrations";
+  if ((input.failing ?? 0) > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${input.failing} تكامل متعطل`,
+      description: "أعد ربط التكامل أو تحقق من المفاتيح.",
+      sourceScreen: screen,
+      sourceRoute: "/integrations",
+      applyLabel: "فتح التكاملات",
+    });
+  }
+  if ((input.tokenExpiring7d ?? 0) > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.tokenExpiring7d} توكن ينتهي خلال أسبوع`,
+      description: "جدّد التوكن قبل انتهائه لتفادي انقطاع الخدمة.",
+      sourceScreen: screen,
+    });
+  }
+  if (input.connected === 0 && (input.available ?? 0) > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لم يتم تفعيل أي تكامل بعد",
+      description: `متاح لك ${input.available} تكامل جاهز للربط.`,
+      sourceScreen: screen,
+      sourceRoute: "/integrations",
+    });
+  }
+  return out;
+}
 
 export const CATEGORY_META: Record<SuggestionCategory, { ar: string; en: string; color: string }> = {
   "ai-pricing": { ar: "أسعار وإنتاجية (AI)", en: "AI Pricing", color: "text-violet-600" },

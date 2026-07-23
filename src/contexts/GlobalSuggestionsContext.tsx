@@ -21,12 +21,24 @@ export interface GlobalSuggestion {
   pinned?: boolean;
 }
 
+export interface SuggestionRule {
+  id: string;
+  /** Substring match against title (case-insensitive). Empty = any title. */
+  titleContains?: string;
+  category?: SuggestionCategory;
+  severity?: SuggestionSeverity;
+  screen?: string;
+  action: "auto-dismiss" | "auto-pin";
+  createdAt: string;
+}
+
 export interface SuggestionPreferences {
   mutedCategories: SuggestionCategory[];
   mutedSources: string[]; // sourceKey values
   mutedScreens: string[]; // sourceScreen values
   minSeverity: SuggestionSeverity; // filter out below this
   desktopToastForCritical: boolean;
+  rules: SuggestionRule[];
 }
 
 const DEFAULT_PREFS: SuggestionPreferences = {
@@ -35,6 +47,7 @@ const DEFAULT_PREFS: SuggestionPreferences = {
   mutedScreens: [],
   minSeverity: "info",
   desktopToastForCritical: true,
+  rules: [],
 };
 
 interface Ctx {
@@ -57,6 +70,10 @@ interface Ctx {
   preferences: SuggestionPreferences;
   updatePreferences: (patch: Partial<SuggestionPreferences>) => void;
   resetPreferences: () => void;
+  addRule: (rule: Omit<SuggestionRule, "id" | "createdAt">) => void;
+  removeRule: (id: string) => void;
+  undoLast: () => boolean;
+  canUndo: boolean;
 }
 
 const STORAGE_KEY = "global_suggestions_v1";
@@ -164,28 +181,82 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
   );
   const resetPreferences = useCallback(() => setPreferences(DEFAULT_PREFS), []);
 
+  const addRule = useCallback((rule: Omit<SuggestionRule, "id" | "createdAt">) => {
+    setPreferences((p) => ({
+      ...p,
+      rules: [
+        { ...rule, id: makeId(), createdAt: new Date().toISOString() },
+        ...(p.rules || []),
+      ],
+    }));
+  }, []);
+
+  const removeRule = useCallback((id: string) => {
+    setPreferences((p) => ({ ...p, rules: (p.rules || []).filter((r) => r.id !== id) }));
+  }, []);
+
+  // Undo stack — keeps last 10 snapshots of suggestions for reversible actions.
+  const [undoStack, setUndoStack] = useState<GlobalSuggestion[][]>([]);
+  const pushUndo = useCallback(() => {
+    setSuggestions((cur) => {
+      setUndoStack((s) => [cur, ...s].slice(0, 10));
+      return cur;
+    });
+  }, []);
+  const undoLast = useCallback(() => {
+    let didUndo = false;
+    setUndoStack((s) => {
+      if (s.length === 0) return s;
+      const [snap, ...rest] = s;
+      setSuggestions(snap);
+      didUndo = true;
+      return rest;
+    });
+    return didUndo;
+  }, []);
+
+  const applyRules = useCallback(
+    (item: GlobalSuggestion, rules: SuggestionRule[]): GlobalSuggestion => {
+      let out = item;
+      for (const r of rules) {
+        if (r.category && r.category !== item.category) continue;
+        if (r.severity && r.severity !== item.severity) continue;
+        if (r.screen && r.screen !== item.sourceScreen) continue;
+        if (r.titleContains) {
+          const needle = r.titleContains.trim().toLowerCase();
+          if (needle && !item.title.toLowerCase().includes(needle)) continue;
+        }
+        if (r.action === "auto-dismiss") out = { ...out, dismissed: true };
+        if (r.action === "auto-pin") out = { ...out, pinned: true };
+      }
+      return out;
+    },
+    [],
+  );
+
 
   const addSuggestions: Ctx["addSuggestions"] = useCallback((list, sourceKey) => {
     setSuggestions((prev) => {
       const now = new Date().toISOString();
-      const enriched = list.map((s) => ({
+      const rules = preferences.rules || [];
+      const enriched = list.map((s) => applyRules({
         ...s,
         id: makeId(),
         createdAt: now,
         meta: { ...(s.meta || {}), sourceKey },
-      }));
+      } as GlobalSuggestion, rules));
       const seen = new Set(prev.map((p) => `${p.category}::${p.title}::${p.meta?.sourceKey ?? ""}`));
       const fresh = enriched.filter(
         (e) => !seen.has(`${e.category}::${e.title}::${e.meta?.sourceKey ?? ""}`),
       );
       return [...fresh, ...prev].slice(0, 300);
     });
-  }, []);
+  }, [preferences.rules, applyRules]);
 
   const replaceBySource: Ctx["replaceBySource"] = useCallback((sourceKey, list) => {
     setSuggestions((prev) => {
       const now = new Date().toISOString();
-      // Preserve dismissed/applied/snooze/pin state for items with same title+category
+      const rules = preferences.rules || [];
       const oldForSource = prev.filter((p) => p.meta?.sourceKey === sourceKey);
       const stateMap = new Map(
         oldForSource.map((p) => [`${p.category}::${p.title}`, {
@@ -198,51 +269,62 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
       const kept = prev.filter((p) => p.meta?.sourceKey !== sourceKey);
       const enriched = list.map((s) => {
         const prior = stateMap.get(`${s.category}::${s.title}`);
-        return {
+        const base: GlobalSuggestion = {
           ...s,
           id: makeId(),
           createdAt: now,
           meta: { ...(s.meta || {}), sourceKey },
           ...(prior || {}),
-        };
+        } as GlobalSuggestion;
+        // Only apply rules when there's no prior manual state to respect user overrides
+        return prior ? base : applyRules(base, rules);
       });
       return [...enriched, ...kept].slice(0, 300);
     });
-  }, []);
+  }, [preferences.rules, applyRules]);
 
   const dismiss = useCallback((id: string) => {
+    pushUndo();
     setSuggestions((prev) => prev.map((s) => (s.id === id ? { ...s, dismissed: true } : s)));
-  }, []);
+  }, [pushUndo]);
 
   const dismissMany = useCallback((ids: string[]) => {
+    pushUndo();
     const set = new Set(ids);
     setSuggestions((prev) => prev.map((s) => (set.has(s.id) ? { ...s, dismissed: true } : s)));
-  }, []);
+  }, [pushUndo]);
 
   const snoozeMany = useCallback((ids: string[], hours: number) => {
+    pushUndo();
     const set = new Set(ids);
     const until = new Date(Date.now() + hours * 3600 * 1000).toISOString();
     setSuggestions((prev) => prev.map((s) => (set.has(s.id) ? { ...s, snoozedUntil: until } : s)));
-  }, []);
+  }, [pushUndo]);
 
   const markApplied = useCallback((id: string) => {
+    pushUndo();
     setSuggestions((prev) => prev.map((s) => (s.id === id ? { ...s, applied: true } : s)));
-  }, []);
+  }, [pushUndo]);
 
   const snooze = useCallback((id: string, hours: number) => {
+    pushUndo();
     const until = new Date(Date.now() + hours * 3600 * 1000).toISOString();
     setSuggestions((prev) => prev.map((s) => (s.id === id ? { ...s, snoozedUntil: until } : s)));
-  }, []);
+  }, [pushUndo]);
 
   const togglePin = useCallback((id: string) => {
     setSuggestions((prev) => prev.map((s) => (s.id === id ? { ...s, pinned: !s.pinned } : s)));
   }, []);
 
-  const clearAll = useCallback(() => setSuggestions([]), []);
+  const clearAll = useCallback(() => {
+    pushUndo();
+    setSuggestions([]);
+  }, [pushUndo]);
 
   const clearBySource = useCallback((sourceKey: string) => {
+    pushUndo();
     setSuggestions((prev) => prev.filter((s) => s.meta?.sourceKey !== sourceKey));
-  }, []);
+  }, [pushUndo]);
 
   const restore = useCallback((id: string) => {
     setSuggestions((prev) =>
@@ -302,8 +384,12 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
       preferences,
       updatePreferences,
       resetPreferences,
+      addRule,
+      removeRule,
+      undoLast,
+      canUndo: undoStack.length > 0,
     }),
-    [suggestions, addSuggestions, replaceBySource, dismiss, dismissMany, snoozeMany, markApplied, snooze, togglePin, restore, restoreAll, clearAll, clearBySource, activeAfterPrefs, dismissedCount, preferences, updatePreferences, resetPreferences],
+    [suggestions, addSuggestions, replaceBySource, dismiss, dismissMany, snoozeMany, markApplied, snooze, togglePin, restore, restoreAll, clearAll, clearBySource, activeAfterPrefs, dismissedCount, preferences, updatePreferences, resetPreferences, addRule, removeRule, undoLast, undoStack.length],
   );
 
   return <GlobalSuggestionsCtx.Provider value={value}>{children}</GlobalSuggestionsCtx.Provider>;

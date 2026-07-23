@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
@@ -36,6 +37,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RulesEngineCard } from "@/components/suggestions/RulesEngineCard";
 import {
   BarChart,
   Bar,
@@ -80,10 +82,19 @@ export default function SuggestionsCenterPage() {
     preferences,
     updatePreferences,
     resetPreferences,
+    addRule,
+    removeRule,
+    undoLast,
+    canUndo,
   } = useGlobalSuggestions();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<"active" | "archive" | "analytics" | "preferences">("active");
+
+  const handleUndo = () => {
+    if (undoLast()) toast.success("تم التراجع عن آخر إجراء");
+    else toast("لا يوجد إجراء يمكن التراجع عنه");
+  };
 
   const active = useMemo(
     () => suggestions.filter((s) => !s.dismissed && !s.applied && !isSuggestionSnoozed(s)),
@@ -201,6 +212,15 @@ export default function SuggestionsCenterPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleUndo}
+              disabled={!canUndo}
+              title="تراجع عن آخر إجراء (تجاهل/تأجيل/مسح)"
+            >
+              <Undo2 className="w-3.5 h-3.5 ml-1" /> تراجع
+            </Button>
             <Badge variant="secondary">{active.length} نشط</Badge>
             <Badge variant="outline">{archive.length} أرشيف</Badge>
           </div>
@@ -677,6 +697,12 @@ export default function SuggestionsCenterPage() {
                 </div>
               )}
             </Card>
+
+            <RulesEngineCard
+              rules={preferences.rules || []}
+              onAdd={addRule}
+              onRemove={removeRule}
+            />
 
             <Card className="p-4 space-y-3">
               <div>
