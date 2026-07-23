@@ -39,6 +39,7 @@ export function AppShell({ children, className = "", hideBreadcrumbs, fullBleed 
             <ErrorBoundary>{children}</ErrorBoundary>
           </main>
         </div>
+        <GlobalSuggestionsInbox />
       </div>
     </SidebarProvider>
   );
