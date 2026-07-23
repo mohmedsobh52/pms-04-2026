@@ -93,10 +93,8 @@ export function GlobalSuggestionsProvider({ children }: { children: ReactNode })
     }
   });
 
-  // Cross-tab broadcast (avoid echo loops with a source tag)
-  const tabIdRef = (typeof window !== "undefined" && (window as any).__sugTabId) || makeId();
-  if (typeof window !== "undefined") (window as any).__sugTabId = tabIdRef;
-  const skipNextBroadcast = useState({ v: false })[0];
+  // Cross-tab broadcast via localStorage 'storage' event (see below)
+
 
   useEffect(() => {
     try {
