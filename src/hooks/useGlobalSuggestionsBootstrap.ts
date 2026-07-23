@@ -29,30 +29,30 @@ export function useGlobalSuggestionsBootstrap() {
       const since14 = new Date(Date.now() - 14 * 86400_000).toISOString();
       const sb = supabase as any;
 
-      const notif: any = await supabase
+      const notif: any = await sb
         .from("notifications")
         .select("id, is_read, priority, created_at")
         .eq("user_id", user.id)
         .eq("is_read", false)
         .limit(500);
-      const audit: any = await supabase
+      const audit: any = await sb
         .from("financial_audit_logs")
         .select("id, action, created_at")
         .eq("user_id", user.id)
         .gte("created_at", since14)
         .limit(500);
-      const backups: any = await supabase
+      const backups: any = await sb
         .from("saved_projects")
         .select("id, updated_at")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false })
         .limit(50);
-      const integrations: any = await supabase
+      const integrations: any = await sb
         .from("historical_pricing_files")
         .select("id, status")
         .eq("user_id", user.id)
         .limit(100);
-      const roles: any = await supabase
+      const roles: any = await sb
         .from("user_roles")
         .select("user_id, role")
         .eq("user_id", user.id);
