@@ -23,6 +23,7 @@ interface AppShellProps {
  */
 export function AppShell({ children, className = "", hideBreadcrumbs, fullBleed }: AppShellProps) {
   const { isArabic } = useLanguage();
+  useGlobalSuggestionsBootstrap();
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background" dir={isArabic ? "rtl" : "ltr"}>
