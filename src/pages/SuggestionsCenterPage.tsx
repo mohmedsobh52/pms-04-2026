@@ -37,6 +37,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RulesEngineCard } from "@/components/suggestions/RulesEngineCard";
 import {
   BarChart,
   Bar,
