@@ -367,6 +367,28 @@ export default function SuggestionsCenterPage() {
           </TabsContent>
 
           <TabsContent value="archive" className="mt-4 space-y-3">
+            {snoozed.length > 0 && (
+              <Card className="p-3 border-warning/40 bg-warning/5">
+                <div className="text-sm font-semibold mb-2 flex items-center gap-2">
+                  ⏰ مؤجَّل ({snoozed.length}) — يعود تلقائياً في موعده
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {snoozed.slice(0, 8).map((s) => (
+                    <div key={s.id} className="flex items-center justify-between gap-2 text-xs border rounded-md p-2 bg-background">
+                      <div className="truncate">
+                        <div className="font-medium truncate">{s.title}</div>
+                        <div className="text-muted-foreground text-[10px]">
+                          يعود في {new Date(s.snoozedUntil!).toLocaleString("ar")}
+                        </div>
+                      </div>
+                      <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => restore(s.id)}>
+                        إيقاظ الآن
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
                 العناصر المتجاهَلة / المطبَّقة / المؤجَّلة.
