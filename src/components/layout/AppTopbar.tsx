@@ -3,7 +3,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Home, Search, Plus, FolderOpen, FileSignature, Briefcase, Award, ChevronDown,
+  Home, Search, Plus, FolderOpen, FileSignature, Briefcase, Award, ChevronDown, Lightbulb,
 } from "lucide-react";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useProjectContext } from "@/hooks/useProjectContext";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
 
 export function AppTopbar() {
   const { isArabic } = useLanguage();
