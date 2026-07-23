@@ -678,11 +678,79 @@ export default function SuggestionsCenterPage() {
               )}
             </Card>
 
+            <Card className="p-4 space-y-3">
+              <div>
+                <div className="text-sm font-semibold">نسخ احتياطي واستعادة</div>
+                <p className="text-xs text-muted-foreground">
+                  حفظ/استعادة التفضيلات والاقتراحات كملف JSON محلي.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const payload = {
+                      exportedAt: new Date().toISOString(),
+                      preferences,
+                      suggestions,
+                    };
+                    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+                      type: "application/json",
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `suggestions-backup-${new Date()
+                      .toISOString()
+                      .slice(0, 10)}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  تنزيل نسخة احتياطية
+                </Button>
+                <label className="inline-flex">
+                  <input
+                    type="file"
+                    accept="application/json"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        try {
+                          const data = JSON.parse(String(reader.result));
+                          if (data?.preferences) updatePreferences(data.preferences);
+                          if (Array.isArray(data?.suggestions)) {
+                            localStorage.setItem(
+                              "global_suggestions_v1",
+                              JSON.stringify(data.suggestions),
+                            );
+                            window.location.reload();
+                          }
+                        } catch {
+                          alert("ملف غير صالح");
+                        }
+                      };
+                      reader.readAsText(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  <Button size="sm" variant="outline" asChild>
+                    <span>استعادة من ملف…</span>
+                  </Button>
+                </label>
+              </div>
+            </Card>
+
             <Card className="p-4 flex items-start gap-3 bg-amber-500/5 border-amber-500/30">
               <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <div className="text-xs text-muted-foreground">
                 التفضيلات محفوظة محلياً على جهازك ولا تُرسَل إلى الخادم. الكتم يُخفي
-                فقط الاقتراحات من العرض دون حذفها.
+                فقط الاقتراحات من العرض دون حذفها. استعادة الملف تستبدل الاقتراحات
+                الحالية بعد إعادة التحميل.
               </div>
             </Card>
           </TabsContent>
