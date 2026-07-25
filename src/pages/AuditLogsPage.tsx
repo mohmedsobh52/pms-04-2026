@@ -25,7 +25,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ShieldCheck, Search, Loader2, Download, Eye } from "lucide-react";
+import {
+  ShieldCheck,
+  Search,
+  Loader2,
+  Download,
+  Eye,
+  ChevronRight,
+  ChevronLeft,
+  X,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -44,8 +53,10 @@ type AuditRow = {
   ip_address?: string | null;
 };
 
+const PAGE_SIZE = 50;
+
 const actionTone = (action: string): string => {
-  const a = action.toLowerCase();
+  const a = (action ?? "").toLowerCase();
   if (a.includes("delete") || a.includes("reject") || a.includes("cancel"))
     return "text-destructive bg-destructive/10 border-destructive/40";
   if (a.includes("approve") || a.includes("create"))
@@ -61,6 +72,10 @@ export default function AuditLogsPage() {
   const [q, setQ] = useState("");
   const [entity, setEntity] = useState<string>("all");
   const [action, setAction] = useState<string>("all");
+  const [userFilter, setUserFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+  const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<AuditRow | null>(null);
   const { replaceBySource } = useGlobalSuggestions();
 
@@ -70,7 +85,7 @@ export default function AuditLogsPage() {
       .from("financial_audit_logs")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(1000);
+      .limit(5000);
     if (error) toast.error("تعذّر تحميل سجل التدقيق");
     setRows((data as AuditRow[]) ?? []);
     setLoading(false);
@@ -88,7 +103,9 @@ export default function AuditLogsPage() {
     const failed = rows.filter((r) =>
       /fail|error|denied|reject/i.test(r.action ?? ""),
     ).length;
-    const priv = rows.filter((r) => /role|permission|privilege/i.test(r.action ?? "")).length;
+    const priv = rows.filter((r) =>
+      /role|permission|privilege/i.test(r.action ?? ""),
+    ).length;
     const lastHours = Math.floor(
       (Date.now() - new Date(rows[0].created_at).getTime()) / 3600000,
     );
@@ -104,35 +121,89 @@ export default function AuditLogsPage() {
   }, [rows, replaceBySource]);
 
   const entityTypes = useMemo(
-    () => Array.from(new Set(rows.map((r) => r.entity_type).filter(Boolean))) as string[],
+    () =>
+      Array.from(new Set(rows.map((r) => r.entity_type).filter(Boolean))) as string[],
     [rows],
   );
   const actionTypes = useMemo(
     () => Array.from(new Set(rows.map((r) => r.action).filter(Boolean))) as string[],
     [rows],
   );
+  const userIds = useMemo(
+    () => Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean))) as string[],
+    [rows],
+  );
 
   const filtered = useMemo(() => {
+    const fromTs = dateFrom ? new Date(dateFrom + "T00:00:00").getTime() : null;
+    const toTs = dateTo ? new Date(dateTo + "T23:59:59").getTime() : null;
     return rows.filter((r) => {
       if (entity !== "all" && r.entity_type !== entity) return false;
       if (action !== "all" && r.action !== action) return false;
+      if (userFilter !== "all" && r.user_id !== userFilter) return false;
+      const ts = new Date(r.created_at).getTime();
+      if (fromTs && ts < fromTs) return false;
+      if (toTs && ts > toTs) return false;
       if (
         q &&
-        !`${r.action} ${r.entity_type ?? ""} ${r.entity_id ?? ""}`
+        !`${r.action} ${r.entity_type ?? ""} ${r.entity_id ?? ""} ${r.user_id ?? ""}`
           .toLowerCase()
           .includes(q.toLowerCase())
       )
         return false;
       return true;
     });
-  }, [rows, q, entity, action]);
+  }, [rows, q, entity, action, userFilter, dateFrom, dateTo]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [q, entity, action, userFilter, dateFrom, dateTo]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageRows = useMemo(
+    () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filtered, page],
+  );
+
+  const clearFilters = () => {
+    setQ("");
+    setEntity("all");
+    setAction("all");
+    setUserFilter("all");
+    setDateFrom("");
+    setDateTo("");
+  };
+
+  const activeFilters =
+    (q ? 1 : 0) +
+    (entity !== "all" ? 1 : 0) +
+    (action !== "all" ? 1 : 0) +
+    (userFilter !== "all" ? 1 : 0) +
+    (dateFrom ? 1 : 0) +
+    (dateTo ? 1 : 0);
 
   const exportCsv = () => {
-    const header = ["created_at", "action", "entity_type", "entity_id", "user_id"];
+    const header = [
+      "created_at",
+      "action",
+      "entity_type",
+      "entity_id",
+      "user_id",
+      "before_state",
+      "after_state",
+    ];
     const csv = [
       "\uFEFF" + header.join(","),
       ...filtered.map((r) =>
-        [r.created_at, r.action, r.entity_type ?? "", r.entity_id ?? "", r.user_id ?? ""]
+        [
+          r.created_at,
+          r.action,
+          r.entity_type ?? "",
+          r.entity_id ?? "",
+          r.user_id ?? "",
+          r.before_state ? JSON.stringify(r.before_state) : "",
+          r.after_state ? JSON.stringify(r.after_state) : "",
+        ]
           .map((v) => `"${String(v).replace(/"/g, '""')}"`)
           .join(","),
       ),
@@ -144,6 +215,7 @@ export default function AuditLogsPage() {
     a.download = `audit-logs-${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+    toast.success(`تم تصدير ${filtered.length} سجل`);
   };
 
   return (
@@ -159,6 +231,9 @@ export default function AuditLogsPage() {
               <p className="text-xs text-muted-foreground">
                 {filtered.length.toLocaleString("ar-EG")} حدث من إجمالي{" "}
                 {rows.length.toLocaleString("ar-EG")}
+                {activeFilters > 0 && (
+                  <span className="mr-2">· {activeFilters} فلتر نشط</span>
+                )}
               </p>
             </div>
           </div>
@@ -168,47 +243,97 @@ export default function AuditLogsPage() {
             </Button>
             <Button size="sm" onClick={exportCsv} disabled={filtered.length === 0}>
               <Download className="w-4 h-4 ml-1" />
-              تصدير CSV
+              تصدير CSV ({filtered.length.toLocaleString("ar-EG")})
             </Button>
           </div>
         </div>
 
-        <Card className="p-3 flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="ابحث في العمليات والكيانات…"
-              className="h-8 text-xs pr-7"
-            />
+        <Card className="p-3 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[220px]">
+              <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <Input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="ابحث بالعملية/الكيان/المعرّف/المستخدم…"
+                className="h-8 text-xs pr-7"
+              />
+            </div>
+            <Select value={entity} onValueChange={setEntity}>
+              <SelectTrigger className="h-8 text-xs w-40">
+                <SelectValue placeholder="الكيان" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل الكيانات</SelectItem>
+                {entityTypes.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={action} onValueChange={setAction}>
+              <SelectTrigger className="h-8 text-xs w-48">
+                <SelectValue placeholder="العملية" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل العمليات</SelectItem>
+                {actionTypes.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={userFilter} onValueChange={setUserFilter}>
+              <SelectTrigger className="h-8 text-xs w-48">
+                <SelectValue placeholder="المستخدم" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل المستخدمين</SelectItem>
+                {userIds.map((u) => (
+                  <SelectItem key={u} value={u}>
+                    <span className="font-mono text-[10px]">{u.slice(0, 8)}…</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <Select value={entity} onValueChange={setEntity}>
-            <SelectTrigger className="h-8 text-xs w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">كل الكيانات</SelectItem>
-              {entityTypes.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={action} onValueChange={setAction}>
-            <SelectTrigger className="h-8 text-xs w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">كل العمليات</SelectItem>
-              {actionTypes.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] text-muted-foreground">من</span>
+              <Input
+                type="text"
+                inputMode="numeric"
+                placeholder="yyyy-MM-dd"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="h-8 text-xs w-32"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] text-muted-foreground">إلى</span>
+              <Input
+                type="text"
+                inputMode="numeric"
+                placeholder="yyyy-MM-dd"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="h-8 text-xs w-32"
+              />
+            </div>
+            {activeFilters > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-8 text-xs"
+              >
+                <X className="w-3.5 h-3.5 ml-1" />
+                مسح الفلاتر
+              </Button>
+            )}
+          </div>
         </Card>
 
         <Card className="overflow-hidden">
@@ -228,12 +353,13 @@ export default function AuditLogsPage() {
                     <TableHead className="text-right">التاريخ</TableHead>
                     <TableHead className="text-right">العملية</TableHead>
                     <TableHead className="text-right">الكيان</TableHead>
+                    <TableHead className="text-right">المستخدم</TableHead>
                     <TableHead className="text-right">المعرّف</TableHead>
                     <TableHead className="text-right w-16"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.slice(0, 500).map((r) => (
+                  {pageRows.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell className="text-xs whitespace-nowrap">
                         {format(new Date(r.created_at), "yyyy-MM-dd HH:mm")}
@@ -247,6 +373,9 @@ export default function AuditLogsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs">{r.entity_type ?? "—"}</TableCell>
+                      <TableCell className="text-[10px] text-muted-foreground font-mono">
+                        {r.user_id?.slice(0, 8) ?? "—"}
+                      </TableCell>
                       <TableCell className="text-[10px] text-muted-foreground font-mono">
                         {r.entity_id?.slice(0, 8) ?? "—"}
                       </TableCell>
@@ -264,11 +393,52 @@ export default function AuditLogsPage() {
                   ))}
                 </TableBody>
               </Table>
-              {filtered.length > 500 && (
-                <div className="text-center py-2 text-[11px] text-muted-foreground border-t">
-                  عرض أول 500 صف — استخدم التصفية لتضييق النتائج.
+              <div className="flex items-center justify-between px-3 py-2 border-t text-xs">
+                <div className="text-muted-foreground">
+                  صفحة {page.toLocaleString("ar-EG")} من{" "}
+                  {totalPages.toLocaleString("ar-EG")} · عرض{" "}
+                  {pageRows.length.toLocaleString("ar-EG")} من{" "}
+                  {filtered.length.toLocaleString("ar-EG")}
                 </div>
-              )}
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7"
+                    onClick={() => setPage(1)}
+                    disabled={page === 1}
+                  >
+                    الأولى
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7"
+                    onClick={() => setPage(totalPages)}
+                    disabled={page >= totalPages}
+                  >
+                    الأخيرة
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </Card>
