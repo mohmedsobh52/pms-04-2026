@@ -138,6 +138,67 @@ export default function FastExtractionDrawingAnalyzer({
   const [currentFile, setCurrentFile] = useState("");
   const [results, setResults] = useState<DrawingAnalysisResult[]>([]);
   const [allQuantities, setAllQuantities] = useState<ExtractedQuantity[]>([]);
+  const [searchQ, setSearchQ] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [wastePct, setWastePct] = useState<number>(0);
+  const [showAggregate, setShowAggregate] = useState<boolean>(false);
+  const [page, setPage] = useState<number>(1);
+  const pageSize = 50;
+
+  // Push results upward for global suggestions
+  useEffect(() => {
+    onQuantitiesChange?.(allQuantities);
+  }, [allQuantities, onQuantitiesChange]);
+
+  // Reset paging when filters or dataset change
+  useEffect(() => { setPage(1); }, [searchQ, categoryFilter, allQuantities]);
+
+  const wasteFactor = 1 + (Number(wastePct) || 0) / 100;
+
+  // Apply waste factor derivation for a displayed quantity
+  const displayQty = (q: number | undefined | null) =>
+    Math.round(((Number(q) || 0) * wasteFactor) * 100) / 100;
+
+  const categories = useMemo(
+    () => Array.from(new Set(allQuantities.map((q) => q.category || "General"))).sort(),
+    [allQuantities]
+  );
+
+  const filteredQuantities = useMemo(() => {
+    const s = searchQ.trim().toLowerCase();
+    return allQuantities.filter((q) => {
+      if (categoryFilter !== "all" && (q.category || "General") !== categoryFilter) return false;
+      if (!s) return true;
+      return (
+        (q.description || "").toLowerCase().includes(s) ||
+        (q.category || "").toLowerCase().includes(s) ||
+        (q.subcategory || "").toLowerCase().includes(s) ||
+        (q.pipe_material || "").toLowerCase().includes(s) ||
+        (q.pipe_diameter || "").toLowerCase().includes(s) ||
+        (q.item_number || "").toLowerCase().includes(s)
+      );
+    });
+  }, [allQuantities, searchQ, categoryFilter]);
+
+  // Aggregation: sum quantities grouped by (category, unit) — apply waste factor
+  const aggregatedRows = useMemo(() => {
+    const map = new Map<string, { category: string; unit: string; qty: number; items: number }>();
+    for (const q of filteredQuantities) {
+      const cat = q.category || "General";
+      const unit = q.unit || "-";
+      const key = `${cat}|||${unit}`;
+      const row = map.get(key) || { category: cat, unit, qty: 0, items: 0 };
+      row.qty += (Number(q.quantity) || 0);
+      row.items += 1;
+      map.set(key, row);
+    }
+    return Array.from(map.values())
+      .map((r) => ({ ...r, qty: Math.round(r.qty * wasteFactor * 100) / 100 }))
+      .sort((a, b) => b.qty - a.qty);
+  }, [filteredQuantities, wasteFactor]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredQuantities.length / pageSize));
+  const pagedQuantities = filteredQuantities.slice((page - 1) * pageSize, page * pageSize);
 
   const toggleFileSelection = (fileId: string) => {
     setSelectedFiles((prev) =>
