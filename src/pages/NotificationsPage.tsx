@@ -26,6 +26,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ar } from "date-fns/locale";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildNotificationsInboxSuggestions } from "@/lib/suggestion-generators";
 
 type Notification = {
   id: string;
