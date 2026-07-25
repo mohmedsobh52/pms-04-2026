@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Ruler, Sparkles, FileImage, Download, Table, Loader2, SkipForward, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Ruler, Sparkles, FileImage, Download, Table, Loader2, SkipForward, AlertCircle, CheckCircle2, Search, Layers, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table as UITable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
