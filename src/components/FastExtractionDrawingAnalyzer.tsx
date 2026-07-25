@@ -201,6 +201,66 @@ export default function FastExtractionDrawingAnalyzer({
   const totalPages = Math.max(1, Math.ceil(filteredQuantities.length / pageSize));
   const pagedQuantities = filteredQuantities.slice((page - 1) * pageSize, page * pageSize);
 
+  const navigate = useNavigate();
+
+  const copyFilteredCsv = async () => {
+    const headers = ["#", "Category", "Subcategory", "Description", "Quantity", "WithWaste", "Unit", "Diameter", "Material"];
+    const lines = [headers.join(",")];
+    filteredQuantities.forEach((q, i) => {
+      const base = Number(q.quantity) || 0;
+      const row = [
+        q.item_number || i + 1,
+        q.category || "",
+        q.subcategory || "",
+        `"${(q.description || "").replace(/"/g, '""')}"`,
+        base,
+        displayQty(base),
+        q.unit || "",
+        q.pipe_diameter || "",
+        q.pipe_material || "",
+      ];
+      lines.push(row.join(","));
+    });
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      toast.success(isArabic ? `تم نسخ ${filteredQuantities.length} بند` : `Copied ${filteredQuantities.length} items`);
+    } catch {
+      toast.error(isArabic ? "تعذّر النسخ" : "Copy failed");
+    }
+  };
+
+  const sendToNewProject = () => {
+    if (filteredQuantities.length === 0) {
+      toast.error(isArabic ? "لا توجد بنود لإرسالها" : "No items to send");
+      return;
+    }
+    const payload = filteredQuantities.map((q, i) => {
+      const base = Number(q.quantity) || 0;
+      return {
+        item_number: String(q.item_number || i + 1),
+        description: q.description || "",
+        category: q.category || "General",
+        unit: q.unit || "",
+        quantity: displayQty(base),
+        unit_price: 0,
+        total_price: 0,
+      };
+    });
+    try {
+      sessionStorage.setItem("fast-extraction:pending-items", JSON.stringify({
+        items: payload,
+        source: "fast-extraction",
+        wastePct,
+        createdAt: new Date().toISOString(),
+      }));
+      toast.success(isArabic ? `تم تجهيز ${payload.length} بند لمشروع جديد` : `Prepared ${payload.length} items for new project`);
+      navigate("/new-project");
+    } catch (e) {
+      toast.error(isArabic ? "تعذّر الإرسال" : "Failed to send");
+    }
+  };
+
+
   const toggleFileSelection = (fileId: string) => {
     setSelectedFiles((prev) =>
       prev.includes(fileId)
