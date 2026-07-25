@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Sparkles,
   Loader2,
@@ -27,6 +28,8 @@ import {
   RefreshCw,
   ShieldAlert,
   Brain,
+  Download,
+  Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -62,6 +65,9 @@ export function ProjectRiskAnalyzer({
   const [risks, setRisks] = useState<AiRisk[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  const [severity, setSeverity] = useState<"all" | "high" | "med" | "low">("all");
+  const [category, setCategory] = useState<string>("all");
 
   useEffect(() => {
     if (!user) return;
@@ -160,6 +166,70 @@ export function ProjectRiskAnalyzer({
     return { high, med, low, avg: Math.round(risks.reduce((s, r) => s + r.risk_score, 0) / risks.length) };
   }, [risks]);
 
+  const categories = useMemo(
+    () => Array.from(new Set(risks.map((r) => r.category).filter(Boolean))),
+    [risks],
+  );
+
+  const filteredIdx = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return risks
+      .map((r, i) => ({ r, i }))
+      .filter(({ r }) => {
+        if (category !== "all" && r.category !== category) return false;
+        if (severity === "high" && r.risk_score < 15) return false;
+        if (severity === "med" && (r.risk_score < 8 || r.risk_score >= 15)) return false;
+        if (severity === "low" && r.risk_score >= 8) return false;
+        if (
+          q &&
+          !`${r.risk_title} ${r.risk_description} ${r.risk_owner}`
+            .toLowerCase()
+            .includes(q)
+        )
+          return false;
+        return true;
+      });
+  }, [risks, search, severity, category]);
+
+  const exportCsv = () => {
+    if (!risks.length) return;
+    const headers = [
+      "العنوان",
+      "الوصف",
+      "الفئة",
+      "الاحتمال",
+      "التأثير",
+      "الخطورة",
+      "خطة التخفيف",
+      "خطة الطوارئ",
+      "المسؤول",
+    ];
+    const rows = filteredIdx.map(({ r }) =>
+      [
+        r.risk_title,
+        r.risk_description,
+        r.category,
+        r.probability_score,
+        r.impact_score,
+        r.risk_score,
+        r.mitigation_strategy,
+        r.contingency_plan,
+        r.risk_owner,
+      ]
+        .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
+        .join(","),
+    );
+    const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ai-risks-${projectName || projectId}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("تم تصدير المخاطر إلى CSV");
+  };
+
   return (
     <Card className="border-primary/30">
       <CardHeader className="pb-3">
@@ -240,14 +310,66 @@ export function ProjectRiskAnalyzer({
               </div>
             </div>
 
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <div className="relative flex-1 min-w-[180px]">
+                <Filter className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="بحث في المخاطر…"
+                  className="h-8 pe-7 text-xs"
+                />
+              </div>
+              <Select value={severity} onValueChange={(v: any) => setSeverity(v)}>
+                <SelectTrigger className="h-8 w-[130px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">كل الخطورات</SelectItem>
+                  <SelectItem value="high">عالية (≥15)</SelectItem>
+                  <SelectItem value="med">متوسطة (8–14)</SelectItem>
+                  <SelectItem value="low">منخفضة (&lt;8)</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="h-8 w-[150px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">كل الفئات</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" onClick={exportCsv} className="h-8">
+                <Download className="w-3.5 h-3.5" />
+                <span className="ms-1 text-xs">CSV</span>
+              </Button>
+            </div>
+
             <div className="border rounded-md overflow-hidden max-h-[420px] overflow-y-auto">
               <Table>
                 <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
                     <TableHead className="w-8">
                       <Checkbox
-                        checked={selected.size === risks.length}
-                        onCheckedChange={toggleAll}
+                        checked={
+                          filteredIdx.length > 0 &&
+                          filteredIdx.every(({ i }) => selected.has(i))
+                        }
+                        onCheckedChange={() => {
+                          const allSel = filteredIdx.every(({ i }) => selected.has(i));
+                          setSelected((s) => {
+                            const n = new Set(s);
+                            filteredIdx.forEach(({ i }) =>
+                              allSel ? n.delete(i) : n.add(i),
+                            );
+                            return n;
+                          });
+                        }}
                       />
                     </TableHead>
                     <TableHead className="text-right">المخاطرة</TableHead>
@@ -258,7 +380,7 @@ export function ProjectRiskAnalyzer({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {risks.map((r, i) => (
+                  {filteredIdx.map(({ r, i }) => (
                     <TableRow key={i} className="align-top">
                       <TableCell>
                         <Checkbox
@@ -297,9 +419,17 @@ export function ProjectRiskAnalyzer({
                       </TableCell>
                     </TableRow>
                   ))}
+                  {filteredIdx.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-xs text-muted-foreground py-6">
+                        لا توجد نتائج مطابقة للتصفية
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
+
 
             <div className="flex items-center justify-between">
               <div className="text-xs text-muted-foreground">
