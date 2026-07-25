@@ -96,6 +96,7 @@ interface FastExtractionDrawingAnalyzerProps {
   files: UploadedFile[];
   onComplete: (results: DrawingAnalysisResult[]) => void;
   onSkip: () => void;
+  onQuantitiesChange?: (quantities: ExtractedQuantity[]) => void;
 }
 
 const drawingTypes = [
