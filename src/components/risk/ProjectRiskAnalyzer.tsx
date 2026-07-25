@@ -166,6 +166,70 @@ export function ProjectRiskAnalyzer({
     return { high, med, low, avg: Math.round(risks.reduce((s, r) => s + r.risk_score, 0) / risks.length) };
   }, [risks]);
 
+  const categories = useMemo(
+    () => Array.from(new Set(risks.map((r) => r.category).filter(Boolean))),
+    [risks],
+  );
+
+  const filteredIdx = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return risks
+      .map((r, i) => ({ r, i }))
+      .filter(({ r }) => {
+        if (category !== "all" && r.category !== category) return false;
+        if (severity === "high" && r.risk_score < 15) return false;
+        if (severity === "med" && (r.risk_score < 8 || r.risk_score >= 15)) return false;
+        if (severity === "low" && r.risk_score >= 8) return false;
+        if (
+          q &&
+          !`${r.risk_title} ${r.risk_description} ${r.risk_owner}`
+            .toLowerCase()
+            .includes(q)
+        )
+          return false;
+        return true;
+      });
+  }, [risks, search, severity, category]);
+
+  const exportCsv = () => {
+    if (!risks.length) return;
+    const headers = [
+      "العنوان",
+      "الوصف",
+      "الفئة",
+      "الاحتمال",
+      "التأثير",
+      "الخطورة",
+      "خطة التخفيف",
+      "خطة الطوارئ",
+      "المسؤول",
+    ];
+    const rows = filteredIdx.map(({ r }) =>
+      [
+        r.risk_title,
+        r.risk_description,
+        r.category,
+        r.probability_score,
+        r.impact_score,
+        r.risk_score,
+        r.mitigation_strategy,
+        r.contingency_plan,
+        r.risk_owner,
+      ]
+        .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
+        .join(","),
+    );
+    const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ai-risks-${projectName || projectId}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("تم تصدير المخاطر إلى CSV");
+  };
+
   return (
     <Card className="border-primary/30">
       <CardHeader className="pb-3">
