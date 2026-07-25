@@ -1888,3 +1888,56 @@ export const SEVERITY_META: Record<SuggestionSeverity, { ar: string; badge: stri
   critical: { ar: "حرج", badge: "bg-destructive/15 text-destructive" },
   success: { ar: "إنجاز", badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" },
 };
+
+/** Notifications inbox hygiene. */
+export function buildNotificationsInboxSuggestions(input: {
+  total: number;
+  unread: number;
+  critical: number;
+  oldestUnreadDays?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "notifications";
+  if (input.critical > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${input.critical} تنبيه حرِج غير مقروء`,
+      description: "افتح مركز التنبيهات ثم عالج التنبيهات الحرجة أولاً.",
+      sourceScreen: screen,
+      sourceRoute: "/notifications",
+      applyLabel: "فتح التنبيهات",
+    });
+  }
+  if (input.unread >= 20) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.unread} تنبيه غير مقروء`,
+      description: "علّم القديم كمقروء لتقليل الضجيج والتركيز على الجديد.",
+      sourceScreen: screen,
+      sourceRoute: "/notifications",
+    });
+  }
+  if ((input.oldestUnreadDays ?? 0) >= 14) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `أقدم تنبيه غير مقروء منذ ${input.oldestUnreadDays} يوماً`,
+      description: "قد تكون فاتتك إجراءات مهمة — راجع القائمة.",
+      sourceScreen: screen,
+      sourceRoute: "/notifications",
+    });
+  }
+  if (input.total === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لا توجد تنبيهات بعد",
+      description: "سيتم تنبيهك تلقائياً عند العقود المنتهية والمخاطر العالية.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+

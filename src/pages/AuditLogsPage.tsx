@@ -29,6 +29,8 @@ import { ShieldCheck, Search, Loader2, Download, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildAuditLogsSuggestions } from "@/lib/suggestion-generators";
 
 type AuditRow = {
   id: string;
@@ -60,6 +62,7 @@ export default function AuditLogsPage() {
   const [entity, setEntity] = useState<string>("all");
   const [action, setAction] = useState<string>("all");
   const [selected, setSelected] = useState<AuditRow | null>(null);
+  const { replaceBySource } = useGlobalSuggestions();
 
   const load = async () => {
     setLoading(true);
@@ -76,6 +79,29 @@ export default function AuditLogsPage() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (!rows.length) {
+      replaceBySource("audit-logs", buildAuditLogsSuggestions({ entries: 0 }));
+      return;
+    }
+    const failed = rows.filter((r) =>
+      /fail|error|denied|reject/i.test(r.action ?? ""),
+    ).length;
+    const priv = rows.filter((r) => /role|permission|privilege/i.test(r.action ?? "")).length;
+    const lastHours = Math.floor(
+      (Date.now() - new Date(rows[0].created_at).getTime()) / 3600000,
+    );
+    replaceBySource(
+      "audit-logs",
+      buildAuditLogsSuggestions({
+        entries: rows.length,
+        failedActions: failed,
+        privilegeChanges: priv,
+        lastEntryHoursAgo: lastHours,
+      }),
+    );
+  }, [rows, replaceBySource]);
 
   const entityTypes = useMemo(
     () => Array.from(new Set(rows.map((r) => r.entity_type).filter(Boolean))) as string[],
