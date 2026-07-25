@@ -42,9 +42,10 @@ export default function FastExtractionPage() {
         readyCount: readyFilesCount,
         drawingsCount,
         step: currentStep,
+        extractedItems: extractedQuantities,
       }),
     );
-  }, [files, readyFilesCount, currentStep, replaceBySource]);
+  }, [files, readyFilesCount, currentStep, extractedQuantities, replaceBySource]);
 
 
   const handleUploadComplete = () => {
