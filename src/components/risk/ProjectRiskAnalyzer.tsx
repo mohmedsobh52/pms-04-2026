@@ -65,6 +65,9 @@ export function ProjectRiskAnalyzer({
   const [risks, setRisks] = useState<AiRisk[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  const [severity, setSeverity] = useState<"all" | "high" | "med" | "low">("all");
+  const [category, setCategory] = useState<string>("all");
 
   useEffect(() => {
     if (!user) return;
