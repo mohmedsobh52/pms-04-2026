@@ -740,7 +740,11 @@ export default function FastExtractionDrawingAnalyzer({
                     </Badge>
                   )}
                 </CardTitle>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
+                  <Button variant="outline" size="sm" onClick={copyFilteredCsv} className="gap-2">
+                    <Copy className="h-4 w-4" />
+                    {isArabic ? "نسخ CSV" : "Copy CSV"}
+                  </Button>
                   <Button variant="outline" size="sm" onClick={exportToExcel} className="gap-2">
                     <Download className="h-4 w-4" />
                     Excel
@@ -748,6 +752,10 @@ export default function FastExtractionDrawingAnalyzer({
                   <Button variant="outline" size="sm" onClick={exportToPDF} className="gap-2">
                     <Download className="h-4 w-4" />
                     PDF
+                  </Button>
+                  <Button size="sm" onClick={sendToNewProject} className="gap-2">
+                    <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+                    {isArabic ? "إرسال لمشروع جديد" : "Send to New Project"}
                   </Button>
                 </div>
               </CardHeader>
