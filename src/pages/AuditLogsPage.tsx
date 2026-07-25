@@ -62,6 +62,7 @@ export default function AuditLogsPage() {
   const [entity, setEntity] = useState<string>("all");
   const [action, setAction] = useState<string>("all");
   const [selected, setSelected] = useState<AuditRow | null>(null);
+  const { replaceBySource } = useGlobalSuggestions();
 
   const load = async () => {
     setLoading(true);
