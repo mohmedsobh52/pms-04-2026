@@ -27,6 +27,7 @@ export default function FastExtractionPage() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [showProjectFiles, setShowProjectFiles] = useState(false);
   const [drawingResults, setDrawingResults] = useState<any[]>([]);
+  const [extractedQuantities, setExtractedQuantities] = useState<any[]>([]);
 
   const readyFilesCount = files.filter((f) => f.status === "success").length;
   const hasDrawingFiles = files.some((f) => f.category === "drawings" && f.status === "success");
