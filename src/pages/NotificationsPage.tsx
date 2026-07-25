@@ -68,6 +68,7 @@ export default function NotificationsPage() {
   const [filter, setFilter] = useState<"all" | "unread" | "read">("unread");
   const [sev, setSev] = useState<string>("all");
   const [q, setQ] = useState("");
+  const { replaceBySource } = useGlobalSuggestions();
 
   const load = async () => {
     setLoading(true);
