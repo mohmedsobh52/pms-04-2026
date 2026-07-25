@@ -30,20 +30,17 @@ import {
   Brain,
   Download,
   Filter,
+  Pencil,
+  CheckCircle2,
+  AlertCircle,
+  Bookmark,
+  BookmarkPlus,
+  BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
+import { RiskDetailsDialog, type EditableRisk } from "./RiskDetailsDialog";
 
-type AiRisk = {
-  risk_title: string;
-  risk_description: string;
-  category: string;
-  probability_score: number;
-  impact_score: number;
-  risk_score: number;
-  mitigation_strategy: string;
-  contingency_plan: string;
-  risk_owner: string;
-};
+type AiRisk = EditableRisk;
 
 const scoreTone = (s: number) =>
   s >= 15
@@ -51,6 +48,20 @@ const scoreTone = (s: number) =>
     : s >= 8
       ? "bg-amber-500/15 text-amber-600 border-amber-500/40"
       : "bg-emerald-500/15 text-emerald-600 border-emerald-500/40";
+
+const severityOf = (s: number): "high" | "med" | "low" =>
+  s >= 15 ? "high" : s >= 8 ? "med" : "low";
+
+type Preset = {
+  name: string;
+  search: string;
+  severity: "all" | "high" | "med" | "low";
+  category: string;
+  sortBy: "severity_desc" | "severity_asc" | "date_desc" | "date_asc" | "category";
+  reviewFilter: "all" | "pending" | "reviewed" | "needs_review";
+};
+
+const PRESETS_KEY = "ai_risk_filter_presets_v1";
 
 export function ProjectRiskAnalyzer({
   onSaved,
@@ -65,9 +76,25 @@ export function ProjectRiskAnalyzer({
   const [risks, setRisks] = useState<AiRisk[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [saving, setSaving] = useState(false);
+
+  // filters
   const [search, setSearch] = useState("");
-  const [severity, setSeverity] = useState<"all" | "high" | "med" | "low">("all");
+  const [severity, setSeverity] = useState<Preset["severity"]>("all");
   const [category, setCategory] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<Preset["sortBy"]>("severity_desc");
+  const [reviewFilter, setReviewFilter] = useState<Preset["reviewFilter"]>("all");
+
+  // presets
+  const [presets, setPresets] = useState<Preset[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(PRESETS_KEY) || "[]");
+    } catch {
+      return [];
+    }
+  });
+
+  // details dialog
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -93,7 +120,14 @@ export function ProjectRiskAnalyzer({
         { body: { projectId: pid, language: "ar" } },
       );
       if (error) throw error;
-      const out = (data?.risks ?? []) as AiRisk[];
+      const now = new Date().toISOString();
+      const out = ((data?.risks ?? []) as AiRisk[]).map((r) => ({
+        ...r,
+        review_status: "pending" as const,
+        review_comment: "",
+        references: "",
+        generated_at: now,
+      }));
       setRisks(out);
       setSelected(new Set(out.map((_, i) => i)));
       toast.success(`تم توليد ${out.length} مخاطرة بواسطة الذكاء الاصطناعي`);
@@ -107,7 +141,7 @@ export function ProjectRiskAnalyzer({
   const handleSelect = (pid: string) => {
     setProjectId(pid);
     setProjectName(projects.find((p) => p.id === pid)?.name || "");
-    runAnalysis(pid);
+    runAnalysis(pid); // auto re-run on project change
   };
 
   const toggle = (i: number) => {
@@ -118,9 +152,20 @@ export function ProjectRiskAnalyzer({
     });
   };
 
-  const toggleAll = () => {
-    if (selected.size === risks.length) setSelected(new Set());
-    else setSelected(new Set(risks.map((_, i) => i)));
+  const updateRisk = (idx: number, patch: Partial<AiRisk>) => {
+    setRisks((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  };
+
+  const cycleReview = (idx: number) => {
+    setRisks((rs) =>
+      rs.map((r, i) => {
+        if (i !== idx) return r;
+        const cur = r.review_status ?? "pending";
+        const next =
+          cur === "pending" ? "needs_review" : cur === "needs_review" ? "reviewed" : "pending";
+        return { ...r, review_status: next };
+      }),
+    );
   };
 
   const saveSelected = async () => {
@@ -163,7 +208,16 @@ export function ProjectRiskAnalyzer({
     const high = risks.filter((r) => r.risk_score >= 15).length;
     const med = risks.filter((r) => r.risk_score >= 8 && r.risk_score < 15).length;
     const low = risks.filter((r) => r.risk_score < 8).length;
-    return { high, med, low, avg: Math.round(risks.reduce((s, r) => s + r.risk_score, 0) / risks.length) };
+    const reviewed = risks.filter((r) => r.review_status === "reviewed").length;
+    const needs = risks.filter((r) => r.review_status === "needs_review").length;
+    return {
+      high,
+      med,
+      low,
+      reviewed,
+      needs,
+      avg: Math.round(risks.reduce((s, r) => s + r.risk_score, 0) / risks.length),
+    };
   }, [risks]);
 
   const categories = useMemo(
@@ -171,25 +225,65 @@ export function ProjectRiskAnalyzer({
     [risks],
   );
 
+  // Category × Severity matrix
+  const categoryDist = useMemo(() => {
+    const map = new Map<
+      string,
+      { total: number; high: number; med: number; low: number }
+    >();
+    for (const r of risks) {
+      const key = r.category || "غير مصنف";
+      const bucket = map.get(key) ?? { total: 0, high: 0, med: 0, low: 0 };
+      bucket.total += 1;
+      bucket[severityOf(r.risk_score)] += 1;
+      map.set(key, bucket);
+    }
+    return Array.from(map.entries())
+      .map(([name, v]) => ({ name, ...v }))
+      .sort((a, b) => b.total - a.total);
+  }, [risks]);
+
+  const maxCatTotal = Math.max(1, ...categoryDist.map((c) => c.total));
+
   const filteredIdx = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return risks
-      .map((r, i) => ({ r, i }))
-      .filter(({ r }) => {
-        if (category !== "all" && r.category !== category) return false;
-        if (severity === "high" && r.risk_score < 15) return false;
-        if (severity === "med" && (r.risk_score < 8 || r.risk_score >= 15)) return false;
-        if (severity === "low" && r.risk_score >= 8) return false;
-        if (
-          q &&
-          !`${r.risk_title} ${r.risk_description} ${r.risk_owner}`
-            .toLowerCase()
-            .includes(q)
-        )
-          return false;
-        return true;
-      });
-  }, [risks, search, severity, category]);
+    let list = risks.map((r, i) => ({ r, i }));
+    list = list.filter(({ r }) => {
+      if (category !== "all" && r.category !== category) return false;
+      if (severity === "high" && r.risk_score < 15) return false;
+      if (severity === "med" && (r.risk_score < 8 || r.risk_score >= 15)) return false;
+      if (severity === "low" && r.risk_score >= 8) return false;
+      if (
+        reviewFilter !== "all" &&
+        (r.review_status ?? "pending") !== reviewFilter
+      )
+        return false;
+      if (
+        q &&
+        !`${r.risk_title} ${r.risk_description} ${r.risk_owner} ${r.category}`
+          .toLowerCase()
+          .includes(q)
+      )
+        return false;
+      return true;
+    });
+    list.sort((a, b) => {
+      switch (sortBy) {
+        case "severity_asc":
+          return a.r.risk_score - b.r.risk_score;
+        case "date_desc":
+          return (b.r.generated_at ?? "").localeCompare(a.r.generated_at ?? "");
+        case "date_asc":
+          return (a.r.generated_at ?? "").localeCompare(b.r.generated_at ?? "");
+        case "category":
+          return (a.r.category ?? "").localeCompare(b.r.category ?? "", "ar");
+        case "severity_desc":
+        default:
+          return b.r.risk_score - a.r.risk_score;
+      }
+    });
+    return list;
+  }, [risks, search, severity, category, reviewFilter, sortBy]);
 
   const exportCsv = () => {
     if (!risks.length) return;
@@ -203,6 +297,9 @@ export function ProjectRiskAnalyzer({
       "خطة التخفيف",
       "خطة الطوارئ",
       "المسؤول",
+      "حالة المراجعة",
+      "تعليق المراجعة",
+      "المراجع",
     ];
     const rows = filteredIdx.map(({ r }) =>
       [
@@ -215,6 +312,9 @@ export function ProjectRiskAnalyzer({
         r.mitigation_strategy,
         r.contingency_plan,
         r.risk_owner,
+        r.review_status ?? "pending",
+        r.review_comment ?? "",
+        r.references ?? "",
       ]
         .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
         .join(","),
@@ -230,6 +330,43 @@ export function ProjectRiskAnalyzer({
     toast.success("تم تصدير المخاطر إلى CSV");
   };
 
+  const currentFilterSnapshot = (): Omit<Preset, "name"> => ({
+    search,
+    severity,
+    category,
+    sortBy,
+    reviewFilter,
+  });
+
+  const saveCurrentPreset = () => {
+    const name = window.prompt("اسم الفلتر:");
+    if (!name?.trim()) return;
+    const next = [
+      ...presets.filter((p) => p.name !== name.trim()),
+      { name: name.trim(), ...currentFilterSnapshot() },
+    ];
+    setPresets(next);
+    localStorage.setItem(PRESETS_KEY, JSON.stringify(next));
+    toast.success("تم حفظ الفلتر");
+  };
+
+  const applyPreset = (name: string) => {
+    const p = presets.find((x) => x.name === name);
+    if (!p) return;
+    setSearch(p.search);
+    setSeverity(p.severity);
+    setCategory(p.category);
+    setSortBy(p.sortBy);
+    setReviewFilter(p.reviewFilter);
+    toast.success(`تم تطبيق الفلتر «${name}»`);
+  };
+
+  const deletePreset = (name: string) => {
+    const next = presets.filter((p) => p.name !== name);
+    setPresets(next);
+    localStorage.setItem(PRESETS_KEY, JSON.stringify(next));
+  };
+
   return (
     <Card className="border-primary/30">
       <CardHeader className="pb-3">
@@ -243,7 +380,7 @@ export function ProjectRiskAnalyzer({
         </CardTitle>
         <p className="text-xs text-muted-foreground">
           اختر مشروعاً محفوظاً ليقوم البرنامج تلقائياً بتحليل بنوده وتوليد سجل
-          مخاطر شامل قابل للحفظ.
+          مخاطر شامل قابل للحفظ والمراجعة.
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -277,7 +414,7 @@ export function ProjectRiskAnalyzer({
               ) : (
                 <RefreshCw className="w-4 h-4" />
               )}
-              <span className="ms-1">إعادة التحليل</span>
+              <span className="ms-1">تحديث التحليل</span>
             </Button>
           )}
         </div>
@@ -291,7 +428,8 @@ export function ProjectRiskAnalyzer({
 
         {!loading && risks.length > 0 && summary && (
           <>
-            <div className="grid grid-cols-4 gap-2 text-center">
+            {/* Totals strip */}
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-2 text-center">
               <div className="p-2 rounded-md bg-red-500/10">
                 <div className="text-[10px] text-muted-foreground">عالية</div>
                 <div className="text-lg font-bold text-red-600">{summary.high}</div>
@@ -308,8 +446,58 @@ export function ProjectRiskAnalyzer({
                 <div className="text-[10px] text-muted-foreground">متوسط</div>
                 <div className="text-lg font-bold text-primary">{summary.avg}</div>
               </div>
+              <div className="p-2 rounded-md bg-emerald-500/10">
+                <div className="text-[10px] text-muted-foreground">تمت المراجعة</div>
+                <div className="text-lg font-bold text-emerald-700">
+                  {summary.reviewed}
+                </div>
+              </div>
+              <div className="p-2 rounded-md bg-amber-500/10">
+                <div className="text-[10px] text-muted-foreground">مطلوب مراجعة</div>
+                <div className="text-lg font-bold text-amber-700">
+                  {summary.needs}
+                </div>
+              </div>
             </div>
 
+            {/* Category × Severity distribution */}
+            <div className="rounded-md border p-3 bg-muted/20">
+              <div className="flex items-center gap-2 text-xs font-semibold mb-2">
+                <BarChart3 className="w-3.5 h-3.5 text-primary" />
+                توزيع المخاطر حسب الفئة والخطورة
+              </div>
+              <div className="space-y-1.5">
+                {categoryDist.map((c) => (
+                  <div key={c.name} className="flex items-center gap-2 text-[11px]">
+                    <div className="w-28 truncate text-muted-foreground">
+                      {c.name}
+                    </div>
+                    <div className="flex-1 h-4 rounded overflow-hidden bg-muted/60 flex">
+                      <div
+                        className="bg-red-500"
+                        style={{ width: `${(c.high / maxCatTotal) * 100}%` }}
+                        title={`عالية: ${c.high}`}
+                      />
+                      <div
+                        className="bg-amber-500"
+                        style={{ width: `${(c.med / maxCatTotal) * 100}%` }}
+                        title={`متوسطة: ${c.med}`}
+                      />
+                      <div
+                        className="bg-emerald-500"
+                        style={{ width: `${(c.low / maxCatTotal) * 100}%` }}
+                        title={`منخفضة: ${c.low}`}
+                      />
+                    </div>
+                    <div className="w-8 text-left font-mono font-semibold">
+                      {c.total}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Filters bar */}
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <div className="relative flex-1 min-w-[180px]">
                 <Filter className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -344,12 +532,83 @@ export function ProjectRiskAnalyzer({
                   ))}
                 </SelectContent>
               </Select>
+              <Select value={reviewFilter} onValueChange={(v: any) => setReviewFilter(v)}>
+                <SelectTrigger className="h-8 w-[140px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">كل حالات المراجعة</SelectItem>
+                  <SelectItem value="pending">قيد الانتظار</SelectItem>
+                  <SelectItem value="needs_review">مطلوب مراجعة</SelectItem>
+                  <SelectItem value="reviewed">تمت المراجعة</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+                <SelectTrigger className="h-8 w-[160px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="severity_desc">الأعلى خطورة أولاً</SelectItem>
+                  <SelectItem value="severity_asc">الأقل خطورة أولاً</SelectItem>
+                  <SelectItem value="date_desc">الأحدث توليداً</SelectItem>
+                  <SelectItem value="date_asc">الأقدم توليداً</SelectItem>
+                  <SelectItem value="category">حسب الفئة</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Presets */}
+              <Select
+                value=""
+                onValueChange={(v) => {
+                  if (v === "__save__") saveCurrentPreset();
+                  else if (v.startsWith("__del__:")) deletePreset(v.replace("__del__:", ""));
+                  else applyPreset(v);
+                }}
+              >
+                <SelectTrigger className="h-8 w-[150px] text-xs">
+                  <Bookmark className="w-3.5 h-3.5" />
+                  <span className="ms-1">الفلاتر المحفوظة</span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__save__">
+                    <span className="flex items-center gap-1">
+                      <BookmarkPlus className="w-3.5 h-3.5" />
+                      حفظ الفلتر الحالي…
+                    </span>
+                  </SelectItem>
+                  {presets.length === 0 && (
+                    <div className="px-3 py-2 text-[11px] text-muted-foreground">
+                      لا توجد فلاتر محفوظة
+                    </div>
+                  )}
+                  {presets.map((p) => (
+                    <SelectItem key={p.name} value={p.name}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                  {presets.length > 0 && (
+                    <div className="border-t mt-1 pt-1">
+                      {presets.map((p) => (
+                        <SelectItem
+                          key={`del-${p.name}`}
+                          value={`__del__:${p.name}`}
+                          className="text-red-600"
+                        >
+                          حذف: {p.name}
+                        </SelectItem>
+                      ))}
+                    </div>
+                  )}
+                </SelectContent>
+              </Select>
+
               <Button variant="outline" size="sm" onClick={exportCsv} className="h-8">
                 <Download className="w-3.5 h-3.5" />
                 <span className="ms-1 text-xs">CSV</span>
               </Button>
             </div>
 
+            {/* Table */}
             <div className="border rounded-md overflow-hidden max-h-[420px] overflow-y-auto">
               <Table>
                 <TableHeader className="sticky top-0 bg-background z-10">
@@ -376,52 +635,96 @@ export function ProjectRiskAnalyzer({
                     <TableHead className="text-right">الفئة</TableHead>
                     <TableHead className="text-right">P×I</TableHead>
                     <TableHead className="text-right">الخطورة</TableHead>
-                    <TableHead className="text-right">المسؤول</TableHead>
+                    <TableHead className="text-right">المراجعة</TableHead>
+                    <TableHead className="text-right w-16">إجراءات</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredIdx.map(({ r, i }) => (
-                    <TableRow key={i} className="align-top">
-                      <TableCell>
-                        <Checkbox
-                          checked={selected.has(i)}
-                          onCheckedChange={() => toggle(i)}
-                        />
-                      </TableCell>
-                      <TableCell className="max-w-md">
-                        <div className="text-xs font-medium">{r.risk_title}</div>
-                        <div className="text-[10px] text-muted-foreground line-clamp-2">
-                          {r.risk_description}
-                        </div>
-                        <div className="text-[10px] text-primary/80 mt-1">
-                          <ShieldAlert className="w-3 h-3 inline ms-1" />
-                          {r.mitigation_strategy}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-[10px]">
-                          {r.category}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-[11px] font-mono whitespace-nowrap">
-                        {r.probability_score} × {r.impact_score}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={`text-[11px] font-bold ${scoreTone(r.risk_score)}`}
-                        >
-                          {r.risk_score}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-[11px] text-muted-foreground">
-                        {r.risk_owner}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredIdx.map(({ r, i }) => {
+                    const status = r.review_status ?? "pending";
+                    return (
+                      <TableRow key={i} className="align-top">
+                        <TableCell>
+                          <Checkbox
+                            checked={selected.has(i)}
+                            onCheckedChange={() => toggle(i)}
+                          />
+                        </TableCell>
+                        <TableCell className="max-w-md">
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-right hover:underline"
+                            onClick={() => setEditingIdx(i)}
+                          >
+                            {r.risk_title}
+                          </button>
+                          <div className="text-[10px] text-muted-foreground line-clamp-2">
+                            {r.risk_description}
+                          </div>
+                          <div className="text-[10px] text-primary/80 mt-1">
+                            <ShieldAlert className="w-3 h-3 inline ms-1" />
+                            {r.mitigation_strategy}
+                          </div>
+                          {r.review_comment && (
+                            <div className="text-[10px] text-amber-700 mt-1">
+                              💬 {r.review_comment}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-[10px]">
+                            {r.category}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-[11px] font-mono whitespace-nowrap">
+                          {r.probability_score} × {r.impact_score}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={`text-[11px] font-bold ${scoreTone(r.risk_score)}`}
+                          >
+                            {r.risk_score}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <button
+                            type="button"
+                            onClick={() => cycleReview(i)}
+                            className="text-[10px] inline-flex items-center gap-1 px-2 py-0.5 rounded border hover:bg-muted/50"
+                            title="اضغط للتبديل"
+                          >
+                            {status === "reviewed" ? (
+                              <>
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span className="text-emerald-700">تمت المراجعة</span>
+                              </>
+                            ) : status === "needs_review" ? (
+                              <>
+                                <AlertCircle className="w-3 h-3 text-amber-600" />
+                                <span className="text-amber-700">مطلوب مراجعة</span>
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground">قيد الانتظار</span>
+                            )}
+                          </button>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => setEditingIdx(i)}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                   {filteredIdx.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-xs text-muted-foreground py-6">
+                      <TableCell colSpan={7} className="text-center text-xs text-muted-foreground py-6">
                         لا توجد نتائج مطابقة للتصفية
                       </TableCell>
                     </TableRow>
@@ -430,10 +733,9 @@ export function ProjectRiskAnalyzer({
               </Table>
             </div>
 
-
             <div className="flex items-center justify-between">
               <div className="text-xs text-muted-foreground">
-                {selected.size} من {risks.length} محددة
+                {selected.size} من {risks.length} محددة ({filteredIdx.length} ظاهرة)
               </div>
               <Button
                 onClick={saveSelected}
@@ -457,6 +759,18 @@ export function ProjectRiskAnalyzer({
           </div>
         )}
       </CardContent>
+
+      <RiskDetailsDialog
+        open={editingIdx !== null}
+        onOpenChange={(v) => !v && setEditingIdx(null)}
+        risk={editingIdx !== null ? risks[editingIdx] : null}
+        onSave={(r) => {
+          if (editingIdx !== null) {
+            updateRisk(editingIdx, r);
+            toast.success("تم حفظ تعديلات المخاطرة");
+          }
+        }}
+      />
     </Card>
   );
 }
