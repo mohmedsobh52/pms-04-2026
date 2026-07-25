@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Ruler, Sparkles, FileImage, Download, Table, Loader2, SkipForward, AlertCircle, CheckCircle2, Search, Layers, ChevronLeft, ChevronRight } from "lucide-react";
+import { Ruler, Sparkles, FileImage, Download, Table, Loader2, SkipForward, AlertCircle, CheckCircle2, Search, Layers, ChevronLeft, ChevronRight, Copy, ArrowRight } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
