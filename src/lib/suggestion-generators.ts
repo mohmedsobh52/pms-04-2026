@@ -1888,3 +1888,148 @@ export const SEVERITY_META: Record<SuggestionSeverity, { ar: string; badge: stri
   critical: { ar: "حرج", badge: "bg-destructive/15 text-destructive" },
   success: { ar: "إنجاز", badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" },
 };
+
+/** Notifications inbox hygiene. */
+export function buildNotificationsInboxSuggestions(input: {
+  total: number;
+  unread: number;
+  critical: number;
+  oldestUnreadDays?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "notifications";
+  if (input.critical > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${input.critical} تنبيه حرِج غير مقروء`,
+      description: "افتح مركز التنبيهات ثم عالج التنبيهات الحرجة أولاً.",
+      sourceScreen: screen,
+      sourceRoute: "/notifications",
+      applyLabel: "فتح التنبيهات",
+    });
+  }
+  if (input.unread >= 20) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.unread} تنبيه غير مقروء`,
+      description: "علّم القديم كمقروء لتقليل الضجيج والتركيز على الجديد.",
+      sourceScreen: screen,
+      sourceRoute: "/notifications",
+    });
+  }
+  if ((input.oldestUnreadDays ?? 0) >= 14) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `أقدم تنبيه غير مقروء منذ ${input.oldestUnreadDays} يوماً`,
+      description: "قد تكون فاتتك إجراءات مهمة — راجع القائمة.",
+      sourceScreen: screen,
+      sourceRoute: "/notifications",
+    });
+  }
+  if (input.total === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لا توجد تنبيهات بعد",
+      description: "سيتم تنبيهك تلقائياً عند العقود المنتهية والمخاطر العالية.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
+/** Audit logs oversight. */
+export function buildAuditLogsSuggestions(input: {
+  total: number;
+  deletionsToday: number;
+  distinctActors7d: number;
+  suspiciousBursts?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "audit-logs";
+  if (input.deletionsToday >= 5) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${input.deletionsToday} عملية حذف اليوم`,
+      description: "راجع سجل التدقيق للتأكد من صحة العمليات.",
+      sourceScreen: screen,
+      sourceRoute: "/audit-logs",
+      applyLabel: "فتح السجل",
+    });
+  }
+  if ((input.suspiciousBursts ?? 0) > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.suspiciousBursts} تدفق نشاط غير معتاد`,
+      description: "عدد كبير من العمليات في وقت قصير — تحقق من المستخدم.",
+      sourceScreen: screen,
+      sourceRoute: "/audit-logs",
+    });
+  }
+  if (input.total === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "لا توجد سجلات تدقيق بعد",
+      description: "سيتم تسجيل العمليات المالية والحرجة تلقائياً.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
+/** Team & roles hygiene. */
+export function buildTeamSuggestions(input: {
+  members: number;
+  admins: number;
+  membersWithoutRole: number;
+  inactive30d?: number;
+}): Draft[] {
+  const out: Draft[] = [];
+  const screen = "team";
+  if (input.admins === 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: "لا يوجد مسؤول (Admin) نشط",
+      description: "عيّن مسؤولاً واحداً على الأقل لضمان استمرارية الإدارة.",
+      sourceScreen: screen,
+      sourceRoute: "/team",
+      applyLabel: "فتح إدارة الفريق",
+    });
+  } else if (input.admins === 1 && input.members >= 5) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: "مسؤول واحد فقط في فريق كبير",
+      description: "أضف مسؤولاً احتياطياً لتجنّب فقدان الوصول.",
+      sourceScreen: screen,
+      sourceRoute: "/team",
+    });
+  }
+  if (input.membersWithoutRole > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.membersWithoutRole} عضو بدون دور محدد`,
+      description: "عيّن دوراً واضحاً لكل عضو لتفعيل الصلاحيات.",
+      sourceScreen: screen,
+      sourceRoute: "/team",
+    });
+  }
+  if ((input.inactive30d ?? 0) > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.inactive30d} عضو غير نشط منذ 30 يوماً`,
+      description: "راجع صلاحيات الأعضاء غير النشطين.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
