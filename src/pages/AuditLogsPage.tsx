@@ -29,6 +29,8 @@ import { ShieldCheck, Search, Loader2, Download, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildAuditLogsSuggestions } from "@/lib/suggestion-generators";
 
 type AuditRow = {
   id: string;
