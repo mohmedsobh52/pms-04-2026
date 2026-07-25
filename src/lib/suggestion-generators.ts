@@ -1147,6 +1147,7 @@ export function buildFastExtractionSuggestions(input: {
   readyCount: number;
   drawingsCount: number;
   step: number;
+  extractedItems?: Array<{ description?: string; quantity?: number; unit?: string; category?: string }>;
 }): Draft[] {
   const out: Draft[] = [];
   const screen = "fast-extraction";
@@ -1185,8 +1186,67 @@ export function buildFastExtractionSuggestions(input: {
       sourceRoute: "/new-project",
     });
   }
+
+  const items = input.extractedItems ?? [];
+  if (items.length > 0) {
+    const noUnit = items.filter((i) => !i.unit || i.unit === "-" || (i.unit || "").trim() === "").length;
+    const zeroQty = items.filter((i) => !i.quantity || Number(i.quantity) <= 0).length;
+    const noCat = items.filter((i) => !i.category || i.category === "General").length;
+    const seen = new Map<string, number>();
+    items.forEach((i) => {
+      const k = (i.description || "").trim().toLowerCase();
+      if (!k) return;
+      seen.set(k, (seen.get(k) || 0) + 1);
+    });
+    const dupes = Array.from(seen.values()).filter((c) => c > 1).length;
+
+    if (noUnit > 0) {
+      out.push({
+        category: "data-quality",
+        severity: noUnit > items.length * 0.2 ? "warning" : "info",
+        title: `${noUnit} بند بدون وحدة قياس`,
+        description: "أضف الوحدة (m, m², m³, No, ton…) لضمان دقة التسعير.",
+        sourceScreen: screen,
+      });
+    }
+    if (zeroQty > 0) {
+      out.push({
+        category: "data-quality",
+        severity: "warning",
+        title: `${zeroQty} بند بكمية = 0`,
+        description: "راجع القياسات المستخرجة من المخطط أو أعد التحليل بمقياس أعلى.",
+        sourceScreen: screen,
+      });
+    }
+    if (noCat > items.length * 0.3) {
+      out.push({
+        category: "data-quality",
+        severity: "info",
+        title: `${noCat} بند غير مصنف`,
+        description: "حدّد نوع المخطط الصحيح (معماري/إنشائي/شبكات) لتحسين التصنيف.",
+        sourceScreen: screen,
+      });
+    }
+    if (dupes > 0) {
+      out.push({
+        category: "data-quality",
+        severity: "info",
+        title: `${dupes} وصف مكرر — يمكن دمج الكميات`,
+        description: "استخدم زر «تجميع حسب الفئة/الوحدة» لتوحيد البنود المكررة.",
+        sourceScreen: screen,
+      });
+    }
+    out.push({
+      category: "workflow",
+      severity: "success",
+      title: `تم استخراج ${items.length} بند — جاهز لإنشاء BOQ`,
+      sourceScreen: screen,
+      sourceRoute: "/new-project",
+    });
+  }
   return out;
 }
+
 
 /** Tender-summary suggestions. */
 export function buildTenderSummarySuggestions(input: {

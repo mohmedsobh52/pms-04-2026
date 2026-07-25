@@ -27,6 +27,7 @@ export default function FastExtractionPage() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [showProjectFiles, setShowProjectFiles] = useState(false);
   const [drawingResults, setDrawingResults] = useState<any[]>([]);
+  const [extractedQuantities, setExtractedQuantities] = useState<any[]>([]);
 
   const readyFilesCount = files.filter((f) => f.status === "success").length;
   const hasDrawingFiles = files.some((f) => f.category === "drawings" && f.status === "success");
@@ -41,9 +42,10 @@ export default function FastExtractionPage() {
         readyCount: readyFilesCount,
         drawingsCount,
         step: currentStep,
+        extractedItems: extractedQuantities,
       }),
     );
-  }, [files, readyFilesCount, currentStep, replaceBySource]);
+  }, [files, readyFilesCount, currentStep, extractedQuantities, replaceBySource]);
 
 
   const handleUploadComplete = () => {
@@ -262,6 +264,7 @@ export default function FastExtractionPage() {
                     files={files}
                     onComplete={handleDrawingAnalysisComplete}
                     onSkip={handleDrawingAnalysisSkip}
+                    onQuantitiesChange={setExtractedQuantities}
                   />
                 )}
                 {currentStep === 4 && (

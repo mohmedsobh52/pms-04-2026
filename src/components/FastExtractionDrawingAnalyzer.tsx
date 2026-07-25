@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Ruler, Sparkles, FileImage, Download, Table, Loader2, SkipForward, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Ruler, Sparkles, FileImage, Download, Table, Loader2, SkipForward, AlertCircle, CheckCircle2, Search, Layers, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table as UITable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -95,6 +96,7 @@ interface FastExtractionDrawingAnalyzerProps {
   files: UploadedFile[];
   onComplete: (results: DrawingAnalysisResult[]) => void;
   onSkip: () => void;
+  onQuantitiesChange?: (quantities: ExtractedQuantity[]) => void;
 }
 
 const drawingTypes = [
@@ -122,6 +124,7 @@ export default function FastExtractionDrawingAnalyzer({
   files,
   onComplete,
   onSkip,
+  onQuantitiesChange,
 }: FastExtractionDrawingAnalyzerProps) {
   const { language } = useLanguage();
   const isArabic = language === "ar";
@@ -135,6 +138,67 @@ export default function FastExtractionDrawingAnalyzer({
   const [currentFile, setCurrentFile] = useState("");
   const [results, setResults] = useState<DrawingAnalysisResult[]>([]);
   const [allQuantities, setAllQuantities] = useState<ExtractedQuantity[]>([]);
+  const [searchQ, setSearchQ] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [wastePct, setWastePct] = useState<number>(0);
+  const [showAggregate, setShowAggregate] = useState<boolean>(false);
+  const [page, setPage] = useState<number>(1);
+  const pageSize = 50;
+
+  // Push results upward for global suggestions
+  useEffect(() => {
+    onQuantitiesChange?.(allQuantities);
+  }, [allQuantities, onQuantitiesChange]);
+
+  // Reset paging when filters or dataset change
+  useEffect(() => { setPage(1); }, [searchQ, categoryFilter, allQuantities]);
+
+  const wasteFactor = 1 + (Number(wastePct) || 0) / 100;
+
+  // Apply waste factor derivation for a displayed quantity
+  const displayQty = (q: number | undefined | null) =>
+    Math.round(((Number(q) || 0) * wasteFactor) * 100) / 100;
+
+  const categories = useMemo(
+    () => Array.from(new Set(allQuantities.map((q) => q.category || "General"))).sort(),
+    [allQuantities]
+  );
+
+  const filteredQuantities = useMemo(() => {
+    const s = searchQ.trim().toLowerCase();
+    return allQuantities.filter((q) => {
+      if (categoryFilter !== "all" && (q.category || "General") !== categoryFilter) return false;
+      if (!s) return true;
+      return (
+        (q.description || "").toLowerCase().includes(s) ||
+        (q.category || "").toLowerCase().includes(s) ||
+        (q.subcategory || "").toLowerCase().includes(s) ||
+        (q.pipe_material || "").toLowerCase().includes(s) ||
+        (q.pipe_diameter || "").toLowerCase().includes(s) ||
+        (q.item_number || "").toLowerCase().includes(s)
+      );
+    });
+  }, [allQuantities, searchQ, categoryFilter]);
+
+  // Aggregation: sum quantities grouped by (category, unit) — apply waste factor
+  const aggregatedRows = useMemo(() => {
+    const map = new Map<string, { category: string; unit: string; qty: number; items: number }>();
+    for (const q of filteredQuantities) {
+      const cat = q.category || "General";
+      const unit = q.unit || "-";
+      const key = `${cat}|||${unit}`;
+      const row = map.get(key) || { category: cat, unit, qty: 0, items: 0 };
+      row.qty += (Number(q.quantity) || 0);
+      row.items += 1;
+      map.set(key, row);
+    }
+    return Array.from(map.values())
+      .map((r) => ({ ...r, qty: Math.round(r.qty * wasteFactor * 100) / 100 }))
+      .sort((a, b) => b.qty - a.qty);
+  }, [filteredQuantities, wasteFactor]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredQuantities.length / pageSize));
+  const pagedQuantities = filteredQuantities.slice((page - 1) * pageSize, page * pageSize);
 
   const toggleFileSelection = (fileId: string) => {
     setSelectedFiles((prev) =>
@@ -573,6 +637,93 @@ export default function FastExtractionDrawingAnalyzer({
             ))}
           </div>
 
+          {/* Toolbar: search + category filter + waste factor + aggregation toggle */}
+          {allQuantities.length > 0 && (
+            <Card>
+              <CardContent className="py-3 flex flex-wrap items-center gap-3">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="absolute start-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={searchQ}
+                    onChange={(e) => setSearchQ(e.target.value)}
+                    placeholder={isArabic ? "بحث في الوصف / الفئة / المادة…" : "Search description / category / material…"}
+                    className="ps-8 h-9"
+                  />
+                </div>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-[180px] h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{isArabic ? "كل الفئات" : "All categories"}</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground whitespace-nowrap">
+                    {isArabic ? "معامل الهدر %" : "Waste %"}
+                  </label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={50}
+                    step={0.5}
+                    value={wastePct}
+                    onChange={(e) => setWastePct(Number(e.target.value) || 0)}
+                    className="w-20 h-9"
+                  />
+                </div>
+                <Button
+                  variant={showAggregate ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowAggregate((v) => !v)}
+                  className="gap-1.5"
+                >
+                  <Layers className="h-4 w-4" />
+                  {isArabic ? "تجميع حسب الفئة/الوحدة" : "Group by category/unit"}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Aggregation table */}
+          {allQuantities.length > 0 && showAggregate && (
+            <Card>
+              <CardHeader className="py-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Layers className="h-4 w-4" />
+                  {isArabic ? "إجمالي الكميات (مع الهدر)" : "Total Quantities (with waste)"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <UITable>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{isArabic ? "الفئة" : "Category"}</TableHead>
+                      <TableHead>{isArabic ? "الوحدة" : "Unit"}</TableHead>
+                      <TableHead className="text-right">{isArabic ? "بنود" : "Items"}</TableHead>
+                      <TableHead className="text-right">{isArabic ? "الإجمالي" : "Total"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {aggregatedRows.map((r, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="font-medium">{r.category}</TableCell>
+                        <TableCell>{r.unit}</TableCell>
+                        <TableCell className="text-right tabular-nums">{r.items}</TableCell>
+                        <TableCell className="text-right font-mono font-semibold">
+                          {r.qty.toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </UITable>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Quantities Table - Grouped by Category for Infrastructure */}
           {allQuantities.length > 0 && (
             <Card>
@@ -580,6 +731,14 @@ export default function FastExtractionDrawingAnalyzer({
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <Table className="h-4 w-4" />
                   {isArabic ? "الكميات المستخرجة" : "Extracted Quantities"}
+                  <Badge variant="secondary" className="ms-2">
+                    {filteredQuantities.length}/{allQuantities.length}
+                  </Badge>
+                  {wastePct > 0 && (
+                    <Badge variant="outline" className="text-amber-700 border-amber-500/50">
+                      +{wastePct}% {isArabic ? "هدر" : "waste"}
+                    </Badge>
+                  )}
                 </CardTitle>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={exportToExcel} className="gap-2">
@@ -597,7 +756,7 @@ export default function FastExtractionDrawingAnalyzer({
                 {drawingType === "infrastructure" && (
                   <div className="p-4 border-b grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                     {Object.entries(
-                      allQuantities.reduce((acc, q) => {
+                      filteredQuantities.reduce((acc, q) => {
                         const cat = q.category || "Other";
                         if (!acc[cat]) acc[cat] = { count: 0, totalQty: 0, unit: q.unit || '-' };
                         acc[cat].count++;
@@ -606,19 +765,20 @@ export default function FastExtractionDrawingAnalyzer({
                       }, {} as Record<string, { count: number; totalQty: number; unit: string }>)
                     ).map(([category, data]) => {
                       const config = categoryConfig[category] || { icon: "📦", color: "bg-gray-100 text-gray-800", labelEn: category, labelAr: category };
+                      const adjusted = Math.round(data.totalQty * wasteFactor * 100) / 100;
                       return (
                         <div key={category} className={cn("p-3 rounded-lg text-center", config.color)}>
                           <div className="text-2xl mb-1">{config.icon}</div>
                           <div className="text-xs font-medium">{isArabic ? config.labelAr : config.labelEn}</div>
-                          <div className="text-lg font-bold">{data.totalQty.toLocaleString()}</div>
+                          <div className="text-lg font-bold">{adjusted.toLocaleString()}</div>
                           <div className="text-xs opacity-75">{data.unit} ({data.count} {isArabic ? "بند" : "items"})</div>
                         </div>
                       );
                     })}
                   </div>
                 )}
-                
-                <div className="max-h-[400px] overflow-auto">
+
+                <div className="max-h-[520px] overflow-auto">
                   <UITable>
                     <TableHeader>
                       <TableRow>
@@ -629,6 +789,9 @@ export default function FastExtractionDrawingAnalyzer({
                         )}
                         <TableHead className="min-w-[200px]">{isArabic ? "الوصف" : "Description"}</TableHead>
                         <TableHead className="text-right">{isArabic ? "الكمية" : "Qty"}</TableHead>
+                        {wastePct > 0 && (
+                          <TableHead className="text-right">{isArabic ? "بعد الهدر" : "With Waste"}</TableHead>
+                        )}
                         <TableHead>{isArabic ? "الوحدة" : "Unit"}</TableHead>
                         {drawingType === "infrastructure" && (
                           <>
@@ -639,11 +802,13 @@ export default function FastExtractionDrawingAnalyzer({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {allQuantities.slice(0, 50).map((q, idx) => {
+                      {pagedQuantities.map((q, idx) => {
+                        const globalIdx = (page - 1) * pageSize + idx;
                         const config = categoryConfig[q.category] || { icon: "📦", color: "bg-gray-100 text-gray-800" };
+                        const baseQty = typeof q.quantity === 'number' ? q.quantity : 0;
                         return (
-                          <TableRow key={idx}>
-                            <TableCell className="font-medium">{q.item_number || idx + 1}</TableCell>
+                          <TableRow key={globalIdx}>
+                            <TableCell className="font-medium">{q.item_number || globalIdx + 1}</TableCell>
                             <TableCell>
                               <Badge variant="outline" className={cn("gap-1", config.color)}>
                                 <span>{config.icon}</span> {q.category}
@@ -652,8 +817,13 @@ export default function FastExtractionDrawingAnalyzer({
                             {drawingType === "infrastructure" && (
                               <TableCell className="text-sm text-muted-foreground">{q.subcategory || "-"}</TableCell>
                             )}
-                            <TableCell className="max-w-[300px] truncate">{q.description}</TableCell>
-                            <TableCell className="text-right font-mono font-semibold">{(typeof q.quantity === 'number' ? q.quantity : 0).toLocaleString()}</TableCell>
+                            <TableCell className="max-w-[300px] truncate" title={q.description}>{q.description}</TableCell>
+                            <TableCell className="text-right font-mono font-semibold">{baseQty.toLocaleString()}</TableCell>
+                            {wastePct > 0 && (
+                              <TableCell className="text-right font-mono text-amber-700">
+                                {displayQty(baseQty).toLocaleString()}
+                              </TableCell>
+                            )}
                             <TableCell>{q.unit}</TableCell>
                             {drawingType === "infrastructure" && (
                               <>
@@ -664,14 +834,35 @@ export default function FastExtractionDrawingAnalyzer({
                           </TableRow>
                         );
                       })}
+                      {pagedQuantities.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-6">
+                            {isArabic ? "لا توجد نتائج مطابقة" : "No matching results"}
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </UITable>
                 </div>
-                {allQuantities.length > 50 && (
-                  <div className="p-3 text-center text-sm text-muted-foreground border-t">
-                    {isArabic
-                      ? `عرض 50 من ${allQuantities.length} بند. صدّر الملف لرؤية الكل.`
-                      : `Showing 50 of ${allQuantities.length} items. Export to see all.`}
+
+                {filteredQuantities.length > pageSize && (
+                  <div className="p-3 flex items-center justify-between border-t text-sm">
+                    <span className="text-muted-foreground">
+                      {isArabic
+                        ? `عرض ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, filteredQuantities.length)} من ${filteredQuantities.length}`
+                        : `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, filteredQuantities.length)} of ${filteredQuantities.length}`}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                        <ChevronRight className={cn("h-4 w-4", !isArabic && "hidden")} />
+                        <ChevronLeft className={cn("h-4 w-4", isArabic && "hidden")} />
+                      </Button>
+                      <span className="tabular-nums">{page} / {totalPages}</span>
+                      <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+                        <ChevronLeft className={cn("h-4 w-4", !isArabic && "hidden")} />
+                        <ChevronRight className={cn("h-4 w-4", isArabic && "hidden")} />
+                      </Button>
+                    </div>
                   </div>
                 )}
               </CardContent>
