@@ -1,8 +1,10 @@
 import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { UsersRolesPanel } from "@/components/admin/UsersRolesPanel";
+import { PermissionsMatrix } from "@/components/admin/PermissionsMatrix";
 import { Card } from "@/components/ui/card";
-import { Users } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Users, Shield } from "lucide-react";
 import { useUserRoles } from "@/hooks/useUserRoles";
 import { supabase } from "@/integrations/supabase/client";
 import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
@@ -22,7 +24,9 @@ export default function TeamPage() {
       if (error || cancelled) return;
       const rows = (data ?? []) as { user_id: string; role: string }[];
       const uniqueMembers = new Set(rows.map((r) => r.user_id));
-      const admins = new Set(rows.filter((r) => r.role === "admin").map((r) => r.user_id));
+      const admins = new Set(
+        rows.filter((r) => r.role === "admin").map((r) => r.user_id),
+      );
       replaceBySource(
         "team",
         buildTeamSuggestions({
@@ -50,8 +54,26 @@ export default function TeamPage() {
             </p>
           </div>
         </div>
+
         {isAdmin ? (
-          <UsersRolesPanel />
+          <Tabs defaultValue="users" className="w-full">
+            <TabsList>
+              <TabsTrigger value="users" className="gap-1.5">
+                <Users className="w-3.5 h-3.5" />
+                المستخدمون والأدوار
+              </TabsTrigger>
+              <TabsTrigger value="matrix" className="gap-1.5">
+                <Shield className="w-3.5 h-3.5" />
+                مصفوفة الصلاحيات
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="users" className="mt-4">
+              <UsersRolesPanel />
+            </TabsContent>
+            <TabsContent value="matrix" className="mt-4">
+              <PermissionsMatrix />
+            </TabsContent>
+          </Tabs>
         ) : (
           <Card className="p-10 text-center text-sm text-muted-foreground">
             هذه الصفحة متاحة للمسؤولين فقط.
