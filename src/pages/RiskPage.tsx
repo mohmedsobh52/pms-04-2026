@@ -17,6 +17,7 @@ import { RiskHeatmap } from "@/components/risk/RiskHeatmap";
 import { RiskMatrix } from "@/components/risk/RiskMatrix";
 import { RiskAlertsPanel } from "@/components/risk/RiskAlertsPanel";
 import { RiskTrendCard } from "@/components/risk/RiskTrendCard";
+import { ProjectRiskAnalyzer } from "@/components/risk/ProjectRiskAnalyzer";
 import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
 import { buildRiskSuggestions } from "@/lib/suggestion-generators";
 
@@ -279,6 +280,8 @@ const RiskPage = () => {
 
         <ColorLegend type="priority" isArabic={isArabic} />
 
+        <ProjectRiskAnalyzer />
+
         <div className="grid gap-4 md:grid-cols-2">
           <RiskHeatmap risks={risksRaw} />
           <RiskMatrix risks={risksRaw} />
@@ -287,6 +290,7 @@ const RiskPage = () => {
           <RiskTrendCard risks={risksRaw} />
           <RiskAlertsPanel risks={risksRaw} />
         </div>
+
 
 
         <Suspense fallback={<SuspenseFallback label={isArabic ? "جاري التحميل..." : "Loading..."} />}>
