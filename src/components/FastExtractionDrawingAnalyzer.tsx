@@ -124,6 +124,7 @@ export default function FastExtractionDrawingAnalyzer({
   files,
   onComplete,
   onSkip,
+  onQuantitiesChange,
 }: FastExtractionDrawingAnalyzerProps) {
   const { language } = useLanguage();
   const isArabic = language === "ar";
