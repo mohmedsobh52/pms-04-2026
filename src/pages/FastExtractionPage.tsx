@@ -264,6 +264,7 @@ export default function FastExtractionPage() {
                     files={files}
                     onComplete={handleDrawingAnalysisComplete}
                     onSkip={handleDrawingAnalysisSkip}
+                    onQuantitiesChange={setExtractedQuantities}
                   />
                 )}
                 {currentStep === 4 && (
