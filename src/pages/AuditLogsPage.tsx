@@ -80,6 +80,29 @@ export default function AuditLogsPage() {
     load();
   }, []);
 
+  useEffect(() => {
+    if (!rows.length) {
+      replaceBySource("audit-logs", buildAuditLogsSuggestions({ entries: 0 }));
+      return;
+    }
+    const failed = rows.filter((r) =>
+      /fail|error|denied|reject/i.test(r.action ?? ""),
+    ).length;
+    const priv = rows.filter((r) => /role|permission|privilege/i.test(r.action ?? "")).length;
+    const lastHours = Math.floor(
+      (Date.now() - new Date(rows[0].created_at).getTime()) / 3600000,
+    );
+    replaceBySource(
+      "audit-logs",
+      buildAuditLogsSuggestions({
+        entries: rows.length,
+        failedActions: failed,
+        privilegeChanges: priv,
+        lastEntryHoursAgo: lastHours,
+      }),
+    );
+  }, [rows, replaceBySource]);
+
   const entityTypes = useMemo(
     () => Array.from(new Set(rows.map((r) => r.entity_type).filter(Boolean))) as string[],
     [rows],
