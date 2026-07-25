@@ -95,6 +95,25 @@ export default function NotificationsPage() {
     load();
   }, []);
 
+  useEffect(() => {
+    if (loading) return;
+    const unread = items.filter((n) => !n.read_at);
+    const critical = unread.filter((n) => n.severity === "critical").length;
+    const oldestUnread = unread.reduce<number>((acc, n) => {
+      const d = Math.floor((Date.now() - new Date(n.created_at).getTime()) / 86400000);
+      return d > acc ? d : acc;
+    }, 0);
+    replaceBySource(
+      "notifications",
+      buildNotificationsInboxSuggestions({
+        total: items.length,
+        unread: unread.length,
+        critical,
+        oldestUnreadDays: oldestUnread,
+      }),
+    );
+  }, [items, loading, replaceBySource]);
+
   const filtered = useMemo(() => {
     return items.filter((n) => {
       if (filter === "unread" && n.read_at) return false;
