@@ -263,13 +263,93 @@ export function buildRiskSuggestions(risks: any[]): Draft[] {
     });
   }
 
-  const noOwner = risks.filter((r) => !r.owner && !r.assigned_to);
+  const noOwner = risks.filter((r) => !r.risk_owner && !r.owner && !r.assigned_to);
   if (noOwner.length >= 3) {
     out.push({
       category: "data-quality",
       severity: "info",
       title: `${noOwner.length} مخاطر بدون مسؤول مُعيَّن`,
       sourceScreen: screen,
+    });
+  }
+
+  const noMitigation = risks.filter(
+    (r) => !r.mitigation_strategy && r.status !== "closed" && r.status !== "mitigated",
+  );
+  if (noMitigation.length >= 3) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${noMitigation.length} مخاطر بدون خطة تخفيف`,
+      description: "أضف استراتيجية استجابة لكل مخاطرة نشطة.",
+      sourceScreen: screen,
+    });
+  }
+
+  const noDesc = risks.filter((r) => !r.risk_description && !r.description);
+  if (noDesc.length >= 3) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${noDesc.length} مخاطر بوصف ناقص`,
+      sourceScreen: screen,
+    });
+  }
+
+  const stale = risks.filter((r) => {
+    if (r.status === "closed" || r.status === "mitigated") return false;
+    const t = new Date(r.identified_date || r.created_at || 0).getTime();
+    return t && Date.now() - t > 60 * 86_400_000;
+  });
+  if (stale.length >= 3) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${stale.length} مخاطر قديمة (> 60 يوم) بدون تحديث`,
+      sourceScreen: screen,
+    });
+  }
+
+  const avg =
+    risks.reduce((s, r) => s + (Number(r.risk_score) || 0), 0) / risks.length;
+  if (avg >= 10) {
+    out.push({
+      category: "reports",
+      severity: "warning",
+      title: `متوسط خطورة المشروع مرتفع (${Math.round(avg)})`,
+      description: "راجع خطط الاستجابة على مستوى المحفظة.",
+      sourceScreen: screen,
+    });
+  }
+
+  const catCounts: Record<string, number> = {};
+  risks.forEach((r) => {
+    const c = r.category || "general";
+    catCounts[c] = (catCounts[c] || 0) + 1;
+  });
+  const [topCat, topCount] =
+    Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0] ?? ["", 0];
+  if (topCount >= Math.max(5, Math.ceil(risks.length * 0.5))) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: `تركّز المخاطر في فئة "${topCat}" (${topCount})`,
+      description: "قد يشير إلى ضعف في ضوابط هذه الفئة.",
+      sourceScreen: screen,
+    });
+  }
+
+  const overdueReview = risks.filter((r) => {
+    if (!r.review_date) return false;
+    return new Date(r.review_date).getTime() < Date.now();
+  });
+  if (overdueReview.length) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${overdueReview.length} مخاطر تجاوزت تاريخ المراجعة`,
+      sourceScreen: screen,
+      sourceRoute: "/risk",
     });
   }
 
