@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Sparkles,
   Loader2,
@@ -27,6 +28,8 @@ import {
   RefreshCw,
   ShieldAlert,
   Brain,
+  Download,
+  Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 
