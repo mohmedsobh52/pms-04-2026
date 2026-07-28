@@ -704,7 +704,52 @@ export function ProjectRiskAnalyzer({
                 <Download className="w-3.5 h-3.5" />
                 <span className="ms-1 text-xs">CSV</span>
               </Button>
+              <Button variant="outline" size="sm" onClick={printReport} className="h-8">
+                <Printer className="w-3.5 h-3.5" />
+                <span className="ms-1 text-xs">طباعة</span>
+              </Button>
             </div>
+
+            {/* Bulk actions bar */}
+            {selected.size > 0 && (
+              <div className="flex flex-wrap items-center gap-2 p-2 rounded-md bg-primary/5 border border-primary/20 text-xs">
+                <span className="font-semibold">إجراءات جماعية ({selected.size}):</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7"
+                  onClick={() => bulkSetReview("reviewed")}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span className="ms-1">تمت المراجعة</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7"
+                  onClick={() => bulkSetReview("needs_review")}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span className="ms-1">مطلوب مراجعة</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7"
+                  onClick={() => setSelected(new Set())}
+                >
+                  إلغاء التحديد
+                </Button>
+                <label className="ms-auto inline-flex items-center gap-1.5 cursor-pointer">
+                  <Checkbox
+                    checked={skipDuplicates}
+                    onCheckedChange={(v) => setSkipDuplicates(!!v)}
+                  />
+                  <span>تخطي المكررة عند الحفظ</span>
+                </label>
+              </div>
+            )}
+
 
             {/* Table */}
             <div className="border rounded-md overflow-hidden max-h-[420px] overflow-y-auto">
