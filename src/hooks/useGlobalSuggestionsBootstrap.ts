@@ -7,6 +7,10 @@ import {
   buildBackupsSuggestions,
   buildIntegrationsSuggestions,
   buildTeamSuggestions,
+  buildSecuritySuggestions,
+  buildOnboardingSuggestions,
+  buildPerformanceSuggestions,
+  buildHelpSuggestions,
 } from "@/lib/suggestion-generators";
 
 /**
@@ -135,6 +139,55 @@ export function useGlobalSuggestionsBootstrap() {
           admins,
         }),
       );
+
+      // Security posture (uses only non-sensitive signals)
+      const hasMfa =
+        typeof window !== "undefined" &&
+        localStorage.getItem("mfa-enabled") === "true";
+      replaceBySource(
+        "security",
+        buildSecuritySuggestions({ admins, mfaEnabled: hasMfa }),
+      );
+
+      // Onboarding checklist
+      const hasCompanyLogo =
+        typeof window !== "undefined" && !!localStorage.getItem("company-logo");
+      const hasAiModel =
+        typeof window !== "undefined" &&
+        !!localStorage.getItem("selected-ai-model");
+      const notificationsEnabled =
+        typeof window !== "undefined" &&
+        localStorage.getItem("notifications-enabled") !== "false";
+      replaceBySource(
+        "onboarding",
+        buildOnboardingSuggestions({
+          hasCompanyLogo,
+          hasAiModel,
+          hasProjects: (projects?.length ?? 0) > 0,
+          hasNotifications: notificationsEnabled,
+        }),
+      );
+
+      // Performance / data hygiene
+      const staleDays = projects.length
+        ? Math.round(
+            (Date.now() -
+              new Date(
+                projects[projects.length - 1].updated_at as string,
+              ).getTime()) /
+              86400_000,
+          )
+        : null;
+      replaceBySource(
+        "performance",
+        buildPerformanceSuggestions({
+          projectsCount: projects.length,
+          staleProjectsDays: staleDays,
+        }),
+      );
+
+      // Help & shortcuts (static, always relevant)
+      replaceBySource("help", buildHelpSuggestions());
     })().catch(() => {
       /* silent — bootstrap is best-effort */
     });
