@@ -56,6 +56,13 @@ const scoreTone = (s: number) =>
 const severityOf = (s: number): "high" | "med" | "low" =>
   s >= 15 ? "high" : s >= 8 ? "med" : "low";
 
+const escapeHtml = (s: string) =>
+  String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
 type Preset = {
   name: string;
   search: string;
