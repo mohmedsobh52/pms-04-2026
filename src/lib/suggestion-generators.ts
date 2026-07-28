@@ -2021,3 +2021,174 @@ export function buildNotificationsInboxSuggestions(input: {
   return out;
 }
 
+
+/** Security posture hints (cross-cutting, non-sensitive). */
+export function buildSecuritySuggestions(input: {
+  admins: number;
+  passwordAgeDays?: number | null;
+  mfaEnabled?: boolean;
+}): Draft[] {
+  const screen = "security";
+  const out: Draft[] = [];
+  if (input.admins === 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: "لا يوجد مسؤول (Admin) في الحساب",
+      description: "عيّن مستخدماً واحداً على الأقل بدور Admin لضمان استمرارية الإدارة.",
+      sourceScreen: screen,
+      sourceRoute: "/team",
+    });
+  } else if (input.admins > 5) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `عدد المسؤولين مرتفع (${input.admins})`,
+      description: "قلّل عدد المسؤولين لأدنى حد ممكن لتقليل مخاطر التصعيد.",
+      sourceScreen: screen,
+      sourceRoute: "/team",
+    });
+  }
+  if (input.mfaEnabled === false) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: "المصادقة الثنائية (MFA) غير مفعّلة",
+      description: "فعّل MFA لحماية الحساب من الاختراق.",
+      sourceScreen: screen,
+      sourceRoute: "/settings",
+    });
+  }
+  if ((input.passwordAgeDays ?? 0) >= 180) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "كلمة المرور لم تُحدَّث منذ فترة طويلة",
+      description: "ننصح بتغيير كلمة المرور كل 3–6 أشهر.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
+/** Onboarding checklist based on setup completeness. */
+export function buildOnboardingSuggestions(input: {
+  hasCompanyLogo: boolean;
+  hasAiModel: boolean;
+  hasProjects: boolean;
+  hasNotifications: boolean;
+}): Draft[] {
+  const screen = "onboarding";
+  const out: Draft[] = [];
+  if (!input.hasCompanyLogo) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "أكمل ملف الشركة",
+      description: "أضف شعار الشركة والبيانات الرسمية لتظهر في التقارير والعروض.",
+      sourceScreen: screen,
+      sourceRoute: "/company-settings",
+    });
+  }
+  if (!input.hasAiModel) {
+    out.push({
+      category: "ai-pricing",
+      severity: "info",
+      title: "اختر نموذج الذكاء الاصطناعي الافتراضي",
+      description: "حدد النموذج المستخدم للتسعير والتحليل الذكي.",
+      sourceScreen: screen,
+      sourceRoute: "/settings",
+    });
+  }
+  if (!input.hasProjects) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "ابدأ بمشروعك الأول",
+      description: "أنشئ مشروعاً أو استورد ملف BOQ للبدء بالتحليل.",
+      sourceScreen: screen,
+      sourceRoute: "/new-project",
+    });
+  }
+  if (!input.hasNotifications) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "فعّل الإشعارات",
+      description: "احصل على تنبيهات فورية للعقود، المخاطر والاعتمادات.",
+      sourceScreen: screen,
+      sourceRoute: "/settings",
+    });
+  }
+  return out;
+}
+
+/** Performance/data-hygiene tips. */
+export function buildPerformanceSuggestions(input: {
+  projectsCount: number;
+  staleProjectsDays?: number | null;
+  largeProjectItems?: number | null;
+}): Draft[] {
+  const screen = "performance";
+  const out: Draft[] = [];
+  if (input.projectsCount >= 25) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `لديك ${input.projectsCount} مشروعاً محفوظاً`,
+      description: "أرشف المشاريع القديمة للحفاظ على أداء الشاشات والبحث.",
+      sourceScreen: screen,
+      sourceRoute: "/projects",
+    });
+  }
+  if ((input.staleProjectsDays ?? 0) >= 90) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `أقدم مشروع نشط لم يُحدَّث منذ ${input.staleProjectsDays} يوماً`,
+      description: "راجع المشاريع الراكدة وأرشف أو أغلق المنتهية.",
+      sourceScreen: screen,
+      sourceRoute: "/projects",
+    });
+  }
+  if ((input.largeProjectItems ?? 0) >= 2000) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: "مشروع ضخم جداً قد يبطئ الشاشات",
+      description: "استخدم الفلاتر وترقيم الصفحات، وفكّر بتقسيم المشروع.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
+/** Static help / keyboard-shortcut tips. */
+export function buildHelpSuggestions(): Draft[] {
+  const screen = "help";
+  return [
+    {
+      category: "workflow",
+      severity: "info",
+      title: "اختصار: Ctrl+K للبحث الشامل",
+      description: "افتح البحث الشامل من أي شاشة عبر Ctrl+K (⌘K على macOS).",
+      sourceScreen: screen,
+    },
+    {
+      category: "workflow",
+      severity: "info",
+      title: "اختصار: Ctrl+/ لمركز الاقتراحات",
+      description: "افتح مركز الاقتراحات الذكي من أي شاشة عبر Ctrl+/.",
+      sourceScreen: screen,
+      sourceRoute: "/suggestions",
+    },
+    {
+      category: "reports",
+      severity: "info",
+      title: "صدّر تقارير احترافية بنقرة",
+      description: "من شاشة التقارير يمكنك توليد PDF/Excel مع رأسية الشركة.",
+      sourceScreen: screen,
+      sourceRoute: "/reports",
+    },
+  ];
+}
