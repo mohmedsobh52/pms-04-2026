@@ -165,8 +165,10 @@ export function ProjectRiskAnalyzer({
   const handleSelect = (pid: string) => {
     setProjectId(pid);
     setProjectName(projects.find((p) => p.id === pid)?.name || "");
+    loadExisting(pid);
     runAnalysis(pid); // auto re-run on project change
   };
+
 
   const toggle = (i: number) => {
     setSelected((s) => {
