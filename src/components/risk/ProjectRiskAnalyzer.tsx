@@ -545,20 +545,34 @@ export function ProjectRiskAnalyzer({
             </SelectContent>
           </Select>
           {projectId && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => runAnalysis(projectId)}
-              disabled={loading}
-            >
-              {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => runAnalysis(projectId, true)}
+                disabled={loading}
+                title="إعادة تشغيل التحليل من جديد وتجاهل المسودة المحفوظة"
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                <span className="ms-1">تحديث التحليل</span>
+              </Button>
+              {risks.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearDraft}
+                  title="مسح المسودة المحفوظة محلياً"
+                >
+                  <span className="text-xs">مسح المسودة</span>
+                </Button>
               )}
-              <span className="ms-1">تحديث التحليل</span>
-            </Button>
+            </>
           )}
+
         </div>
 
         {loading && (
