@@ -36,6 +36,10 @@ import {
   Bookmark,
   BookmarkPlus,
   BarChart3,
+  Copy,
+  ShieldCheck,
+  AlertTriangle,
+  Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { RiskDetailsDialog, type EditableRisk } from "./RiskDetailsDialog";
@@ -51,6 +55,13 @@ const scoreTone = (s: number) =>
 
 const severityOf = (s: number): "high" | "med" | "low" =>
   s >= 15 ? "high" : s >= 8 ? "med" : "low";
+
+const escapeHtml = (s: string) =>
+  String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 
 type Preset = {
   name: string;
@@ -95,6 +106,26 @@ export function ProjectRiskAnalyzer({
 
   // details dialog
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
+
+  // duplicate detection: existing saved risk titles for the selected project
+  const [existingTitles, setExistingTitles] = useState<Set<string>>(new Set());
+  const [skipDuplicates, setSkipDuplicates] = useState(true);
+
+  const normalize = (s: string) =>
+    (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+
+  const loadExisting = async (pid: string) => {
+    if (!user || !pid) return;
+    const { data } = await supabase
+      .from("risks")
+      .select("title")
+      .eq("user_id", user.id)
+      .eq("project_id", pid);
+    setExistingTitles(
+      new Set(((data ?? []) as any[]).map((r) => normalize(r.title))),
+    );
+  };
+
 
   useEffect(() => {
     if (!user) return;
@@ -141,8 +172,10 @@ export function ProjectRiskAnalyzer({
   const handleSelect = (pid: string) => {
     setProjectId(pid);
     setProjectName(projects.find((p) => p.id === pid)?.name || "");
+    loadExisting(pid);
     runAnalysis(pid); // auto re-run on project change
   };
+
 
   const toggle = (i: number) => {
     setSelected((s) => {
@@ -168,40 +201,105 @@ export function ProjectRiskAnalyzer({
     );
   };
 
+  const bulkSetReview = (status: AiRisk["review_status"]) => {
+    if (selected.size === 0) return;
+    setRisks((rs) =>
+      rs.map((r, i) => (selected.has(i) ? { ...r, review_status: status } : r)),
+    );
+    toast.success(`تم تحديث ${selected.size} مخاطرة`);
+  };
+
+  const isDuplicate = (r: AiRisk) => existingTitles.has(normalize(r.risk_title));
+
   const saveSelected = async () => {
     if (!user || !projectId || selected.size === 0) return;
     setSaving(true);
-    const rows = Array.from(selected).map((i) => {
-      const r = risks[i];
-      return {
-        user_id: user.id,
-        project_id: projectId,
-        risk_title: r.risk_title,
-        risk_description: r.risk_description,
-        category: r.category,
-        probability_score: r.probability_score,
-        impact_score: r.impact_score,
-        risk_score: r.risk_score,
-        probability:
-          r.probability_score >= 4 ? "high" : r.probability_score <= 2 ? "low" : "medium",
-        impact: r.impact_score >= 4 ? "high" : r.impact_score <= 2 ? "low" : "medium",
-        mitigation_strategy: r.mitigation_strategy,
-        contingency_plan: r.contingency_plan,
-        risk_owner: r.risk_owner,
-        status: "identified",
-      };
-    });
+    const chosen = Array.from(selected).map((i) => risks[i]);
+    const toInsert = skipDuplicates ? chosen.filter((r) => !isDuplicate(r)) : chosen;
+    const skipped = chosen.length - toInsert.length;
+    if (toInsert.length === 0) {
+      setSaving(false);
+      toast.info("جميع المخاطر المحددة موجودة مسبقاً — تم التخطي");
+      return;
+    }
+    const rows = toInsert.map((r) => ({
+      user_id: user.id,
+      project_id: projectId,
+      risk_title: r.risk_title,
+      risk_description: r.risk_description,
+      category: r.category,
+      probability_score: r.probability_score,
+      impact_score: r.impact_score,
+      risk_score: r.risk_score,
+      probability:
+        r.probability_score >= 4 ? "high" : r.probability_score <= 2 ? "low" : "medium",
+      impact: r.impact_score >= 4 ? "high" : r.impact_score <= 2 ? "low" : "medium",
+      mitigation_strategy: r.mitigation_strategy,
+      contingency_plan: r.contingency_plan,
+      risk_owner: r.risk_owner,
+      status: "identified",
+    }));
     const { error } = await supabase.from("risks").insert(rows);
     setSaving(false);
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success(`تم حفظ ${rows.length} مخاطرة في سجل المخاطر`);
+    toast.success(
+      skipped > 0
+        ? `تم حفظ ${rows.length} مخاطرة (تم تخطي ${skipped} مكررة)`
+        : `تم حفظ ${rows.length} مخاطرة في سجل المخاطر`,
+    );
+    // Refresh existing titles so newly saved rows are treated as duplicates
+    await loadExisting(projectId);
     setRisks([]);
     setSelected(new Set());
     onSaved?.();
   };
+
+  const printReport = () => {
+    if (!risks.length) return;
+    const rowsHtml = filteredIdx
+      .map(({ r }) => {
+        const tone =
+          r.risk_score >= 15
+            ? "background:#fee2e2;color:#b91c1c"
+            : r.risk_score >= 8
+              ? "background:#fef3c7;color:#b45309"
+              : "background:#dcfce7;color:#166534";
+        return `<tr>
+          <td>${escapeHtml(r.risk_title)}</td>
+          <td>${escapeHtml(r.category)}</td>
+          <td style="text-align:center">${r.probability_score}×${r.impact_score}</td>
+          <td style="text-align:center;font-weight:bold;${tone}">${r.risk_score}</td>
+          <td>${escapeHtml(r.mitigation_strategy)}</td>
+          <td>${escapeHtml(r.contingency_plan || "")}</td>
+        </tr>`;
+      })
+      .join("");
+    const html = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"/>
+      <title>تقرير المخاطر - ${escapeHtml(projectName)}</title>
+      <style>
+        body{font-family:Tajawal,Arial,sans-serif;padding:24px;color:#111}
+        h1{font-size:18px;margin:0 0 8px}
+        .meta{font-size:12px;color:#555;margin-bottom:16px}
+        table{width:100%;border-collapse:collapse;font-size:12px}
+        th,td{border:1px solid #ddd;padding:6px;text-align:right;vertical-align:top}
+        th{background:#f5f5f5}
+      </style></head><body>
+      <h1>تقرير تحليل المخاطر - ${escapeHtml(projectName)}</h1>
+      <div class="meta">تم التوليد بواسطة الذكاء الاصطناعي • ${new Date().toLocaleString("ar")} • ${filteredIdx.length} مخاطرة</div>
+      <table><thead><tr>
+        <th>المخاطرة</th><th>الفئة</th><th>P×I</th><th>الخطورة</th><th>خطة التخفيف</th><th>خطة الطوارئ</th>
+      </tr></thead><tbody>${rowsHtml}</tbody></table>
+      <script>window.onload=()=>window.print()</script>
+      </body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+  };
+
 
   const summary = useMemo(() => {
     if (!risks.length) return null;
@@ -606,7 +704,52 @@ export function ProjectRiskAnalyzer({
                 <Download className="w-3.5 h-3.5" />
                 <span className="ms-1 text-xs">CSV</span>
               </Button>
+              <Button variant="outline" size="sm" onClick={printReport} className="h-8">
+                <Printer className="w-3.5 h-3.5" />
+                <span className="ms-1 text-xs">طباعة</span>
+              </Button>
             </div>
+
+            {/* Bulk actions bar */}
+            {selected.size > 0 && (
+              <div className="flex flex-wrap items-center gap-2 p-2 rounded-md bg-primary/5 border border-primary/20 text-xs">
+                <span className="font-semibold">إجراءات جماعية ({selected.size}):</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7"
+                  onClick={() => bulkSetReview("reviewed")}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span className="ms-1">تمت المراجعة</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7"
+                  onClick={() => bulkSetReview("needs_review")}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span className="ms-1">مطلوب مراجعة</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7"
+                  onClick={() => setSelected(new Set())}
+                >
+                  إلغاء التحديد
+                </Button>
+                <label className="ms-auto inline-flex items-center gap-1.5 cursor-pointer">
+                  <Checkbox
+                    checked={skipDuplicates}
+                    onCheckedChange={(v) => setSkipDuplicates(!!v)}
+                  />
+                  <span>تخطي المكررة عند الحفظ</span>
+                </label>
+              </div>
+            )}
+
 
             {/* Table */}
             <div className="border rounded-md overflow-hidden max-h-[420px] overflow-y-auto">
@@ -651,13 +794,25 @@ export function ProjectRiskAnalyzer({
                           />
                         </TableCell>
                         <TableCell className="max-w-md">
-                          <button
-                            type="button"
-                            className="text-xs font-medium text-right hover:underline"
-                            onClick={() => setEditingIdx(i)}
-                          >
-                            {r.risk_title}
-                          </button>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <button
+                              type="button"
+                              className="text-xs font-medium text-right hover:underline"
+                              onClick={() => setEditingIdx(i)}
+                            >
+                              {r.risk_title}
+                            </button>
+                            {isDuplicate(r) && (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] gap-1 text-amber-700 border-amber-500/40 bg-amber-500/10"
+                                title="موجودة مسبقاً في سجل المخاطر"
+                              >
+                                <Copy className="w-2.5 h-2.5" /> مكررة
+                              </Badge>
+                            )}
+                          </div>
+
                           <div className="text-[10px] text-muted-foreground line-clamp-2">
                             {r.risk_description}
                           </div>
