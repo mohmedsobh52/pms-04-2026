@@ -194,40 +194,105 @@ export function ProjectRiskAnalyzer({
     );
   };
 
+  const bulkSetReview = (status: AiRisk["review_status"]) => {
+    if (selected.size === 0) return;
+    setRisks((rs) =>
+      rs.map((r, i) => (selected.has(i) ? { ...r, review_status: status } : r)),
+    );
+    toast.success(`تم تحديث ${selected.size} مخاطرة`);
+  };
+
+  const isDuplicate = (r: AiRisk) => existingTitles.has(normalize(r.risk_title));
+
   const saveSelected = async () => {
     if (!user || !projectId || selected.size === 0) return;
     setSaving(true);
-    const rows = Array.from(selected).map((i) => {
-      const r = risks[i];
-      return {
-        user_id: user.id,
-        project_id: projectId,
-        risk_title: r.risk_title,
-        risk_description: r.risk_description,
-        category: r.category,
-        probability_score: r.probability_score,
-        impact_score: r.impact_score,
-        risk_score: r.risk_score,
-        probability:
-          r.probability_score >= 4 ? "high" : r.probability_score <= 2 ? "low" : "medium",
-        impact: r.impact_score >= 4 ? "high" : r.impact_score <= 2 ? "low" : "medium",
-        mitigation_strategy: r.mitigation_strategy,
-        contingency_plan: r.contingency_plan,
-        risk_owner: r.risk_owner,
-        status: "identified",
-      };
-    });
+    const chosen = Array.from(selected).map((i) => risks[i]);
+    const toInsert = skipDuplicates ? chosen.filter((r) => !isDuplicate(r)) : chosen;
+    const skipped = chosen.length - toInsert.length;
+    if (toInsert.length === 0) {
+      setSaving(false);
+      toast.info("جميع المخاطر المحددة موجودة مسبقاً — تم التخطي");
+      return;
+    }
+    const rows = toInsert.map((r) => ({
+      user_id: user.id,
+      project_id: projectId,
+      risk_title: r.risk_title,
+      risk_description: r.risk_description,
+      category: r.category,
+      probability_score: r.probability_score,
+      impact_score: r.impact_score,
+      risk_score: r.risk_score,
+      probability:
+        r.probability_score >= 4 ? "high" : r.probability_score <= 2 ? "low" : "medium",
+      impact: r.impact_score >= 4 ? "high" : r.impact_score <= 2 ? "low" : "medium",
+      mitigation_strategy: r.mitigation_strategy,
+      contingency_plan: r.contingency_plan,
+      risk_owner: r.risk_owner,
+      status: "identified",
+    }));
     const { error } = await supabase.from("risks").insert(rows);
     setSaving(false);
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success(`تم حفظ ${rows.length} مخاطرة في سجل المخاطر`);
+    toast.success(
+      skipped > 0
+        ? `تم حفظ ${rows.length} مخاطرة (تم تخطي ${skipped} مكررة)`
+        : `تم حفظ ${rows.length} مخاطرة في سجل المخاطر`,
+    );
+    // Refresh existing titles so newly saved rows are treated as duplicates
+    await loadExisting(projectId);
     setRisks([]);
     setSelected(new Set());
     onSaved?.();
   };
+
+  const printReport = () => {
+    if (!risks.length) return;
+    const rowsHtml = filteredIdx
+      .map(({ r }) => {
+        const tone =
+          r.risk_score >= 15
+            ? "background:#fee2e2;color:#b91c1c"
+            : r.risk_score >= 8
+              ? "background:#fef3c7;color:#b45309"
+              : "background:#dcfce7;color:#166534";
+        return `<tr>
+          <td>${escapeHtml(r.risk_title)}</td>
+          <td>${escapeHtml(r.category)}</td>
+          <td style="text-align:center">${r.probability_score}×${r.impact_score}</td>
+          <td style="text-align:center;font-weight:bold;${tone}">${r.risk_score}</td>
+          <td>${escapeHtml(r.mitigation_strategy)}</td>
+          <td>${escapeHtml(r.contingency_plan || "")}</td>
+        </tr>`;
+      })
+      .join("");
+    const html = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"/>
+      <title>تقرير المخاطر - ${escapeHtml(projectName)}</title>
+      <style>
+        body{font-family:Tajawal,Arial,sans-serif;padding:24px;color:#111}
+        h1{font-size:18px;margin:0 0 8px}
+        .meta{font-size:12px;color:#555;margin-bottom:16px}
+        table{width:100%;border-collapse:collapse;font-size:12px}
+        th,td{border:1px solid #ddd;padding:6px;text-align:right;vertical-align:top}
+        th{background:#f5f5f5}
+      </style></head><body>
+      <h1>تقرير تحليل المخاطر - ${escapeHtml(projectName)}</h1>
+      <div class="meta">تم التوليد بواسطة الذكاء الاصطناعي • ${new Date().toLocaleString("ar")} • ${filteredIdx.length} مخاطرة</div>
+      <table><thead><tr>
+        <th>المخاطرة</th><th>الفئة</th><th>P×I</th><th>الخطورة</th><th>خطة التخفيف</th><th>خطة الطوارئ</th>
+      </tr></thead><tbody>${rowsHtml}</tbody></table>
+      <script>window.onload=()=>window.print()</script>
+      </body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+  };
+
 
   const summary = useMemo(() => {
     if (!risks.length) return null;
