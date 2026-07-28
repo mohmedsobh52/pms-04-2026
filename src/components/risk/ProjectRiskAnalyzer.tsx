@@ -140,8 +140,36 @@ export function ProjectRiskAnalyzer({
     })();
   }, [user]);
 
-  const runAnalysis = async (pid: string) => {
+  const draftKey = (pid: string) => `ai_risk_draft_v1:${pid}`;
+
+  const persistDraft = (pid: string, list: AiRisk[]) => {
     if (!pid) return;
+    try {
+      if (list.length === 0) localStorage.removeItem(draftKey(pid));
+      else localStorage.setItem(draftKey(pid), JSON.stringify(list));
+    } catch {}
+  };
+
+  const loadDraft = (pid: string): AiRisk[] | null => {
+    try {
+      const raw = localStorage.getItem(draftKey(pid));
+      return raw ? (JSON.parse(raw) as AiRisk[]) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const runAnalysis = async (pid: string, force = false) => {
+    if (!pid) return;
+    if (!force) {
+      const draft = loadDraft(pid);
+      if (draft && draft.length > 0) {
+        setRisks(draft);
+        setSelected(new Set(draft.map((_, i) => i)));
+        toast.info(`تم استرجاع مسودة محفوظة (${draft.length} مخاطرة)`);
+        return;
+      }
+    }
     setLoading(true);
     setRisks([]);
     setSelected(new Set());
@@ -161,6 +189,7 @@ export function ProjectRiskAnalyzer({
       }));
       setRisks(out);
       setSelected(new Set(out.map((_, i) => i)));
+      persistDraft(pid, out);
       toast.success(`تم توليد ${out.length} مخاطرة بواسطة الذكاء الاصطناعي`);
     } catch (e: any) {
       toast.error(e?.message || "فشل تحليل المخاطر");
@@ -168,6 +197,20 @@ export function ProjectRiskAnalyzer({
       setLoading(false);
     }
   };
+
+  // Auto-persist edits
+  useEffect(() => {
+    if (projectId && risks.length > 0) persistDraft(projectId, risks);
+  }, [risks, projectId]);
+
+  const clearDraft = () => {
+    if (!projectId) return;
+    persistDraft(projectId, []);
+    setRisks([]);
+    setSelected(new Set());
+    toast.success("تم حذف المسودة");
+  };
+
 
   const handleSelect = (pid: string) => {
     setProjectId(pid);
@@ -252,6 +295,7 @@ export function ProjectRiskAnalyzer({
     );
     // Refresh existing titles so newly saved rows are treated as duplicates
     await loadExisting(projectId);
+    persistDraft(projectId, []);
     setRisks([]);
     setSelected(new Set());
     onSaved?.();
@@ -501,20 +545,34 @@ export function ProjectRiskAnalyzer({
             </SelectContent>
           </Select>
           {projectId && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => runAnalysis(projectId)}
-              disabled={loading}
-            >
-              {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => runAnalysis(projectId, true)}
+                disabled={loading}
+                title="إعادة تشغيل التحليل من جديد وتجاهل المسودة المحفوظة"
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                <span className="ms-1">تحديث التحليل</span>
+              </Button>
+              {risks.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearDraft}
+                  title="مسح المسودة المحفوظة محلياً"
+                >
+                  <span className="text-xs">مسح المسودة</span>
+                </Button>
               )}
-              <span className="ms-1">تحديث التحليل</span>
-            </Button>
+            </>
           )}
+
         </div>
 
         {loading && (
