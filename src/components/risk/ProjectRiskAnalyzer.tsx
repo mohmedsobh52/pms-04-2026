@@ -295,6 +295,7 @@ export function ProjectRiskAnalyzer({
     );
     // Refresh existing titles so newly saved rows are treated as duplicates
     await loadExisting(projectId);
+    persistDraft(projectId, []);
     setRisks([]);
     setSelected(new Set());
     onSaved?.();
