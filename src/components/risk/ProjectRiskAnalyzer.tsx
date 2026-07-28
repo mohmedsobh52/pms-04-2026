@@ -100,6 +100,26 @@ export function ProjectRiskAnalyzer({
   // details dialog
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
 
+  // duplicate detection: existing saved risk titles for the selected project
+  const [existingTitles, setExistingTitles] = useState<Set<string>>(new Set());
+  const [skipDuplicates, setSkipDuplicates] = useState(true);
+
+  const normalize = (s: string) =>
+    (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+
+  const loadExisting = async (pid: string) => {
+    if (!user || !pid) return;
+    const { data } = await supabase
+      .from("risks")
+      .select("title")
+      .eq("user_id", user.id)
+      .eq("project_id", pid);
+    setExistingTitles(
+      new Set(((data ?? []) as any[]).map((r) => normalize(r.title))),
+    );
+  };
+
+
   useEffect(() => {
     if (!user) return;
     (async () => {
