@@ -7,6 +7,10 @@ import {
   buildBackupsSuggestions,
   buildIntegrationsSuggestions,
   buildTeamSuggestions,
+  buildSecuritySuggestions,
+  buildOnboardingSuggestions,
+  buildPerformanceSuggestions,
+  buildHelpSuggestions,
 } from "@/lib/suggestion-generators";
 
 /**
