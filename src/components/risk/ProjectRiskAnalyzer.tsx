@@ -36,6 +36,10 @@ import {
   Bookmark,
   BookmarkPlus,
   BarChart3,
+  Copy,
+  ShieldCheck,
+  AlertTriangle,
+  Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { RiskDetailsDialog, type EditableRisk } from "./RiskDetailsDialog";
