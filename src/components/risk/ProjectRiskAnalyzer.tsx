@@ -794,13 +794,25 @@ export function ProjectRiskAnalyzer({
                           />
                         </TableCell>
                         <TableCell className="max-w-md">
-                          <button
-                            type="button"
-                            className="text-xs font-medium text-right hover:underline"
-                            onClick={() => setEditingIdx(i)}
-                          >
-                            {r.risk_title}
-                          </button>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <button
+                              type="button"
+                              className="text-xs font-medium text-right hover:underline"
+                              onClick={() => setEditingIdx(i)}
+                            >
+                              {r.risk_title}
+                            </button>
+                            {isDuplicate(r) && (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] gap-1 text-amber-700 border-amber-500/40 bg-amber-500/10"
+                                title="موجودة مسبقاً في سجل المخاطر"
+                              >
+                                <Copy className="w-2.5 h-2.5" /> مكررة
+                              </Badge>
+                            )}
+                          </div>
+
                           <div className="text-[10px] text-muted-foreground line-clamp-2">
                             {r.risk_description}
                           </div>
