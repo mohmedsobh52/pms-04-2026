@@ -11,6 +11,11 @@ import {
   buildOnboardingSuggestions,
   buildPerformanceSuggestions,
   buildHelpSuggestions,
+  buildAccessibilitySuggestions,
+  buildComplianceSuggestions,
+  buildAiUsageSuggestions,
+  buildMobileExperienceSuggestions,
+  buildNavigationSuggestions,
 } from "@/lib/suggestion-generators";
 
 /**
