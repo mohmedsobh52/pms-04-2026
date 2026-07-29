@@ -2192,3 +2192,183 @@ export function buildHelpSuggestions(): Draft[] {
     },
   ];
 }
+
+/** Accessibility posture. */
+export function buildAccessibilitySuggestions(input: {
+  prefersReducedMotion?: boolean;
+  highContrast?: boolean;
+  fontScale?: number; // 1 = default
+}): Draft[] {
+  const screen = "accessibility";
+  const out: Draft[] = [];
+  if (!input.prefersReducedMotion) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "فعّل «تقليل الحركة» لتجربة أهدأ",
+      description: "يمكنك تقليل التأثيرات الحركية من إعدادات المتصفح/النظام لتحسين الأداء والراحة البصرية.",
+      sourceScreen: screen,
+      sourceRoute: "/settings",
+    });
+  }
+  if (!input.highContrast) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "جرّب وضع التباين العالي",
+      description: "يُحسّن القراءة في الإضاءة القوية ويزيد وضوح النصوص والحدود.",
+      sourceScreen: screen,
+      sourceRoute: "/settings",
+    });
+  }
+  if (!input.fontScale || input.fontScale < 1) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "كبّر حجم الخط عند الحاجة",
+      description: "استخدم Ctrl + (+) لتكبير الخط أو اضبط حجم العرض من إعدادات المتصفح.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
+/** Compliance & data privacy checks. */
+export function buildComplianceSuggestions(input: {
+  hasPrivacyPolicyAck?: boolean;
+  hasDataRetentionPolicy?: boolean;
+  exportedRecentlyDaysAgo?: number | null;
+}): Draft[] {
+  const screen = "compliance";
+  const out: Draft[] = [];
+  if (!input.hasPrivacyPolicyAck) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: "راجع سياسة الخصوصية وشروط الاستخدام",
+      description: "يوصى بالإقرار بالسياسات لضمان الامتثال قبل مشاركة البيانات مع فرق خارجية.",
+      sourceScreen: screen,
+      sourceRoute: "/settings",
+    });
+  }
+  if (!input.hasDataRetentionPolicy) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "حدّد سياسة الاحتفاظ بالبيانات",
+      description: "تحديد مدة الاحتفاظ (مثلاً 12 شهراً) يساعد على التنظيم والامتثال.",
+      sourceScreen: screen,
+      sourceRoute: "/settings",
+    });
+  }
+  if (input.exportedRecentlyDaysAgo == null || input.exportedRecentlyDaysAgo > 90) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: "أنشئ تصدير كامل للبيانات",
+      description: "احتفظ بنسخة تصدير رسمية دورية (كل 90 يوم) لأغراض التدقيق.",
+      sourceScreen: screen,
+      sourceRoute: "/reports",
+    });
+  }
+  return out;
+}
+
+/** AI usage & credits hygiene. */
+export function buildAiUsageSuggestions(input: {
+  aiCallsLast7d?: number;
+  failedAiCalls?: number;
+  hasCustomModel?: boolean;
+}): Draft[] {
+  const screen = "ai-usage";
+  const out: Draft[] = [];
+  if ((input.failedAiCalls ?? 0) > 3) {
+    out.push({
+      category: "ai-pricing",
+      severity: "warning",
+      title: `${input.failedAiCalls} استدعاءات ذكاء اصطناعي فشلت مؤخراً`,
+      description: "راجع سجل الأخطاء أو غيّر النموذج الافتراضي لتجنّب استهلاك بلا نتيجة.",
+      sourceScreen: screen,
+      sourceRoute: "/settings",
+    });
+  }
+  if ((input.aiCallsLast7d ?? 0) === 0) {
+    out.push({
+      category: "ai-pricing",
+      severity: "info",
+      title: "جرّب مساعد التسعير الذكي",
+      description: "يمكنك تسعير البنود تلقائياً وتحليل المخاطر بضغطة واحدة.",
+      sourceScreen: screen,
+      sourceRoute: "/pricing-accuracy",
+    });
+  }
+  if (!input.hasCustomModel) {
+    out.push({
+      category: "ai-pricing",
+      severity: "info",
+      title: "اختر النموذج الأنسب لعملك",
+      description: "من الإعدادات يمكنك اختيار نموذج أسرع أو أدق حسب الحاجة.",
+      sourceScreen: screen,
+      sourceRoute: "/settings",
+    });
+  }
+  return out;
+}
+
+/** Mobile experience hints. */
+export function buildMobileExperienceSuggestions(input: {
+  isMobile?: boolean;
+  installedPwa?: boolean;
+}): Draft[] {
+  const screen = "mobile";
+  const out: Draft[] = [];
+  if (input.isMobile && !input.installedPwa) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "ثبّت التطبيق على شاشتك الرئيسية",
+      description: "استخدم «إضافة إلى الشاشة الرئيسية» من المتصفح للوصول السريع دون فتح المتصفح.",
+      sourceScreen: screen,
+    });
+  }
+  if (input.isMobile) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "استخدم الوضع الأفقي للجداول الكبيرة",
+      description: "قلب الجهاز أفقياً يعرض المزيد من الأعمدة في جداول البنود والتقارير.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
+/** Search & navigation discovery. */
+export function buildNavigationSuggestions(input: {
+  hasUsedGlobalSearch?: boolean;
+  hasPinnedProjects?: boolean;
+}): Draft[] {
+  const screen = "navigation";
+  const out: Draft[] = [];
+  if (!input.hasUsedGlobalSearch) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "جرّب البحث الشامل Ctrl+K",
+      description: "ابحث في المشاريع والبنود والتقارير من أي شاشة بسرعة.",
+      sourceScreen: screen,
+    });
+  }
+  if (!input.hasPinnedProjects) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "ثبّت مشاريعك المتكررة",
+      description: "من قائمة المشاريع يمكنك تثبيت المشاريع الأكثر استخداماً للوصول الفوري.",
+      sourceScreen: screen,
+      sourceRoute: "/saved-projects",
+    });
+  }
+  return out;
+}
+
