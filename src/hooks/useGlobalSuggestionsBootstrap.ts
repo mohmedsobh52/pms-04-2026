@@ -193,6 +193,95 @@ export function useGlobalSuggestionsBootstrap() {
 
       // Help & shortcuts (static, always relevant)
       replaceBySource("help", buildHelpSuggestions());
+
+      // Accessibility hints from browser/system prefs
+      const prefersReducedMotion =
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      const highContrast =
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(prefers-contrast: more)").matches;
+      replaceBySource(
+        "accessibility",
+        buildAccessibilitySuggestions({
+          prefersReducedMotion,
+          highContrast,
+          fontScale: 1,
+        }),
+      );
+
+      // Compliance & data privacy
+      const hasPrivacyPolicyAck =
+        typeof window !== "undefined" &&
+        localStorage.getItem("privacy-policy-ack") === "true";
+      const hasDataRetentionPolicy =
+        typeof window !== "undefined" &&
+        !!localStorage.getItem("data-retention-days");
+      const lastExportAt =
+        typeof window !== "undefined"
+          ? localStorage.getItem("last-full-export-at")
+          : null;
+      const exportedRecentlyDaysAgo = lastExportAt
+        ? Math.round((Date.now() - new Date(lastExportAt).getTime()) / 86400_000)
+        : null;
+      replaceBySource(
+        "compliance",
+        buildComplianceSuggestions({
+          hasPrivacyPolicyAck,
+          hasDataRetentionPolicy,
+          exportedRecentlyDaysAgo,
+        }),
+      );
+
+      // AI usage hygiene
+      const aiCallsLast7d = Number(
+        (typeof window !== "undefined" &&
+          localStorage.getItem("ai-calls-last-7d")) ||
+          0,
+      );
+      const failedAiCalls = Number(
+        (typeof window !== "undefined" &&
+          localStorage.getItem("ai-failed-calls")) ||
+          0,
+      );
+      const hasCustomModel =
+        typeof window !== "undefined" &&
+        !!localStorage.getItem("selected-ai-model");
+      replaceBySource(
+        "ai-usage",
+        buildAiUsageSuggestions({
+          aiCallsLast7d,
+          failedAiCalls,
+          hasCustomModel,
+        }),
+      );
+
+      // Mobile experience
+      const isMobile =
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(max-width: 768px)").matches;
+      const installedPwa =
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(display-mode: standalone)").matches;
+      replaceBySource(
+        "mobile",
+        buildMobileExperienceSuggestions({ isMobile, installedPwa }),
+      );
+
+      // Navigation discovery
+      const hasUsedGlobalSearch =
+        typeof window !== "undefined" &&
+        localStorage.getItem("global-search-used") === "true";
+      const hasPinnedProjects =
+        typeof window !== "undefined" &&
+        !!localStorage.getItem("pinned-projects");
+      replaceBySource(
+        "navigation",
+        buildNavigationSuggestions({
+          hasUsedGlobalSearch,
+          hasPinnedProjects,
+        }),
+      );
     })().catch(() => {
       /* silent — bootstrap is best-effort */
     });
