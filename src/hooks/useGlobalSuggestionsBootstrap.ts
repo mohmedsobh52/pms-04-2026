@@ -16,6 +16,7 @@ import {
   buildAiUsageSuggestions,
   buildMobileExperienceSuggestions,
   buildNavigationSuggestions,
+  buildModuleDiscoverySuggestions,
 } from "@/lib/suggestion-generators";
 
 /**
@@ -275,6 +276,20 @@ export function useGlobalSuggestionsBootstrap() {
       const hasPinnedProjects =
         typeof window !== "undefined" &&
         !!localStorage.getItem("pinned-projects");
+      // Module discovery (routes never visited yet)
+      let visitedRoutes: string[] = [];
+      try {
+        visitedRoutes = JSON.parse(
+          localStorage.getItem("visited-routes") || "[]",
+        );
+      } catch {
+        visitedRoutes = [];
+      }
+      replaceBySource(
+        "modules",
+        buildModuleDiscoverySuggestions({ visitedRoutes }),
+      );
+
       replaceBySource(
         "navigation",
         buildNavigationSuggestions({
