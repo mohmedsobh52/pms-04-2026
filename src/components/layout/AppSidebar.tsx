@@ -140,6 +140,8 @@ const adminGroup: NavGroup = {
     { titleEn: "Company",         titleAr: "إعدادات الشركة", url: "/company-settings", icon: Building2, roles: ["admin"] },
     { titleEn: "Settings",        titleAr: "الإعدادات",       url: "/settings",         icon: Settings },
     { titleEn: "Versions",        titleAr: "الإصدارات",       url: "/admin/versions",   icon: Layers,    roles: ["admin"] },
+    { titleEn: "Changelog",       titleAr: "سجل التغييرات",   url: "/changelog",        icon: ScrollText },
+    { titleEn: "About",           titleAr: "عن البرنامج",     url: "/about",            icon: BookOpen },
   ],
 };
 
