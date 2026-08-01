@@ -2372,3 +2372,64 @@ export function buildNavigationSuggestions(input: {
   return out;
 }
 
+
+/** Module discovery: nudge users toward sections they have never opened. */
+export function buildModuleDiscoverySuggestions(input: {
+  visitedRoutes?: string[];
+}): Draft[] {
+  const screen = "modules";
+  const visited = new Set(input.visitedRoutes ?? []);
+  const modules: { route: string; title: string; description: string }[] = [
+    {
+      route: "/cost-analysis",
+      title: "استكشف شاشة تحليل تكاليف البنود",
+      description: "تحليل ذكي للتكاليف مع كشف الشذوذ ومقارنة السيناريوهات والتقارير.",
+    },
+    {
+      route: "/executive-summary",
+      title: "اطّلع على الملخص التنفيذي",
+      description: "لوحة واحدة تجمع مؤشرات الأداء المالي والزمني لكل المشاريع.",
+    },
+    {
+      route: "/technical-proposal",
+      title: "جرّب مولّد العرض الفني",
+      description: "أنشئ عرضاً فنياً احترافياً من بيانات المشروع مباشرة.",
+    },
+    {
+      route: "/p6-export",
+      title: "صدّر جدولك إلى Primavera P6",
+      description: "تصدير XER/XML للتكامل مع برامج الجدولة الاحترافية.",
+    },
+    {
+      route: "/pricing-accuracy",
+      title: "قِس دقة التسعير",
+      description: "قارن الأسعار المقدّرة بالتكاليف الفعلية لتحسين التسعير القادم.",
+    },
+    {
+      route: "/historical-pricing",
+      title: "استفد من الأسعار التاريخية",
+      description: "ارفع مشاريعك السابقة لتغذية اقتراحات التسعير بالذكاء الاصطناعي.",
+    },
+    {
+      route: "/templates",
+      title: "وفّر وقتك بالقوالب",
+      description: "أنشئ قوالب BOQ وتقارير جاهزة لإعادة الاستخدام في المشاريع الجديدة.",
+    },
+    {
+      route: "/resources-dashboard",
+      title: "راقب تحميل الموارد",
+      description: "لوحة الموارد تكشف الذروات والتعارضات وتقترح تسوية الأحمال.",
+    },
+  ];
+  return modules
+    .filter((m) => !visited.has(m.route))
+    .slice(0, 5)
+    .map((m) => ({
+      category: "workflow" as const,
+      severity: "info" as const,
+      title: m.title,
+      description: m.description,
+      sourceScreen: screen,
+      sourceRoute: m.route,
+    }));
+}

@@ -44,10 +44,30 @@ const systemGroups: NavGroup[] = [
       { titleEn: "Reports",           titleAr: "التقارير",         url: "/projects?tab=reports", icon: FileBarChart },
       { titleEn: "Executive Summary", titleAr: "الملخص التنفيذي",  url: "/executive-summary",    icon: Sparkles },
       { titleEn: "Compare Projects",  titleAr: "مقارنة المشاريع",  url: "/projects/compare",     icon: GitCompare },
+      { titleEn: "Compare Versions",  titleAr: "مقارنة الإصدارات", url: "/compare-versions",     icon: GitCompare },
+      { titleEn: "Suggestions",       titleAr: "مركز الاقتراحات",  url: "/suggestions",          icon: Sparkles },
       { titleEn: "Library",           titleAr: "المكتبة",          url: "/library",              icon: BookOpen },
     ],
   },
+  {
+    labelEn: "Tools & Data", labelAr: "الأدوات والبيانات",
+    items: [
+      { titleEn: "Cost Analysis",      titleAr: "تحليل التكاليف",   url: "/cost-analysis",      icon: Gauge },
+      { titleEn: "Analysis Tools",     titleAr: "أدوات التحليل",    url: "/analysis-tools",     icon: Sparkles },
+      { titleEn: "Templates",          titleAr: "القوالب",          url: "/templates",          icon: FileText },
+      { titleEn: "Historical Pricing", titleAr: "الأسعار التاريخية", url: "/historical-pricing", icon: ScrollText },
+      { titleEn: "Material Prices",    titleAr: "أسعار المواد",     url: "/material-prices",    icon: Package },
+      { titleEn: "Resources Hub",      titleAr: "لوحة الموارد",     url: "/resources-dashboard", icon: Boxes },
+      { titleEn: "Calendar",           titleAr: "التقويم",          url: "/calendar",           icon: Calendar },
+      { titleEn: "P6 Export",          titleAr: "تصدير P6",         url: "/p6-export",          icon: Truck },
+      { titleEn: "Technical Proposal", titleAr: "العرض الفني",      url: "/technical-proposal", icon: FileSignature },
+      { titleEn: "Cost Control Report", titleAr: "تقرير متابعة التكلفة", url: "/cost-control-report", icon: FileBarChart },
+    ],
+  },
 ];
+
+
+
 
 /* ------------------------------------------------------------------ */
 /* PROJECT-LEVEL NAVIGATION (visible only when inside a project)       */
@@ -67,6 +87,8 @@ const projectGroups: NavGroup[] = [
       { titleEn: "BOQ Items", titleAr: "بنود BOQ", url: "/items",         icon: ListChecks, projectScoped: true },
       { titleEn: "Pricing",   titleAr: "التسعير",  url: "__PROJECT_BASE__/pricing", icon: DollarSign },
       { titleEn: "Drawings",  titleAr: "المخططات", url: "__PROJECT_BASE__?tab=attachments", icon: Layers },
+      { titleEn: "Cost Analysis", titleAr: "تحليل تكاليف البنود", url: "/cost-analysis", icon: Gauge, projectScoped: true },
+      { titleEn: "Quantity Extraction", titleAr: "حصر الكميات", url: "__PROJECT_BASE__?tab=attachments&mode=extraction", icon: Search },
     ],
   },
   {
@@ -75,6 +97,7 @@ const projectGroups: NavGroup[] = [
       { titleEn: "Cost Control",   titleAr: "متابعة التكلفة", url: "__PROJECT_BASE__/cost-control", icon: Gauge },
       { titleEn: "EVM",            titleAr: "EVM",            url: "/cost-control-evm",              icon: FileBarChart, projectScoped: true },
       { titleEn: "Certificates",   titleAr: "المستخلصات",     url: "/progress-certificates",         icon: Award,        projectScoped: true },
+      { titleEn: "Compare Certificates", titleAr: "مقارنة المستخلصات", url: "/progress-certificates/compare", icon: GitCompare, projectScoped: true },
       { titleEn: "Pricing Accuracy", titleAr: "دقة التسعير", url: "/pricing-accuracy",              icon: Award,        projectScoped: true },
     ],
   },
@@ -117,6 +140,8 @@ const adminGroup: NavGroup = {
     { titleEn: "Company",         titleAr: "إعدادات الشركة", url: "/company-settings", icon: Building2, roles: ["admin"] },
     { titleEn: "Settings",        titleAr: "الإعدادات",       url: "/settings",         icon: Settings },
     { titleEn: "Versions",        titleAr: "الإصدارات",       url: "/admin/versions",   icon: Layers,    roles: ["admin"] },
+    { titleEn: "Changelog",       titleAr: "سجل التغييرات",   url: "/changelog",        icon: ScrollText },
+    { titleEn: "About",           titleAr: "عن البرنامج",     url: "/about",            icon: BookOpen },
   ],
 };
 
