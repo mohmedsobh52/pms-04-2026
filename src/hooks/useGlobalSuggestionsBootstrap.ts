@@ -24,8 +24,34 @@ import {
  * cross-cutting suggestions (notifications, audit, backups, integrations, team)
  * into the global hub via `replaceBySource` so they stay in sync.
  */
+function recordVisitedRoute() {
+  if (typeof window === "undefined") return;
+  try {
+    const key = "visited-routes";
+    const list: string[] = JSON.parse(localStorage.getItem(key) || "[]");
+    const path = window.location.pathname;
+    if (!list.includes(path)) {
+      list.push(path);
+      localStorage.setItem(key, JSON.stringify(list.slice(-100)));
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 export function useGlobalSuggestionsBootstrap() {
   const { replaceBySource } = useGlobalSuggestions();
+
+  useEffect(() => {
+    recordVisitedRoute();
+    const onNav = () => recordVisitedRoute();
+    window.addEventListener("popstate", onNav);
+    const id = window.setInterval(recordVisitedRoute, 5000);
+    return () => {
+      window.removeEventListener("popstate", onNav);
+      window.clearInterval(id);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
