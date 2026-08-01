@@ -64,6 +64,9 @@ const systemGroups: NavGroup[] = [
       { titleEn: "Cost Control Report", titleAr: "تقرير متابعة التكلفة", url: "/cost-control-report", icon: FileBarChart },
     ],
   },
+];
+
+
 
 
 /* ------------------------------------------------------------------ */
