@@ -44,10 +44,27 @@ const systemGroups: NavGroup[] = [
       { titleEn: "Reports",           titleAr: "التقارير",         url: "/projects?tab=reports", icon: FileBarChart },
       { titleEn: "Executive Summary", titleAr: "الملخص التنفيذي",  url: "/executive-summary",    icon: Sparkles },
       { titleEn: "Compare Projects",  titleAr: "مقارنة المشاريع",  url: "/projects/compare",     icon: GitCompare },
+      { titleEn: "Compare Versions",  titleAr: "مقارنة الإصدارات", url: "/compare-versions",     icon: GitCompare },
+      { titleEn: "Suggestions",       titleAr: "مركز الاقتراحات",  url: "/suggestions",          icon: Sparkles },
       { titleEn: "Library",           titleAr: "المكتبة",          url: "/library",              icon: BookOpen },
     ],
   },
-];
+  {
+    labelEn: "Tools & Data", labelAr: "الأدوات والبيانات",
+    items: [
+      { titleEn: "Cost Analysis",      titleAr: "تحليل التكاليف",   url: "/cost-analysis",      icon: Gauge },
+      { titleEn: "Analysis Tools",     titleAr: "أدوات التحليل",    url: "/analysis-tools",     icon: Sparkles },
+      { titleEn: "Templates",          titleAr: "القوالب",          url: "/templates",          icon: FileText },
+      { titleEn: "Historical Pricing", titleAr: "الأسعار التاريخية", url: "/historical-pricing", icon: ScrollText },
+      { titleEn: "Material Prices",    titleAr: "أسعار المواد",     url: "/material-prices",    icon: Package },
+      { titleEn: "Resources Hub",      titleAr: "لوحة الموارد",     url: "/resources-dashboard", icon: Boxes },
+      { titleEn: "Calendar",           titleAr: "التقويم",          url: "/calendar",           icon: Calendar },
+      { titleEn: "P6 Export",          titleAr: "تصدير P6",         url: "/p6-export",          icon: Truck },
+      { titleEn: "Technical Proposal", titleAr: "العرض الفني",      url: "/technical-proposal", icon: FileSignature },
+      { titleEn: "Cost Control Report", titleAr: "تقرير متابعة التكلفة", url: "/cost-control-report", icon: FileBarChart },
+    ],
+  },
+
 
 /* ------------------------------------------------------------------ */
 /* PROJECT-LEVEL NAVIGATION (visible only when inside a project)       */
