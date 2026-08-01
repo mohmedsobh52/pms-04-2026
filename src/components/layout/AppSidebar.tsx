@@ -87,6 +87,8 @@ const projectGroups: NavGroup[] = [
       { titleEn: "BOQ Items", titleAr: "بنود BOQ", url: "/items",         icon: ListChecks, projectScoped: true },
       { titleEn: "Pricing",   titleAr: "التسعير",  url: "__PROJECT_BASE__/pricing", icon: DollarSign },
       { titleEn: "Drawings",  titleAr: "المخططات", url: "__PROJECT_BASE__?tab=attachments", icon: Layers },
+      { titleEn: "Cost Analysis", titleAr: "تحليل تكاليف البنود", url: "/cost-analysis", icon: Gauge, projectScoped: true },
+      { titleEn: "Quantity Extraction", titleAr: "حصر الكميات", url: "__PROJECT_BASE__?tab=attachments&mode=extraction", icon: Search },
     ],
   },
   {
@@ -95,6 +97,7 @@ const projectGroups: NavGroup[] = [
       { titleEn: "Cost Control",   titleAr: "متابعة التكلفة", url: "__PROJECT_BASE__/cost-control", icon: Gauge },
       { titleEn: "EVM",            titleAr: "EVM",            url: "/cost-control-evm",              icon: FileBarChart, projectScoped: true },
       { titleEn: "Certificates",   titleAr: "المستخلصات",     url: "/progress-certificates",         icon: Award,        projectScoped: true },
+      { titleEn: "Compare Certificates", titleAr: "مقارنة المستخلصات", url: "/progress-certificates/compare", icon: GitCompare, projectScoped: true },
       { titleEn: "Pricing Accuracy", titleAr: "دقة التسعير", url: "/pricing-accuracy",              icon: Award,        projectScoped: true },
     ],
   },
