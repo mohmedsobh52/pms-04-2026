@@ -18,6 +18,7 @@ import { InlineErrorFallback } from "@/components/InlineErrorFallback";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { CommandPalette } from "@/components/CommandPalette";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { GlobalErrorHandler } from "@/components/GlobalErrorHandler";
 import { RequireRole } from "@/components/auth/RequireRole";
 import { Loader2 } from "lucide-react";
 
@@ -38,6 +39,8 @@ const TeamPage = lazy(() => import("./pages/TeamPage"));
 const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
 const ApprovalsInboxPage = lazy(() => import("./pages/ApprovalsInboxPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const HelpPage = lazy(() => import("./pages/HelpPage"));
 const OAuthConsentPage = lazy(() => import("./pages/OAuthConsentPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const ProcurementPage = lazy(() => import("./pages/ProcurementPage"));
@@ -117,6 +120,7 @@ const App = () => (
                   <ErrorBoundary fallback={<InlineErrorFallback message="Command palette unavailable" />}>
                     <CommandPalette />
                   </ErrorBoundary>
+                  <GlobalErrorHandler />
                   <UpdateBanner />
                   <FloatingBackButton />
                   <ErrorBoundary>
@@ -153,6 +157,8 @@ const App = () => (
                         <Route path="/approvals" element={<ApprovalsInboxPage />} />
                         <Route path="/reports" element={<Navigate to="/projects?tab=reports" replace />} />
                         <Route path="/settings" element={<SettingsPage />} />
+                        <Route path="/profile" element={<ProfilePage />} />
+                        <Route path="/help" element={<HelpPage />} />
                         <Route path="/company-settings" element={<CompanySettingsPage />} />
                         <Route path="/attachments" element={<Navigate to="/projects?tab=attachments" replace />} />
                         <Route path="/templates" element={<TemplatesPage />} />

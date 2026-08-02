@@ -139,6 +139,8 @@ const adminGroup: NavGroup = {
     { titleEn: "Notifications",   titleAr: "التنبيهات",       url: "/notifications",    icon: Inbox },
     { titleEn: "Company",         titleAr: "إعدادات الشركة", url: "/company-settings", icon: Building2, roles: ["admin"] },
     { titleEn: "Settings",        titleAr: "الإعدادات",       url: "/settings",         icon: Settings },
+    { titleEn: "Profile",         titleAr: "الملف الشخصي",    url: "/profile",          icon: Users },
+    { titleEn: "Help & Support",  titleAr: "المساعدة والدعم", url: "/help",             icon: BookOpen },
     { titleEn: "Versions",        titleAr: "الإصدارات",       url: "/admin/versions",   icon: Layers,    roles: ["admin"] },
     { titleEn: "Changelog",       titleAr: "سجل التغييرات",   url: "/changelog",        icon: ScrollText },
     { titleEn: "About",           titleAr: "عن البرنامج",     url: "/about",            icon: BookOpen },
