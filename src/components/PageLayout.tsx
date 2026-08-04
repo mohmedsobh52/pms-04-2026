@@ -31,7 +31,7 @@ export function PageLayout({ children, showBackground = false, className = "" }:
 
       <UnifiedHeader />
       
-      <main className={`flex-1 container mx-auto px-4 py-6 md:py-8 ${className}`}>
+      <main className={`flex-1 page-container py-6 md:py-8 ${className}`}>
         <NavigationBar />
         <PageTipsBox />
         

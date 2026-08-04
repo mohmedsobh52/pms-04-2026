@@ -17,6 +17,9 @@ import {
   buildMobileExperienceSuggestions,
   buildNavigationSuggestions,
   buildModuleDiscoverySuggestions,
+  buildUiConsistencySuggestions,
+  buildRuntimePerfSuggestions,
+  buildCrossModuleSuggestions,
 } from "@/lib/suggestion-generators";
 
 /**
@@ -323,6 +326,79 @@ export function useGlobalSuggestionsBootstrap() {
           hasPinnedProjects,
         }),
       );
+
+      // UI consistency (tables / theme / width)
+      replaceBySource(
+        "ui",
+        buildUiConsistencySuggestions({
+          tableDensity:
+            typeof window !== "undefined"
+              ? localStorage.getItem("table-density")
+              : null,
+          prefersDark:
+            typeof window !== "undefined" &&
+            !!window.matchMedia?.("(prefers-color-scheme: dark)").matches,
+          themeSet:
+            typeof window !== "undefined" && !!localStorage.getItem("theme"),
+          viewportWidth:
+            typeof window !== "undefined" ? window.innerWidth : undefined,
+        }),
+      );
+
+      // Runtime performance signals
+      let loadTimeMs: number | undefined;
+      try {
+        const nav = performance.getEntriesByType("navigation")[0] as
+          | PerformanceNavigationTiming
+          | undefined;
+        if (nav) loadTimeMs = nav.duration;
+      } catch {
+        /* ignore */
+      }
+      let storageBytes = 0;
+      try {
+        for (const k of Object.keys(localStorage)) {
+          storageBytes += (localStorage.getItem(k) || "").length * 2;
+        }
+      } catch {
+        /* ignore */
+      }
+      replaceBySource(
+        "runtime-perf",
+        buildRuntimePerfSuggestions({ loadTimeMs, storageBytes }),
+      );
+
+      // Cross-module data links
+      try {
+        const { data: projects } = await supabase
+          .from("saved_projects")
+          .select("id")
+          .limit(500);
+        const projectIds = ((projects ?? []) as any[]).map((p) => p.id as string);
+        if (projectIds.length) {
+          const { data: boq } = await supabase
+            .from("project_items")
+            .select("project_id, category")
+            .in("project_id", projectIds)
+            .limit(5000);
+          const withBoq = new Set((boq ?? []).map((b: any) => b.project_id));
+          const itemsWithoutCategory = (boq ?? []).filter(
+            (b: any) => !b.category,
+          ).length;
+          if (!cancelled) {
+            replaceBySource(
+              "cross-module",
+              buildCrossModuleSuggestions({
+                projectsWithoutBoq: projectIds.filter((id) => !withBoq.has(id))
+                  .length,
+                itemsWithoutCategory,
+              }),
+            );
+          }
+        }
+      } catch {
+        /* silent */
+      }
     })().catch(() => {
       /* silent — bootstrap is best-effort */
     });
