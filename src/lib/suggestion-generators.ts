@@ -2433,3 +2433,146 @@ export function buildModuleDiscoverySuggestions(input: {
       sourceRoute: m.route,
     }));
 }
+
+/** UI/UX consistency hints: table density, page width, RTL, theme. */
+export function buildUiConsistencySuggestions(input: {
+  tableDensity?: string | null;
+  prefersDark?: boolean;
+  themeSet?: boolean;
+  viewportWidth?: number;
+}): Draft[] {
+  const screen = "ui";
+  const out: Draft[] = [];
+  if (!input.tableDensity) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "اضبط كثافة الجداول المفضلة لديك",
+      description: "الجداول الآن موحّدة بخط وحجم واحد؛ يمكنك اختيار العرض المضغوط لإظهار صفوف أكثر في الشاشة.",
+      sourceScreen: screen,
+      sourceRoute: "/settings",
+    });
+  }
+  if (input.prefersDark && !input.themeSet) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "جهازك يفضّل الوضع الداكن",
+      description: "فعّل الوضع الداكن من إعدادات المظهر لتقليل إجهاد العين وتوحيد شكل الشاشات.",
+      sourceScreen: screen,
+      sourceRoute: "/settings",
+    });
+  }
+  if ((input.viewportWidth ?? 1600) < 1100) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "اطوِ القائمة الجانبية لتوسيع الجداول",
+      description: "على الشاشات الأضيق من 1100 بكسل، طي القائمة الجانبية يمنح الجدول عرضاً أكبر بدون تمرير أفقي.",
+      sourceScreen: screen,
+    });
+  }
+  return out;
+}
+
+/** Runtime performance hints based on measured navigation timing + data size. */
+export function buildRuntimePerfSuggestions(input: {
+  loadTimeMs?: number;
+  itemsRendered?: number;
+  cachedProjects?: number;
+  storageBytes?: number;
+}): Draft[] {
+  const screen = "performance";
+  const out: Draft[] = [];
+  if ((input.loadTimeMs ?? 0) > 4000) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `زمن تحميل الصفحة مرتفع (${Math.round((input.loadTimeMs ?? 0) / 100) / 10} ثانية)`,
+      description: "قلّل عدد الصفوف المعروضة دفعة واحدة أو فعّل الترقيم بدل «عرض الكل» لتسريع الشاشة.",
+      sourceScreen: screen,
+    });
+  }
+  if ((input.itemsRendered ?? 0) > 2000) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: "عدد كبير من الصفوف معروض دفعة واحدة",
+      description: "استخدم الفلاتر أو الترقيم لتقليل الصفوف المعروضة وتحسين استجابة الجدول.",
+      sourceScreen: screen,
+    });
+  }
+  if ((input.storageBytes ?? 0) > 3_000_000) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: "مساحة التخزين المحلي شبه ممتلئة",
+      description: "امسح المسودات القديمة والنسخ المحلية غير المستخدمة لتفادي فشل الحفظ التلقائي.",
+      sourceScreen: screen,
+      sourceRoute: "/settings",
+    });
+  }
+  if ((input.cachedProjects ?? 0) > 30) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "أرشف المشاريع المنتهية",
+      description: "أرشفة المشاريع القديمة تقلل زمن التحميل وتُبقي القوائم والتقارير أسرع.",
+      sourceScreen: screen,
+      sourceRoute: "/projects",
+    });
+  }
+  return out;
+}
+
+/** Data hygiene across modules — missing links between screens. */
+export function buildCrossModuleSuggestions(input: {
+  projectsWithoutBoq?: number;
+  projectsWithoutBaseline?: number;
+  boqWithoutContract?: number;
+  itemsWithoutCategory?: number;
+}): Draft[] {
+  const screen = "cross-module";
+  const out: Draft[] = [];
+  if ((input.projectsWithoutBoq ?? 0) > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.projectsWithoutBoq} مشروع بدون جدول كميات`,
+      description: "أضف بنود BOQ لتفعيل تحليل التكاليف والتقارير والمؤشرات لهذه المشاريع.",
+      sourceScreen: screen,
+      sourceRoute: "/boq-items",
+    });
+  }
+  if ((input.projectsWithoutBaseline ?? 0) > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.projectsWithoutBaseline} مشروع بدون خط أساس`,
+      description: "بدون خط أساس لا يمكن حساب SPI/CPI ولا مقارنة الأداء الفعلي بالمخطط.",
+      sourceScreen: screen,
+      sourceRoute: "/cost-control",
+    });
+  }
+  if ((input.boqWithoutContract ?? 0) > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "بنود غير مرتبطة بعقد",
+      description: "اربط بنود جدول الكميات بالعقود لتتبع المستخلصات والمدفوعات تلقائياً.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if ((input.itemsWithoutCategory ?? 0) > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.itemsWithoutCategory} بند بدون تصنيف`,
+      description: "التصنيف يحسّن دقة تحليل التكاليف ومقارنة الأسعار مع السوق.",
+      sourceScreen: screen,
+      sourceRoute: "/cost-analysis",
+    });
+  }
+  return out;
+}
