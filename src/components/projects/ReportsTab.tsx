@@ -62,13 +62,47 @@ interface ReportsTabProps {
   isArabic: boolean;
 }
 
+const TAB_KEY = "reports-tab:active";
+const FILTERS_KEY = "reports-tab:filters";
+
 export function ReportsTab({ isArabic }: ReportsTabProps) {
   const { user } = useAuth();
+  const { replaceBySource } = useGlobalSuggestions();
   const [projects, setProjects] = useState<Project[]>([]);
   const [tenderData, setTenderData] = useState<TenderPricing[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const savedFilters = (() => {
+    try { return JSON.parse(localStorage.getItem(FILTERS_KEY) || "{}"); } catch { return {}; }
+  })();
+  const [statusFilter, setStatusFilter] = useState<string>(savedFilters.statusFilter || "all");
+  const [searchQuery, setSearchQuery] = useState(savedFilters.searchQuery || "");
+  const [activeTab, setActiveTab] = useState<string>(
+    () => localStorage.getItem(TAB_KEY) || "export"
+  );
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Persist tab + filters
+  useEffect(() => { localStorage.setItem(TAB_KEY, activeTab); }, [activeTab]);
+  useEffect(() => {
+    localStorage.setItem(FILTERS_KEY, JSON.stringify({ statusFilter, searchQuery }));
+  }, [statusFilter, searchQuery]);
+
+  // Keyboard: "/" focuses search, Esc clears it
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const typing = target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName);
+      if (e.key === "/" && !typing) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      } else if (e.key === "Escape" && document.activeElement === searchRef.current) {
+        setSearchQuery("");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
 
   const fetchProjects = async () => {
     if (!user) return;
