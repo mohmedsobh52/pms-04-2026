@@ -371,13 +371,13 @@ export function useGlobalSuggestionsBootstrap() {
       // Cross-module data links
       try {
         const { data: projects } = await supabase
-          .from("projects")
+          .from("saved_projects")
           .select("id")
           .limit(500);
-        const projectIds = (projects ?? []).map((p: any) => p.id);
+        const projectIds = ((projects ?? []) as any[]).map((p) => p.id as string);
         if (projectIds.length) {
           const { data: boq } = await supabase
-            .from("boq_items")
+            .from("project_items")
             .select("project_id, category")
             .in("project_id", projectIds)
             .limit(5000);
