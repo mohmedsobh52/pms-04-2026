@@ -2608,7 +2608,7 @@ export function buildReportsEfficiencySuggestions(input: {
     out.push({ category: "reports", severity: "info", title: "قارن المشاريع المكتملة", description: "استخدم تبويب «مقارنة المشاريع» لاستخراج مؤشرات أداء مرجعية.", sourceScreen: screen, sourceRoute: "/projects?tab=reports" });
   }
   if (input.totalProjects > 10) {
-    out.push({ category: "performance", severity: "info", title: "عدد كبير من المشاريع في التقارير", description: "استخدم فلتر الحالة أو البحث لتسريع التصدير وتقليل حجم الملفات.", sourceScreen: screen });
+    out.push({ category: "workflow", severity: "info", title: "عدد كبير من المشاريع في التقارير", description: "استخدم فلتر الحالة أو البحث لتسريع التصدير وتقليل حجم الملفات.", sourceScreen: screen });
   }
   return out;
 }
