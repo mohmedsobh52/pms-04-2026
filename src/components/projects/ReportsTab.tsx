@@ -267,6 +267,40 @@ export function ReportsTab({ isArabic }: ReportsTabProps) {
     };
   }, [projects, tenderData]);
 
+  const hasFilters = statusFilter !== "all" || searchQuery.trim().length > 0;
+  const clearFilters = useCallback(() => {
+    setStatusFilter("all");
+    setSearchQuery("");
+  }, []);
+
+  // Feed the global suggestions hub with reports-readiness hints
+  useEffect(() => {
+    if (loading) return;
+    const projectsWithoutItems = projects.filter(p => {
+      const d = p.analysis_data as any;
+      return !(d?.items?.length || d?.boq_items?.length);
+    }).length;
+    const projectsWithoutValue = projects.filter(p => {
+      const tender = tenderData.find(t => t.project_id === p.id);
+      const d = p.analysis_data as any;
+      return !(tender?.contract_value || p.total_value || d?.summary?.total_value || d?.totalValue);
+    }).length;
+    replaceBySource(
+      "reports-efficiency",
+      buildReportsEfficiencySuggestions({
+        totalProjects: projects.length,
+        projectsWithoutItems,
+        projectsWithoutValue,
+        draftProjects: stats.draftProjects,
+        completedProjects: stats.completedProjects,
+        filteredCount: filteredProjects.length,
+        hasFilters,
+      })
+    );
+  }, [loading, projects, tenderData, stats, filteredProjects.length, hasFilters, replaceBySource]);
+
+
+
   const tabs = [
     { 
       value: "export", 
