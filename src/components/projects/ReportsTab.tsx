@@ -27,10 +27,14 @@ import {
   FileText, 
   Clock,
   Settings2,
-  Search
+  Search,
+  X
 } from "lucide-react";
 import { PROJECT_STATUSES } from "@/lib/project-constants";
 import { useEffect } from "react";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildReportsEfficiencySuggestions } from "@/lib/suggestion-generators";
+import { Badge } from "@/components/ui/badge";
 
 interface Project {
   id: string;
