@@ -337,47 +337,60 @@ export function ReportsTab({ isArabic }: ReportsTabProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold">
-            {isArabic ? "التقارير" : "Reports"}
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {isArabic 
-              ? "عرض وتصدير تقارير المشاريع والتسعير" 
-              : "View and export project and pricing reports"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder={isArabic ? "بحث..." : "Search..."}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 w-40"
-            />
+      <div className="sticky top-0 z-20 -mx-1 px-1 py-2 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b border-border/60">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              {isArabic ? "التقارير" : "Reports"}
+              <Badge variant="secondary" className="font-normal tabular-nums">
+                {filteredProjects.length}
+                {filteredProjects.length !== projects.length && ` / ${projects.length}`}
+              </Badge>
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isArabic 
+                ? "عرض وتصدير تقارير المشاريع والتسعير — اضغط / للبحث السريع" 
+                : "View and export project and pricing reports — press / to search"}
+            </p>
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-36">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder={isArabic ? "الحالة" : "Status"} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{isArabic ? "كل الحالات" : "All Status"}</SelectItem>
-              {PROJECT_STATUSES.map(status => (
-                <SelectItem key={status.value} value={status.value}>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${status.dotColor}`} />
-                    {isArabic ? status.label : status.label_en}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="icon" onClick={fetchProjects} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                ref={searchRef}
+                placeholder={isArabic ? "بحث... (/)" : "Search... (/)"}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 w-40"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-36">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder={isArabic ? "الحالة" : "Status"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{isArabic ? "كل الحالات" : "All Status"}</SelectItem>
+                {PROJECT_STATUSES.map(status => (
+                  <SelectItem key={status.value} value={status.value}>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${status.dotColor}`} />
+                      {isArabic ? status.label : status.label_en}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {hasFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1">
+                <X className="h-4 w-4" />
+                {isArabic ? "إفراغ" : "Clear"}
+              </Button>
+            )}
+            <Button variant="outline" size="icon" onClick={fetchProjects} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -392,7 +405,8 @@ export function ReportsTab({ isArabic }: ReportsTabProps) {
       />
 
       {/* Tabs */}
-      <Tabs defaultValue="export">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+
         <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1 tabs-navigation-safe">
           {tabs.map((tab) => (
             <TabsTrigger 
