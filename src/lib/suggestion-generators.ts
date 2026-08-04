@@ -2576,3 +2576,39 @@ export function buildCrossModuleSuggestions(input: {
   }
   return out;
 }
+
+/** Reports screen efficiency suggestions — data readiness & export hygiene. */
+export function buildReportsEfficiencySuggestions(input: {
+  totalProjects: number;
+  projectsWithoutItems: number;
+  projectsWithoutValue: number;
+  draftProjects: number;
+  completedProjects: number;
+  filteredCount: number;
+  hasFilters: boolean;
+}, screen = "reports"): Draft[] {
+  const out: Draft[] = [];
+  if (input.totalProjects === 0) {
+    out.push({ category: "workflow", severity: "info", title: "لا توجد مشاريع لإنشاء تقارير", description: "أنشئ مشروعًا أو ارفع جدول كميات لبدء توليد التقارير.", sourceScreen: screen, sourceRoute: "/new-project" });
+    return out;
+  }
+  if (input.projectsWithoutItems > 0) {
+    out.push({ category: "data-quality", severity: "warning", title: `${input.projectsWithoutItems} مشروع بدون بنود`, description: "التقارير ستظهر فارغة لهذه المشاريع — ارفع جدول الكميات أولاً.", sourceScreen: screen, sourceRoute: "/saved-projects" });
+  }
+  if (input.projectsWithoutValue > 0) {
+    out.push({ category: "data-quality", severity: "warning", title: `${input.projectsWithoutValue} مشروع بدون قيمة إجمالية`, description: "أكمل التسعير أو قيمة العقد ليعكس ملخص التقارير أرقامًا صحيحة.", sourceScreen: screen, sourceRoute: "/cost-analysis" });
+  }
+  if (input.draftProjects > 0 && input.draftProjects === input.totalProjects) {
+    out.push({ category: "workflow", severity: "info", title: "كل المشاريع في حالة مسودة", description: "حدّث حالة المشاريع لتفعيل مؤشرات الإنجاز في التقارير.", sourceScreen: screen });
+  }
+  if (input.hasFilters && input.filteredCount === 0) {
+    out.push({ category: "workflow", severity: "info", title: "لا نتائج مطابقة للفلاتر الحالية", description: "أفرغ البحث أو أعد ضبط فلتر الحالة لعرض كل المشاريع.", sourceScreen: screen });
+  }
+  if (input.totalProjects >= 2 && input.completedProjects >= 1) {
+    out.push({ category: "reports", severity: "info", title: "قارن المشاريع المكتملة", description: "استخدم تبويب «مقارنة المشاريع» لاستخراج مؤشرات أداء مرجعية.", sourceScreen: screen, sourceRoute: "/projects?tab=reports" });
+  }
+  if (input.totalProjects > 10) {
+    out.push({ category: "workflow", severity: "info", title: "عدد كبير من المشاريع في التقارير", description: "استخدم فلتر الحالة أو البحث لتسريع التصدير وتقليل حجم الملفات.", sourceScreen: screen });
+  }
+  return out;
+}

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,10 +27,14 @@ import {
   FileText, 
   Clock,
   Settings2,
-  Search
+  Search,
+  X
 } from "lucide-react";
 import { PROJECT_STATUSES } from "@/lib/project-constants";
 import { useEffect } from "react";
+import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
+import { buildReportsEfficiencySuggestions } from "@/lib/suggestion-generators";
+import { Badge } from "@/components/ui/badge";
 
 interface Project {
   id: string;
@@ -58,13 +62,47 @@ interface ReportsTabProps {
   isArabic: boolean;
 }
 
+const TAB_KEY = "reports-tab:active";
+const FILTERS_KEY = "reports-tab:filters";
+
 export function ReportsTab({ isArabic }: ReportsTabProps) {
   const { user } = useAuth();
+  const { replaceBySource } = useGlobalSuggestions();
   const [projects, setProjects] = useState<Project[]>([]);
   const [tenderData, setTenderData] = useState<TenderPricing[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const savedFilters = (() => {
+    try { return JSON.parse(localStorage.getItem(FILTERS_KEY) || "{}"); } catch { return {}; }
+  })();
+  const [statusFilter, setStatusFilter] = useState<string>(savedFilters.statusFilter || "all");
+  const [searchQuery, setSearchQuery] = useState(savedFilters.searchQuery || "");
+  const [activeTab, setActiveTab] = useState<string>(
+    () => localStorage.getItem(TAB_KEY) || "export"
+  );
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Persist tab + filters
+  useEffect(() => { localStorage.setItem(TAB_KEY, activeTab); }, [activeTab]);
+  useEffect(() => {
+    localStorage.setItem(FILTERS_KEY, JSON.stringify({ statusFilter, searchQuery }));
+  }, [statusFilter, searchQuery]);
+
+  // Keyboard: "/" focuses search, Esc clears it
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const typing = target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName);
+      if (e.key === "/" && !typing) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      } else if (e.key === "Escape" && document.activeElement === searchRef.current) {
+        setSearchQuery("");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
 
   const fetchProjects = async () => {
     if (!user) return;
@@ -229,6 +267,40 @@ export function ReportsTab({ isArabic }: ReportsTabProps) {
     };
   }, [projects, tenderData]);
 
+  const hasFilters = statusFilter !== "all" || searchQuery.trim().length > 0;
+  const clearFilters = useCallback(() => {
+    setStatusFilter("all");
+    setSearchQuery("");
+  }, []);
+
+  // Feed the global suggestions hub with reports-readiness hints
+  useEffect(() => {
+    if (loading) return;
+    const projectsWithoutItems = projects.filter(p => {
+      const d = p.analysis_data as any;
+      return !(d?.items?.length || d?.boq_items?.length);
+    }).length;
+    const projectsWithoutValue = projects.filter(p => {
+      const tender = tenderData.find(t => t.project_id === p.id);
+      const d = p.analysis_data as any;
+      return !(tender?.contract_value || p.total_value || d?.summary?.total_value || d?.totalValue);
+    }).length;
+    replaceBySource(
+      "reports-efficiency",
+      buildReportsEfficiencySuggestions({
+        totalProjects: projects.length,
+        projectsWithoutItems,
+        projectsWithoutValue,
+        draftProjects: stats.draftProjects,
+        completedProjects: stats.completedProjects,
+        filteredCount: filteredProjects.length,
+        hasFilters,
+      })
+    );
+  }, [loading, projects, tenderData, stats, filteredProjects.length, hasFilters, replaceBySource]);
+
+
+
   const tabs = [
     { 
       value: "export", 
@@ -265,47 +337,60 @@ export function ReportsTab({ isArabic }: ReportsTabProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold">
-            {isArabic ? "التقارير" : "Reports"}
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {isArabic 
-              ? "عرض وتصدير تقارير المشاريع والتسعير" 
-              : "View and export project and pricing reports"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder={isArabic ? "بحث..." : "Search..."}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 w-40"
-            />
+      <div className="sticky top-0 z-20 -mx-1 px-1 py-2 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b border-border/60">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              {isArabic ? "التقارير" : "Reports"}
+              <Badge variant="secondary" className="font-normal tabular-nums">
+                {filteredProjects.length}
+                {filteredProjects.length !== projects.length && ` / ${projects.length}`}
+              </Badge>
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isArabic 
+                ? "عرض وتصدير تقارير المشاريع والتسعير — اضغط / للبحث السريع" 
+                : "View and export project and pricing reports — press / to search"}
+            </p>
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-36">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder={isArabic ? "الحالة" : "Status"} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{isArabic ? "كل الحالات" : "All Status"}</SelectItem>
-              {PROJECT_STATUSES.map(status => (
-                <SelectItem key={status.value} value={status.value}>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${status.dotColor}`} />
-                    {isArabic ? status.label : status.label_en}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="icon" onClick={fetchProjects} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                ref={searchRef}
+                placeholder={isArabic ? "بحث... (/)" : "Search... (/)"}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 w-40"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-36">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder={isArabic ? "الحالة" : "Status"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{isArabic ? "كل الحالات" : "All Status"}</SelectItem>
+                {PROJECT_STATUSES.map(status => (
+                  <SelectItem key={status.value} value={status.value}>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${status.dotColor}`} />
+                      {isArabic ? status.label : status.label_en}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {hasFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1">
+                <X className="h-4 w-4" />
+                {isArabic ? "إفراغ" : "Clear"}
+              </Button>
+            )}
+            <Button variant="outline" size="icon" onClick={fetchProjects} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -320,7 +405,8 @@ export function ReportsTab({ isArabic }: ReportsTabProps) {
       />
 
       {/* Tabs */}
-      <Tabs defaultValue="export">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+
         <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1 tabs-navigation-safe">
           {tabs.map((tab) => (
             <TabsTrigger 
