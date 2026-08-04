@@ -31,7 +31,7 @@ export function AppShell({ children, className = "", hideBreadcrumbs, fullBleed 
         <div className="flex-1 flex flex-col min-w-0">
           <AppTopbar />
           <main
-            className={`flex-1 ${fullBleed ? "" : "container mx-auto px-3 md:px-4 py-4 md:py-6"} ${className}`}
+            className={`flex-1 ${fullBleed ? "" : "page-container py-4 md:py-6"} ${className}`}
           >
             {!hideBreadcrumbs && (
               <div className="mb-3 md:mb-4">

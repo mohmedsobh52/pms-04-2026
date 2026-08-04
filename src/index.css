@@ -308,10 +308,18 @@
     border-color: hsl(var(--primary) / 0.2);
   }
 
-  .data-table { @apply w-full text-sm; }
-  .data-table th { @apply bg-muted/50 font-semibold text-muted-foreground px-4 py-3 text-left; }
-  .data-table td { @apply px-4 py-3 border-b border-border/50; }
+  /* Unified table system — same font, density and alignment everywhere (RTL-safe) */
+  .data-table { @apply w-full text-[13px] leading-tight tabular-nums; }
+  .data-table th { @apply bg-muted/40 font-semibold text-[12px] text-muted-foreground px-3 py-2.5 text-start whitespace-nowrap; }
+  .data-table td { @apply px-3 py-2 border-b border-border/50 text-start align-middle; }
   .data-table tr:hover td { @apply bg-muted/30; }
+
+  /* Shell that keeps any table inside the page width with its own scroll */
+  .table-shell { @apply w-full rounded-xl border border-border bg-card overflow-hidden; }
+  .table-shell > .table-scroll { @apply w-full overflow-x-auto; }
+
+  /* Unified page width for all screens */
+  .page-container { @apply w-full max-w-[1600px] mx-auto px-3 md:px-5; }
 
   .gantt-bar { @apply rounded transition-all duration-200; }
   .gantt-bar:hover { filter: brightness(1.1); transform: scaleY(1.1); }
