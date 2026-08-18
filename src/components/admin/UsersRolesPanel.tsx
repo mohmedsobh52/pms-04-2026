@@ -1,3 +1,4 @@
+import { logAdminAction } from "@/lib/admin-audit";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -56,6 +57,11 @@ export function UsersRolesPanel() {
         .from("user_roles")
         .insert({ user_id: newId, role: newRole });
       if (error) throw error;
+      void logAdminAction({
+        action: "admin_role_assigned",
+        entityId: newId,
+        metadata: { role: newRole },
+      });
     },
     onSuccess: () => {
       toast.success(isArabic ? "تمت الإضافة" : "Role assigned");
@@ -72,6 +78,7 @@ export function UsersRolesPanel() {
         .update({ role })
         .eq("id", id);
       if (error) throw error;
+      void logAdminAction({ action: "admin_role_updated", entityId: id, metadata: { role } });
     },
     onSuccess: () => {
       toast.success(isArabic ? "تم تحديث الدور" : "Role updated");
@@ -84,6 +91,7 @@ export function UsersRolesPanel() {
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("user_roles").delete().eq("id", id);
       if (error) throw error;
+      void logAdminAction({ action: "admin_role_removed", entityId: id });
     },
     onSuccess: () => {
       toast.success(isArabic ? "تمت الإزالة" : "Role removed");
@@ -91,6 +99,7 @@ export function UsersRolesPanel() {
     },
     onError: (e: any) => toast.error(e.message),
   });
+
 
   if (!isAdmin) {
     return (
