@@ -1001,7 +1001,8 @@ export default function TenderSummaryPage() {
             />
           </TabsContent>
         </Tabs>
-      </main>
-    </div>
+      </div>
+    </AppShell>
+
   );
 }
