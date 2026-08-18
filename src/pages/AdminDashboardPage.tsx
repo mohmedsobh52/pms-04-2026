@@ -750,7 +750,8 @@ const AdminDashboardPage = () => {
         <CostCodesPanel />
         <AuditLogsViewer />
       </div>
-    </div>
+    </AppShell>
+
   );
 };
 
