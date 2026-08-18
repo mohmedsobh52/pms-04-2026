@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLanguage } from '@/hooks/useLanguage';
 import { supabase } from '@/integrations/supabase/client';
+import { AppShell } from '@/components/layout/AppShell';
 
 interface VersionInfo {
   id: string;
@@ -75,34 +76,16 @@ const Changelog = () => {
   };
 
   return (
-    <div className={`min-h-screen bg-background ${language === 'ar' ? 'rtl' : 'ltr'}`}>
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link to="/">
-                <Button variant="ghost" size="icon">
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  {language === 'ar' ? 'سجل التحديثات' : 'Changelog'}
-                </h1>
-                <p className="text-muted-foreground text-sm">
-                  {language === 'ar' 
-                    ? 'تاريخ جميع الإصدارات والتغييرات' 
-                    : 'History of all versions and changes'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Content */}
-      <main className="container mx-auto px-4 py-8">
+    <AppShell>
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold text-foreground">
+          {language === 'ar' ? 'سجل التحديثات' : 'Changelog'}
+        </h1>
+        <p className="text-muted-foreground text-sm">
+          {language === 'ar' ? 'تاريخ جميع الإصدارات والتغييرات' : 'History of all versions and changes'}
+        </p>
+      </div>
+      <div>
         {isLoading ? (
           <div className="space-y-6">
             {[1, 2, 3].map((i) => (
@@ -188,8 +171,8 @@ const Changelog = () => {
             </Button>
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 };
 

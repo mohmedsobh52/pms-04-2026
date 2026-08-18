@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRoles } from "@/hooks/useUserRoles";
 import { supabase } from "@/integrations/supabase/client";
 import { SuspenseFallback } from "@/components/ui/loading-states";
+import { AppShell } from "@/components/layout/AppShell";
 import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
 import { buildAdminVersionsSuggestions } from "@/lib/suggestion-generators";
 
@@ -265,32 +266,20 @@ const AdminVersions = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background" dir={isArabic ? 'rtl' : 'ltr'}>
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Link to="/">
-                <Button variant="ghost" size="icon">
-                  <ArrowLeft className="w-5 h-5" />
-                </Button>
-              </Link>
-              <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-primary" />
-                <h1 className="font-display text-xl font-bold">
-                  {isArabic ? 'إدارة التحديثات' : 'Version Management'}
-                </h1>
-              </div>
-            </div>
-            <Button onClick={() => setShowNewForm(true)} className="gap-2">
-              <Plus className="w-4 h-4" />
-              {isArabic ? 'إصدار جديد' : 'New Version'}
-            </Button>
-          </div>
+    <AppShell>
+      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Shield className="w-5 h-5 text-primary" />
+          <h1 className="font-display text-xl font-bold">
+            {isArabic ? 'إدارة التحديثات' : 'Version Management'}
+          </h1>
         </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
+        <Button onClick={() => setShowNewForm(true)} className="gap-2">
+          <Plus className="w-4 h-4" />
+          {isArabic ? 'إصدار جديد' : 'New Version'}
+        </Button>
+      </div>
+      <div className="max-w-4xl mx-auto">
         {/* New Version Form */}
         {showNewForm && (
           <Card className="mb-6 border-primary/50">
@@ -453,8 +442,8 @@ const AdminVersions = () => {
             </div>
           )}
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 };
 
