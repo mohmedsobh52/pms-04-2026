@@ -1,7 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
+import { Input } from "@/components/ui/input";
+import { Highlight } from "@/components/ui/highlight";
+import { useUserRoles } from "@/hooks/useUserRoles";
+import { can } from "@/lib/permissions-matrix";
+import { exportAdminDashboardPDF } from "@/lib/admin-pdf";
+import { logAdminAction } from "@/lib/admin-audit";
 import { UsersRolesPanel } from "@/components/admin/UsersRolesPanel";
+
 
 import { PermissionsMatrix } from "@/components/admin/PermissionsMatrix";
 import { SystemSettingsPanel } from "@/components/admin/SystemSettingsPanel";
@@ -38,7 +45,13 @@ import {
   HardDrive,
   CheckCircle2,
   GitCompare,
+  Search,
+  FileDown,
+  X,
+  RefreshCw,
+  Filter,
 } from "lucide-react";
+
 import {
   ResponsiveContainer,
   AreaChart,
@@ -91,11 +104,38 @@ interface LatestProject {
   currency?: string | null;
 }
 
+interface AdminFilters {
+  search: string;
+  from: string;
+  to: string;
+}
+
+const FILTERS_KEY = "admin-dashboard-filters";
+const EMPTY_FILTERS: AdminFilters = { search: "", from: "", to: "" };
+
+function loadFilters(): AdminFilters {
+  try {
+    const raw = localStorage.getItem(FILTERS_KEY);
+    if (!raw) return EMPTY_FILTERS;
+    return { ...EMPTY_FILTERS, ...JSON.parse(raw) };
+  } catch {
+    return EMPTY_FILTERS;
+  }
+}
+
 const AdminDashboardPage = () => {
   const { isArabic } = useLanguage();
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { roles, isAdmin } = useUserRoles();
+
+  const canExport = isAdmin || can(roles, "export_reports");
+  const canManageUsers = isAdmin || can(roles, "manage_users");
+  const canManageSettings = isAdmin || can(roles, "manage_settings");
+
+  const [filters, setFilters] = useState<AdminFilters>(loadFilters);
+
 
   const [loading, setLoading] = useState(true);
   const [tipsOpen, setTipsOpen] = useState(true);
@@ -121,10 +161,53 @@ const AdminDashboardPage = () => {
 
   const { replaceBySource } = useGlobalSuggestions();
 
+  // Persist filter state across refreshes
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTERS_KEY, JSON.stringify(filters));
+    } catch {
+      /* ignore quota errors */
+    }
+  }, [filters]);
+
+  // Audit filter usage (debounced so typing does not spam the log)
+  useEffect(() => {
+    const hasFilter = !!(filters.search.trim() || filters.from || filters.to);
+    if (!hasFilter || !user) return;
+    const t = setTimeout(() => {
+      void logAdminAction({ action: "admin_dashboard_filter_change", metadata: { ...filters } });
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [filters, user]);
+
+  const inRange = (iso: string) => {
+    const t = new Date(iso).getTime();
+    if (filters.from && t < new Date(filters.from).getTime()) return false;
+    if (filters.to && t > new Date(filters.to).getTime() + 864e5) return false;
+    return true;
+  };
+
+  const matches = (text: string) =>
+    !filters.search.trim() || text.toLowerCase().includes(filters.search.trim().toLowerCase());
+
+  const filteredLatest = useMemo(
+    () => latest.filter((p) => matches(p.name) && inRange(p.updated_at)),
+    [latest, filters]
+  );
+
+  const filteredActivity = useMemo(
+    () => activity.filter((a) => matches(a.action) && inRange(a.created_at)),
+    [activity, filters]
+  );
+
+  const activeFilterCount =
+    (filters.search.trim() ? 1 : 0) + (filters.from ? 1 : 0) + (filters.to ? 1 : 0);
+
   useEffect(() => {
     if (!user) return;
     void loadAll();
   }, [user]);
+
 
   useEffect(() => {
     replaceBySource("admin-dashboard", buildAdminDashboardSuggestions({
@@ -322,6 +405,7 @@ const AdminDashboardPage = () => {
   };
 
   const sendReportNow = async () => {
+    void logAdminAction({ action: "admin_report_sent", metadata: { filters } });
     toast({
       title: isArabic ? "تم الإرسال" : "Report queued",
       description: isArabic
@@ -329,6 +413,12 @@ const AdminDashboardPage = () => {
         : "Weekly report sent to all admins",
     });
   };
+
+  const refreshAll = async () => {
+    void logAdminAction({ action: "admin_dashboard_refresh", metadata: { filters } });
+    await loadAll();
+  };
+
 
   const statsCards: StatCard[] = [
     { key: "users", labelAr: "المستخدمون", labelEn: "Users", icon: Users, color: "text-blue-600", value: stats.users },
@@ -411,6 +501,45 @@ const AdminDashboardPage = () => {
     }
   };
 
+  const handleExportPdf = () => {
+    if (!canExport) {
+      toast({
+        title: isArabic ? "غير مصرح" : "Not allowed",
+        description: isArabic ? "لا تملك صلاحية تصدير التقارير" : "You lack the export permission",
+        variant: "destructive",
+      });
+      return;
+    }
+    exportAdminDashboardPDF({
+      isArabic,
+      filters: { search: filters.search, from: filters.from, to: filters.to, section: "dashboard" },
+      generatedBy: user?.email ?? null,
+      stats: statsCards.map((s) => ({ label: s.labelEn, value: s.value })),
+      financial: [
+        { label: "Total Projects Value", value: fmtMoney(financial.projectsValue) },
+        { label: "Total Contracts Value", value: fmtMoney(financial.contractsValue) },
+        { label: "Quotations Value", value: fmtMoney(financial.quotationsValue) },
+        { label: "Open Risks", value: String(financial.pendingRisks) },
+      ],
+      projects: filteredLatest.map((p) => ({
+        name: p.name,
+        updated: new Date(p.updated_at).toISOString().slice(0, 10),
+        value: fmtMoney(p.total_value, p.currency || "SAR"),
+      })),
+      activity: filteredActivity.map((a) => ({
+        action: a.action,
+        date: new Date(a.created_at).toISOString().slice(0, 10),
+      })),
+    });
+    void logAdminAction({
+      action: "admin_dashboard_export_pdf",
+      metadata: { filters, projects: filteredLatest.length, activity: filteredActivity.length },
+    });
+    toast({ title: isArabic ? "تم تصدير PDF" : "PDF exported" });
+  };
+
+
+
   return (
     <AppShell>
       <div className="space-y-6">
@@ -443,6 +572,85 @@ const AdminDashboardPage = () => {
             )}
           </button>
         </div>
+
+        {/* Filters & actions */}
+        <Card className="p-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[220px]">
+              <label className="text-xs text-muted-foreground mb-1 block">
+                {isArabic ? "بحث في المشاريع والنشاط" : "Search projects & activity"}
+              </label>
+              <div className="relative">
+                <Search className="absolute top-1/2 -translate-y-1/2 start-2.5 w-4 h-4 text-muted-foreground" />
+                <Input
+                  value={filters.search}
+                  onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+                  placeholder={isArabic ? "اسم المشروع أو نوع الحدث…" : "Project name or action…"}
+                  className="ps-8 h-9"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                {isArabic ? "من تاريخ" : "From"}
+              </label>
+              <Input
+                type="text"
+                inputMode="numeric"
+                placeholder="yyyy-MM-dd"
+                value={filters.from}
+                onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))}
+                className="h-9 w-[140px]"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                {isArabic ? "إلى تاريخ" : "To"}
+              </label>
+              <Input
+                type="text"
+                inputMode="numeric"
+                placeholder="yyyy-MM-dd"
+                value={filters.to}
+                onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))}
+                className="h-9 w-[140px]"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              {activeFilterCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9"
+                  onClick={() => setFilters(EMPTY_FILTERS)}
+                >
+                  <X className="w-4 h-4 me-1" />
+                  {isArabic ? "مسح" : "Clear"}
+                </Button>
+              )}
+              <Button variant="outline" size="sm" className="h-9" onClick={() => void refreshAll()}>
+                <RefreshCw className={`w-4 h-4 me-1 ${loading ? "animate-spin" : ""}`} />
+                {isArabic ? "تحديث" : "Refresh"}
+              </Button>
+              {canExport && (
+                <Button size="sm" className="h-9" onClick={handleExportPdf}>
+                  <FileDown className="w-4 h-4 me-1" />
+                  {isArabic ? "تصدير PDF" : "Export PDF"}
+                </Button>
+              )}
+            </div>
+          </div>
+          {activeFilterCount > 0 && (
+            <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+              <Filter className="w-3.5 h-3.5" />
+              {isArabic
+                ? `${filteredLatest.length} مشروع و ${filteredActivity.length} حدث مطابق`
+                : `${filteredLatest.length} projects & ${filteredActivity.length} activity rows match`}
+            </div>
+          )}
+        </Card>
+
+
 
         {/* Usage Tips */}
         <Card className="overflow-hidden">
@@ -600,20 +808,25 @@ const AdminDashboardPage = () => {
               {isArabic ? "آخر النشاطات" : "Recent Activity"}
             </h3>
           </div>
-          {activity.length === 0 ? (
+          {filteredActivity.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
-              {isArabic ? "لا يوجد نشاط بعد" : "No activity yet"}
+              {activity.length === 0
+                ? isArabic ? "لا يوجد نشاط بعد" : "No activity yet"
+                : isArabic ? "لا نتائج مطابقة للفلاتر" : "No rows match the filters"}
             </p>
           ) : (
             <div className="divide-y divide-border">
-              {activity.map((a) => (
+              {filteredActivity.map((a) => (
                 <div key={a.id} className="flex items-center justify-between gap-3 py-2.5">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center shrink-0">
                       <Activity className="w-4 h-4 text-blue-600" />
                     </div>
-                    <span className="text-sm font-medium truncate">{a.action}</span>
+                    <span className="text-sm font-medium truncate">
+                      <Highlight text={a.action} query={filters.search} />
+                    </span>
                   </div>
+
                   <span className="text-xs text-muted-foreground shrink-0">{fmtDate(a.created_at)}</span>
                 </div>
               ))}
@@ -718,25 +931,30 @@ const AdminDashboardPage = () => {
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
-          ) : latest.length === 0 ? (
+          ) : filteredLatest.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">
-              {isArabic ? "لا توجد مشاريع بعد" : "No projects yet"}
+              {latest.length === 0
+                ? isArabic ? "لا توجد مشاريع بعد" : "No projects yet"
+                : isArabic ? "لا نتائج مطابقة للفلاتر" : "No projects match the filters"}
             </p>
           ) : (
             <div className="divide-y divide-border">
-              {latest.map((p) => (
+              {filteredLatest.map((p) => (
                 <Link
                   key={p.id}
                   to={`/projects/${p.id}`}
                   className="flex items-center justify-between gap-3 py-2.5 hover:bg-muted/40 -mx-2 px-2 rounded-md transition"
                 >
                   <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">{p.name}</div>
+                    <div className="text-sm font-medium truncate">
+                      <Highlight text={p.name} query={filters.search} />
+                    </div>
                     <div className="text-xs text-muted-foreground">{fmtDate(p.updated_at)}</div>
                   </div>
                   <div className="text-sm font-semibold tabular-nums text-emerald-600 shrink-0">
                     {fmtMoney(p.total_value, p.currency || "SAR")}
                   </div>
+
                 </Link>
               ))}
             </div>
@@ -745,13 +963,14 @@ const AdminDashboardPage = () => {
       </div>
 
       <div className="mt-8 space-y-6">
-        <UsersRolesPanel />
+        {canManageUsers && <UsersRolesPanel />}
         <PermissionsMatrix />
-        <WorkflowDefinitionsPanel />
-        <SystemSettingsPanel />
-        <CostCodesPanel />
+        {canManageSettings && <WorkflowDefinitionsPanel />}
+        {canManageSettings && <SystemSettingsPanel />}
+        {canManageSettings && <CostCodesPanel />}
         <AuditLogsViewer />
       </div>
+
     </AppShell>
 
   );
