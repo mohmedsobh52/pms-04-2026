@@ -554,7 +554,7 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
 
   return (
     <AppShell>
-      <div dir={isArabic ? "rtl" : "ltr"} className="max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-6">
+      <div dir={isArabic ? "rtl" : "ltr"} className="space-y-6">
         <header className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
             <Sparkles className="w-6 h-6" />
@@ -569,7 +569,7 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Inputs */}
-          <Card className="lg:col-span-1">
+          <Card className="lg:col-span-1 lg:sticky lg:top-14 lg:self-start lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto">
             <CardHeader>
               <CardTitle className="text-base">{t("بيانات العرض", "Proposal Inputs")}</CardTitle>
             </CardHeader>
@@ -762,7 +762,7 @@ code{background:#f3f3f3;padding:2px 5px;border-radius:3px}
 
           {/* Output */}
           <Card className="lg:col-span-2">
-            <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap sticky top-14 z-20 bg-card/95 backdrop-blur-sm rounded-t-lg border-b">
               <CardTitle className="text-base flex items-center gap-2 flex-wrap">
                 {t("المعاينة", "Preview")}
                 {proposalNumber && (
