@@ -17,9 +17,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
-import { LanguageToggle } from "@/components/LanguageToggle";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { UserMenu } from "@/components/UserMenu";
+import { AppShell } from "@/components/layout/AppShell";
+
 import { SiteStaffTab } from "@/components/tender/SiteStaffTab";
 import { FacilitiesTab } from "@/components/tender/FacilitiesTab";
 import { InsuranceTab } from "@/components/tender/InsuranceTab";
