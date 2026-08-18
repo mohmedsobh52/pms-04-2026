@@ -2679,7 +2679,7 @@ export function buildWorkflowGapSuggestions(input: {
   }
   if (input.contracts === 0) {
     out.push({
-      category: "onboarding",
+      category: "workflow",
       severity: "info",
       title: "لم يتم إنشاء أي عقد بعد",
       description: "ابدأ بإضافة عقد لربط المشتريات والمستخلصات والدفعات معاً.",
