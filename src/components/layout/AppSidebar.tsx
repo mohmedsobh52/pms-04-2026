@@ -1,4 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
+import { prefetchRoute } from "@/lib/prefetch-routes";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
@@ -198,7 +199,12 @@ export function AppSidebar() {
                     isActive={isActive(item.url)}
                     tooltip={isArabic ? item.titleAr : item.titleEn}
                   >
-                    <NavLink to={url} className="flex items-center gap-2">
+                    <NavLink
+                      to={url}
+                      className="flex items-center gap-2"
+                      onMouseEnter={() => prefetchRoute(url)}
+                      onFocus={() => prefetchRoute(url)}
+                    >
                       <item.icon className="h-4 w-4 shrink-0" />
                       {!collapsed && (
                         <span className="truncate text-[13px]">

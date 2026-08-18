@@ -20,6 +20,7 @@ import {
   buildUiConsistencySuggestions,
   buildRuntimePerfSuggestions,
   buildCrossModuleSuggestions,
+  buildWorkflowGapSuggestions,
 } from "@/lib/suggestion-generators";
 
 /**
@@ -395,6 +396,48 @@ export function useGlobalSuggestionsBootstrap() {
               }),
             );
           }
+        }
+      } catch {
+        /* silent */
+      }
+      // Workflow gaps across modules
+      try {
+        const [contractsRes, paymentsRes, certsRes, quotesRes, approvalsRes, risksRes] =
+          await Promise.all([
+            supabase.from("contracts").select("id, project_id").limit(500),
+            supabase.from("contract_payments").select("contract_id").limit(2000),
+            supabase.from("progress_certificates").select("project_id").limit(2000),
+            supabase.from("price_quotations").select("id, status").limit(1000),
+            supabase.from("workflow_instances").select("id, status").limit(500),
+            supabase.from("risks").select("id, mitigation_plan, severity").limit(1000),
+          ]);
+        const contracts = (contractsRes.data ?? []) as any[];
+        const paidIds = new Set(((paymentsRes.data ?? []) as any[]).map((p) => p.contract_id));
+        const certProjects = new Set(((certsRes.data ?? []) as any[]).map((c) => c.project_id));
+        const contractProjects = new Set(contracts.map((c) => c.project_id).filter(Boolean));
+        const pendingQuotations = ((quotesRes.data ?? []) as any[]).filter((q) =>
+          ["pending", "draft", "submitted"].includes(String(q.status || "").toLowerCase()),
+        ).length;
+        const openApprovals = ((approvalsRes.data ?? []) as any[]).filter((a) =>
+          ["pending", "in_progress"].includes(String(a.status || "").toLowerCase()),
+        ).length;
+        const risksWithoutMitigation = ((risksRes.data ?? []) as any[]).filter(
+          (r) => !r.mitigation_plan,
+        ).length;
+        if (!cancelled) {
+          replaceBySource(
+            "workflow-gaps",
+            buildWorkflowGapSuggestions({
+              contracts: contracts.length,
+              contractsWithoutPayments: contracts.filter((c) => !paidIds.has(c.id)).length,
+              projectsWithoutCertificates: [...contractProjects].filter(
+                (id) => !certProjects.has(id),
+              ).length,
+              pendingQuotations,
+              openApprovals,
+              risksWithoutMitigation,
+            }),
+          );
         }
       } catch {
         /* silent */

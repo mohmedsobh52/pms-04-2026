@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { useLanguage } from "@/hooks/useLanguage";
+import { AppShell } from "@/components/layout/AppShell";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -146,8 +147,8 @@ const PartnerDetailsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-6 max-w-7xl">
+    <AppShell>
+      <div>
         <ColorLegend type="status" isArabic={isArabic} className="mb-4" />
         {/* Header */}
         <div className="flex items-center gap-4 mb-6 navigation-bar-safe relative">
@@ -223,7 +224,7 @@ const PartnerDetailsPage = () => {
           <PartnerReviews partnerId={partner.id} onReviewChange={refreshPartner} />
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 };
 

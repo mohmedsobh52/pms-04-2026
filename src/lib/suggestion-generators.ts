@@ -2612,3 +2612,80 @@ export function buildReportsEfficiencySuggestions(input: {
   }
   return out;
 }
+
+/**
+ * Workflow-gap suggestions: detects incomplete end-to-end chains across
+ * modules (contracts without payments, projects without certificates,
+ * pending quotations, contracts without a signed subcontractor, etc.).
+ */
+export function buildWorkflowGapSuggestions(input: {
+  contracts: number;
+  contractsWithoutPayments: number;
+  projectsWithoutCertificates: number;
+  pendingQuotations: number;
+  openApprovals: number;
+  risksWithoutMitigation: number;
+}, screen = "workflow"): Draft[] {
+  const out: Draft[] = [];
+  if (input.contractsWithoutPayments > 0) {
+    out.push({
+      category: "workflow",
+      severity: input.contractsWithoutPayments > 3 ? "warning" : "info",
+      title: `${input.contractsWithoutPayments} عقد بدون دفعات مسجّلة`,
+      description: "سجّل جدول الدفعات لتفعيل متابعة التدفق النقدي والتنبيهات المالية.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if (input.projectsWithoutCertificates > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: `${input.projectsWithoutCertificates} مشروع بدون مستخلصات`,
+      description: "أنشئ مستخلصاً أولياً لتتبع نسب الإنجاز والقيمة المكتسبة (EVM).",
+      sourceScreen: screen,
+      sourceRoute: "/progress-certificates",
+    });
+  }
+  if (input.pendingQuotations > 0) {
+    out.push({
+      category: "workflow",
+      severity: input.pendingQuotations > 5 ? "warning" : "info",
+      title: `${input.pendingQuotations} عرض سعر قيد الانتظار`,
+      description: "راجع عروض الأسعار المعلّقة وقارنها لاختيار المورد الأنسب.",
+      sourceScreen: screen,
+      sourceRoute: "/quotations",
+    });
+  }
+  if (input.openApprovals > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.openApprovals} طلب موافقة معلّق`,
+      description: "الموافقات المعلّقة تعطّل سير العمل — راجعها من صندوق الموافقات.",
+      sourceScreen: screen,
+      sourceRoute: "/approvals",
+    });
+  }
+  if (input.risksWithoutMitigation > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.risksWithoutMitigation} مخاطرة بدون خطة استجابة`,
+      description: "أضف خطة تخفيف لكل مخاطرة عالية لضمان جاهزية الفريق.",
+      sourceScreen: screen,
+      sourceRoute: "/risk",
+    });
+  }
+  if (input.contracts === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لم يتم إنشاء أي عقد بعد",
+      description: "ابدأ بإضافة عقد لربط المشتريات والمستخلصات والدفعات معاً.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  return out;
+}

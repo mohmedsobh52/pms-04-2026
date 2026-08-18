@@ -17,12 +17,34 @@ const routeLoaders: Record<string, RouteLoader> = {
   "/quotations": () => import("@/pages/QuotationsPage"),
   "/settings": () => import("@/pages/SettingsPage"),
   "/project-details": () => import("@/pages/ProjectDetailsPage"),
+  "/procurement": () => import("@/pages/ProcurementPage"),
+  "/subcontractors": () => import("@/pages/SubcontractorsPage"),
+  "/risk": () => import("@/pages/RiskPage"),
+  "/items": () => import("@/pages/BOQItemsPage"),
+  "/analysis-tools": () => import("@/pages/AnalysisToolsPage"),
+  "/material-prices": () => import("@/pages/MaterialPricesPage"),
+  "/resources": () => import("@/pages/ResourcesPage"),
+  "/resources-dashboard": () => import("@/pages/ResourcesDashboardPage"),
+  "/calendar": () => import("@/pages/CalendarPage"),
+  "/templates": () => import("@/pages/TemplatesPage"),
+  "/notifications": () => import("@/pages/NotificationsPage"),
+  "/approvals": () => import("@/pages/ApprovalsInboxPage"),
+  "/executive-summary": () => import("@/pages/ExecutiveSummaryPage"),
+  "/technical-proposal": () => import("@/pages/TechnicalProposalGeneratorPage"),
+  "/progress-certificates": () => import("@/pages/ProgressCertificatesPage"),
+  "/cost-control-evm": () => import("@/pages/CostControlEvmStandalone"),
+  "/help": () => import("@/pages/HelpPage"),
+  "/profile": () => import("@/pages/ProfilePage"),
+  "/team": () => import("@/pages/TeamPage"),
 };
 
 const prefetched = new Set<string>();
 
 function safeLoad(path: string) {
   if (prefetched.has(path)) return;
+  // Never prefetch on slow links or data-saver mode.
+  const conn = (navigator as any).connection;
+  if (conn?.saveData || /2g/i.test(String(conn?.effectiveType || ""))) return;
   prefetched.add(path);
   const loader = routeLoaders[path];
   if (loader) loader().catch(() => prefetched.delete(path));
