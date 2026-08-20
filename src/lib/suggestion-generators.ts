@@ -2974,7 +2974,7 @@ export function buildSupplierBaseSuggestions(input: {
   }
   if (input.suppliers < 3) {
     out.push({
-      category: "pricing",
+      category: "ai-pricing",
       severity: "warning",
       title: "قاعدة الموردين محدودة",
       description: "سجّل 3 موردين على الأقل لكل فئة للحصول على مقارنة أسعار تنافسية.",
