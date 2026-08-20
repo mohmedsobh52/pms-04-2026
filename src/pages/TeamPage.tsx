@@ -9,7 +9,7 @@ import { Users, Shield, ScrollText } from "lucide-react";
 import { useUserRoles } from "@/hooks/useUserRoles";
 import { supabase } from "@/integrations/supabase/client";
 import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
-import { buildTeamSuggestions } from "@/lib/suggestion-generators";
+import { buildTeamSuggestions, buildGovernanceSuggestions } from "@/lib/suggestion-generators";
 
 export default function TeamPage() {
   const { isAdmin } = useUserRoles();
@@ -19,20 +19,45 @@ export default function TeamPage() {
     if (!isAdmin) return;
     let cancelled = false;
     (async () => {
-      const { data, error } = await (supabase as any)
-        .from("user_roles")
-        .select("user_id, role");
-      if (error || cancelled) return;
-      const rows = (data ?? []) as { user_id: string; role: string }[];
+      const since = new Date(Date.now() - 30 * 864e5).toISOString();
+      const [rolesRes, auditRes] = await Promise.all([
+        (supabase as any).from("user_roles").select("user_id, role"),
+        (supabase as any)
+          .from("financial_audit_logs")
+          .select("id")
+          .gte("created_at", since)
+          .limit(500),
+      ]);
+      if (rolesRes.error || cancelled) return;
+      const rows = (rolesRes.data ?? []) as { user_id: string; role: string }[];
       const uniqueMembers = new Set(rows.map((r) => r.user_id));
       const admins = new Set(
         rows.filter((r) => r.role === "admin").map((r) => r.user_id),
       );
+      const byUser = rows.reduce<Record<string, string[]>>((acc, r) => {
+        (acc[r.user_id] ||= []).push(r.role);
+        return acc;
+      }, {});
+      const viewersOnly = Object.values(byUser).filter(
+        (list) => list.length === 1 && list[0] === "viewer",
+      ).length;
+      const multiRole = Object.values(byUser).filter((list) => list.length > 1).length;
+
       replaceBySource(
         "team",
         buildTeamSuggestions({
           members: uniqueMembers.size,
           admins: admins.size,
+        }),
+      );
+      replaceBySource(
+        "governance",
+        buildGovernanceSuggestions({
+          members: uniqueMembers.size,
+          admins: admins.size,
+          viewersOnly,
+          usersWithMultipleRoles: multiRole,
+          auditEventsLast30d: (auditRes.data ?? []).length,
         }),
       );
     })();
