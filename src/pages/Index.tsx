@@ -42,7 +42,7 @@ import { AIMonitoringDashboard } from "@/components/AIMonitoringDashboard";
 import { AICreditsCounter } from "@/components/AICreditsCounter";
 import { useChunkedAnalysis, compressText } from "@/hooks/useChunkedAnalysis";
 import { EstimatedAnalysisTime } from "@/components/EstimatedAnalysisTime";
-import { UnifiedHeader } from "@/components/UnifiedHeader";
+import { AppShell } from "@/components/layout/AppShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -1327,9 +1327,8 @@ const Index = () => {
   }, [isArabic, toast]);
 
   return (
-    <div className="min-h-screen bg-background overflow-x-auto" dir={isArabic ? 'rtl' : 'ltr'} ref={mainContentRef}>
-      {/* Unified Header */}
-      <UnifiedHeader showQuickNav={true} />
+    <AppShell fullBleed hideBreadcrumbs>
+    <div className="bg-background overflow-x-auto p-4 md:p-6" dir={isArabic ? 'rtl' : 'ltr'} ref={mainContentRef}>
       
       {/* Secondary Actions Bar - Context-specific tools */}
       <div className="border-b border-border bg-card/30 backdrop-blur-sm">
@@ -2128,6 +2127,7 @@ const Index = () => {
         </div>
       </footer>
     </div>
+    </AppShell>
   );
 };
 
