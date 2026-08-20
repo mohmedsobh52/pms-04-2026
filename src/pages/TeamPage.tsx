@@ -9,7 +9,7 @@ import { Users, Shield, ScrollText } from "lucide-react";
 import { useUserRoles } from "@/hooks/useUserRoles";
 import { supabase } from "@/integrations/supabase/client";
 import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
-import { buildTeamSuggestions } from "@/lib/suggestion-generators";
+import { buildTeamSuggestions, buildGovernanceSuggestions } from "@/lib/suggestion-generators";
 
 export default function TeamPage() {
   const { isAdmin } = useUserRoles();
