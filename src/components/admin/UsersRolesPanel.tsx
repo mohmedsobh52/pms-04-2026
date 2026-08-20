@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Loader2, UserPlus, Search } from "lucide-react";
+import { Trash2, Loader2, UserPlus, Search, Download } from "lucide-react";
 import { toast } from "sonner";
 
 const ROLES: AppRole[] = [
