@@ -25,6 +25,8 @@ import {
   buildSupplierBaseSuggestions,
   buildPricingCoverageSuggestions,
   buildQuantityTakeoffSuggestions,
+  buildWarrantyMaintenanceSuggestions,
+  buildCostCodingSuggestions,
 } from "@/lib/suggestion-generators";
 
 
@@ -592,6 +594,79 @@ export function useGlobalSuggestionsBootstrap() {
               drawingAttachments: drawings.length,
               drawingsAnalyzed: drawings.filter((d) => d.is_analyzed).length,
               itemsWithoutUnit: 0,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Warranties & maintenance readiness
+      try {
+        const [warRes, maintRes, contrRes] = await Promise.all([
+          supabase.from("contract_warranties").select("id, end_date").limit(1000),
+          supabase.from("maintenance_schedules").select("id, next_due_date, status").limit(1000),
+          supabase.from("contracts").select("id").limit(1000),
+        ]);
+        const now = Date.now();
+        const warranties = (warRes.data ?? []) as any[];
+        const maint = (maintRes.data ?? []) as any[];
+        const end = (w: any) => (w.end_date ? new Date(w.end_date).getTime() : null);
+        if (!cancelled) {
+          replaceBySource(
+            "warranties",
+            buildWarrantyMaintenanceSuggestions({
+              warranties: warranties.length,
+              expiredWarranties: warranties.filter((w) => {
+                const t = end(w);
+                return t !== null && t < now;
+              }).length,
+              expiringWarranties90d: warranties.filter((w) => {
+                const t = end(w);
+                return t !== null && t >= now && t <= now + 90 * 86400_000;
+              }).length,
+              contracts: (contrRes.data ?? []).length,
+              maintenanceSchedules: maint.length,
+              overdueMaintenance: maint.filter(
+                (m) =>
+                  m.next_due_date &&
+                  new Date(m.next_due_date).getTime() < now &&
+                  String(m.status || "").toLowerCase() !== "completed",
+              ).length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // BOQ coding / WBS coverage
+      try {
+        const [itemsRes2, codesRes] = await Promise.all([
+          supabase.from("project_items").select("item_number, category").limit(5000),
+          supabase.from("cost_codes").select("id, code").limit(2000),
+        ]);
+        const items2 = (itemsRes2.data ?? []) as any[];
+        const numbers = items2
+          .map((i) => String(i.item_number || "").trim())
+          .filter(Boolean);
+        const seen = new Set<string>();
+        let duplicates = 0;
+        for (const n of numbers) {
+          if (seen.has(n)) duplicates++;
+          else seen.add(n);
+        }
+        if (!cancelled && items2.length) {
+          replaceBySource(
+            "cost-coding",
+            buildCostCodingSuggestions({
+              items: items2.length,
+              itemsWithoutCode: items2.length - numbers.length,
+              costCodes: (codesRes.data ?? []).length,
+              duplicateCodes: duplicates,
+              categories: new Set(
+                items2.map((i) => i.category).filter(Boolean),
+              ).size,
             }),
           );
         }
