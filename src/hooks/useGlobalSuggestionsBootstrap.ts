@@ -35,6 +35,8 @@ import {
   buildResourcePlanningSuggestions,
   buildPartnerNetworkSuggestions,
   buildReportAutomationSuggestions,
+  buildNotificationsHygieneSuggestions,
+  buildPortfolioHealthSuggestions,
 } from "@/lib/suggestion-generators";
 
 
@@ -999,6 +1001,68 @@ export function useGlobalSuggestionsBootstrap() {
                   s.created_at &&
                   nowR - new Date(s.created_at).getTime() > 90 * 86400_000,
               ).length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Notifications hygiene
+      try {
+        const { data } = await supabase
+          .from("notifications")
+          .select("id, severity, read_at, created_at, link, dedup_key")
+          .limit(1000);
+        const notes = (data ?? []) as any[];
+        const nowN = Date.now();
+        const keys = notes.map((n) => n.dedup_key).filter(Boolean) as string[];
+        const dupes = keys.length - new Set(keys).size;
+        if (!cancelled) {
+          replaceBySource(
+            "notifications-hygiene",
+            buildNotificationsHygieneSuggestions({
+              total: notes.length,
+              unread: notes.filter((n) => !n.read_at).length,
+              unreadCritical: notes.filter(
+                (n) => !n.read_at && ["critical", "high", "error"].includes(String(n.severity || "").toLowerCase()),
+              ).length,
+              staleUnread: notes.filter(
+                (n) => !n.read_at && n.created_at && nowN - new Date(n.created_at).getTime() > 14 * 86400_000,
+              ).length,
+              withoutLink: notes.filter((n) => !n.link).length,
+              duplicates: Math.max(0, dupes),
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Portfolio health
+      try {
+        const { data } = await supabase
+          .from("saved_projects")
+          .select("id, name, status, analysis_data, wbs_data, updated_at")
+          .limit(500);
+        const projects = (data ?? []) as any[];
+        const nowPr = Date.now();
+        const names = projects.map((p) => String(p.name || "").trim().toLowerCase()).filter(Boolean);
+        const dupNames = names.length - new Set(names).size;
+        if (!cancelled) {
+          replaceBySource(
+            "portfolio-health",
+            buildPortfolioHealthSuggestions({
+              projects: projects.length,
+              withoutAnalysis: projects.filter((p) => !p.analysis_data).length,
+              withoutWbs: projects.filter((p) => !p.wbs_data).length,
+              draftProjects: projects.filter((p) =>
+                ["draft", "مسودة"].includes(String(p.status || "").toLowerCase()),
+              ).length,
+              staleProjects: projects.filter(
+                (p) => p.updated_at && nowPr - new Date(p.updated_at).getTime() > 90 * 86400_000,
+              ).length,
+              duplicateNames: Math.max(0, dupNames),
             }),
           );
         }
