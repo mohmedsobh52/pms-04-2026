@@ -92,7 +92,7 @@ export function useGlobalSuggestionsBootstrap() {
         .limit(50);
       const integrations: any = await sb
         .from("historical_pricing_files")
-        .select("id, status")
+        .select("id, is_verified")
         .eq("user_id", user.id)
         .limit(100);
       const roles: any = await sb
@@ -159,7 +159,7 @@ export function useGlobalSuggestionsBootstrap() {
 
       // Integrations proxy: historical pricing files as external data feeds
       const feeds = integrations.data ?? [];
-      const failing = feeds.filter((f: any) => f.status === "failed").length;
+      const failing = feeds.filter((f: any) => f.is_verified === false).length;
       replaceBySource(
         "integrations",
         buildIntegrationsSuggestions({
@@ -412,7 +412,7 @@ export function useGlobalSuggestionsBootstrap() {
             supabase.from("progress_certificates").select("project_id").limit(2000),
             supabase.from("price_quotations").select("id, status").limit(1000),
             supabase.from("workflow_instances").select("id, status").limit(500),
-            supabase.from("risks").select("id, mitigation_plan, severity").limit(1000),
+            supabase.from("risks").select("id, mitigation_strategy, risk_score").limit(1000),
           ]);
         const contracts = (contractsRes.data ?? []) as any[];
         const paidIds = new Set(((paymentsRes.data ?? []) as any[]).map((p) => p.contract_id));
@@ -425,7 +425,7 @@ export function useGlobalSuggestionsBootstrap() {
           ["pending", "in_progress"].includes(String(a.status || "").toLowerCase()),
         ).length;
         const risksWithoutMitigation = ((risksRes.data ?? []) as any[]).filter(
-          (r) => !r.mitigation_plan,
+          (r) => !r.mitigation_strategy,
         ).length;
         if (!cancelled) {
           replaceBySource(
