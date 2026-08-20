@@ -4346,7 +4346,7 @@ export function buildHistoricalDataSuggestions(input: {
   }
   if (input.oldFiles > 0) {
     out.push({
-      category: "pricing",
+      category: "ai-pricing",
       severity: "warning",
       title: `${input.oldFiles} ملف تاريخي أقدم من 3 سنوات`,
       description: "طبّق معامل تضخم عند استخدام هذه الأسعار أو استبدلها ببيانات أحدث.",
