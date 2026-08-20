@@ -303,41 +303,63 @@ export function AppSidebar() {
         {/* SECTION 4 — Project modules */}
         {inProjectMode && projectGroups.map(renderGroup)}
 
-        {/* Quick access — only when NOT in project (collapse clutter) */}
-        {!inProjectMode && (
-          <SidebarGroup>
-            {!collapsed && (
-              <SidebarGroupLabel className="text-[10px] uppercase tracking-wider font-semibold text-sidebar-foreground/60">
-                {isArabic ? "وصول سريع" : "Quick Access"}
-              </SidebarGroupLabel>
-            )}
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => window.dispatchEvent(new CustomEvent("open-command-palette"))}
-                    tooltip={isArabic ? "بحث شامل" : "Global Search"}
-                  >
-                    <Search className="h-4 w-4 shrink-0" />
-                    {!collapsed && (
+        {/* Quick access */}
+        <SidebarGroup className="py-1.5">
+          {!collapsed && (
+            <SidebarGroupLabel className="h-6 px-2 text-[10px] uppercase tracking-[0.14em] font-semibold text-sidebar-foreground/45">
+              {isArabic ? "وصول سريع" : "Quick Access"}
+            </SidebarGroupLabel>
+          )}
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-0.5">
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => window.dispatchEvent(new CustomEvent("open-command-palette"))}
+                  tooltip={isArabic ? "بحث شامل" : "Global Search"}
+                  className="h-8 rounded-md"
+                >
+                  <Search className="h-[15px] w-[15px] shrink-0 opacity-70" />
+                  {!collapsed && (
+                    <>
                       <span className="truncate text-[13px]">
                         {isArabic ? "بحث شامل" : "Global Search"}
                       </span>
+                      <kbd className="ms-auto rounded border border-sidebar-border px-1 text-[9px] text-sidebar-foreground/50">
+                        Ctrl K
+                      </kbd>
+                    </>
+                  )}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip={isArabic ? "مشروع جديد" : "New Project"} className="h-8 rounded-md">
+                  <NavLink to="/projects/new" className="flex items-center gap-2.5">
+                    <FolderOpen className="h-[15px] w-[15px] shrink-0 opacity-70" />
+                    {!collapsed && (
+                      <span className="truncate text-[13px]">{isArabic ? "مشروع جديد" : "New Project"}</span>
                     )}
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
         {/* SECTION 5 — Admin (role-gated) */}
         {renderGroup(adminGroup)}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border px-3 py-2 text-[10px] text-sidebar-foreground/60">
-        {!collapsed && <span>© 2025 PMS · Enterprise</span>}
+      <SidebarFooter className="border-t border-sidebar-border px-3 py-2 text-[10px] text-sidebar-foreground/55">
+        {!collapsed && (
+          <div className="flex items-center justify-between gap-2">
+            <span className="truncate">© {new Date().getFullYear()} PMS</span>
+            <span className="rounded bg-sidebar-accent px-1.5 py-0.5 text-[9px] font-medium text-sidebar-accent-foreground">
+              Enterprise
+            </span>
+          </div>
+        )}
       </SidebarFooter>
+
     </Sidebar>
   );
 }
