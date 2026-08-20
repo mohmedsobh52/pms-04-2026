@@ -3025,7 +3025,7 @@ export function buildSupplierBaseSuggestions(input: {
   return out;
 }
 
-export function buildPricingAccuracySuggestions(input: {
+export function buildPricingCoverageSuggestions(input: {
   items: number;
   itemsWithoutUnitPrice: number;
   itemsWithoutQuantity: number;
