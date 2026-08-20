@@ -10,7 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
 
 const ACTIONS = ["create", "update", "approve", "lock", "unlock", "delete", "advance",
-  "workflow_approved", "workflow_rejected", "workflow_cancelled"];
+  "workflow_approved", "workflow_rejected", "workflow_cancelled",
+  "admin_dashboard_refresh", "admin_dashboard_export_pdf", "admin_dashboard_filter_change",
+  "admin_report_sent", "admin_role_assigned", "admin_role_updated", "admin_role_removed",
+  "admin_settings_saved"];
 
 type Log = {
   id: string;
