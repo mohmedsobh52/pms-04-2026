@@ -65,19 +65,75 @@ const DashboardPage = () => {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data } = await supabase
-        .from("saved_projects")
-        .select("id,status")
-        .eq("user_id", user.id)
-        .limit(1000);
-      const rows = (data as any[]) || [];
+      const today = new Date();
+      const iso = (d: Date) => d.toISOString().slice(0, 10);
+      const in30 = iso(new Date(today.getTime() + 30 * 864e5));
+      const in14 = iso(new Date(today.getTime() + 14 * 864e5));
+      const nowIso = iso(today);
+
+      const [projectsRes, contractsRes, paymentsRes, variationsRes, certsRes, docsRes, warrantiesRes, milestonesRes] =
+        await Promise.all([
+          supabase.from("saved_projects").select("id,status").eq("user_id", user.id).limit(1000),
+          supabase.from("contracts").select("id,project_id,contract_value").eq("user_id", user.id).limit(1000),
+          supabase.from("contract_payments").select("id,amount,due_date,status").eq("user_id", user.id).limit(2000),
+          supabase.from("contract_variations").select("id,status").eq("user_id", user.id).limit(1000),
+          supabase.from("progress_certificates").select("id,status").eq("user_id", user.id).limit(1000),
+          supabase
+            .from("project_attachments")
+            .select("id,category,expiry_date,is_latest")
+            .eq("user_id", user.id)
+            .limit(2000),
+          supabase.from("contract_warranties").select("id,end_date,status").eq("user_id", user.id).limit(1000),
+          supabase.from("contract_milestones").select("id,due_date,status,contract_id").eq("user_id", user.id).limit(2000),
+        ]);
+
+      const rows = (projectsRes.data as any[]) || [];
+      const contracts = (contractsRes.data as any[]) || [];
+      const payments = (paymentsRes.data as any[]) || [];
+      const variations = (variationsRes.data as any[]) || [];
+      const certs = (certsRes.data as any[]) || [];
+      const docs = ((docsRes.data as any[]) || []).filter((d) => d.is_latest !== false);
+      const warranties = (warrantiesRes.data as any[]) || [];
+      const milestones = (milestonesRes.data as any[]) || [];
+
+      const isPaid = (s: any) => ["paid", "مدفوع", "completed"].includes(String(s || "").toLowerCase());
+      const isDone = (s: any) => ["completed", "done", "مكتمل", "منجز"].includes(String(s || "").toLowerCase());
+
       const active = rows.filter((r) => {
         const s = String(r.status || "").toLowerCase();
         return s && s !== "completed" && s !== "archived" && s !== "مكتمل" && s !== "مؤرشف";
       }).length;
+
       replaceBySource("dashboard", buildDashboardSuggestions({
         projects: rows.length,
         activeProjects: active,
+      }));
+
+      replaceBySource("financial-health", buildFinancialHealthSuggestions({
+        contracts: contracts.length,
+        contractValue: contracts.reduce((s, c) => s + (Number(c.contract_value) || 0), 0),
+        paidValue: payments.filter((p) => isPaid(p.status)).reduce((s, p) => s + (Number(p.amount) || 0), 0),
+        overduePayments: payments.filter((p) => !isPaid(p.status) && p.due_date && p.due_date < nowIso).length,
+        openVariations: variations.filter((v) => !["approved", "معتمد", "rejected"].includes(String(v.status || "").toLowerCase())).length,
+        certificatesPendingApproval: certs.filter((c) => ["pending", "submitted", "قيد المراجعة", "draft"].includes(String(c.status || "").toLowerCase())).length,
+      }));
+
+      replaceBySource("documents", buildDocumentExpirySuggestions({
+        expired: docs.filter((d) => d.expiry_date && d.expiry_date < nowIso).length,
+        expiringIn30d: docs.filter((d) => d.expiry_date && d.expiry_date >= nowIso && d.expiry_date <= in30).length,
+        documentsWithoutCategory: docs.filter((d) => !d.category).length,
+        warrantiesExpiring: warranties.filter(
+          (w) => w.end_date && w.end_date >= nowIso && w.end_date <= in30 && String(w.status || "").toLowerCase() !== "released",
+        ).length,
+      }));
+
+      const contractsWithMilestones = new Set(milestones.map((m) => m.contract_id));
+      replaceBySource("schedule", buildScheduleHealthSuggestions({
+        overdueMilestones: milestones.filter((m) => !isDone(m.status) && m.due_date && m.due_date < nowIso).length,
+        milestonesDueSoon: milestones.filter(
+          (m) => !isDone(m.status) && m.due_date && m.due_date >= nowIso && m.due_date <= in14,
+        ).length,
+        projectsWithoutMilestones: contracts.filter((c) => !contractsWithMilestones.has(c.id)).length,
       }));
     })();
   }, [user, replaceBySource]);
