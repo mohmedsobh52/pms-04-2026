@@ -92,7 +92,7 @@ export function useGlobalSuggestionsBootstrap() {
         .limit(50);
       const integrations: any = await sb
         .from("historical_pricing_files")
-        .select("id, status")
+        .select("id, is_verified")
         .eq("user_id", user.id)
         .limit(100);
       const roles: any = await sb
