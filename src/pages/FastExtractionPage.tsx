@@ -16,6 +16,8 @@ import FastExtractionClassifier from "@/components/FastExtractionClassifier";
 import FastExtractionDrawingAnalyzer from "@/components/FastExtractionDrawingAnalyzer";
 import FastExtractionProjectSelector from "@/components/FastExtractionProjectSelector";
 import { ProjectFilesViewer } from "@/components/ProjectFilesViewer";
+import { AppShell } from "@/components/layout/AppShell";
+
 
 export default function FastExtractionPage() {
   const { language } = useLanguage();
