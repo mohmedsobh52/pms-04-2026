@@ -66,12 +66,19 @@ export default function TeamPage() {
                 <Shield className="w-3.5 h-3.5" />
                 مصفوفة الصلاحيات
               </TabsTrigger>
+              <TabsTrigger value="audit" className="gap-1.5">
+                <ScrollText className="w-3.5 h-3.5" />
+                سجل النشاط
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="users" className="mt-4">
               <UsersRolesPanel />
             </TabsContent>
             <TabsContent value="matrix" className="mt-4">
               <PermissionsMatrix />
+            </TabsContent>
+            <TabsContent value="audit" className="mt-4">
+              <AuditLogsViewer />
             </TabsContent>
           </Tabs>
         ) : (
