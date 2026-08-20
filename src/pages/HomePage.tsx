@@ -292,8 +292,6 @@ export default function HomePage() {
                               {isArabic ? section.descAr : section.descEn}
                             </p>
                           </div>
-
-                          </div>
                         </Link>
                       );
                     })}
