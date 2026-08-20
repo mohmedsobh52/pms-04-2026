@@ -3892,3 +3892,150 @@ export function buildReportAutomationSuggestions(input: {
   }
   return out;
 }
+
+// ============ Notifications hygiene ============
+export function buildNotificationsHygieneSuggestions(input: {
+  total: number;
+  unread: number;
+  unreadCritical: number;
+  staleUnread: number;
+  withoutLink: number;
+  duplicates: number;
+}, screen = "notifications"): Draft[] {
+  const out: Draft[] = [];
+  if (input.total === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لا توجد إشعارات مسجلة بعد",
+      description: "فعّل تنبيهات الاعتمادات والمخاطر والدفعات لمتابعة الأحداث المهمة فور وقوعها.",
+      sourceScreen: screen,
+      sourceRoute: "/notifications",
+    });
+    return out;
+  }
+  if (input.unreadCritical > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${input.unreadCritical} إشعار حرج غير مقروء`,
+      description: "افتح الإشعارات الحرجة أولاً؛ غالباً ترتبط بتجاوز موازنة أو اعتماد متوقف.",
+      sourceScreen: screen,
+      sourceRoute: "/notifications",
+    });
+  }
+  if (input.staleUnread > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.staleUnread} إشعار غير مقروء منذ أكثر من 14 يوماً`,
+      description: "راجعها أو علّمها كمقروءة حتى يبقى صندوق الإشعارات مؤشراً موثوقاً.",
+      sourceScreen: screen,
+      sourceRoute: "/notifications",
+    });
+  } else if (input.unread > 20) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: `${input.unread} إشعار غير مقروء`,
+      description: "استخدم التصفية حسب النوع ثم التعليم الجماعي كمقروء لتقليل الضجيج.",
+      sourceScreen: screen,
+      sourceRoute: "/notifications",
+    });
+  }
+  if (input.withoutLink > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: `${input.withoutLink} إشعار بلا رابط انتقال`,
+      description: "أضف رابط الكيان المرتبط لتسريع الوصول للإجراء المطلوب من الإشعار.",
+      sourceScreen: screen,
+      sourceRoute: "/notifications",
+    });
+  }
+  if (input.duplicates > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.duplicates} إشعار مكرر`,
+      description: "فعّل مفتاح منع التكرار (dedup) لتفادي تكرار نفس التنبيه أكثر من مرة.",
+      sourceScreen: screen,
+      sourceRoute: "/notifications",
+    });
+  }
+  return out;
+}
+
+// ============ Portfolio health ============
+export function buildPortfolioHealthSuggestions(input: {
+  projects: number;
+  withoutAnalysis: number;
+  withoutWbs: number;
+  draftProjects: number;
+  staleProjects: number;
+  duplicateNames: number;
+}, screen = "projects"): Draft[] {
+  const out: Draft[] = [];
+  if (input.projects === 0) {
+    out.push({
+      category: "onboarding",
+      severity: "info",
+      title: "ابدأ بإنشاء أول مشروع",
+      description: "أنشئ مشروعاً وارفع جدول الكميات لتفعيل التحليل والتسعير والتقارير.",
+      sourceScreen: screen,
+      sourceRoute: "/new-project",
+    });
+    return out;
+  }
+  if (input.withoutAnalysis > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.withoutAnalysis} مشروع بلا بيانات تحليل`,
+      description: "ارفع جدول الكميات أو شغّل التحليل حتى تظهر مؤشرات التكلفة لهذه المشاريع.",
+      sourceScreen: screen,
+      sourceRoute: "/saved-projects",
+    });
+  }
+  if (input.withoutWbs > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.withoutWbs} مشروع بلا هيكل WBS`,
+      description: "بناء هيكل تجزئة العمل يحسّن التقارير ومقارنة المشاريع وترميز التكاليف.",
+      sourceScreen: screen,
+      sourceRoute: "/saved-projects",
+    });
+  }
+  if (input.draftProjects > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: `${input.draftProjects} مشروع ما زال مسودة`,
+      description: "حدّث حالة المشاريع الجاهزة حتى تدخل ضمن لوحات المتابعة والتقارير التنفيذية.",
+      sourceScreen: screen,
+      sourceRoute: "/saved-projects",
+    });
+  }
+  if (input.staleProjects > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.staleProjects} مشروع بلا تحديث منذ 90 يوماً`,
+      description: "راجعها للأرشفة أو حدّث بياناتها لتفادي اتخاذ قرارات على أسعار قديمة.",
+      sourceScreen: screen,
+      sourceRoute: "/saved-projects",
+    });
+  }
+  if (input.duplicateNames > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.duplicateNames} اسم مشروع مكرر`,
+      description: "وحّد التسمية أو أضف رقم المناقصة للتمييز بين النسخ المتشابهة.",
+      sourceScreen: screen,
+      sourceRoute: "/saved-projects",
+    });
+  }
+  return out;
+}
