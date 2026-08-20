@@ -9,6 +9,7 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
 import { NotificationsPopover } from "@/components/layout/NotificationsPopover";
+import { NavArrows } from "@/components/layout/NavArrows";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator,
@@ -29,6 +30,8 @@ export function AppTopbar() {
   return (
     <header className="h-14 sticky top-0 z-40 flex items-center gap-1.5 px-3 md:px-4 border-b border-border bg-card/80 backdrop-blur-md">
       <SidebarTrigger aria-label={isArabic ? "تبديل الشريط الجانبي" : "Toggle sidebar"} />
+
+      <NavArrows />
 
       <Link to="/" className="hidden sm:inline-flex">
         <Button variant="ghost" size="sm" className="gap-1.5 h-9">
