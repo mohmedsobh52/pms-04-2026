@@ -197,32 +197,39 @@ export function AppSidebar() {
     const visible = g.items.filter(canSee);
     if (visible.length === 0) return null;
     return (
-      <SidebarGroup key={g.labelEn}>
+      <SidebarGroup key={g.labelEn} className="py-1.5">
         {!collapsed && (
-          <SidebarGroupLabel className="text-[10px] uppercase tracking-wider font-semibold text-sidebar-foreground/60">
+          <SidebarGroupLabel className="h-6 px-2 text-[10px] uppercase tracking-[0.14em] font-semibold text-sidebar-foreground/45">
             {isArabic ? g.labelAr : g.labelEn}
           </SidebarGroupLabel>
         )}
         <SidebarGroupContent>
-          <SidebarMenu>
+          <SidebarMenu className="gap-0.5">
             {visible.map((item) => {
               const url = resolveUrl(item.url, projectId, item.projectScoped);
+              const active = isActive(item.url);
               return (
                 <SidebarMenuItem key={`${g.labelEn}-${item.titleEn}`}>
                   <SidebarMenuButton
                     asChild
-                    isActive={isActive(item.url)}
+                    isActive={active}
                     tooltip={isArabic ? item.titleAr : item.titleEn}
+                    className="h-8 rounded-md transition-colors"
                   >
                     <NavLink
                       to={url}
-                      className="flex items-center gap-2"
+                      className="relative flex items-center gap-2.5"
                       onMouseEnter={() => prefetchRoute(url)}
                       onFocus={() => prefetchRoute(url)}
                     >
-                      <item.icon className="h-4 w-4 shrink-0" />
+                      {active && !collapsed && (
+                        <span
+                          className={`absolute ${isArabic ? "-right-2" : "-left-2"} top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-sidebar-primary`}
+                        />
+                      )}
+                      <item.icon className={`h-[15px] w-[15px] shrink-0 ${active ? "opacity-100" : "opacity-70"}`} />
                       {!collapsed && (
-                        <span className="truncate text-[13px]">
+                        <span className={`truncate text-[13px] ${active ? "font-semibold" : "font-normal"}`}>
                           {isArabic ? item.titleAr : item.titleEn}
                         </span>
                       )}
@@ -236,6 +243,7 @@ export function AppSidebar() {
       </SidebarGroup>
     );
   };
+
 
   const modeBadge = useMemo(() => {
     if (collapsed) return null;
