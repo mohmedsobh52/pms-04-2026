@@ -27,6 +27,8 @@ import {
   buildQuantityTakeoffSuggestions,
   buildWarrantyMaintenanceSuggestions,
   buildCostCodingSuggestions,
+  buildSubcontractorSuggestions,
+  buildTenderPipelineSuggestions,
 } from "@/lib/suggestion-generators";
 
 
