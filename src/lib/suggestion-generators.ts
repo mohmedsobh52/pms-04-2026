@@ -3517,3 +3517,171 @@ export function buildVariationsMilestonesSuggestions(input: {
   }
   return out;
 }
+
+export function buildRatesLibrarySuggestions(input: {
+  laborRates: number;
+  equipmentRates: number;
+  expiredLaborRates: number;
+  expiredEquipmentRates: number;
+  staleRates180d: number;
+  ratesWithoutCategory: number;
+}, screen = "rates"): Draft[] {
+  const out: Draft[] = [];
+  if (input.laborRates === 0 && input.equipmentRates === 0) {
+    out.push({
+      category: "ai-pricing",
+      severity: "warning",
+      title: "مكتبة أسعار العمالة والمعدات فارغة",
+      description: "أضف أسعار العمالة والمعدات لتفعيل التحليل التفصيلي للتكلفة (Rate Build-up).",
+      sourceScreen: screen,
+      sourceRoute: "/resources",
+    });
+    return out;
+  }
+  if (input.laborRates === 0) {
+    out.push({
+      category: "ai-pricing",
+      severity: "info",
+      title: "لا توجد أسعار عمالة مسجلة",
+      description: "أضف فئات العمالة وأسعارها لحساب تكلفة البنود بدقة أعلى.",
+      sourceScreen: screen,
+      sourceRoute: "/resources",
+    });
+  }
+  if (input.equipmentRates === 0) {
+    out.push({
+      category: "ai-pricing",
+      severity: "info",
+      title: "لا توجد أسعار معدات مسجلة",
+      description: "أضف أسعار تأجير/تشغيل المعدات لاكتمال تحليل التكلفة.",
+      sourceScreen: screen,
+      sourceRoute: "/resources",
+    });
+  }
+  const expired = input.expiredLaborRates + input.expiredEquipmentRates;
+  if (expired > 0) {
+    out.push({
+      category: "ai-pricing",
+      severity: "warning",
+      title: `${expired} سعر منتهي الصلاحية`,
+      description: "حدّث الأسعار المنتهية أو مدّد صلاحيتها لتفادي تسعير غير دقيق.",
+      sourceScreen: screen,
+      sourceRoute: "/resources",
+    });
+  }
+  if (input.staleRates180d > 0) {
+    out.push({
+      category: "ai-pricing",
+      severity: "info",
+      title: `${input.staleRates180d} سعر لم يُحدَّث منذ 6 أشهر`,
+      description: "راجع الأسعار القديمة مقابل السوق الحالي لرفع دقة التقديرات.",
+      sourceScreen: screen,
+      sourceRoute: "/market-prices",
+    });
+  }
+  if (input.ratesWithoutCategory > 0) {
+    out.push({
+      category: "ai-pricing",
+      severity: "info",
+      title: `${input.ratesWithoutCategory} سعر بدون تصنيف`,
+      description: "صنّف الأسعار لتسهيل البحث والربط التلقائي ببنود الأعمال.",
+      sourceScreen: screen,
+      sourceRoute: "/resources",
+    });
+  }
+  return out;
+}
+
+export function buildResourcePlanningSuggestions(input: {
+  resources: number;
+  resourcesWithoutDates: number;
+  overAllocated: number;
+  underUtilized: number;
+  progressRecords: number;
+  lastRecordDays: number | null;
+  lowSpi: number;
+  lowCpi: number;
+}, screen = "resources"): Draft[] {
+  const out: Draft[] = [];
+  if (input.resources === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "أضف خطة موارد للمشروع",
+      description: "تعريف الموارد وكمياتها يفعّل تسوية الأحمال وتحليل الإنتاجية.",
+      sourceScreen: screen,
+      sourceRoute: "/resources",
+    });
+  } else {
+    if (input.resourcesWithoutDates > 0) {
+      out.push({
+        category: "workflow",
+        severity: "warning",
+        title: `${input.resourcesWithoutDates} مورد بدون تواريخ`,
+        description: "حدد تواريخ البدء والانتهاء لتشغيل تحليل تحميل الموارد بدقة.",
+        sourceScreen: screen,
+        sourceRoute: "/resources",
+      });
+    }
+    if (input.overAllocated > 0) {
+      out.push({
+        category: "workflow",
+        severity: "critical",
+        title: `${input.overAllocated} مورد بتحميل زائد (>100%)`,
+        description: "شغّل تسوية الموارد أو أعد توزيع الأحمال لتفادي تأخير التنفيذ.",
+        sourceScreen: screen,
+        sourceRoute: "/resources",
+      });
+    }
+    if (input.underUtilized > 0) {
+      out.push({
+        category: "workflow",
+        severity: "info",
+        title: `${input.underUtilized} مورد باستغلال منخفض (<40%)`,
+        description: "أعد توزيع الموارد قليلة الاستخدام لتقليل التكلفة الثابتة.",
+        sourceScreen: screen,
+        sourceRoute: "/resources",
+      });
+    }
+  }
+  if (input.progressRecords === 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: "لا يوجد سجل تقدم للمشروع",
+      description: "سجّل نسب الإنجاز دورياً لتفعيل مؤشرات EVM (SPI/CPI) والتنبؤ.",
+      sourceScreen: screen,
+      sourceRoute: "/evm",
+    });
+  } else if (input.lastRecordDays !== null && input.lastRecordDays > 30) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `آخر تحديث للتقدم منذ ${input.lastRecordDays} يوماً`,
+      description: "حدّث بيانات الإنجاز الفعلي للحفاظ على دقة مؤشرات الأداء.",
+      sourceScreen: screen,
+      sourceRoute: "/evm",
+    });
+  }
+  if (input.lowSpi > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: "تأخر زمني مرصود (SPI < 0.9)",
+      description: "راجع الأنشطة الحرجة وخطة التسريع لمعالجة الانحراف الزمني.",
+      sourceScreen: screen,
+      sourceRoute: "/evm",
+    });
+  }
+  if (input.lowCpi > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: "تجاوز تكلفة مرصود (CPI < 0.9)",
+      description: "حلّل بنود التجاوز واتخذ إجراءات ضبط التكلفة فوراً.",
+      sourceScreen: screen,
+      sourceRoute: "/cost-control",
+    });
+  }
+  return out;
+}
