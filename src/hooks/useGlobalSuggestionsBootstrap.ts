@@ -425,7 +425,7 @@ export function useGlobalSuggestionsBootstrap() {
           ["pending", "in_progress"].includes(String(a.status || "").toLowerCase()),
         ).length;
         const risksWithoutMitigation = ((risksRes.data ?? []) as any[]).filter(
-          (r) => !r.mitigation_plan,
+          (r) => !r.mitigation_strategy,
         ).length;
         if (!cancelled) {
           replaceBySource(
