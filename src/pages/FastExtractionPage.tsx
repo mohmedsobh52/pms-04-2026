@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
 import { buildFastExtractionSuggestions } from "@/lib/suggestion-generators";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Upload, History, Lightbulb, FolderOpen } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,7 +19,6 @@ import { AppShell } from "@/components/layout/AppShell";
 export default function FastExtractionPage() {
   const { language } = useLanguage();
   const { user } = useAuth();
-  const navigate = useNavigate();
   const isArabic = language === "ar";
 
   const [currentStep, setCurrentStep] = useState(1);
