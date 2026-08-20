@@ -3305,7 +3305,7 @@ export function buildSubcontractorSuggestions(input: {
     const pct = Math.round((input.activeAssignments / input.assignments) * 100);
     if (pct < 30) {
       out.push({
-        category: "insight",
+        category: "workflow",
         severity: "info",
         title: `${pct}% فقط من الإسنادات نشطة`,
         description: "راجع الإسنادات المتوقفة أو المغلقة وحدّث حالتها لتصحيح تقارير الأداء.",
@@ -3360,7 +3360,7 @@ export function buildTenderPipelineSuggestions(input: {
   }
   if (input.tenderPricingRows > 0 && input.quotations === 0) {
     out.push({
-      category: "cost",
+      category: "ai-pricing",
       severity: "warning",
       title: "تسعير مناقصة بدون عروض أسعار داعمة",
       description: "أضف عروض أسعار من الموردين لدعم أسعار المناقصة وتقليل مخاطر التسعير.",
@@ -3370,7 +3370,7 @@ export function buildTenderPipelineSuggestions(input: {
   }
   if (input.proposals > 0 && input.tenderPricingRows === 0) {
     out.push({
-      category: "insight",
+      category: "workflow",
       severity: "info",
       title: "اربط العروض الفنية بالتسعير",
       description: "أنشئ تسعير مناقصة مقابل كل عرض فني للحصول على صورة مالية/فنية متكاملة.",
