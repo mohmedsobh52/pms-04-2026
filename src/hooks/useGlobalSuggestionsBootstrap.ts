@@ -21,7 +21,10 @@ import {
   buildRuntimePerfSuggestions,
   buildCrossModuleSuggestions,
   buildWorkflowGapSuggestions,
+  buildBudgetControlSuggestions,
+  buildSupplierBaseSuggestions,
 } from "@/lib/suggestion-generators";
+
 
 /**
  * Session-wide bootstrap: once per mount, pull light DB counts and push
@@ -442,6 +445,76 @@ export function useGlobalSuggestionsBootstrap() {
       } catch {
         /* silent */
       }
+
+      // Budget control readiness (baselines / thresholds)
+      try {
+        const [projRes, baseRes, thrRes] = await Promise.all([
+          supabase.from("saved_projects").select("id").limit(500),
+          supabase
+            .from("cost_control_baselines")
+            .select("project_id, is_active")
+            .limit(1000),
+          supabase.from("cost_control_thresholds").select("project_id").limit(1000),
+        ]);
+        const projectIds = ((projRes.data ?? []) as any[]).map((p) => p.id);
+        const baselines = (baseRes.data ?? []) as any[];
+        const withBaseline = new Set(baselines.map((b) => b.project_id));
+        const withThresholds = new Set(
+          ((thrRes.data ?? []) as any[]).map((t) => t.project_id),
+        );
+        if (!cancelled && projectIds.length) {
+          replaceBySource(
+            "budget-control",
+            buildBudgetControlSuggestions({
+              projects: projectIds.length,
+              projectsWithBaseline: projectIds.filter((id) => withBaseline.has(id))
+                .length,
+              projectsWithThresholds: projectIds.filter((id) =>
+                withThresholds.has(id),
+              ).length,
+              activeBaselines: baselines.filter((b) => b.is_active).length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Supplier base quality
+      try {
+        const [supRes, procRes] = await Promise.all([
+          supabase
+            .from("suppliers")
+            .select("id, phone, email, rating, is_verified")
+            .limit(1000),
+          supabase
+            .from("procurement_items")
+            .select("id, suggested_suppliers")
+            .limit(2000),
+        ]);
+        const suppliers = (supRes.data ?? []) as any[];
+        const procItems = (procRes.data ?? []) as any[];
+        if (!cancelled) {
+          replaceBySource(
+            "supplier-base",
+            buildSupplierBaseSuggestions({
+              suppliers: suppliers.length,
+              verifiedSuppliers: suppliers.filter((s) => s.is_verified).length,
+              suppliersMissingContact: suppliers.filter(
+                (s) => !s.phone && !s.email,
+              ).length,
+              unratedSuppliers: suppliers.filter((s) => !s.rating).length,
+              procurementItemsWithoutSupplier: procItems.filter((p) => {
+                const s = p.suggested_suppliers;
+                return !s || (Array.isArray(s) && s.length === 0);
+              }).length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
     })().catch(() => {
       /* silent — bootstrap is best-effort */
     });
