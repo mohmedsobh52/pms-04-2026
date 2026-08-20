@@ -3185,7 +3185,7 @@ export function buildWarrantyMaintenanceSuggestions(input: {
   }
   if (input.warranties > 0 && input.maintenanceSchedules === 0) {
     out.push({
-      category: "optimization",
+      category: "workflow",
       severity: "info",
       title: "أضف جداول صيانة دورية",
       description: "ربط الضمانات بجداول صيانة يقلّل مخاطر رفض المطالبات لاحقاً.",
@@ -3239,7 +3239,7 @@ export function buildCostCodingSuggestions(input: {
   }
   if (input.categories <= 1) {
     out.push({
-      category: "optimization",
+      category: "workflow",
       severity: "info",
       title: "صنّف البنود إلى أقسام (WBS)",
       description: "تقسيم البنود إلى فئات يفعّل تحليل التكلفة حسب النشاط ومخططات التوزيع.",
