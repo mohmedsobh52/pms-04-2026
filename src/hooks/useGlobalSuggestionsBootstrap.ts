@@ -23,7 +23,7 @@ import {
   buildWorkflowGapSuggestions,
   buildBudgetControlSuggestions,
   buildSupplierBaseSuggestions,
-  buildPricingAccuracySuggestions,
+  buildPricingCoverageSuggestions,
   buildQuantityTakeoffSuggestions,
 } from "@/lib/suggestion-generators";
 
