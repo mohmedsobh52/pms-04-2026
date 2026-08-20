@@ -412,7 +412,7 @@ export function useGlobalSuggestionsBootstrap() {
             supabase.from("progress_certificates").select("project_id").limit(2000),
             supabase.from("price_quotations").select("id, status").limit(1000),
             supabase.from("workflow_instances").select("id, status").limit(500),
-            supabase.from("risks").select("id, mitigation_plan, severity").limit(1000),
+            supabase.from("risks").select("id, mitigation_strategy, risk_score").limit(1000),
           ]);
         const contracts = (contractsRes.data ?? []) as any[];
         const paidIds = new Set(((paymentsRes.data ?? []) as any[]).map((p) => p.contract_id));
