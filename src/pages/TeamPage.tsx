@@ -2,9 +2,10 @@ import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { UsersRolesPanel } from "@/components/admin/UsersRolesPanel";
 import { PermissionsMatrix } from "@/components/admin/PermissionsMatrix";
+import { AuditLogsViewer } from "@/components/admin/AuditLogsViewer";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Shield } from "lucide-react";
+import { Users, Shield, ScrollText } from "lucide-react";
 import { useUserRoles } from "@/hooks/useUserRoles";
 import { supabase } from "@/integrations/supabase/client";
 import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
@@ -66,12 +67,19 @@ export default function TeamPage() {
                 <Shield className="w-3.5 h-3.5" />
                 مصفوفة الصلاحيات
               </TabsTrigger>
+              <TabsTrigger value="audit" className="gap-1.5">
+                <ScrollText className="w-3.5 h-3.5" />
+                سجل النشاط
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="users" className="mt-4">
               <UsersRolesPanel />
             </TabsContent>
             <TabsContent value="matrix" className="mt-4">
               <PermissionsMatrix />
+            </TabsContent>
+            <TabsContent value="audit" className="mt-4">
+              <AuditLogsViewer />
             </TabsContent>
           </Tabs>
         ) : (
