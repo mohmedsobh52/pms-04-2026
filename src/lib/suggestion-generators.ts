@@ -3380,3 +3380,140 @@ export function buildTenderPipelineSuggestions(input: {
   }
   return out;
 }
+
+export function buildBillingCashflowSuggestions(input: {
+  certificates: number;
+  pendingCertificates: number;
+  certificatesWithoutContract: number;
+  payments: number;
+  overduePayments: number;
+  unpaidDue30d: number;
+  paymentsWithoutInvoice: number;
+}, screen = "certificates"): Draft[] {
+  const out: Draft[] = [];
+  if (input.certificates === 0 && input.payments === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "ابدأ دورة المستخلصات والدفعات",
+      description: "أنشئ أول مستخلص أو جدول دفعات لمتابعة التدفق النقدي والمستحقات.",
+      sourceScreen: screen,
+      sourceRoute: "/progress-certificates",
+    });
+    return out;
+  }
+  if (input.pendingCertificates > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.pendingCertificates} مستخلص بانتظار الاعتماد`,
+      description: "سرّع اعتماد المستخلصات المعلقة لتجنب تأخير التحصيل.",
+      sourceScreen: screen,
+      sourceRoute: "/progress-certificates",
+    });
+  }
+  if (input.certificatesWithoutContract > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.certificatesWithoutContract} مستخلص غير مرتبط بعقد`,
+      description: "اربط المستخلصات بعقودها لضبط الاستقطاعات والضمانات تلقائياً.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if (input.overduePayments > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${input.overduePayments} دفعة متأخرة عن موعد الاستحقاق`,
+      description: "راجع الدفعات المتأخرة وحدّث حالتها أو تابع التحصيل فوراً.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if (input.unpaidDue30d > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: `${input.unpaidDue30d} دفعة تستحق خلال 30 يوماً`,
+      description: "جهّز السيولة والمستندات المطلوبة قبل مواعيد الاستحقاق القادمة.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if (input.paymentsWithoutInvoice > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: `${input.paymentsWithoutInvoice} دفعة بدون رقم فاتورة`,
+      description: "أضف أرقام الفواتير لتسهيل التسوية المحاسبية والتدقيق.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  return out;
+}
+
+export function buildVariationsMilestonesSuggestions(input: {
+  variations: number;
+  pendingVariations: number;
+  variationsAmount: number;
+  milestones: number;
+  overdueMilestones: number;
+  milestonesWithoutAmount: number;
+}, screen = "contracts"): Draft[] {
+  const out: Draft[] = [];
+  if (input.pendingVariations > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.pendingVariations} أمر تغييري بانتظار الاعتماد`,
+      description: "اعتمد أوامر التغيير أو ارفضها لتحديث قيمة العقد والموازنة المعتمدة.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if (input.variationsAmount > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "راجع أثر أوامر التغيير على الموازنة",
+      description: `إجمالي قيمة أوامر التغيير المسجلة ${Math.round(input.variationsAmount).toLocaleString("ar-EG")} — حدّث خط الأساس للتكلفة.`,
+      sourceScreen: screen,
+      sourceRoute: "/cost-control",
+    });
+  }
+  if (input.milestones === 0 && input.variations === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "أضف مراحل إنجاز للعقود",
+      description: "تعريف المراحل يربط الدفعات بالإنجاز ويحسّن دقة التنبؤ بالتدفق النقدي.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+    return out;
+  }
+  if (input.overdueMilestones > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${input.overdueMilestones} مرحلة إنجاز متأخرة`,
+      description: "حدّث حالة المراحل المتأخرة أو أعد جدولتها لتفادي غرامات التأخير.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if (input.milestonesWithoutAmount > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: `${input.milestonesWithoutAmount} مرحلة بدون قيمة دفعة`,
+      description: "حدد قيمة أو نسبة الدفعة لكل مرحلة لإكمال جدول الدفعات.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  return out;
+}
