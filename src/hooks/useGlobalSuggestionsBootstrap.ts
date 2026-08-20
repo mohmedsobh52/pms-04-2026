@@ -159,7 +159,7 @@ export function useGlobalSuggestionsBootstrap() {
 
       // Integrations proxy: historical pricing files as external data feeds
       const feeds = integrations.data ?? [];
-      const failing = feeds.filter((f: any) => f.status === "failed").length;
+      const failing = feeds.filter((f: any) => f.is_verified === false).length;
       replaceBySource(
         "integrations",
         buildIntegrationsSuggestions({
