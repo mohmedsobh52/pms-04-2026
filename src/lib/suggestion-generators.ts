@@ -3978,7 +3978,7 @@ export function buildPortfolioHealthSuggestions(input: {
   const out: Draft[] = [];
   if (input.projects === 0) {
     out.push({
-      category: "onboarding",
+      category: "workflow",
       severity: "info",
       title: "ابدأ بإنشاء أول مشروع",
       description: "أنشئ مشروعاً وارفع جدول الكميات لتفعيل التحليل والتسعير والتقارير.",
