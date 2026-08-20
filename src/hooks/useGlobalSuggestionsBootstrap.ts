@@ -29,6 +29,8 @@ import {
   buildCostCodingSuggestions,
   buildSubcontractorSuggestions,
   buildTenderPipelineSuggestions,
+  buildBillingCashflowSuggestions,
+  buildVariationsMilestonesSuggestions,
 } from "@/lib/suggestion-generators";
 
 
@@ -735,6 +737,94 @@ export function useGlobalSuggestionsBootstrap() {
               ).length,
               tenderPricingRows: (tenderRes.data ?? []).length,
               quotations: (quotesRes3.data ?? []).length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+
+
+      // Billing & cash flow (certificates + payments)
+      try {
+        const [certRes, payRes] = await Promise.all([
+          supabase
+            .from("progress_certificates")
+            .select("id, approval_status, contract_id")
+            .limit(2000),
+          supabase
+            .from("contract_payments")
+            .select("id, status, due_date, payment_date, invoice_number")
+            .limit(2000),
+        ]);
+        const certs = (certRes.data ?? []) as any[];
+        const pays = (payRes.data ?? []) as any[];
+        const now = Date.now();
+        const isPaid = (p: any) =>
+          !!p.payment_date || ["paid", "مدفوع"].includes(String(p.status || "").toLowerCase());
+        if (!cancelled) {
+          replaceBySource(
+            "billing-cashflow",
+            buildBillingCashflowSuggestions({
+              certificates: certs.length,
+              pendingCertificates: certs.filter((c) =>
+                ["pending", "draft", "submitted", "معلق", "مسودة"].includes(
+                  String(c.approval_status || "").toLowerCase(),
+                ),
+              ).length,
+              certificatesWithoutContract: certs.filter((c) => !c.contract_id).length,
+              payments: pays.length,
+              overduePayments: pays.filter(
+                (p) => !isPaid(p) && p.due_date && new Date(p.due_date).getTime() < now,
+              ).length,
+              unpaidDue30d: pays.filter((p) => {
+                if (isPaid(p) || !p.due_date) return false;
+                const t = new Date(p.due_date).getTime();
+                return t >= now && t <= now + 30 * 86400_000;
+              }).length,
+              paymentsWithoutInvoice: pays.filter((p) => !p.invoice_number).length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Variations & milestones
+      try {
+        const [varRes, msRes] = await Promise.all([
+          supabase.from("contract_variations").select("id, status, amount").limit(2000),
+          supabase
+            .from("contract_milestones")
+            .select("id, status, due_date, completion_date, payment_amount, payment_percentage")
+            .limit(2000),
+        ]);
+        const vars = (varRes.data ?? []) as any[];
+        const ms = (msRes.data ?? []) as any[];
+        const now2 = Date.now();
+        if (!cancelled) {
+          replaceBySource(
+            "variations-milestones",
+            buildVariationsMilestonesSuggestions({
+              variations: vars.length,
+              pendingVariations: vars.filter((v) =>
+                ["pending", "draft", "submitted", "معلق"].includes(
+                  String(v.status || "").toLowerCase(),
+                ),
+              ).length,
+              variationsAmount: vars.reduce((s, v) => s + (Number(v.amount) || 0), 0),
+              milestones: ms.length,
+              overdueMilestones: ms.filter(
+                (m) =>
+                  !m.completion_date &&
+                  String(m.status || "").toLowerCase() !== "completed" &&
+                  m.due_date &&
+                  new Date(m.due_date).getTime() < now2,
+              ).length,
+              milestonesWithoutAmount: ms.filter(
+                (m) => !m.payment_amount && !m.payment_percentage,
+              ).length,
             }),
           );
         }
