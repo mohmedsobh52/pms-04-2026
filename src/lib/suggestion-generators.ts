@@ -3249,3 +3249,134 @@ export function buildCostCodingSuggestions(input: {
   }
   return out;
 }
+
+
+// ============= Subcontractors & assignments health =============
+export function buildSubcontractorSuggestions(input: {
+  subcontractors: number;
+  assignments: number;
+  activeAssignments: number;
+  assignmentsWithoutDates: number;
+  subcontractorsWithoutContact: number;
+}, screen = "subcontractors"): Draft[] {
+  const out: Draft[] = [];
+  if (input.subcontractors === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لا يوجد مقاولو باطن مسجّلون",
+      description: "سجّل مقاولي الباطن لربطهم بالبنود والمستخلصات ومتابعة أدائهم.",
+      sourceScreen: screen,
+      sourceRoute: "/subcontractors",
+    });
+    return out;
+  }
+  if (input.subcontractorsWithoutContact > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.subcontractorsWithoutContact} مقاول باطن بدون بيانات تواصل`,
+      description: "أضف الهاتف أو البريد لتفعيل طلبات العروض والإشعارات التلقائية.",
+      sourceScreen: screen,
+      sourceRoute: "/subcontractors",
+    });
+  }
+  if (input.assignments === 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: "لم يتم إسناد أي أعمال لمقاولي الباطن",
+      description: "اربط كل مقاول بنطاق أعمال محدد لتتبع الإنجاز والمستحقات.",
+      sourceScreen: screen,
+      sourceRoute: "/subcontractors",
+    });
+  }
+  if (input.assignmentsWithoutDates > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.assignmentsWithoutDates} إسناد بدون تواريخ بداية/نهاية`,
+      description: "تواريخ الإسناد مطلوبة لحساب التأخير وربط الأعمال بالجدول الزمني.",
+      sourceScreen: screen,
+      sourceRoute: "/subcontractors",
+    });
+  }
+  if (input.activeAssignments > 0 && input.assignments > 0) {
+    const pct = Math.round((input.activeAssignments / input.assignments) * 100);
+    if (pct < 30) {
+      out.push({
+        category: "insight",
+        severity: "info",
+        title: `${pct}% فقط من الإسنادات نشطة`,
+        description: "راجع الإسنادات المتوقفة أو المغلقة وحدّث حالتها لتصحيح تقارير الأداء.",
+        sourceScreen: screen,
+        sourceRoute: "/subcontractors",
+      });
+    }
+  }
+  return out;
+}
+
+// ============= Tender / proposals pipeline =============
+export function buildTenderPipelineSuggestions(input: {
+  proposals: number;
+  draftProposals: number;
+  offerRequests: number;
+  openOfferRequests: number;
+  tenderPricingRows: number;
+  quotations: number;
+}, screen = "tender"): Draft[] {
+  const out: Draft[] = [];
+  if (input.proposals === 0 && input.offerRequests === 0 && input.tenderPricingRows === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "ابدأ مسار المناقصات",
+      description: "أنشئ تسعير مناقصة أو عرضاً فنياً لتفعيل مقارنة العروض وتقارير الترسية.",
+      sourceScreen: screen,
+      sourceRoute: "/tender-summary",
+    });
+    return out;
+  }
+  if (input.draftProposals > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.draftProposals} عرض فني ما زال مسودة`,
+      description: "أكمل مراجعة العروض الفنية واعتمدها قبل موعد التسليم.",
+      sourceScreen: screen,
+      sourceRoute: "/tender-summary",
+    });
+  }
+  if (input.openOfferRequests > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.openOfferRequests} طلب عروض أسعار مفتوح`,
+      description: "تابع ردود الموردين وأغلق الطلبات المنتهية لتحديث مقارنة الأسعار.",
+      sourceScreen: screen,
+      sourceRoute: "/quotations",
+    });
+  }
+  if (input.tenderPricingRows > 0 && input.quotations === 0) {
+    out.push({
+      category: "cost",
+      severity: "warning",
+      title: "تسعير مناقصة بدون عروض أسعار داعمة",
+      description: "أضف عروض أسعار من الموردين لدعم أسعار المناقصة وتقليل مخاطر التسعير.",
+      sourceScreen: screen,
+      sourceRoute: "/quotations",
+    });
+  }
+  if (input.proposals > 0 && input.tenderPricingRows === 0) {
+    out.push({
+      category: "insight",
+      severity: "info",
+      title: "اربط العروض الفنية بالتسعير",
+      description: "أنشئ تسعير مناقصة مقابل كل عرض فني للحصول على صورة مالية/فنية متكاملة.",
+      sourceScreen: screen,
+      sourceRoute: "/tender-summary",
+    });
+  }
+  return out;
+}
