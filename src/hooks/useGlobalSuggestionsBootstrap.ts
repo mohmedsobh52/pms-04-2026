@@ -21,7 +21,10 @@ import {
   buildRuntimePerfSuggestions,
   buildCrossModuleSuggestions,
   buildWorkflowGapSuggestions,
+  buildBudgetControlSuggestions,
+  buildSupplierBaseSuggestions,
 } from "@/lib/suggestion-generators";
+
 
 /**
  * Session-wide bootstrap: once per mount, pull light DB counts and push
