@@ -23,7 +23,10 @@ import {
   buildWorkflowGapSuggestions,
   buildBudgetControlSuggestions,
   buildSupplierBaseSuggestions,
+  buildPricingCoverageSuggestions,
+  buildQuantityTakeoffSuggestions,
 } from "@/lib/suggestion-generators";
+
 
 
 /**
@@ -514,6 +517,88 @@ export function useGlobalSuggestionsBootstrap() {
       } catch {
         /* silent */
       }
+
+      // Pricing accuracy coverage
+      try {
+        const [itemsRes, refRes, quotesRes2, matRes] = await Promise.all([
+          supabase
+            .from("project_items")
+            .select("id, unit_price, quantity, unit, description")
+            .limit(5000),
+          supabase.from("reference_prices").select("item_name").limit(2000),
+          supabase.from("price_quotations").select("id").limit(1000),
+          supabase
+            .from("material_prices")
+            .select("updated_at")
+            .order("updated_at", { ascending: false })
+            .limit(1),
+        ]);
+        const items = (itemsRes.data ?? []) as any[];
+        const refNames = new Set(
+          ((refRes.data ?? []) as any[]).map((r) =>
+            String(r.item_name || "").trim().toLowerCase(),
+          ),
+        );
+        const withRef = items.filter((i) =>
+          refNames.has(String(i.description || "").trim().toLowerCase()),
+        ).length;
+        const lastMat = ((matRes.data ?? []) as any[])[0]?.updated_at;
+        if (!cancelled && items.length) {
+          replaceBySource(
+            "pricing-accuracy",
+            buildPricingCoverageSuggestions({
+              items: items.length,
+              itemsWithoutUnitPrice: items.filter((i) => !i.unit_price).length,
+              itemsWithoutQuantity: items.filter((i) => !i.quantity).length,
+              itemsWithReferencePrice: withRef,
+              quotationsCoverage: items.length
+                ? Math.min(1, ((quotesRes2.data ?? []).length * 10) / items.length)
+                : 0,
+              lastPriceUpdateDaysAgo: lastMat
+                ? Math.round((Date.now() - new Date(lastMat).getTime()) / 86400_000)
+                : null,
+            }),
+          );
+          replaceBySource(
+            "quantity-takeoff",
+            buildQuantityTakeoffSuggestions({
+              attachments: 0,
+              drawingAttachments: 0,
+              drawingsAnalyzed: 0,
+              itemsWithoutUnit: items.filter((i) => !i.unit).length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Drawings / takeoff readiness
+      try {
+        const { data: atts } = await supabase
+          .from("project_attachments")
+          .select("id, file_type, category, is_analyzed")
+          .limit(2000);
+        const rows = (atts ?? []) as any[];
+        const isDrawing = (a: any) =>
+          /drawing|مخطط/i.test(String(a.category || "")) ||
+          /pdf|image|dwg/i.test(String(a.file_type || ""));
+        const drawings = rows.filter(isDrawing);
+        if (!cancelled && rows.length) {
+          replaceBySource(
+            "quantity-takeoff",
+            buildQuantityTakeoffSuggestions({
+              attachments: rows.length,
+              drawingAttachments: drawings.length,
+              drawingsAnalyzed: drawings.filter((d) => d.is_analyzed).length,
+              itemsWithoutUnit: 0,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
 
     })().catch(() => {
       /* silent — bootstrap is best-effort */
