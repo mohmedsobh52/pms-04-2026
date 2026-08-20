@@ -27,6 +27,8 @@ import {
   buildQuantityTakeoffSuggestions,
   buildWarrantyMaintenanceSuggestions,
   buildCostCodingSuggestions,
+  buildSubcontractorSuggestions,
+  buildTenderPipelineSuggestions,
 } from "@/lib/suggestion-generators";
 
 
@@ -667,6 +669,72 @@ export function useGlobalSuggestionsBootstrap() {
               categories: new Set(
                 items2.map((i) => i.category).filter(Boolean),
               ).size,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Subcontractors & assignments
+      try {
+        const [subsRes, asgRes] = await Promise.all([
+          supabase.from("subcontractors").select("id, phone, email").limit(1000),
+          supabase
+            .from("subcontractor_assignments")
+            .select("id, status, start_date, end_date")
+            .limit(2000),
+        ]);
+        const subs = (subsRes.data ?? []) as any[];
+        const asg = (asgRes.data ?? []) as any[];
+        if (!cancelled) {
+          replaceBySource(
+            "subcontractors",
+            buildSubcontractorSuggestions({
+              subcontractors: subs.length,
+              assignments: asg.length,
+              activeAssignments: asg.filter(
+                (a) => String(a.status || "").toLowerCase() === "active",
+              ).length,
+              assignmentsWithoutDates: asg.filter(
+                (a) => !a.start_date || !a.end_date,
+              ).length,
+              subcontractorsWithoutContact: subs.filter(
+                (s) => !s.phone && !s.email,
+              ).length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Tender / proposals pipeline
+      try {
+        const [propRes, offersRes, tenderRes, quotesRes3] = await Promise.all([
+          supabase.from("technical_proposals").select("id, status").limit(1000),
+          supabase.from("offer_requests").select("id, status").limit(1000),
+          supabase.from("tender_pricing").select("id").limit(1000),
+          supabase.from("price_quotations").select("id").limit(1000),
+        ]);
+        const proposals = (propRes.data ?? []) as any[];
+        const offers = (offersRes.data ?? []) as any[];
+        if (!cancelled) {
+          replaceBySource(
+            "tender-pipeline",
+            buildTenderPipelineSuggestions({
+              proposals: proposals.length,
+              draftProposals: proposals.filter((p) =>
+                ["draft", "مسودة"].includes(String(p.status || "").toLowerCase()),
+              ).length,
+              offerRequests: offers.length,
+              openOfferRequests: offers.filter((o) =>
+                ["open", "pending", "sent"].includes(
+                  String(o.status || "").toLowerCase(),
+                ),
+              ).length,
+              tenderPricingRows: (tenderRes.data ?? []).length,
+              quotations: (quotesRes3.data ?? []).length,
             }),
           );
         }
