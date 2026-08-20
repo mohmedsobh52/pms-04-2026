@@ -3,7 +3,6 @@ import { Plus, Upload, Search, GitCompare, Sparkles, Grid3x3, FileSignature, Fil
 import React, { useEffect, useState } from 'react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { AppShell as PageLayout } from '@/components/layout/AppShell';
-import { NavigationBar } from '@/components/NavigationBar';
 import { PricingAccuracyTab } from '@/components/tender/PricingAccuracyTab';
 import { MarketPositionChart } from '@/components/pricing/MarketPositionChart';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -96,8 +95,7 @@ const PricingAccuracyPage: React.FC = () => {
 
   return (
     <PageLayout>
-      <div className="container mx-auto px-4 py-6 space-y-6" dir={isArabic ? 'rtl' : 'ltr'}>
-        <NavigationBar showBreadcrumbs />
+      <div className="space-y-6" dir={isArabic ? 'rtl' : 'ltr'}>
         <PageSuggestions
           pageKey="pricing-accuracy"
           suggestions={[
