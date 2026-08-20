@@ -122,6 +122,22 @@ export function UsersRolesPanel() {
     return acc;
   }, {});
 
+  const exportCsv = () => {
+    const header = "user_id,role,created_at";
+    const body = filtered
+      .map((r: any) => [r.user_id, r.role, r.created_at ?? ""].join(","))
+      .join("\n");
+    const blob = new Blob(["\uFEFF" + header + "\n" + body], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `user-roles-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -131,6 +147,10 @@ export function UsersRolesPanel() {
           <Badge variant="secondary" className="ms-auto text-[10px]">
             {(rows as any[]).length} {isArabic ? "تعيين" : "assignments"}
           </Badge>
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={exportCsv}>
+            <Download className="h-3.5 w-3.5 me-1" />
+            CSV
+          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
