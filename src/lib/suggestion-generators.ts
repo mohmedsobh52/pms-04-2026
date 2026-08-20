@@ -3024,3 +3024,111 @@ export function buildSupplierBaseSuggestions(input: {
   }
   return out;
 }
+
+export function buildPricingAccuracySuggestions(input: {
+  items: number;
+  itemsWithoutUnitPrice: number;
+  itemsWithoutQuantity: number;
+  itemsWithReferencePrice: number;
+  quotationsCoverage: number; // 0..1
+  lastPriceUpdateDaysAgo: number | null;
+}, screen = "pricing-accuracy"): Draft[] {
+  const out: Draft[] = [];
+  if (input.items === 0) return out;
+  if (input.itemsWithoutUnitPrice > 0) {
+    out.push({
+      category: "ai-pricing",
+      severity: input.itemsWithoutUnitPrice > input.items * 0.2 ? "critical" : "warning",
+      title: `${input.itemsWithoutUnitPrice} بند بدون سعر وحدة`,
+      description: "استخدم التسعير الذكي الجماعي أو الأسعار المرجعية لإكمال هذه البنود قبل اعتماد العطاء.",
+      sourceScreen: screen,
+      sourceRoute: "/pricing-accuracy",
+    });
+  }
+  if (input.itemsWithoutQuantity > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.itemsWithoutQuantity} بند بدون كمية`,
+      description: "راجع حصر الكميات من المخططات؛ الكميات الناقصة تُفسد إجمالي التكلفة ومنحنى الإنجاز.",
+      sourceScreen: screen,
+      sourceRoute: "/fast-extraction",
+    });
+  }
+  const refRatio = input.items ? input.itemsWithReferencePrice / input.items : 0;
+  if (refRatio < 0.5) {
+    out.push({
+      category: "ai-pricing",
+      severity: "info",
+      title: "تغطية الأسعار المرجعية منخفضة",
+      description: `فقط ${Math.round(refRatio * 100)}% من البنود لها سعر مرجعي. ارفع ملفات الأسعار التاريخية لرفع دقة التسعير.`,
+      sourceScreen: screen,
+      sourceRoute: "/library",
+    });
+  }
+  if (input.quotationsCoverage < 0.3) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "عروض الأسعار لا تغطي معظم البنود",
+      description: "اطلب عروض أسعار للبنود عالية القيمة لتقليل هامش الخطأ في التقدير.",
+      sourceScreen: screen,
+      sourceRoute: "/quotations",
+    });
+  }
+  if (input.lastPriceUpdateDaysAgo !== null && input.lastPriceUpdateDaysAgo > 90) {
+    out.push({
+      category: "ai-pricing",
+      severity: "warning",
+      title: `أسعار المواد لم تُحدّث منذ ${input.lastPriceUpdateDaysAgo} يوماً`,
+      description: "حدّث أسعار السوق لتفادي انحراف التقديرات عن الأسعار الفعلية.",
+      sourceScreen: screen,
+      sourceRoute: "/material-prices",
+    });
+  }
+  return out;
+}
+
+export function buildQuantityTakeoffSuggestions(input: {
+  attachments: number;
+  drawingAttachments: number;
+  drawingsAnalyzed: number;
+  itemsWithoutUnit: number;
+}, screen = "drawings"): Draft[] {
+  const out: Draft[] = [];
+  if (input.drawingAttachments === 0) {
+    if (input.attachments > 0) {
+      out.push({
+        category: "data-quality",
+        severity: "info",
+        title: "لا توجد مخططات مرفوعة",
+        description: "ارفع المخططات (PDF/صور) لتفعيل الحصر الآلي للكميات بالذكاء الاصطناعي.",
+        sourceScreen: screen,
+        sourceRoute: "/attachments",
+      });
+    }
+    return out;
+  }
+  const notAnalyzed = input.drawingAttachments - input.drawingsAnalyzed;
+  if (notAnalyzed > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${notAnalyzed} مخطط لم يُحلَّل بعد`,
+      description: "شغّل تحليل المخططات لاستخراج الكميات ومقارنتها بجدول الكميات الحالي.",
+      sourceScreen: screen,
+      sourceRoute: "/fast-extraction",
+    });
+  }
+  if (input.itemsWithoutUnit > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.itemsWithoutUnit} بند بدون وحدة قياس`,
+      description: "حدّد وحدة القياس لكل بند لضمان صحة تجميع الكميات ونِسَب الهدر.",
+      sourceScreen: screen,
+      sourceRoute: "/boq-items",
+    });
+  }
+  return out;
+}
