@@ -4039,3 +4039,163 @@ export function buildPortfolioHealthSuggestions(input: {
   }
   return out;
 }
+
+// ============ Documents & attachments hygiene ============
+export function buildDocumentsHygieneSuggestions(input: {
+  total: number;
+  withoutCategory: number;
+  withoutTags: number;
+  notAnalyzed: number;
+  expired: number;
+  expiringSoon: number;
+  orphaned: number;
+  oversized: number;
+}, screen = "attachments"): Draft[] {
+  const out: Draft[] = [];
+  if (input.total === 0) return out;
+  if (input.expired > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "critical",
+      title: `${input.expired} مستند منتهي الصلاحية`,
+      description: "حدّث النسخة السارية أو أرشف المستند حتى لا يُستخدم في التسعير أو التعاقد.",
+      sourceScreen: screen,
+      sourceRoute: "/attachments",
+    });
+  }
+  if (input.expiringSoon > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.expiringSoon} مستند ينتهي خلال 30 يوماً`,
+      description: "ابدأ إجراءات التجديد مبكراً لتفادي توقف الأعمال المرتبطة به.",
+      sourceScreen: screen,
+      sourceRoute: "/attachments",
+    });
+  }
+  if (input.orphaned > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.orphaned} مرفق غير مرتبط بمشروع`,
+      description: "اربط المرفقات بمشاريعها ليظهر في ملف المشروع وتقاريره.",
+      sourceScreen: screen,
+      sourceRoute: "/attachments",
+    });
+  }
+  if (input.withoutCategory > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.withoutCategory} مرفق بلا تصنيف`,
+      description: "أضف تصنيفاً (عقد، مخطط، عرض سعر…) لتسهيل الفلترة والبحث.",
+      sourceScreen: screen,
+      sourceRoute: "/attachments",
+    });
+  }
+  if (input.withoutTags > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.withoutTags} مرفق بلا وسوم`,
+      description: "الوسوم ترفع دقة البحث النصي وتربط المستندات بالبنود والمناقصات.",
+      sourceScreen: screen,
+      sourceRoute: "/attachments",
+    });
+  }
+  if (input.notAnalyzed > 0) {
+    out.push({
+      category: "ai-pricing",
+      severity: "info",
+      title: `${input.notAnalyzed} مستند لم يُحلَّل بالذكاء الاصطناعي`,
+      description: "شغّل التحليل لاستخراج الكميات والبنود والنصوص تلقائياً من هذه الملفات.",
+      sourceScreen: screen,
+      sourceRoute: "/attachments",
+    });
+  }
+  if (input.oversized > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: `${input.oversized} ملف كبير الحجم (>20 ميجابايت)`,
+      description: "اضغط الملفات الكبيرة أو احفظ نسخة PDF مخفّضة لتسريع الفتح والمشاركة.",
+      sourceScreen: screen,
+      sourceRoute: "/attachments",
+    });
+  }
+  return out;
+}
+
+// ============ Workflow automation health ============
+export function buildWorkflowAutomationSuggestions(input: {
+  definitions: number;
+  inactiveDefinitions: number;
+  runningInstances: number;
+  overdueInstances: number;
+  stalledInstances: number;
+  rejectedInstances: number;
+}, screen = "approvals"): Draft[] {
+  const out: Draft[] = [];
+  if (input.definitions === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لا توجد مسارات اعتماد معرّفة",
+      description: "عرّف مسار اعتماد للعقود والمستخلصات وأوامر التغيير لضبط الحوكمة.",
+      sourceScreen: screen,
+      sourceRoute: "/approvals",
+    });
+    return out;
+  }
+  if (input.overdueInstances > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${input.overdueInstances} طلب اعتماد تجاوز موعده`,
+      description: "تابع المعتمدين أو أعد توجيه الطلب لتفادي تعطّل الدورة المستندية.",
+      sourceScreen: screen,
+      sourceRoute: "/approvals",
+    });
+  }
+  if (input.stalledInstances > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.stalledInstances} مسار متوقف منذ أكثر من 7 أيام`,
+      description: "راجع الخطوة الحالية وتأكد من وجود معتمد نشط لها.",
+      sourceScreen: screen,
+      sourceRoute: "/approvals",
+    });
+  }
+  if (input.rejectedInstances > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.rejectedInstances} طلب مرفوض بحاجة لمعالجة`,
+      description: "عالج أسباب الرفض وأعد تقديم الطلب أو أغلقه رسمياً.",
+      sourceScreen: screen,
+      sourceRoute: "/approvals",
+    });
+  }
+  if (input.inactiveDefinitions > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.inactiveDefinitions} مسار اعتماد غير مفعّل`,
+      description: "فعّل المسارات المطلوبة أو احذف غير المستخدم منها لتبسيط الإعدادات.",
+      sourceScreen: screen,
+      sourceRoute: "/approvals",
+    });
+  }
+  if (input.runningInstances === 0 && input.definitions > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لا توجد طلبات اعتماد جارية",
+      description: "اربط المسارات بالعقود والمستخلصات ليبدأ الاعتماد تلقائياً عند الإنشاء.",
+      sourceScreen: screen,
+      sourceRoute: "/approvals",
+    });
+  }
+  return out;
+}

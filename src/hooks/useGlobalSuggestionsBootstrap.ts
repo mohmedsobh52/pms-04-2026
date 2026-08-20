@@ -37,6 +37,8 @@ import {
   buildReportAutomationSuggestions,
   buildNotificationsHygieneSuggestions,
   buildPortfolioHealthSuggestions,
+  buildDocumentsHygieneSuggestions,
+  buildWorkflowAutomationSuggestions,
 } from "@/lib/suggestion-generators";
 
 
@@ -1063,6 +1065,74 @@ export function useGlobalSuggestionsBootstrap() {
                 (p) => p.updated_at && nowPr - new Date(p.updated_at).getTime() > 90 * 86400_000,
               ).length,
               duplicateNames: Math.max(0, dupNames),
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Documents & attachments hygiene
+      try {
+        const { data } = await supabase
+          .from("project_attachments")
+          .select("id, category, tags, is_analyzed, expiry_date, project_id, file_size, is_latest")
+          .eq("is_latest", true)
+          .limit(1000);
+        const docs = (data ?? []) as any[];
+        const nowD = Date.now();
+        if (!cancelled && docs.length > 0) {
+          replaceBySource(
+            "documents-hygiene",
+            buildDocumentsHygieneSuggestions({
+              total: docs.length,
+              withoutCategory: docs.filter((d) => !d.category).length,
+              withoutTags: docs.filter((d) => !d.tags || d.tags.length === 0).length,
+              notAnalyzed: docs.filter((d) => !d.is_analyzed).length,
+              expired: docs.filter(
+                (d) => d.expiry_date && new Date(d.expiry_date).getTime() < nowD,
+              ).length,
+              expiringSoon: docs.filter((d) => {
+                if (!d.expiry_date) return false;
+                const t = new Date(d.expiry_date).getTime();
+                return t >= nowD && t - nowD <= 30 * 86400_000;
+              }).length,
+              orphaned: docs.filter((d) => !d.project_id).length,
+              oversized: docs.filter((d) => Number(d.file_size || 0) > 20 * 1024 * 1024).length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Workflow automation health
+      try {
+        const [defsRes, instRes] = await Promise.all([
+          supabase.from("workflow_definitions").select("id, is_active").limit(200),
+          supabase
+            .from("workflow_instances")
+            .select("id, status, due_at, updated_at")
+            .limit(500),
+        ]);
+        const defs = (defsRes.data ?? []) as any[];
+        const insts = (instRes.data ?? []) as any[];
+        const nowW = Date.now();
+        const running = insts.filter((i) => String(i.status) === "running");
+        if (!cancelled) {
+          replaceBySource(
+            "workflow-automation",
+            buildWorkflowAutomationSuggestions({
+              definitions: defs.length,
+              inactiveDefinitions: defs.filter((d) => d.is_active === false).length,
+              runningInstances: running.length,
+              overdueInstances: running.filter(
+                (i) => i.due_at && new Date(i.due_at).getTime() < nowW,
+              ).length,
+              stalledInstances: running.filter(
+                (i) => i.updated_at && nowW - new Date(i.updated_at).getTime() > 7 * 86400_000,
+              ).length,
+              rejectedInstances: insts.filter((i) => String(i.status) === "rejected").length,
             }),
           );
         }
