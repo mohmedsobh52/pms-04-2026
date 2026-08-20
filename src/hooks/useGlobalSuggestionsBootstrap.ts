@@ -31,6 +31,8 @@ import {
   buildTenderPipelineSuggestions,
   buildBillingCashflowSuggestions,
   buildVariationsMilestonesSuggestions,
+  buildRatesLibrarySuggestions,
+  buildResourcePlanningSuggestions,
 } from "@/lib/suggestion-generators";
 
 
@@ -825,6 +827,77 @@ export function useGlobalSuggestionsBootstrap() {
               milestonesWithoutAmount: ms.filter(
                 (m) => !m.payment_amount && !m.payment_percentage,
               ).length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+
+
+      // Rates library health
+      try {
+        const [laborRes, eqRes] = await Promise.all([
+          supabase.from("labor_rates").select("id, category, valid_until, price_date, updated_at").limit(2000),
+          supabase.from("equipment_rates").select("id, category, valid_until, price_date, updated_at").limit(2000),
+        ]);
+        const labor = (laborRes.data ?? []) as any[];
+        const eq = (eqRes.data ?? []) as any[];
+        const now = Date.now();
+        const expired = (r: any) => !!r.valid_until && new Date(r.valid_until).getTime() < now;
+        const stale = (r: any) => {
+          const d = r.price_date || r.updated_at;
+          return !!d && now - new Date(d).getTime() > 180 * 86400_000;
+        };
+        if (!cancelled) {
+          replaceBySource(
+            "rates-library",
+            buildRatesLibrarySuggestions({
+              laborRates: labor.length,
+              equipmentRates: eq.length,
+              expiredLaborRates: labor.filter(expired).length,
+              expiredEquipmentRates: eq.filter(expired).length,
+              staleRates180d: [...labor, ...eq].filter(stale).length,
+              ratesWithoutCategory: [...labor, ...eq].filter((r) => !r.category).length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Resource planning & progress tracking
+      try {
+        const [resRes, progRes] = await Promise.all([
+          supabase
+            .from("resource_items")
+            .select("id, start_date, end_date, utilization_percent")
+            .limit(2000),
+          supabase
+            .from("project_progress_history")
+            .select("id, record_date, spi, cpi")
+            .order("record_date", { ascending: false })
+            .limit(500),
+        ]);
+        const resources = (resRes.data ?? []) as any[];
+        const prog = (progRes.data ?? []) as any[];
+        const last = prog[0]?.record_date ? new Date(prog[0].record_date).getTime() : null;
+        if (!cancelled) {
+          replaceBySource(
+            "resource-planning",
+            buildResourcePlanningSuggestions({
+              resources: resources.length,
+              resourcesWithoutDates: resources.filter((r) => !r.start_date || !r.end_date).length,
+              overAllocated: resources.filter((r) => Number(r.utilization_percent) > 100).length,
+              underUtilized: resources.filter(
+                (r) => r.utilization_percent != null && Number(r.utilization_percent) < 40,
+              ).length,
+              progressRecords: prog.length,
+              lastRecordDays:
+                last === null ? null : Math.floor((Date.now() - last) / 86400_000),
+              lowSpi: prog.filter((p) => p.spi != null && Number(p.spi) < 0.9).length,
+              lowCpi: prog.filter((p) => p.cpi != null && Number(p.cpi) < 0.9).length,
             }),
           );
         }
