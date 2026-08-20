@@ -2908,3 +2908,119 @@ export function buildScheduleHealthSuggestions(input: {
   }
   return out;
 }
+
+/** ضبط الميزانية والرقابة على التكاليف (خطوط الأساس والحدود). */
+export function buildBudgetControlSuggestions(input: {
+  projects: number;
+  projectsWithBaseline: number;
+  projectsWithThresholds: number;
+  activeBaselines: number;
+}, screen = "cost-control"): Draft[] {
+  const out: Draft[] = [];
+  const withoutBaseline = Math.max(0, input.projects - input.projectsWithBaseline);
+  const withoutThresholds = Math.max(0, input.projects - input.projectsWithThresholds);
+  if (input.projects > 0 && withoutBaseline > 0) {
+    out.push({
+      category: "data-quality",
+      severity: withoutBaseline === input.projects ? "warning" : "info",
+      title: `${withoutBaseline} مشروع بدون خط أساس للتكلفة`,
+      description: "أنشئ خط أساس (Baseline) لكل مشروع لتفعيل حساب CPI/SPI وتحليل الانحرافات.",
+      sourceScreen: screen,
+      sourceRoute: "/cost-control",
+    });
+  }
+  if (input.projects > 0 && withoutThresholds > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: `${withoutThresholds} مشروع بدون حدود إنذار`,
+      description: "اضبط حدود CPI وSPI ونسبة تجاوز EAC ليصلك تنبيه مبكر عند الانحراف.",
+      sourceScreen: screen,
+      sourceRoute: "/cost-control",
+    });
+  }
+  if (input.activeBaselines > 1) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: "أكثر من خط أساس نشط",
+      description: "أبقِ خط أساس واحد نشطاً لكل مشروع لتفادي تضارب مؤشرات الأداء.",
+      sourceScreen: screen,
+      sourceRoute: "/cost-control",
+    });
+  }
+  return out;
+}
+
+/** جودة قاعدة الموردين وتغطية المشتريات. */
+export function buildSupplierBaseSuggestions(input: {
+  suppliers: number;
+  verifiedSuppliers: number;
+  suppliersMissingContact: number;
+  unratedSuppliers: number;
+  procurementItemsWithoutSupplier: number;
+}, screen = "suppliers"): Draft[] {
+  const out: Draft[] = [];
+  if (input.suppliers === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "لا يوجد موردون مسجلون",
+      description: "أضف الموردين الأساسيين لتفعيل مقارنة العروض والتوصية الذكية بالمورد.",
+      sourceScreen: screen,
+      sourceRoute: "/procurement",
+    });
+    return out;
+  }
+  if (input.suppliers < 3) {
+    out.push({
+      category: "pricing",
+      severity: "warning",
+      title: "قاعدة الموردين محدودة",
+      description: "سجّل 3 موردين على الأقل لكل فئة للحصول على مقارنة أسعار تنافسية.",
+      sourceScreen: screen,
+      sourceRoute: "/procurement",
+    });
+  }
+  if (input.suppliersMissingContact > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.suppliersMissingContact} مورد بدون بيانات تواصل`,
+      description: "أكمل الهاتف أو البريد الإلكتروني لإتاحة إرسال طلبات عروض الأسعار.",
+      sourceScreen: screen,
+      sourceRoute: "/procurement",
+    });
+  }
+  if (input.unratedSuppliers > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: `${input.unratedSuppliers} مورد بدون تقييم`,
+      description: "قيّم الموردين بعد كل توريد لتحسين دقة التوصية الذكية.",
+      sourceScreen: screen,
+      sourceRoute: "/procurement",
+    });
+  }
+  if (input.verifiedSuppliers === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لا يوجد مورد موثّق",
+      description: "وثّق الموردين المعتمدين لتمييزهم في مقارنات العروض.",
+      sourceScreen: screen,
+      sourceRoute: "/procurement",
+    });
+  }
+  if (input.procurementItemsWithoutSupplier > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.procurementItemsWithoutSupplier} بند مشتريات بدون مورد مقترح`,
+      description: "شغّل التوصية الذكية بالمورد لهذه البنود قبل بدء الشراء.",
+      sourceScreen: screen,
+      sourceRoute: "/procurement",
+    });
+  }
+  return out;
+}
