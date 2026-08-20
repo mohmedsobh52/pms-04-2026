@@ -33,6 +33,8 @@ import {
   buildVariationsMilestonesSuggestions,
   buildRatesLibrarySuggestions,
   buildResourcePlanningSuggestions,
+  buildPartnerNetworkSuggestions,
+  buildReportAutomationSuggestions,
 } from "@/lib/suggestion-generators";
 
 
@@ -905,6 +907,104 @@ export function useGlobalSuggestionsBootstrap() {
         /* silent */
       }
 
+
+      // Partner network health
+      try {
+        const [partRes, perfRes, revRes] = await Promise.all([
+          supabase
+            .from("external_partners")
+            .select("id, email, phone, contact_person, status, rating, contract_end_date")
+            .limit(2000),
+          supabase
+            .from("partner_performance")
+            .select("id, quality_score, delivery_time_score, budget_compliance_score, communication_score")
+            .limit(2000),
+          supabase.from("partner_reviews").select("id").limit(500),
+        ]);
+        const partners = (partRes.data ?? []) as any[];
+        const perf = (perfRes.data ?? []) as any[];
+        const reviews = (revRes.data ?? []) as any[];
+        const nowP = Date.now();
+        const avgPerf = (r: any) => {
+          const vals = [r.quality_score, r.delivery_time_score, r.budget_compliance_score, r.communication_score]
+            .map(Number)
+            .filter((n) => !Number.isNaN(n) && n > 0);
+          return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+        };
+        if (!cancelled) {
+          replaceBySource(
+            "partner-network",
+            buildPartnerNetworkSuggestions({
+              partners: partners.length,
+              partnersWithoutContact: partners.filter((p) => !p.email && !p.phone && !p.contact_person).length,
+              inactivePartners: partners.filter((p) =>
+                ["inactive", "archived", "غير نشط"].includes(String(p.status || "").toLowerCase()),
+              ).length,
+              expiredPartnerContracts: partners.filter(
+                (p) => p.contract_end_date && new Date(p.contract_end_date).getTime() < nowP,
+              ).length,
+              partnersWithoutRating: partners.filter((p) => p.rating == null || Number(p.rating) === 0).length,
+              lowRatedPartners: partners.filter((p) => p.rating != null && Number(p.rating) > 0 && Number(p.rating) < 3).length,
+              performanceRecords: perf.length,
+              lowPerformance: perf.filter((r) => {
+                const a = avgPerf(r);
+                return a !== null && a < 60;
+              }).length,
+              reviews: reviews.length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Reporting automation & sharing
+      try {
+        const [schedRes, cmpRes, shareRes] = await Promise.all([
+          supabase
+            .from("scheduled_reports")
+            .select("id, is_active, recipient_emails, last_sent_at, next_scheduled_at")
+            .limit(1000),
+          supabase.from("comparison_reports").select("id").limit(500),
+          supabase.from("shared_analyses").select("id, is_active, expires_at, created_at").limit(1000),
+        ]);
+        const scheds = (schedRes.data ?? []) as any[];
+        const cmps = (cmpRes.data ?? []) as any[];
+        const shares = (shareRes.data ?? []) as any[];
+        const nowR = Date.now();
+        if (!cancelled) {
+          replaceBySource(
+            "report-automation",
+            buildReportAutomationSuggestions({
+              scheduledReports: scheds.length,
+              inactiveSchedules: scheds.filter((r) => r.is_active === false).length,
+              schedulesWithoutRecipients: scheds.filter(
+                (r) => !r.recipient_emails || r.recipient_emails.length === 0,
+              ).length,
+              overdueSchedules: scheds.filter(
+                (r) =>
+                  r.is_active !== false &&
+                  r.next_scheduled_at &&
+                  new Date(r.next_scheduled_at).getTime() < nowR,
+              ).length,
+              neverSentSchedules: scheds.filter((r) => r.is_active !== false && !r.last_sent_at).length,
+              comparisonReports: cmps.length,
+              sharedLinks: shares.length,
+              expiredShares: shares.filter(
+                (s) => s.expires_at && new Date(s.expires_at).getTime() < nowR,
+              ).length,
+              staleActiveShares: shares.filter(
+                (s) =>
+                  s.is_active !== false &&
+                  s.created_at &&
+                  nowR - new Date(s.created_at).getTime() > 90 * 86400_000,
+              ).length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
 
     })().catch(() => {
       /* silent — bootstrap is best-effort */

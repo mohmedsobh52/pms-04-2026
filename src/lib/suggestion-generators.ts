@@ -3685,3 +3685,210 @@ export function buildResourcePlanningSuggestions(input: {
   }
   return out;
 }
+
+// ============================================================
+// Partner network health (external partners, performance, reviews)
+// ============================================================
+export function buildPartnerNetworkSuggestions(input: {
+  partners: number;
+  partnersWithoutContact: number;
+  inactivePartners: number;
+  expiredPartnerContracts: number;
+  partnersWithoutRating: number;
+  lowRatedPartners: number;
+  performanceRecords: number;
+  lowPerformance: number;
+  reviews: number;
+}, screen = "partners"): Draft[] {
+  const out: Draft[] = [];
+  if (input.partners === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "لا يوجد شركاء مسجلون",
+      description: "سجّل الشركاء والاستشاريين لتتبع الأداء والعقود والتقييمات في مكان واحد.",
+      sourceScreen: screen,
+      sourceRoute: "/partners",
+    });
+    return out;
+  }
+  if (input.partnersWithoutContact > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.partnersWithoutContact} شريك بدون بيانات تواصل`,
+      description: "أضف البريد أو الهاتف ومسؤول التواصل لتسريع المراسلات والتعاقد.",
+      sourceScreen: screen,
+      sourceRoute: "/partners",
+    });
+  }
+  if (input.expiredPartnerContracts > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${input.expiredPartnerContracts} عقد شريك منتهي`,
+      description: "جدّد العقود المنتهية أو غيّر حالة الشريك لتفادي التعامل بعقد غير سارٍ.",
+      sourceScreen: screen,
+      sourceRoute: "/partners",
+    });
+  }
+  if (input.inactivePartners > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.inactivePartners} شريك غير نشط`,
+      description: "أرشِف الشركاء غير النشطين لتنظيف قوائم الاختيار في العروض والمشتريات.",
+      sourceScreen: screen,
+      sourceRoute: "/partners",
+    });
+  }
+  if (input.partnersWithoutRating > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.partnersWithoutRating} شريك بلا تقييم`,
+      description: "قيّم الشركاء بعد كل مشروع لبناء قاعدة اختيار موضوعية.",
+      sourceScreen: screen,
+      sourceRoute: "/partners",
+    });
+  }
+  if (input.lowRatedPartners > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.lowRatedPartners} شريك بتقييم منخفض (< 3)`,
+      description: "راجع أسباب الأداء الضعيف قبل إسناد أعمال جديدة لهؤلاء الشركاء.",
+      sourceScreen: screen,
+      sourceRoute: "/partners",
+    });
+  }
+  if (input.performanceRecords === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لم تُسجَّل مؤشرات أداء للشركاء",
+      description: "سجّل مؤشرات الجودة والالتزام بالمواعيد والموازنة لمقارنة الشركاء رقمياً.",
+      sourceScreen: screen,
+      sourceRoute: "/partners",
+    });
+  } else if (input.lowPerformance > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${input.lowPerformance} شريك بمؤشرات أداء ضعيفة`,
+      description: "ضع خطة تحسين أو بدائل للشركاء ذوي مؤشرات الجودة/الالتزام المنخفضة.",
+      sourceScreen: screen,
+      sourceRoute: "/partners",
+    });
+  }
+  if (input.reviews === 0 && input.partners > 2) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "لا توجد مراجعات مكتوبة للشركاء",
+      description: "أضف ملاحظات نوعية بجانب التقييم الرقمي لتوثيق تجربة العمل.",
+      sourceScreen: screen,
+      sourceRoute: "/partners",
+    });
+  }
+  return out;
+}
+
+// ============================================================
+// Reporting automation & secure sharing
+// ============================================================
+export function buildReportAutomationSuggestions(input: {
+  scheduledReports: number;
+  inactiveSchedules: number;
+  schedulesWithoutRecipients: number;
+  overdueSchedules: number;
+  neverSentSchedules: number;
+  comparisonReports: number;
+  sharedLinks: number;
+  expiredShares: number;
+  staleActiveShares: number;
+}, screen = "reports"): Draft[] {
+  const out: Draft[] = [];
+  if (input.scheduledReports === 0) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: "فعّل تقارير مجدولة دورية",
+      description: "جدولة تقرير أسبوعي أو شهري يضمن وصول المؤشرات للإدارة دون جهد يدوي.",
+      sourceScreen: screen,
+      sourceRoute: "/reports",
+    });
+  } else {
+    if (input.schedulesWithoutRecipients > 0) {
+      out.push({
+        category: "reports",
+        severity: "critical",
+        title: `${input.schedulesWithoutRecipients} تقرير مجدول بلا مستلمين`,
+        description: "أضف عناوين البريد للمستلمين وإلا لن يصل التقرير لأحد.",
+        sourceScreen: screen,
+        sourceRoute: "/reports",
+      });
+    }
+    if (input.inactiveSchedules > 0) {
+      out.push({
+        category: "reports",
+        severity: "info",
+        title: `${input.inactiveSchedules} جدولة تقرير متوقفة`,
+        description: "أعد تفعيل الجدولات المطلوبة أو احذفها لتبسيط القائمة.",
+        sourceScreen: screen,
+        sourceRoute: "/reports",
+      });
+    }
+    if (input.overdueSchedules > 0) {
+      out.push({
+        category: "reports",
+        severity: "warning",
+        title: `${input.overdueSchedules} تقرير تجاوز موعد إرساله`,
+        description: "راجع إعدادات الجدولة والبريد للتأكد من عمل الإرسال التلقائي.",
+        sourceScreen: screen,
+        sourceRoute: "/reports",
+      });
+    }
+    if (input.neverSentSchedules > 0) {
+      out.push({
+        category: "reports",
+        severity: "warning",
+        title: `${input.neverSentSchedules} جدولة لم تُرسل أبداً`,
+        description: "اختبر الإرسال يدوياً للتأكد من صحة الإعداد قبل الاعتماد عليها.",
+        sourceScreen: screen,
+        sourceRoute: "/reports",
+      });
+    }
+  }
+  if (input.comparisonReports === 0) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: "أنشئ تقرير مقارنة بين المشاريع",
+      description: "مقارنة المشاريع تكشف فروق التكلفة والأداء وتدعم قرارات التسعير.",
+      sourceScreen: screen,
+      sourceRoute: "/projects-compare",
+    });
+  }
+  if (input.expiredShares > 0) {
+    out.push({
+      category: "reports",
+      severity: "warning",
+      title: `${input.expiredShares} رابط مشاركة منتهي`,
+      description: "أوقف الروابط المنتهية أو جدّدها حتى لا يفشل وصول الأطراف الخارجية.",
+      sourceScreen: screen,
+      sourceRoute: "/reports",
+    });
+  }
+  if (input.staleActiveShares > 0) {
+    out.push({
+      category: "reports",
+      severity: "critical",
+      title: `${input.staleActiveShares} رابط مشاركة نشط قديم (> 90 يوماً)`,
+      description: "ألغِ تفعيل الروابط القديمة لحماية بيانات التسعير من الوصول غير المصرح.",
+      sourceScreen: screen,
+      sourceRoute: "/reports",
+    });
+  }
+  return out;
+}
