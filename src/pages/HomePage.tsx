@@ -272,8 +272,8 @@ export default function HomePage() {
                             <Icon className="w-5 h-5" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-sm font-semibold text-foreground truncate">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm font-semibold text-foreground leading-snug line-clamp-2">
                                 {isArabic ? section.nameAr : section.nameEn}
                               </p>
                               {count !== undefined && count > 0 && (
@@ -288,9 +288,11 @@ export default function HomePage() {
                                 </span>
                               )}
                             </div>
-                            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
+                            <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
                               {isArabic ? section.descAr : section.descEn}
                             </p>
+                          </div>
+
                           </div>
                         </Link>
                       );
