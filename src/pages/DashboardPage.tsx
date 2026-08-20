@@ -7,7 +7,12 @@ import { ColorLegend } from "@/components/ui/color-code";
 import { SuspenseFallback } from "@/components/ui/loading-states";
 import { supabase } from "@/integrations/supabase/client";
 import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
-import { buildDashboardSuggestions } from "@/lib/suggestion-generators";
+import {
+  buildDashboardSuggestions,
+  buildFinancialHealthSuggestions,
+  buildDocumentExpirySuggestions,
+  buildScheduleHealthSuggestions,
+} from "@/lib/suggestion-generators";
 
 const MainDashboard = lazy(() =>
   import("@/components/MainDashboard").then((m) => ({ default: m.MainDashboard }))
