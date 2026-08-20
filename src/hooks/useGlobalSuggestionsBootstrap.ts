@@ -39,6 +39,8 @@ import {
   buildPortfolioHealthSuggestions,
   buildDocumentsHygieneSuggestions,
   buildWorkflowAutomationSuggestions,
+  buildTemplatesLibrarySuggestions,
+  buildHistoricalDataSuggestions,
 } from "@/lib/suggestion-generators";
 
 
@@ -1133,6 +1135,65 @@ export function useGlobalSuggestionsBootstrap() {
                 (i) => i.updated_at && nowW - new Date(i.updated_at).getTime() > 7 * 86400_000,
               ).length,
               rejectedInstances: insts.filter((i) => String(i.status) === "rejected").length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Templates library health
+      try {
+        const { data } = await supabase
+          .from("boq_templates")
+          .select("id, category, items, is_public, usage_count, updated_at")
+          .limit(300);
+        const tpls = (data ?? []) as any[];
+        const nowT = Date.now();
+        if (!cancelled) {
+          replaceBySource(
+            "templates-library",
+            buildTemplatesLibrarySuggestions({
+              templates: tpls.length,
+              emptyTemplates: tpls.filter(
+                (t) => !Array.isArray(t.items) || t.items.length === 0,
+              ).length,
+              uncategorized: tpls.filter((t) => !t.category).length,
+              unused: tpls.filter((t) => !t.usage_count).length,
+              publicShared: tpls.filter((t) => t.is_public === true).length,
+              staleTemplates: tpls.filter(
+                (t) => t.updated_at && nowT - new Date(t.updated_at).getTime() > 180 * 86400_000,
+              ).length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Historical pricing data quality
+      try {
+        const { data } = await supabase
+          .from("historical_pricing_files")
+          .select("id, is_verified, project_date, project_location, total_value, items_count")
+          .limit(300);
+        const files = (data ?? []) as any[];
+        const nowH = Date.now();
+        if (!cancelled) {
+          replaceBySource(
+            "historical-data",
+            buildHistoricalDataSuggestions({
+              files: files.length,
+              unverified: files.filter((f) => f.is_verified !== true).length,
+              withoutDate: files.filter((f) => !f.project_date).length,
+              withoutLocation: files.filter((f) => !f.project_location).length,
+              withoutValue: files.filter((f) => !f.total_value).length,
+              oldFiles: files.filter(
+                (f) =>
+                  f.project_date &&
+                  nowH - new Date(f.project_date).getTime() > 3 * 365 * 86400_000,
+              ).length,
+              emptyItems: files.filter((f) => !f.items_count).length,
             }),
           );
         }

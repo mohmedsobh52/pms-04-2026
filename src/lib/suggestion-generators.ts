@@ -4199,3 +4199,160 @@ export function buildWorkflowAutomationSuggestions(input: {
   }
   return out;
 }
+
+export function buildTemplatesLibrarySuggestions(input: {
+  templates: number;
+  emptyTemplates: number;
+  uncategorized: number;
+  unused: number;
+  publicShared: number;
+  staleTemplates: number;
+}, screen = "templates"): Draft[] {
+  const out: Draft[] = [];
+  if (input.templates === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لا توجد قوالب جداول كميات",
+      description: "احفظ مشروعاً نموذجياً كقالب لتسريع إنشاء المشاريع المستقبلية.",
+      sourceScreen: screen,
+      sourceRoute: "/templates",
+    });
+    return out;
+  }
+  if (input.emptyTemplates > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.emptyTemplates} قالب بلا بنود`,
+      description: "أكمل بنود القوالب الفارغة أو احذفها حتى لا تُستخدم بالخطأ.",
+      sourceScreen: screen,
+      sourceRoute: "/templates",
+    });
+  }
+  if (input.uncategorized > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.uncategorized} قالب بلا تصنيف`,
+      description: "أضف تصنيفاً لكل قالب (مبانٍ، بنية تحتية، تشطيبات) لتسهيل البحث.",
+      sourceScreen: screen,
+      sourceRoute: "/templates",
+    });
+  }
+  if (input.unused > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: `${input.unused} قالب لم يُستخدم بعد`,
+      description: "راجع القوالب غير المستخدمة وحدّثها أو ادمجها لتقليل التكرار.",
+      sourceScreen: screen,
+      sourceRoute: "/templates",
+    });
+  }
+  if (input.staleTemplates > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.staleTemplates} قالب لم يُحدَّث منذ أكثر من 180 يوماً`,
+      description: "حدّث أسعار وبنود القوالب القديمة لتعكس أسعار السوق الحالية.",
+      sourceScreen: screen,
+      sourceRoute: "/templates",
+    });
+  }
+  if (input.publicShared === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لا توجد قوالب مشتركة مع الفريق",
+      description: "شارك أفضل قوالبك مع الفريق لتوحيد أسلوب التسعير.",
+      sourceScreen: screen,
+      sourceRoute: "/templates",
+    });
+  }
+  return out;
+}
+
+export function buildHistoricalDataSuggestions(input: {
+  files: number;
+  unverified: number;
+  withoutDate: number;
+  withoutLocation: number;
+  withoutValue: number;
+  oldFiles: number;
+  emptyItems: number;
+}, screen = "library"): Draft[] {
+  const out: Draft[] = [];
+  if (input.files === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لا توجد بيانات تسعير تاريخية",
+      description: "ارفع مشاريع سابقة لتحسين دقة الاقتراحات السعرية بالذكاء الاصطناعي.",
+      sourceScreen: screen,
+      sourceRoute: "/library",
+    });
+    return out;
+  }
+  if (input.unverified > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.unverified} ملف تاريخي غير موثّق`,
+      description: "راجع واعتمد الملفات لضمان استخدام أسعار موثوقة في المقارنات.",
+      sourceScreen: screen,
+      sourceRoute: "/library",
+    });
+  }
+  if (input.emptyItems > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "critical",
+      title: `${input.emptyItems} ملف تاريخي بلا بنود`,
+      description: "أعد رفع الملفات الفارغة أو احذفها لتفادي نتائج تحليل مضللة.",
+      sourceScreen: screen,
+      sourceRoute: "/library",
+    });
+  }
+  if (input.withoutDate > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.withoutDate} ملف بلا تاريخ مشروع`,
+      description: "التاريخ ضروري لتعديل الأسعار حسب التضخم الزمني.",
+      sourceScreen: screen,
+      sourceRoute: "/library",
+    });
+  }
+  if (input.withoutLocation > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.withoutLocation} ملف بلا موقع جغرافي`,
+      description: "أضف الموقع لمقارنة الأسعار بين المناطق بدقة أعلى.",
+      sourceScreen: screen,
+      sourceRoute: "/library",
+    });
+  }
+  if (input.withoutValue > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.withoutValue} ملف بلا قيمة إجمالية`,
+      description: "احتساب القيمة الإجمالية يساعد في مؤشرات المقارنة السريعة.",
+      sourceScreen: screen,
+      sourceRoute: "/library",
+    });
+  }
+  if (input.oldFiles > 0) {
+    out.push({
+      category: "ai-pricing",
+      severity: "warning",
+      title: `${input.oldFiles} ملف تاريخي أقدم من 3 سنوات`,
+      description: "طبّق معامل تضخم عند استخدام هذه الأسعار أو استبدلها ببيانات أحدث.",
+      sourceScreen: screen,
+      sourceRoute: "/library",
+    });
+  }
+  return out;
+}
