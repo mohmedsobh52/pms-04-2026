@@ -1328,7 +1328,7 @@ const Index = () => {
 
   return (
     <AppShell fullBleed hideBreadcrumbs>
-    <div className="bg-background overflow-x-auto" dir={isArabic ? 'rtl' : 'ltr'} ref={mainContentRef}>
+    <div className="bg-background overflow-x-auto p-4 md:p-6" dir={isArabic ? 'rtl' : 'ltr'} ref={mainContentRef}>
       
       {/* Secondary Actions Bar - Context-specific tools */}
       <div className="border-b border-border bg-card/30 backdrop-blur-sm">
