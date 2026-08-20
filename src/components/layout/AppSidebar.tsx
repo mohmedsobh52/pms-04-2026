@@ -63,9 +63,24 @@ const systemGroups: NavGroup[] = [
       { titleEn: "P6 Export",          titleAr: "تصدير P6",         url: "/p6-export",          icon: Truck },
       { titleEn: "Technical Proposal", titleAr: "العرض الفني",      url: "/technical-proposal", icon: FileSignature },
       { titleEn: "Cost Control Report", titleAr: "تقرير متابعة التكلفة", url: "/cost-control-report", icon: FileBarChart },
+      { titleEn: "Quantity Takeoff",   titleAr: "حصر الكميات",      url: "/fast-extraction",    icon: Search },
+    ],
+  },
+  {
+    labelEn: "Operations", labelAr: "العمليات",
+    items: [
+      { titleEn: "BOQ Items",     titleAr: "بنود الكميات", url: "/items",                 icon: ListChecks },
+      { titleEn: "Contracts",     titleAr: "العقود",       url: "/contracts",             icon: FileSignature },
+      { titleEn: "Procurement",   titleAr: "المشتريات",    url: "/procurement",           icon: Briefcase },
+      { titleEn: "Quotations",    titleAr: "عروض الأسعار", url: "/quotations",            icon: FileText },
+      { titleEn: "Subcontractors", titleAr: "مقاولو الباطن", url: "/subcontractors",      icon: HardHat },
+      { titleEn: "Certificates",  titleAr: "المستخلصات",   url: "/progress-certificates", icon: Award },
+      { titleEn: "EVM",           titleAr: "القيمة المكتسبة", url: "/cost-control-evm",   icon: FileBarChart },
+      { titleEn: "Risks",         titleAr: "المخاطر",      url: "/risk",                  icon: AlertTriangle },
     ],
   },
 ];
+
 
 
 
