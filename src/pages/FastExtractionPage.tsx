@@ -2,14 +2,11 @@ import { useEffect, useState } from "react";
 import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
 import { buildFastExtractionSuggestions } from "@/lib/suggestion-generators";
 import { Link, useNavigate } from "react-router-dom";
-import { Home, Upload, History, Lightbulb, FolderOpen, ArrowLeft, ChevronLeft } from "lucide-react";
+import { Upload, History, Lightbulb, FolderOpen } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { LanguageToggle } from "@/components/LanguageToggle";
-import { UserMenu } from "@/components/UserMenu";
 import FastExtractionStepper from "@/components/FastExtractionStepper";
 import FastExtractionUploader, { UploadedFile } from "@/components/FastExtractionUploader";
 import FastExtractionClassifier from "@/components/FastExtractionClassifier";
@@ -91,14 +88,6 @@ export default function FastExtractionPage() {
         "Quantities can be extracted from drawings",
         "Create a new project or link to existing one",
       ];
-
-  const handleBack = () => {
-    if (window.history.length > 2) {
-      navigate(-1);
-    } else {
-      navigate("/");
-    }
-  };
 
   return (
     <AppShell>
