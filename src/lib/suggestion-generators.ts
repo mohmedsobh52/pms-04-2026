@@ -3132,3 +3132,120 @@ export function buildQuantityTakeoffSuggestions(input: {
   }
   return out;
 }
+
+/** Warranty & maintenance readiness (contract_warranties + maintenance_schedules). */
+export function buildWarrantyMaintenanceSuggestions(input: {
+  warranties: number;
+  expiringWarranties90d: number;
+  expiredWarranties: number;
+  contracts: number;
+  maintenanceSchedules: number;
+  overdueMaintenance: number;
+}, screen = "contracts"): Draft[] {
+  const out: Draft[] = [];
+  if (input.contracts > 0 && input.warranties === 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: "لا توجد ضمانات مسجّلة للعقود",
+      description: `لديك ${input.contracts} عقد بدون أي ضمان مسجّل. سجّل الضمانات (حسن التنفيذ/الصيانة) لمتابعة تواريخ انتهائها.`,
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if (input.expiredWarranties > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${input.expiredWarranties} ضمان منتهي الصلاحية`,
+      description: "راجع الضمانات المنتهية وقرّر التجديد أو الإفراج عن المبالغ المحتجزة.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if (input.expiringWarranties90d > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.expiringWarranties90d} ضمان ينتهي خلال 90 يوماً`,
+      description: "جهّز إشعارات التجديد أو المطالبات قبل انتهاء فترة الضمان.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if (input.overdueMaintenance > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.overdueMaintenance} أمر صيانة متأخر`,
+      description: "حدّث جداول الصيانة المتأخرة لتفادي مخالفة شروط الضمان.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if (input.warranties > 0 && input.maintenanceSchedules === 0) {
+    out.push({
+      category: "optimization",
+      severity: "info",
+      title: "أضف جداول صيانة دورية",
+      description: "ربط الضمانات بجداول صيانة يقلّل مخاطر رفض المطالبات لاحقاً.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  return out;
+}
+
+/** BOQ coding / WBS structure coverage (cost_codes + project_items). */
+export function buildCostCodingSuggestions(input: {
+  items: number;
+  itemsWithoutCode: number;
+  costCodes: number;
+  duplicateCodes: number;
+  categories: number;
+}, screen = "boq-items"): Draft[] {
+  const out: Draft[] = [];
+  if (!input.items) return out;
+  if (input.costCodes === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: "لا توجد شجرة أكواد تكلفة",
+      description: "أنشئ أكواد التكلفة (Cost Codes) لربط البنود بالتقارير المالية وتحليل الانحرافات.",
+      sourceScreen: screen,
+      sourceRoute: "/boq-items",
+    });
+  }
+  if (input.itemsWithoutCode > 0) {
+    const pct = Math.round((input.itemsWithoutCode / input.items) * 100);
+    out.push({
+      category: "data-quality",
+      severity: pct > 40 ? "critical" : "warning",
+      title: `${input.itemsWithoutCode} بند بدون رقم/كود (${pct}%)`,
+      description: "ترقيم البنود ضروري لمطابقة المستخلصات وأوامر التغيير والتقارير.",
+      sourceScreen: screen,
+      sourceRoute: "/boq-items",
+    });
+  }
+  if (input.duplicateCodes > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "critical",
+      title: `${input.duplicateCodes} كود مكرر في البنود`,
+      description: "الأكواد المكررة تسبب ازدواج الحصر والصرف — وحّدها قبل اعتماد الجدول.",
+      sourceScreen: screen,
+      sourceRoute: "/boq-items",
+    });
+  }
+  if (input.categories <= 1) {
+    out.push({
+      category: "optimization",
+      severity: "info",
+      title: "صنّف البنود إلى أقسام (WBS)",
+      description: "تقسيم البنود إلى فئات يفعّل تحليل التكلفة حسب النشاط ومخططات التوزيع.",
+      sourceScreen: screen,
+      sourceRoute: "/boq-items",
+    });
+  }
+  return out;
+}
