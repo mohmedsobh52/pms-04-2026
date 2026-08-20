@@ -234,7 +234,7 @@ export default function FastExtractionPage() {
               </CardContent>
             </Card>
           </div>
-        </main>
+        </div>
 
         {/* Project Files Viewer */}
         <ProjectFilesViewer
@@ -242,6 +242,7 @@ export default function FastExtractionPage() {
           onClose={() => setShowProjectFiles(false)}
         />
       </div>
-    </div>
+    </AppShell>
+
   );
 }
