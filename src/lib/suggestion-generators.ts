@@ -2689,3 +2689,222 @@ export function buildWorkflowGapSuggestions(input: {
   }
   return out;
 }
+
+/** Governance & access control health: role coverage, admin count, audit trail. */
+export function buildGovernanceSuggestions(input: {
+  members: number;
+  admins: number;
+  viewersOnly: number;
+  usersWithMultipleRoles: number;
+  auditEventsLast30d: number;
+}, screen = "governance"): Draft[] {
+  const out: Draft[] = [];
+  if (input.admins === 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: "لا يوجد مسؤول نظام معيّن",
+      description: "عيّن مستخدماً بدور «مدير النظام» لضمان إمكانية إدارة الأدوار والإعدادات.",
+      sourceScreen: screen,
+      sourceRoute: "/team",
+    });
+  }
+  if (input.admins > 3) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.admins} حسابات بصلاحية مسؤول`,
+      description: "قلّل عدد المسؤولين إلى الحد الأدنى الضروري وطبّق مبدأ أقل الصلاحيات.",
+      sourceScreen: screen,
+      sourceRoute: "/team",
+    });
+  }
+  if (input.members > 0 && input.viewersOnly === input.members) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "كل الأعضاء بصلاحية مشاهدة فقط",
+      description: "امنح أدواراً تشغيلية (مهندس تكاليف، مشتريات، مدير مشروع) لتفعيل سير العمل.",
+      sourceScreen: screen,
+      sourceRoute: "/team",
+    });
+  }
+  if (input.usersWithMultipleRoles > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.usersWithMultipleRoles} مستخدم بأكثر من دور`,
+      description: "راجع تداخل الأدوار لتجنّب صلاحيات أوسع من المطلوب.",
+      sourceScreen: screen,
+      sourceRoute: "/team",
+    });
+  }
+  if (input.auditEventsLast30d === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لا توجد أحداث في سجل التدقيق خلال 30 يوماً",
+      description: "فعّل تسجيل العمليات الحسّاسة لمتابعة من قام بماذا ومتى.",
+      sourceScreen: screen,
+      sourceRoute: "/audit-logs",
+    });
+  }
+  return out;
+}
+
+/** Financial health: overdue payments, retention, uncovered contract value. */
+export function buildFinancialHealthSuggestions(input: {
+  contracts: number;
+  contractValue: number;
+  paidValue: number;
+  overduePayments: number;
+  openVariations: number;
+  certificatesPendingApproval: number;
+}, screen = "financial-health"): Draft[] {
+  const out: Draft[] = [];
+  if (input.overduePayments > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${input.overduePayments} دفعة متأخرة عن موعدها`,
+      description: "راجع الدفعات المستحقة وحدّث حالتها لتفادي أثر التدفق النقدي.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if (input.contractValue > 0) {
+    const ratio = input.paidValue / input.contractValue;
+    if (ratio < 0.05 && input.contracts > 0) {
+      out.push({
+        category: "data-quality",
+        severity: "warning",
+        title: "نسبة المصروف من قيمة العقود شبه معدومة",
+        description: "تأكد من تسجيل الدفعات والمستخلصات؛ الأرقام الحالية تُضعف دقة تقارير التدفق النقدي.",
+        sourceScreen: screen,
+        sourceRoute: "/contracts",
+      });
+    }
+    if (ratio > 0.95) {
+      out.push({
+        category: "workflow",
+        severity: "warning",
+        title: "المدفوعات تقترب من كامل قيمة العقود",
+        description: "راجع أوامر التغيير والاحتياطي قبل تجاوز القيمة التعاقدية.",
+        sourceScreen: screen,
+        sourceRoute: "/contracts",
+      });
+    }
+  }
+  if (input.openVariations > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.openVariations} أمر تغيير غير معتمد`,
+      description: "اعتمد أوامر التغيير لتنعكس على القيمة التعاقدية والموازنة.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if (input.certificatesPendingApproval > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: `${input.certificatesPendingApproval} مستخلص بانتظار الاعتماد`,
+      description: "الاعتماد المتأخر يؤخر التحصيل — راجعها من شاشة المستخلصات.",
+      sourceScreen: screen,
+      sourceRoute: "/progress-certificates",
+    });
+  }
+  return out;
+}
+
+/** Document lifecycle: expiring documents, warranties and missing metadata. */
+export function buildDocumentExpirySuggestions(input: {
+  expiringIn30d: number;
+  expired: number;
+  documentsWithoutCategory: number;
+  warrantiesExpiring: number;
+}, screen = "documents"): Draft[] {
+  const out: Draft[] = [];
+  if (input.expired > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "critical",
+      title: `${input.expired} مستند منتهي الصلاحية`,
+      description: "استبدل النسخ المنتهية بإصدار محدّث للحفاظ على الامتثال التعاقدي.",
+      sourceScreen: screen,
+      sourceRoute: "/attachments",
+    });
+  }
+  if (input.expiringIn30d > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.expiringIn30d} مستند ينتهي خلال 30 يوماً`,
+      description: "جدّد المستندات قبل انتهائها لتفادي توقف الأعمال أو المطالبات.",
+      sourceScreen: screen,
+      sourceRoute: "/attachments",
+    });
+  }
+  if (input.warrantiesExpiring > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.warrantiesExpiring} ضمان قارب على الانتهاء`,
+      description: "راجع الضمانات وخطابات الأداء وجدّدها قبل تاريخ الانتهاء.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if (input.documentsWithoutCategory > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.documentsWithoutCategory} مستند بدون تصنيف`,
+      description: "التصنيف يسرّع البحث ويحسّن ربط المستندات بالمشاريع والعقود.",
+      sourceScreen: screen,
+      sourceRoute: "/attachments",
+    });
+  }
+  return out;
+}
+
+/** Schedule health: milestones and delivery dates. */
+export function buildScheduleHealthSuggestions(input: {
+  overdueMilestones: number;
+  milestonesDueSoon: number;
+  projectsWithoutMilestones: number;
+}, screen = "schedule"): Draft[] {
+  const out: Draft[] = [];
+  if (input.overdueMilestones > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${input.overdueMilestones} معلم زمني متأخر`,
+      description: "حدّث حالة المعالم المتأخرة أو أعد جدولتها لتصحيح مؤشرات الأداء الزمني.",
+      sourceScreen: screen,
+      sourceRoute: "/contracts",
+    });
+  }
+  if (input.milestonesDueSoon > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.milestonesDueSoon} معلم مستحق خلال 14 يوماً`,
+      description: "جهّز المستندات والموارد المرتبطة بهذه المعالم مبكراً.",
+      sourceScreen: screen,
+      sourceRoute: "/calendar",
+    });
+  }
+  if (input.projectsWithoutMilestones > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.projectsWithoutMilestones} مشروع بدون معالم زمنية`,
+      description: "أضف معالم لكل مشروع لتفعيل التقويم والتنبيهات وتحليل الانحراف الزمني.",
+      sourceScreen: screen,
+      sourceRoute: "/calendar",
+    });
+  }
+  return out;
+}
