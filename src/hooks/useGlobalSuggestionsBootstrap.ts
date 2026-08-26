@@ -43,6 +43,8 @@ import {
   buildHistoricalDataSuggestions,
   buildTeamAccessSuggestions,
   buildVersioningBackupSuggestions,
+  buildApprovalsSlaSuggestions,
+  buildCurrencyFxSuggestions,
 } from "@/lib/suggestion-generators";
 
 
