@@ -1251,6 +1251,52 @@ export function useGlobalSuggestionsBootstrap() {
         /* silent */
       }
 
+      // Approvals SLA health
+      try {
+        const { data } = await supabase
+          .from("workflow_instances")
+          .select("id, status, due_at, started_at")
+          .in("status", ["pending", "in_progress"])
+          .limit(500);
+        const rows = (data ?? []) as any[];
+        const now = Date.now();
+        if (!cancelled) {
+          replaceBySource(
+            "approvals-sla",
+            buildApprovalsSlaSuggestions({
+              pendingCount: rows.length,
+              overdueCount: rows.filter((r) => r.due_at && new Date(r.due_at).getTime() < now).length,
+              stuckCount: rows.filter((r) => r.started_at && now - new Date(r.started_at).getTime() > 7 * 86400_000).length,
+              noDueDateCount: rows.filter((r) => !r.due_at).length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Currency & FX health
+      try {
+        const { data } = await supabase
+          .from("currency_rates")
+          .select("code, updated_at")
+          .limit(100);
+        const rows = (data ?? []) as any[];
+        const now = Date.now();
+        if (!cancelled) {
+          replaceBySource(
+            "currency-fx",
+            buildCurrencyFxSuggestions({
+              ratesCount: rows.length,
+              staleRates: rows.filter((r) => r.updated_at && now - new Date(r.updated_at).getTime() > 30 * 86400_000).length,
+              missingUsd: rows.length > 0 && !rows.some((r) => String(r.code).toUpperCase() === "USD"),
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
     })().catch(() => {
       /* silent — bootstrap is best-effort */
     });
