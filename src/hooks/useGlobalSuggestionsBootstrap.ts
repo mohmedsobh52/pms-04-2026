@@ -41,6 +41,8 @@ import {
   buildWorkflowAutomationSuggestions,
   buildTemplatesLibrarySuggestions,
   buildHistoricalDataSuggestions,
+  buildTeamAccessSuggestions,
+  buildVersioningBackupSuggestions,
 } from "@/lib/suggestion-generators";
 
 
@@ -1194,6 +1196,54 @@ export function useGlobalSuggestionsBootstrap() {
                   nowH - new Date(f.project_date).getTime() > 3 * 365 * 86400_000,
               ).length,
               emptyItems: files.filter((f) => !f.items_count).length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Team & access health
+      try {
+        const { data } = await supabase
+          .from("user_roles")
+          .select("user_id, role")
+          .limit(500);
+        const rows = (data ?? []) as any[];
+        const distinctUsers = new Set(rows.map((r) => r.user_id));
+        if (!cancelled) {
+          replaceBySource(
+            "team-access",
+            buildTeamAccessSuggestions({
+              totalMembers: distinctUsers.size,
+              usersWithoutRole: 0, // every row here has a role by definition
+              adminsCount: rows.filter((r) => String(r.role) === "admin").length,
+              viewersOnly: rows.filter((r) => String(r.role) === "viewer").length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Versions & backup health
+      try {
+        const { data } = await supabase
+          .from("app_versions")
+          .select("id, created_at, notes, changelog")
+          .order("created_at", { ascending: false })
+          .limit(100);
+        const versions = (data ?? []) as any[];
+        const lastAt = versions[0]?.created_at ? new Date(versions[0].created_at).getTime() : null;
+        if (!cancelled) {
+          replaceBySource(
+            "versions-backup",
+            buildVersioningBackupSuggestions({
+              versions: versions.length,
+              daysSinceLastVersion: lastAt
+                ? Math.floor((Date.now() - lastAt) / 86400_000)
+                : null,
+              unlabeled: versions.filter((v) => !v.notes && !v.changelog).length,
             }),
           );
         }
