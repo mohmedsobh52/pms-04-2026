@@ -26,9 +26,11 @@ import {
   Search,
   Download,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { useSearchParams } from "react-router-dom";
 import { differenceInDays } from "date-fns";
 import { toast } from "sonner";
 import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
@@ -78,12 +80,27 @@ const ContractsPage = () => {
   const { isArabic } = useLanguage();
   const { user } = useAuth();
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<string>(() => {
     if (typeof window === "undefined") return "contracts";
-    return localStorage.getItem(TAB_STORAGE_KEY) || "contracts";
+    const urlTab = new URLSearchParams(window.location.search).get("tab");
+    return urlTab || localStorage.getItem(TAB_STORAGE_KEY) || "contracts";
   });
+  const [autoOpenNew, setAutoOpenNew] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Deep links: ?tab=alerts opens a tab directly, ?new=1 opens the add-contract dialog
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab) setActiveTab(tab);
+    if (searchParams.get("new") === "1") {
+      setActiveTab("contracts");
+      setAutoOpenNew(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const [stats, setStats] = useState({
     totalContracts: 0,
@@ -112,7 +129,12 @@ const ContractsPage = () => {
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem(TAB_STORAGE_KEY, activeTab);
+      const params = new URLSearchParams(window.location.search);
+      params.set("tab", activeTab);
+      params.delete("new");
+      setSearchParams(params, { replace: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const fetchStats = async () => {
@@ -180,6 +202,13 @@ const ContractsPage = () => {
       currency: "SAR",
       maximumFractionDigits: 0,
     }).format(value);
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchStats();
+    setIsRefreshing(false);
+    toast.success(isArabic ? "تم تحديث الإحصائيات" : "Stats refreshed");
   };
 
   const handleExportCSV = async () => {
@@ -265,8 +294,8 @@ const ContractsPage = () => {
         {/* Page Header */}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20">
-              <Building2 className="w-8 h-8 text-amber-600" />
+            <div className="p-3 rounded-xl bg-accent/10">
+              <Building2 className="w-8 h-8 text-accent" />
             </div>
             <div>
               <h1 className="text-2xl font-bold">
@@ -297,6 +326,15 @@ const ContractsPage = () => {
             <Button
               variant="outline"
               size="icon"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              title={isArabic ? "تحديث الإحصائيات" : "Refresh stats"}
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
               onClick={handleExportCSV}
               disabled={isExporting || stats.totalContracts === 0}
               title={isArabic ? "تصدير CSV" : "Export CSV"}
@@ -310,106 +348,60 @@ const ContractsPage = () => {
           </div>
         </div>
 
-        {/* Stats Overview */}
+        {/* Stats Overview — semantic tokens, theme-aware */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-          <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/20">
-                  <FileText className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.totalContracts}</p>
-                  <p className="text-xs text-muted-foreground">{isArabic ? "العقود" : "Contracts"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-500/20">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.activeContracts}</p>
-                  <p className="text-xs text-muted-foreground">{isArabic ? "نشطة" : "Active"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-purple-500/20">
-                  <CheckCircle className="w-5 h-5 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.completedContracts}</p>
-                  <p className="text-xs text-muted-foreground">{isArabic ? "مكتملة" : "Completed"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-orange-500/20">
-                  <Clock className="w-5 h-5 text-orange-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.expiringContracts}</p>
-                  <p className="text-xs text-muted-foreground">{isArabic ? "تنتهي قريباً" : "Expiring"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-red-500/10 to-red-600/5 border-red-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-red-500/20">
-                  <AlertTriangle className="w-5 h-5 text-red-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.overdueContracts}</p>
-                  <p className="text-xs text-muted-foreground">{isArabic ? "متأخرة" : "Overdue"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 border-cyan-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-cyan-500/20">
-                  <DollarSign className="w-5 h-5 text-cyan-600" />
-                </div>
-                <div>
-                  <p className="text-lg font-bold">{formatCurrency(stats.totalContractValue)}</p>
-                  <p className="text-xs text-muted-foreground">{isArabic ? "إجمالي القيمة" : "Total Value"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {([
+            { icon: FileText, value: stats.totalContracts as number | string, label: isArabic ? "العقود" : "Contracts", tone: "primary", tab: "contracts", small: false },
+            { icon: CheckCircle, value: stats.activeContracts, label: isArabic ? "نشطة" : "Active", tone: "success", tab: "contracts", small: false },
+            { icon: CheckCircle, value: stats.completedContracts, label: isArabic ? "مكتملة" : "Completed", tone: "muted", tab: "contracts", small: false },
+            { icon: Clock, value: stats.expiringContracts, label: isArabic ? "تنتهي قريباً" : "Expiring", tone: "warning", tab: "alerts", small: false },
+            { icon: AlertTriangle, value: stats.overdueContracts, label: isArabic ? "متأخرة" : "Overdue", tone: "destructive", tab: "alerts", small: false },
+            { icon: DollarSign, value: formatCurrency(stats.totalContractValue), label: isArabic ? "إجمالي القيمة" : "Total Value", tone: "accent", tab: "dashboard", small: true },
+          ] as { icon: any; value: number | string; label: string; tone: "primary" | "success" | "warning" | "destructive" | "accent" | "muted"; tab: string; small: boolean }[]).map((s, i) => {
+            const toneCls = {
+              primary: "bg-primary/10 text-primary",
+              success: "bg-success/10 text-success",
+              warning: "bg-warning/10 text-warning",
+              destructive: "bg-destructive/10 text-destructive",
+              accent: "bg-accent/10 text-accent",
+              muted: "bg-muted text-muted-foreground",
+            }[s.tone];
+            const Icon = s.icon;
+            return (
+              <Card
+                key={i}
+                className="cursor-pointer hover:shadow-md hover:border-primary/30 transition-all"
+                onClick={() => setActiveTab(s.tab)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${toneCls}`}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className={`${s.small ? "text-lg" : "text-2xl"} font-bold truncate`}>{s.value}</p>
+                      <p className="text-xs text-muted-foreground">{s.label}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {/* Alert Banner for expiring/overdue */}
         {(stats.expiringContracts > 0 || stats.overdueContracts > 0) && (
-          <Card className="bg-gradient-to-r from-amber-500/10 to-red-500/10 border-amber-500/30">
+          <Card className="border-warning/40 bg-warning/5">
             <CardContent className="p-3 flex items-center gap-3 flex-wrap">
-              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+              <AlertTriangle className="w-5 h-5 text-warning shrink-0" />
               <div className="flex-1 min-w-0 text-sm">
                 {stats.overdueContracts > 0 && (
-                  <span className="font-semibold text-red-600 me-3">
+                  <span className="font-semibold text-destructive me-3">
                     {stats.overdueContracts} {isArabic ? "عقد متأخر" : "overdue contracts"}
                   </span>
                 )}
                 {stats.expiringContracts > 0 && (
-                  <span className="font-semibold text-amber-700">
+                  <span className="font-semibold text-warning">
                     {stats.expiringContracts} {isArabic ? "عقد ينتهي خلال 30 يوم" : "expiring within 30 days"}
                   </span>
                 )}
@@ -428,12 +420,12 @@ const ContractsPage = () => {
         {(stats.upcomingMilestones > 0 || stats.duePayments > 0) && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card
-              className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20 cursor-pointer hover:shadow-md transition-shadow"
+              className="cursor-pointer hover:shadow-md hover:border-primary/30 transition-all"
               onClick={() => setActiveTab("milestones")}
             >
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-purple-500/20">
-                  <Target className="w-5 h-5 text-purple-600" />
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Target className="w-5 h-5 text-primary" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.upcomingMilestones}</p>
@@ -444,12 +436,12 @@ const ContractsPage = () => {
               </CardContent>
             </Card>
             <Card
-              className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-emerald-500/20 cursor-pointer hover:shadow-md transition-shadow"
+              className="cursor-pointer hover:shadow-md hover:border-primary/30 transition-all"
               onClick={() => setActiveTab("payments")}
             >
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-emerald-500/20">
-                  <DollarSign className="w-5 h-5 text-emerald-600" />
+                <div className="p-2 rounded-lg bg-success/10">
+                  <DollarSign className="w-5 h-5 text-success" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
@@ -511,7 +503,7 @@ const ContractsPage = () => {
           </TabsList>
 
           <TabsContent value="contracts" className="mt-4">
-            <ContractManagement initialSearch={searchQuery} />
+            <ContractManagement initialSearch={searchQuery} autoOpenNew={autoOpenNew} onAutoOpenHandled={() => setAutoOpenNew(false)} />
           </TabsContent>
 
           <TabsContent value="dashboard" className="mt-4">

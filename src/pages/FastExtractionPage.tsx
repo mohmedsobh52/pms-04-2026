@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
 import { buildFastExtractionSuggestions } from "@/lib/suggestion-generators";
 import { Link } from "react-router-dom";
-import { Upload, History, Lightbulb, FolderOpen } from "lucide-react";
+import { Upload, History, Lightbulb, FolderOpen, Zap, FileStack, FileCheck2, DraftingCompass, Hash } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -129,23 +129,76 @@ export default function FastExtractionPage() {
 
         <div>
 
-          {/* Title */}
-          <div className="text-center mb-6">
-            <h1 className="text-3xl font-bold flex items-center justify-center gap-2">
-              ⚡ {isArabic ? "الاستخراج السريع" : "Fast Extraction"}
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              {isArabic
-                ? "رفع الملفات وتصنيفها بالذكاء الاصطناعي ومتابعة التقدم"
-                : "Upload files, classify with AI, and track progress"}
-            </p>
+          {/* Professional header */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="p-3 rounded-xl bg-primary/10">
+              <Zap className="w-7 h-7 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">
+                {isArabic ? "الاستخراج السريع وتحليل المخططات" : "Fast Extraction & Drawing Analysis"}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {isArabic
+                  ? "رفع الملفات وتصنيفها بالذكاء الاصطناعي وحصر الكميات من المخططات"
+                  : "Upload files, classify with AI, and extract quantities from drawings"}
+              </p>
+            </div>
+          </div>
+
+          {/* KPI strip */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+            <Card className="bg-card/80 backdrop-blur-sm">
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <FileStack className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xl font-bold leading-none">{files.length}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{isArabic ? "ملفات مرفوعة" : "Uploaded"}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/80 backdrop-blur-sm">
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-success/10">
+                  <FileCheck2 className="w-4 h-4 text-success" />
+                </div>
+                <div>
+                  <p className="text-xl font-bold leading-none">{readyFilesCount}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{isArabic ? "جاهزة" : "Ready"}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/80 backdrop-blur-sm">
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-accent/10">
+                  <DraftingCompass className="w-4 h-4 text-accent" />
+                </div>
+                <div>
+                  <p className="text-xl font-bold leading-none">{files.filter((f) => f.category === "drawings").length}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{isArabic ? "مخططات" : "Drawings"}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/80 backdrop-blur-sm">
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-warning/10">
+                  <Hash className="w-4 h-4 text-warning" />
+                </div>
+                <div>
+                  <p className="text-xl font-bold leading-none">{extractedQuantities.length}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{isArabic ? "كميات مستخرجة" : "Quantities"}</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Stepper */}
           <FastExtractionStepper currentStep={currentStep} onStepClick={setCurrentStep} />
 
           {/* Content Grid */}
-          <div className="grid lg:grid-cols-[280px_1fr] gap-6 mt-8">
+          <div className="grid lg:grid-cols-[280px_1fr] gap-6 mt-6">
             {/* Sidebar */}
             <div className="space-y-4">
               {/* Ready Files Counter */}
