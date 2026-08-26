@@ -115,6 +115,9 @@ interface Contract {
 interface ContractManagementProps {
   projectId?: string;
   initialSearch?: string;
+  /** When true, opens the "new contract" dialog once (deep link ?new=1). */
+  autoOpenNew?: boolean;
+  onAutoOpenHandled?: () => void;
 }
 
 const WIZARD_STEPS = [
@@ -125,7 +128,7 @@ const WIZARD_STEPS = [
   { id: 5, labelEn: "Scope & Notes", labelAr: "النطاق والملاحظات", icon: FileCheck },
 ];
 
-export function ContractManagement({ projectId, initialSearch }: ContractManagementProps) {
+export function ContractManagement({ projectId, initialSearch, autoOpenNew = false, onAutoOpenHandled }: ContractManagementProps) {
   const { isArabic } = useLanguage();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -155,6 +158,16 @@ export function ContractManagement({ projectId, initialSearch }: ContractManagem
   useEffect(() => {
     if (initialSearch !== undefined) setSearchTerm(initialSearch);
   }, [initialSearch]);
+
+  // Deep link: open the add-contract dialog when requested by the parent (?new=1)
+  useEffect(() => {
+    if (autoOpenNew) {
+      resetForm();
+      setIsDialogOpen(true);
+      onAutoOpenHandled?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenNew]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   
