@@ -4463,3 +4463,95 @@ export function buildVersioningBackupSuggestions(input: {
   }
   return out;
 }
+
+// ============= Approvals SLA Health =============
+export function buildApprovalsSlaSuggestions(input: {
+  pendingCount: number;
+  overdueCount: number;
+  stuckCount: number; // active for > 7 days
+  noDueDateCount: number;
+}, screen = "approvals"): Draft[] {
+  const out: Draft[] = [];
+  if (input.overdueCount > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${input.overdueCount} طلب اعتماد متجاوز لموعده`,
+      description: "طلبات تجاوزت تاريخ الاستحقاق دون قرار. راجع صندوق الاعتمادات وحدد الأولويات أو فوّض المعتمدين.",
+      sourceScreen: screen,
+      sourceRoute: "/approvals",
+    });
+  }
+  if (input.stuckCount > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.stuckCount} طلب اعتماد معلق منذ أكثر من 7 أيام`,
+      description: "طلبات نشطة لفترة طويلة دون حركة. تواصل مع المعتمد الحالي أو أعد توجيه الطلب.",
+      sourceScreen: screen,
+      sourceRoute: "/approvals",
+    });
+  }
+  if (input.noDueDateCount > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: `${input.noDueDateCount} طلب اعتماد بلا تاريخ استحقاق`,
+      description: "تحديد موعد استحقاق لكل طلب يساعد على ترتيب الأولويات وقياس زمن الاعتماد.",
+      sourceScreen: screen,
+      sourceRoute: "/approvals",
+    });
+  }
+  if (input.pendingCount === 0 && input.overdueCount === 0) {
+    out.push({
+      category: "workflow",
+      severity: "success",
+      title: "صندوق الاعتمادات نظيف",
+      description: "لا توجد طلبات معلقة أو متأخرة حالياً — استمرار ممتاز في دورة الاعتماد.",
+      sourceScreen: screen,
+      sourceRoute: "/approvals",
+    });
+  }
+  return out;
+}
+
+// ============= Currency & FX Health =============
+export function buildCurrencyFxSuggestions(input: {
+  ratesCount: number;
+  staleRates: number; // updated_at older than 30 days
+  missingUsd: boolean;
+}, screen = "settings"): Draft[] {
+  const out: Draft[] = [];
+  if (input.ratesCount === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: "لا توجد أسعار صرف معرفة",
+      description: "أضف أسعار صرف العملات المستخدمة في مشاريعك لضمان دقة التحويلات المالية والتقارير.",
+      sourceScreen: screen,
+      sourceRoute: "/settings",
+    });
+    return out;
+  }
+  if (input.missingUsd) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: "سعر صرف الدولار (USD) غير معرف",
+      description: "الدولار هو عملة الأساس للتحويلات — أضف سعره لضمان صحة كل التحويلات الأخرى.",
+      sourceScreen: screen,
+      sourceRoute: "/settings",
+    });
+  }
+  if (input.staleRates > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.staleRates} سعر صرف لم يحدّث منذ أكثر من 30 يوماً`,
+      description: "حدّث أسعار الصرف دورياً لتعكس التقارير والمقارنات المالية القيم الحقيقية.",
+      sourceScreen: screen,
+      sourceRoute: "/settings",
+    });
+  }
+  return out;
+}
