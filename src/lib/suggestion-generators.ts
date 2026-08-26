@@ -4356,3 +4356,110 @@ export function buildHistoricalDataSuggestions(input: {
   }
   return out;
 }
+
+/**
+ * Team & access health — role coverage, admin balance, inactive members.
+ */
+export function buildTeamAccessSuggestions(input: {
+  totalMembers: number;
+  usersWithoutRole: number;
+  adminsCount: number;
+  viewersOnly: number;
+}, screen = "team"): Draft[] {
+  const out: Draft[] = [];
+  if (input.totalMembers === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لم يتم إسناد أي أدوار بعد",
+      description: "ابدأ بإسناد الأدوار لأعضاء الفريق للتحكم في الوصول والصلاحيات.",
+      sourceScreen: screen,
+      sourceRoute: "/team",
+    });
+    return out;
+  }
+  if (input.adminsCount === 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: "لا يوجد أي مدير نظام (Admin)",
+      description: "عيّن مديراً واحداً على الأقل لضمان إمكانية إدارة الصلاحيات والإعدادات.",
+      sourceScreen: screen,
+      sourceRoute: "/team",
+    });
+  }
+  if (input.adminsCount > 3) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.adminsCount} مدراء نظام — عدد مرتفع`,
+      description: "قلّص صلاحيات الإدارة لأقل عدد ممكن لتقليل مخاطر الوصول غير المصرّح.",
+      sourceScreen: screen,
+      sourceRoute: "/team",
+    });
+  }
+  if (input.usersWithoutRole > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.usersWithoutRole} مستخدم بلا دور محدد`,
+      description: "أسند دوراً واضحاً لكل مستخدم حتى لا يحصل على وصول افتراضي غير مقصود.",
+      sourceScreen: screen,
+      sourceRoute: "/team",
+    });
+  }
+  if (input.totalMembers > 2 && input.viewersOnly === input.totalMembers) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "جميع الأعضاء بصلاحية مشاهدة فقط",
+      description: "راجع مصفوفة الصلاحيات — قد يحتاج بعض الأعضاء صلاحيات تحرير لإنجاز العمل.",
+      sourceScreen: screen,
+      sourceRoute: "/team",
+    });
+  }
+  return out;
+}
+
+/**
+ * Versions & backup health — snapshot cadence and release labeling.
+ */
+export function buildVersioningBackupSuggestions(input: {
+  versions: number;
+  daysSinceLastVersion: number | null;
+  unlabeled: number;
+}, screen = "admin-versions"): Draft[] {
+  const out: Draft[] = [];
+  if (input.versions === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: "لا توجد نسخ محفوظة من النظام",
+      description: "أنشئ نسخة إصدار أولى لتوثيق حالة النظام وتمكين المقارنة والرجوع عند الحاجة.",
+      sourceScreen: screen,
+      sourceRoute: "/admin/versions",
+    });
+    return out;
+  }
+  if (input.daysSinceLastVersion !== null && input.daysSinceLastVersion > 30) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `آخر نسخة إصدار منذ ${input.daysSinceLastVersion} يوماً`,
+      description: "احفظ نسخة إصدار دورية (شهرياً مثلاً) لتتبع التغييرات والرجوع الآمن.",
+      sourceScreen: screen,
+      sourceRoute: "/admin/versions",
+    });
+  }
+  if (input.unlabeled > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.unlabeled} نسخة بلا وصف تغييرات`,
+      description: "أضف ملاحظات الإصدار لكل نسخة لتسهيل المراجعة والتدقيق لاحقاً.",
+      sourceScreen: screen,
+      sourceRoute: "/admin/versions",
+    });
+  }
+  return out;
+}
