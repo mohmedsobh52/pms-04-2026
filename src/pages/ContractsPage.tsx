@@ -294,8 +294,8 @@ const ContractsPage = () => {
         {/* Page Header */}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20">
-              <Building2 className="w-8 h-8 text-amber-600" />
+            <div className="p-3 rounded-xl bg-accent/10">
+              <Building2 className="w-8 h-8 text-accent" />
             </div>
             <div>
               <h1 className="text-2xl font-bold">
@@ -323,6 +323,15 @@ const ContractsPage = () => {
                 }}
               />
             </div>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              title={isArabic ? "تحديث الإحصائيات" : "Refresh stats"}
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            </Button>
             <Button
               variant="outline"
               size="icon"
@@ -494,7 +503,7 @@ const ContractsPage = () => {
           </TabsList>
 
           <TabsContent value="contracts" className="mt-4">
-            <ContractManagement initialSearch={searchQuery} />
+            <ContractManagement initialSearch={searchQuery} autoOpenNew={autoOpenNew} onAutoOpenHandled={() => setAutoOpenNew(false)} />
           </TabsContent>
 
           <TabsContent value="dashboard" className="mt-4">
