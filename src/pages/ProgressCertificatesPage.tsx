@@ -11,6 +11,7 @@ import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -85,8 +86,25 @@ const ProgressCertificatesPage = () => {
   const [contractors, setContractors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [filterProjectId, setFilterProjectId] = useState("");
-  const [filterContractor, setFilterContractor] = useState("");
+  const FILTERS_KEY = "certificates:filters";
+  const [filterProjectId, setFilterProjectId] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(FILTERS_KEY) || "{}").project || ""; } catch { return ""; }
+  });
+  const [filterContractor, setFilterContractor] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(FILTERS_KEY) || "{}").contractor || ""; } catch { return ""; }
+  });
+  const [filterStatus, setFilterStatus] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(FILTERS_KEY) || "{}").status || ""; } catch { return ""; }
+  });
+  const [searchQuery, setSearchQuery] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(FILTERS_KEY) || "{}").q || ""; } catch { return ""; }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTERS_KEY, JSON.stringify({ project: filterProjectId, contractor: filterContractor, status: filterStatus, q: searchQuery }));
+    } catch { /* quota */ }
+  }, [filterProjectId, filterContractor, filterStatus, searchQuery]);
 
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [viewingCertificate, setViewingCertificate] = useState<Certificate | null>(null);
@@ -277,8 +295,49 @@ const ProgressCertificatesPage = () => {
   const filtered = certificates.filter(c => {
     if (filterProjectId && filterProjectId !== "all" && c.project_id !== filterProjectId) return false;
     if (filterContractor && filterContractor !== "all" && c.contractor_name !== filterContractor) return false;
+    if (filterStatus && filterStatus !== "all" && (c.status || "draft") !== filterStatus) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      const hay = `${c.certificate_number} ${c.contractor_name || ""} ${c.notes || ""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
     return true;
   });
+
+  const handleExportCSV = () => {
+    if (filtered.length === 0) {
+      toast.info(isArabic ? "لا توجد نتائج للتصدير" : "No results to export");
+      return;
+    }
+    const headers = [
+      isArabic ? "رقم" : "#",
+      isArabic ? "المقاول" : "Contractor",
+      isArabic ? "من" : "From",
+      isArabic ? "إلى" : "To",
+      isArabic ? "الأعمال الحالية" : "Current Work",
+      isArabic ? "صافي المستحق" : "Net Amount",
+      isArabic ? "الحالة" : "Status",
+    ];
+    const escape = (v: any) => {
+      const s = v === null || v === undefined ? "" : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = filtered.map(c => [
+      c.certificate_number, c.contractor_name, c.period_from || "", c.period_to || "",
+      c.current_work_done, c.net_amount, c.status,
+    ].map(escape).join(","));
+    const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `certificates-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(isArabic ? "تم تصدير CSV" : "CSV exported");
+  };
 
   const formatCurrency = (v: number) => {
     if (v == null) return '0.00';
