@@ -412,29 +412,55 @@ const ProgressCertificatesPage = () => {
         <ColorLegend type="status" isArabic={isArabic} />
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><FileText className="h-5 w-5 text-primary" /><div><p className="text-sm text-muted-foreground">{isArabic ? "إجمالي المستخلصات" : "Total Certificates"}</p><p className="text-2xl font-bold">{filtered.length}</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><DollarSign className="h-5 w-5 text-green-600" /><div><p className="text-sm text-muted-foreground">{isArabic ? "إجمالي صافي" : "Total Net"}</p><p className="text-2xl font-bold">{formatCurrency(totalNet)}</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-blue-600" /><div><p className="text-sm text-muted-foreground">{isArabic ? "أعمال حالية" : "Current Work"}</p><p className="text-2xl font-bold">{formatCurrency(totalCurrent)}</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><Building2 className="h-5 w-5 text-purple-600" /><div><p className="text-sm text-muted-foreground">{isArabic ? "معتمدة/مدفوعة" : "Approved/Paid"}</p><p className="text-2xl font-bold">{approvedCount}</p></div></div></CardContent></Card>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><div className="p-2 rounded-lg bg-primary/10"><FileText className="h-5 w-5 text-primary" /></div><div><p className="text-sm text-muted-foreground">{isArabic ? "إجمالي المستخلصات" : "Total Certificates"}</p><p className="text-2xl font-bold">{filtered.length}</p></div></div></CardContent></Card>
+          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><div className="p-2 rounded-lg bg-success/10"><DollarSign className="h-5 w-5 text-success" /></div><div><p className="text-sm text-muted-foreground">{isArabic ? "إجمالي صافي" : "Total Net"}</p><p className="text-2xl font-bold">{formatCurrency(totalNet)}</p></div></div></CardContent></Card>
+          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><div className="p-2 rounded-lg bg-accent/10"><TrendingUp className="h-5 w-5 text-accent" /></div><div><p className="text-sm text-muted-foreground">{isArabic ? "أعمال حالية" : "Current Work"}</p><p className="text-2xl font-bold">{formatCurrency(totalCurrent)}</p></div></div></CardContent></Card>
+          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><div className="p-2 rounded-lg bg-warning/10"><Building2 className="h-5 w-5 text-warning" /></div><p className="text-sm text-muted-foreground">{isArabic ? "معتمدة/مدفوعة" : "Approved/Paid"}</p><p className="text-2xl font-bold">{approvedCount}</p></div></CardContent></Card>
         </div>
 
         {/* Filters */}
-        <div className="flex gap-4 flex-wrap">
+        <div className="flex gap-3 flex-wrap items-center">
+          <div className="relative flex-1 min-w-[220px] max-w-sm">
+            <Search className="h-4 w-4 absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={isArabic ? "بحث برقم المستخلص أو اسم المقاول..." : "Search by number or contractor..."}
+              className="ps-9"
+            />
+          </div>
           <Select value={filterProjectId} onValueChange={setFilterProjectId}>
-            <SelectTrigger className="w-[200px]"><SelectValue placeholder={isArabic ? "كل المشاريع" : "All Projects"} /></SelectTrigger>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder={isArabic ? "كل المشاريع" : "All Projects"} /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{isArabic ? "كل المشاريع" : "All Projects"}</SelectItem>
               {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={filterContractor} onValueChange={setFilterContractor}>
-            <SelectTrigger className="w-[200px]"><SelectValue placeholder={isArabic ? "كل المقاولين" : "All Contractors"} /></SelectTrigger>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder={isArabic ? "كل المقاولين" : "All Contractors"} /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{isArabic ? "كل المقاولين" : "All Contractors"}</SelectItem>
               {contractors.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-[150px]"><SelectValue placeholder={isArabic ? "كل الحالات" : "All Statuses"} /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{isArabic ? "كل الحالات" : "All Statuses"}</SelectItem>
+              <SelectItem value="draft">{isArabic ? "مسودة" : "Draft"}</SelectItem>
+              <SelectItem value="submitted">{isArabic ? "مقدم" : "Submitted"}</SelectItem>
+              <SelectItem value="approved">{isArabic ? "معتمد" : "Approved"}</SelectItem>
+              <SelectItem value="paid">{isArabic ? "مدفوع" : "Paid"}</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-1">
+            <Download className="h-4 w-4" />
+            {isArabic ? "CSV" : "CSV"}
+          </Button>
+          <span className="text-xs text-muted-foreground ms-auto">
+            {isArabic ? `${filtered.length} نتيجة` : `${filtered.length} results`}
+          </span>
         </div>
 
         {/* S-Curve cumulative progress */}
