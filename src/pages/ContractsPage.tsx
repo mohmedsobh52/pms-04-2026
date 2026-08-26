@@ -26,9 +26,11 @@ import {
   Search,
   Download,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { useSearchParams } from "react-router-dom";
 import { differenceInDays } from "date-fns";
 import { toast } from "sonner";
 import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
@@ -78,12 +80,27 @@ const ContractsPage = () => {
   const { isArabic } = useLanguage();
   const { user } = useAuth();
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<string>(() => {
     if (typeof window === "undefined") return "contracts";
-    return localStorage.getItem(TAB_STORAGE_KEY) || "contracts";
+    const urlTab = new URLSearchParams(window.location.search).get("tab");
+    return urlTab || localStorage.getItem(TAB_STORAGE_KEY) || "contracts";
   });
+  const [autoOpenNew, setAutoOpenNew] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Deep links: ?tab=alerts opens a tab directly, ?new=1 opens the add-contract dialog
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab) setActiveTab(tab);
+    if (searchParams.get("new") === "1") {
+      setActiveTab("contracts");
+      setAutoOpenNew(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const [stats, setStats] = useState({
     totalContracts: 0,
@@ -112,7 +129,12 @@ const ContractsPage = () => {
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem(TAB_STORAGE_KEY, activeTab);
+      const params = new URLSearchParams(window.location.search);
+      params.set("tab", activeTab);
+      params.delete("new");
+      setSearchParams(params, { replace: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const fetchStats = async () => {
