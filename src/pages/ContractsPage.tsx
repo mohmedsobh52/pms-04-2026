@@ -342,13 +342,13 @@ const ContractsPage = () => {
         {/* Stats Overview — semantic tokens, theme-aware */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           {([
-            { icon: FileText, value: stats.totalContracts, label: isArabic ? "العقود" : "Contracts", tone: "primary", tab: "contracts" },
-            { icon: CheckCircle, value: stats.activeContracts, label: isArabic ? "نشطة" : "Active", tone: "success", tab: "contracts" },
-            { icon: CheckCircle, value: stats.completedContracts, label: isArabic ? "مكتملة" : "Completed", tone: "muted", tab: "contracts" },
-            { icon: Clock, value: stats.expiringContracts, label: isArabic ? "تنتهي قريباً" : "Expiring", tone: "warning", tab: "alerts" },
-            { icon: AlertTriangle, value: stats.overdueContracts, label: isArabic ? "متأخرة" : "Overdue", tone: "destructive", tab: "alerts" },
+            { icon: FileText, value: stats.totalContracts as number | string, label: isArabic ? "العقود" : "Contracts", tone: "primary", tab: "contracts", small: false },
+            { icon: CheckCircle, value: stats.activeContracts, label: isArabic ? "نشطة" : "Active", tone: "success", tab: "contracts", small: false },
+            { icon: CheckCircle, value: stats.completedContracts, label: isArabic ? "مكتملة" : "Completed", tone: "muted", tab: "contracts", small: false },
+            { icon: Clock, value: stats.expiringContracts, label: isArabic ? "تنتهي قريباً" : "Expiring", tone: "warning", tab: "alerts", small: false },
+            { icon: AlertTriangle, value: stats.overdueContracts, label: isArabic ? "متأخرة" : "Overdue", tone: "destructive", tab: "alerts", small: false },
             { icon: DollarSign, value: formatCurrency(stats.totalContractValue), label: isArabic ? "إجمالي القيمة" : "Total Value", tone: "accent", tab: "dashboard", small: true },
-          ] as const).map((s, i) => {
+          ] as { icon: any; value: number | string; label: string; tone: "primary" | "success" | "warning" | "destructive" | "accent" | "muted"; tab: string; small: boolean }[]).map((s, i) => {
             const toneCls = {
               primary: "bg-primary/10 text-primary",
               success: "bg-success/10 text-success",
