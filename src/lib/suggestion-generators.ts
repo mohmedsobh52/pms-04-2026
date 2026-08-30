@@ -4555,3 +4555,129 @@ export function buildCurrencyFxSuggestions(input: {
   }
   return out;
 }
+
+/* ------------------------------------------------------------------ */
+/* CLAIMS HEALTH                                                       */
+/* ------------------------------------------------------------------ */
+export function buildClaimsSuggestions(claims: any[]): Draft[] {
+  const out: Draft[] = [];
+  const screen = "claims";
+  const route = "/claims";
+  if (!claims?.length) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لا توجد مطالبات مسجلة",
+      description: "سجّل المطالبات المالية وتمديد المدة لمتابعة استحقاقاتك التعاقدية.",
+      sourceScreen: screen,
+      sourceRoute: route,
+      applyLabel: "فتح شاشة المطالبات",
+    });
+    return out;
+  }
+
+  const openStatuses = ["draft", "submitted", "under_review", "negotiation"];
+  const now = Date.now();
+
+  const overdue = claims.filter(
+    (c) => c.response_due_date && new Date(c.response_due_date).getTime() < now && openStatuses.includes(c.status),
+  );
+  if (overdue.length) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${overdue.length} مطالبة تجاوزت موعد الرد`,
+      description: "يوصى بإرسال تذكير رسمي أو تصعيد المطالبة وفق بنود العقد.",
+      sourceScreen: screen,
+      sourceRoute: route,
+      applyLabel: "مراجعة المطالبات المتأخرة",
+    });
+  }
+
+  const drafts = claims.filter((c) => c.status === "draft");
+  if (drafts.length) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${drafts.length} مطالبة ما زالت مسودة`,
+      description: "المطالبات غير المقدّمة قد تسقط بانتهاء مهلة الإشعار التعاقدية.",
+      sourceScreen: screen,
+      sourceRoute: route,
+      applyLabel: "استكمال المسودات",
+    });
+  }
+
+  const noClause = claims.filter((c) => !c.contract_clause);
+  if (noClause.length) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${noClause.length} مطالبة بدون سند تعاقدي`,
+      description: "أضف بند العقد المستند إليه لتقوية موقف المطالبة.",
+      sourceScreen: screen,
+      sourceRoute: route,
+      applyLabel: "إضافة بنود العقد",
+    });
+  }
+
+  const noEvidence = claims.filter((c) => !c.evidence_notes && !c.notice_reference);
+  if (noEvidence.length) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${noEvidence.length} مطالبة بدون مستندات أو إشعار مرجعي`,
+      description: "وثّق الإشعارات والأدلة الداعمة لكل مطالبة.",
+      sourceScreen: screen,
+      sourceRoute: route,
+      applyLabel: "توثيق الأدلة",
+    });
+  }
+
+  const claimed = claims.reduce((s, c) => s + (Number(c.claimed_amount) || 0), 0);
+  const approved = claims.reduce((s, c) => s + (Number(c.approved_amount) || 0), 0);
+  if (claimed > 0) {
+    const rate = (approved / claimed) * 100;
+    if (rate < 50) {
+      out.push({
+        category: "reports",
+        severity: "warning",
+        title: `نسبة تحصيل المطالبات ${rate.toFixed(0)}% فقط`,
+        description: "راجع جودة إعداد المطالبات وأسلوب التفاوض لرفع نسبة الاعتماد.",
+        sourceScreen: screen,
+        sourceRoute: route,
+        applyLabel: "تحليل المطالبات",
+      });
+    }
+  }
+
+  const stale = claims.filter(
+    (c) => openStatuses.includes(c.status) && c.submitted_date
+      && now - new Date(c.submitted_date).getTime() > 60 * 86_400_000,
+  );
+  if (stale.length) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${stale.length} مطالبة معلّقة لأكثر من 60 يوماً`,
+      description: "المطالبات طويلة الأمد تحتاج تصعيداً أو تسوية ودّية.",
+      sourceScreen: screen,
+      sourceRoute: route,
+      applyLabel: "تصعيد المطالبات",
+    });
+  }
+
+  const eot = claims.reduce((s, c) => s + (Number(c.time_extension_days) || 0), 0);
+  if (eot > 0) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: `إجمالي تمديد المدة المطلوب ${eot} يوماً`,
+      description: "اربط أيام التمديد بالبرنامج الزمني وحدّث تواريخ الإنجاز.",
+      sourceScreen: screen,
+      sourceRoute: route,
+      applyLabel: "تحديث البرنامج الزمني",
+    });
+  }
+
+  return out;
+}

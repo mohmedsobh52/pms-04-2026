@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   Home, FolderOpen, ListChecks, DollarSign, Gauge, Briefcase, Package, FileSignature,
-  Users, AlertTriangle, FileBarChart, BookOpen, Calendar, Settings, Shield, FileText,
+  Users, AlertTriangle, Gavel, FileBarChart, BookOpen, Calendar, Settings, Shield, FileText,
   Layers, Truck, Award, Inbox, Search, LayoutDashboard, ClipboardList, GitCompare,
   HardHat, Boxes, ScrollText, Building2, Sparkles,
 } from "lucide-react";
@@ -77,6 +77,7 @@ const systemGroups: NavGroup[] = [
       { titleEn: "Certificates",  titleAr: "المستخلصات",   url: "/progress-certificates", icon: Award },
       { titleEn: "EVM",           titleAr: "القيمة المكتسبة", url: "/cost-control-evm",   icon: FileBarChart },
       { titleEn: "Risks",         titleAr: "المخاطر",      url: "/risk",                  icon: AlertTriangle },
+      { titleEn: "Claims",        titleAr: "المطالبات",    url: "/claims",                icon: Gavel },
     ],
   },
 ];
