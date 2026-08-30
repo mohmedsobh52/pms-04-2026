@@ -4594,6 +4594,19 @@ export function buildClaimsSuggestions(claims: any[]): Draft[] {
     });
   }
 
+  const unlinked = claims.filter((c) => !c.project_id);
+  if (unlinked.length) {
+    out.push({
+      category: "data-quality",
+      severity: unlinked.length > 3 ? "warning" : "info",
+      title: `${unlinked.length} مطالبة غير مرتبطة بمشروع محفوظ`,
+      description: "اربط كل مطالبة بمشروعها لتظهر ضمن تحليلات المشروع والتقارير المالية ولوحة المتابعة.",
+      sourceScreen: screen,
+      sourceRoute: route,
+      applyLabel: "ربط المطالبات بالمشاريع",
+    });
+  }
+
   const drafts = claims.filter((c) => c.status === "draft");
   if (drafts.length) {
     out.push({

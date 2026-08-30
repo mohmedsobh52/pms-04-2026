@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { AppShell as PageLayout } from "@/components/layout/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -103,6 +104,7 @@ const emptyForm = {
   counterparty: "",
   notice_reference: "",
   contract_clause: "",
+  project_id: "",
   root_cause: "",
   evidence_notes: "",
 };
@@ -117,6 +119,8 @@ export default function ClaimsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [projectFilter, setProjectFilter] = useState("all");
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
@@ -134,15 +138,35 @@ export default function ClaimsPage() {
         setSearch(f.search || "");
         setStatusFilter(f.statusFilter || "all");
         setTypeFilter(f.typeFilter || "all");
+        setProjectFilter(f.projectFilter || "all");
       }
     } catch { /* ignore */ }
   }, []);
 
   useEffect(() => {
     try {
-      localStorage.setItem(FILTER_KEY, JSON.stringify({ search, statusFilter, typeFilter }));
+      localStorage.setItem(FILTER_KEY, JSON.stringify({ search, statusFilter, typeFilter, projectFilter }));
     } catch { /* ignore */ }
-  }, [search, statusFilter, typeFilter]);
+  }, [search, statusFilter, typeFilter, projectFilter]);
+
+  // deep-link: /claims?project=<id>
+  useEffect(() => {
+    const pid = new URLSearchParams(window.location.search).get("project");
+    if (pid) setProjectFilter(pid);
+  }, []);
+
+  // saved projects for linkage
+  useEffect(() => {
+    if (!user) { setProjects([]); return; }
+    (async () => {
+      const { data } = await supabase
+        .from("saved_projects")
+        .select("id, name")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      setProjects((data ?? []) as { id: string; name: string }[]);
+    })();
+  }, [user]);
 
   const load = async () => {
     if (!user) { setClaims([]); setLoading(false); return; }
@@ -171,12 +195,14 @@ export default function ClaimsPage() {
     return claims.filter((c) => {
       if (statusFilter !== "all" && c.status !== statusFilter) return false;
       if (typeFilter !== "all" && c.claim_type !== typeFilter) return false;
+      if (projectFilter === "none" && c.project_id) return false;
+      if (projectFilter !== "all" && projectFilter !== "none" && c.project_id !== projectFilter) return false;
       if (!q) return true;
       return [c.claim_number, c.title, c.counterparty, c.notice_reference]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
     });
-  }, [claims, search, statusFilter, typeFilter]);
+  }, [claims, search, statusFilter, typeFilter, projectFilter]);
 
   const kpis = useMemo(() => {
     const claimed = filtered.reduce((s, c) => s + Number(c.claimed_amount || 0), 0);
@@ -195,7 +221,7 @@ export default function ClaimsPage() {
 
   const openNew = () => {
     setEditingId(null);
-    setForm({ ...emptyForm, claim_number: `CLM-${String(claims.length + 1).padStart(4, "0")}` });
+    setForm({ ...emptyForm, project_id: projectFilter !== "all" && projectFilter !== "none" ? projectFilter : "", claim_number: `CLM-${String(claims.length + 1).padStart(4, "0")}` });
     setDialogOpen(true);
   };
 
@@ -218,6 +244,7 @@ export default function ClaimsPage() {
       counterparty: c.counterparty || "",
       notice_reference: c.notice_reference || "",
       contract_clause: c.contract_clause || "",
+      project_id: c.project_id || "",
       root_cause: c.root_cause || "",
       evidence_notes: c.evidence_notes || "",
     });
@@ -249,6 +276,7 @@ export default function ClaimsPage() {
       counterparty: form.counterparty || null,
       notice_reference: form.notice_reference || null,
       contract_clause: form.contract_clause || null,
+      project_id: form.project_id || null,
       root_cause: form.root_cause || null,
       evidence_notes: form.evidence_notes || null,
     };
@@ -279,8 +307,11 @@ export default function ClaimsPage() {
       "claimed_amount", "approved_amount", "time_extension_days", "currency",
       "submitted_date", "response_due_date", "resolved_date", "counterparty", "notice_reference",
     ];
-    const rows = filtered.map((c) => headers.map((h) => `"${String((c as any)[h] ?? "").replace(/"/g, '""')}"`).join(","));
-    const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+    const projectName = (id: string | null) => projects.find((p) => p.id === id)?.name || "";
+    const rows = filtered.map((c) =>
+      [...headers.map((h) => `"${String((c as any)[h] ?? "").replace(/"/g, '""')}"`), `"${projectName(c.project_id)}"`].join(","),
+    );
+    const csv = "\uFEFF" + [[...headers, "project"].join(","), ...rows].join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
     const a = document.createElement("a");
     a.href = url;
@@ -379,6 +410,14 @@ export default function ClaimsPage() {
                   {TYPES.map((s) => <SelectItem key={s.value} value={s.value}>{isArabic ? s.ar : s.en}</SelectItem>)}
                 </SelectContent>
               </Select>
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{isArabic ? "كل المشاريع" : "All projects"}</SelectItem>
+                  <SelectItem value="none">{isArabic ? "بدون مشروع" : "Unlinked"}</SelectItem>
+                  {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
               <Badge variant="secondary">{filtered.length} {isArabic ? "نتيجة" : "results"}</Badge>
             </div>
           </CardContent>
@@ -396,6 +435,7 @@ export default function ClaimsPage() {
                   <TableRow>
                     <TableHead>{isArabic ? "الرقم" : "No."}</TableHead>
                     <TableHead>{isArabic ? "العنوان" : "Title"}</TableHead>
+                    <TableHead>{isArabic ? "المشروع" : "Project"}</TableHead>
                     <TableHead>{isArabic ? "النوع" : "Type"}</TableHead>
                     <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
                     <TableHead>{isArabic ? "الأولوية" : "Priority"}</TableHead>
@@ -408,12 +448,12 @@ export default function ClaimsPage() {
                 </TableHeader>
                 <TableBody>
                   {loading && (
-                    <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                    <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                       {isArabic ? "جاري التحميل..." : "Loading..."}
                     </TableCell></TableRow>
                   )}
                   {!loading && filtered.length === 0 && (
-                    <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                    <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                       {isArabic ? "لا توجد مطالبات — ابدأ بإضافة مطالبة جديدة" : "No claims yet — create your first claim"}
                     </TableCell></TableRow>
                   )}
@@ -425,6 +465,15 @@ export default function ClaimsPage() {
                       <TableRow key={c.id}>
                         <TableCell className="font-medium">{c.claim_number}</TableCell>
                         <TableCell className="max-w-[280px] truncate" title={c.title}>{c.title}</TableCell>
+                        <TableCell className="max-w-[180px] truncate">
+                          {c.project_id ? (
+                            <Link to={`/projects/${c.project_id}`} className="text-primary hover:underline">
+                              {projects.find((p) => p.id === c.project_id)?.name || (isArabic ? "مشروع" : "Project")}
+                            </Link>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                         <TableCell>{label(TYPES, c.claim_type)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={statusVariant(c.status)}>{label(STATUSES, c.status)}</Badge>
@@ -500,6 +549,19 @@ export default function ClaimsPage() {
               <Select value={form.priority} onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>{PRIORITIES.map((s) => <SelectItem key={s.value} value={s.value}>{isArabic ? s.ar : s.en}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>{isArabic ? "المشروع المرتبط" : "Linked project"}</Label>
+              <Select
+                value={form.project_id || "none"}
+                onValueChange={(v) => setForm((f) => ({ ...f, project_id: v === "none" ? "" : v }))}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isArabic ? "بدون مشروع" : "No project"}</SelectItem>
+                  {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
