@@ -145,7 +145,7 @@ export default function ClaimsPage() {
   }, [search, statusFilter, typeFilter]);
 
   const load = async () => {
-    if (!user) return;
+    if (!user) { setClaims([]); setLoading(false); return; }
     setLoading(true);
     const { data, error } = await supabase
       .from("claims")
