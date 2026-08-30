@@ -4681,3 +4681,139 @@ export function buildClaimsSuggestions(claims: any[]): Draft[] {
 
   return out;
 }
+
+/* ------------------------------------------------------------------ */
+/* ANALYSIS JOBS HEALTH                                                */
+/* ------------------------------------------------------------------ */
+export function buildAnalysisJobsSuggestions(input: {
+  total: number;
+  failed: number;
+  stuck: number; // processing for > 1h
+  pending: number;
+  lastRunDaysAgo: number | null;
+}, screen = "analysis-jobs"): Draft[] {
+  const out: Draft[] = [];
+  const route = "/projects?tab=attachments";
+  if (input.total === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "لم يتم تشغيل أي عملية تحليل آلي بعد",
+      description: "ارفع ملف BOQ أو مخطط واستخدم التحليل الآلي لاستخراج البنود والكميات بسرعة.",
+      sourceScreen: screen,
+      sourceRoute: route,
+      applyLabel: "بدء تحليل ملف",
+    });
+    return out;
+  }
+  if (input.failed > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "critical",
+      title: `${input.failed} عملية تحليل فشلت`,
+      description: "راجع رسائل الخطأ وأعد تشغيل العمليات الفاشلة حتى لا تفقد بيانات الملفات المرفوعة.",
+      sourceScreen: screen,
+      sourceRoute: route,
+      applyLabel: "مراجعة العمليات الفاشلة",
+    });
+  }
+  if (input.stuck > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.stuck} عملية تحليل متوقفة منذ أكثر من ساعة`,
+      description: "أعد تشغيل هذه العمليات أو ألغِها لتحرير الطابور وتسريع التحليلات الجديدة.",
+      sourceScreen: screen,
+      sourceRoute: route,
+    });
+  }
+  if (input.pending > 5) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: `${input.pending} عملية في انتظار المعالجة`,
+      description: "قسّم الملفات الكبيرة إلى دفعات أصغر لتقليل زمن الانتظار وتحسين معدل النجاح.",
+      sourceScreen: screen,
+      sourceRoute: route,
+    });
+  }
+  if (input.lastRunDaysAgo !== null && input.lastRunDaysAgo > 30) {
+    out.push({
+      category: "ai-pricing",
+      severity: "info",
+      title: `آخر تحليل آلي كان قبل ${input.lastRunDaysAgo} يوماً`,
+      description: "استفد من التحليل الذكي للملفات الجديدة لتسريع إعداد جداول الكميات والتسعير.",
+      sourceScreen: screen,
+      sourceRoute: route,
+    });
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
+/* SHARING & COLLABORATION HEALTH                                      */
+/* ------------------------------------------------------------------ */
+export function buildSharingCollaborationSuggestions(input: {
+  shares: number;
+  activeShares: number;
+  expiringSoon: number; // within 7 days
+  expired: number;
+  neverViewed: number;
+  openComments: number;
+}, screen = "sharing"): Draft[] {
+  const out: Draft[] = [];
+  const route = "/projects";
+  if (input.shares === 0) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: "لم تتم مشاركة أي تحليل مع أطراف خارجية",
+      description: "استخدم روابط المشاركة الآمنة لعرض التحليل على العميل أو الاستشاري وجمع الملاحظات مباشرة.",
+      sourceScreen: screen,
+      sourceRoute: route,
+      applyLabel: "مشاركة تحليل",
+    });
+    return out;
+  }
+  if (input.expired > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.expired} رابط مشاركة منتهي الصلاحية`,
+      description: "احذف الروابط المنتهية أو جدّدها حتى لا يواجه المستلمون صفحات غير متاحة.",
+      sourceScreen: screen,
+      sourceRoute: route,
+    });
+  }
+  if (input.expiringSoon > 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: `${input.expiringSoon} رابط مشاركة ينتهي خلال 7 أيام`,
+      description: "مدّد صلاحية الروابط النشطة قبل انتهائها لتفادي انقطاع المراجعة مع الأطراف الخارجية.",
+      sourceScreen: screen,
+      sourceRoute: route,
+    });
+  }
+  if (input.neverViewed > 0) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: `${input.neverViewed} رابط مشاركة لم يُفتح بعد`,
+      description: "أرسل تذكيراً للمستلمين أو تحقق من وصول الروابط إليهم لضمان استلام التحليل.",
+      sourceScreen: screen,
+      sourceRoute: route,
+    });
+  }
+  if (input.openComments > 0) {
+    out.push({
+      category: "workflow",
+      severity: input.openComments > 10 ? "warning" : "info",
+      title: `${input.openComments} ملاحظة مشاركة غير معالجة`,
+      description: "راجع ملاحظات الأطراف الخارجية وأغلقها بعد المعالجة لتوثيق دورة المراجعة.",
+      sourceScreen: screen,
+      sourceRoute: route,
+    });
+  }
+  return out;
+}
