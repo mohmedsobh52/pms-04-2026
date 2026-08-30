@@ -320,9 +320,99 @@ export type Database = {
         }
         Relationships: []
       }
+      claim_attachments: {
+        Row: {
+          claim_id: string
+          created_at: string
+          description: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          claim_id: string
+          created_at?: string
+          description?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          claim_id?: string
+          created_at?: string
+          description?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_attachments_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "claims"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claim_events: {
+        Row: {
+          body: string | null
+          claim_id: string
+          created_at: string
+          event_type: string
+          from_status: string | null
+          id: string
+          metadata: Json
+          to_status: string | null
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          claim_id: string
+          created_at?: string
+          event_type?: string
+          from_status?: string | null
+          id?: string
+          metadata?: Json
+          to_status?: string | null
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          claim_id?: string
+          created_at?: string
+          event_type?: string
+          from_status?: string | null
+          id?: string
+          metadata?: Json
+          to_status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_events_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "claims"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       claims: {
         Row: {
           approved_amount: number
+          assigned_to: string | null
+          assignee: string | null
           claim_number: string
           claim_type: string
           claimed_amount: number
@@ -331,6 +421,9 @@ export type Database = {
           counterparty: string | null
           created_at: string
           currency: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_notes: string | null
           description: string | null
           evidence_notes: string | null
           id: string
@@ -342,6 +435,7 @@ export type Database = {
           root_cause: string | null
           status: string
           submitted_date: string | null
+          tags: string[]
           time_extension_days: number
           title: string
           updated_at: string
@@ -349,6 +443,8 @@ export type Database = {
         }
         Insert: {
           approved_amount?: number
+          assigned_to?: string | null
+          assignee?: string | null
           claim_number: string
           claim_type?: string
           claimed_amount?: number
@@ -357,6 +453,9 @@ export type Database = {
           counterparty?: string | null
           created_at?: string
           currency?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_notes?: string | null
           description?: string | null
           evidence_notes?: string | null
           id?: string
@@ -368,6 +467,7 @@ export type Database = {
           root_cause?: string | null
           status?: string
           submitted_date?: string | null
+          tags?: string[]
           time_extension_days?: number
           title: string
           updated_at?: string
@@ -375,6 +475,8 @@ export type Database = {
         }
         Update: {
           approved_amount?: number
+          assigned_to?: string | null
+          assignee?: string | null
           claim_number?: string
           claim_type?: string
           claimed_amount?: number
@@ -383,6 +485,9 @@ export type Database = {
           counterparty?: string | null
           created_at?: string
           currency?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_notes?: string | null
           description?: string | null
           evidence_notes?: string | null
           id?: string
@@ -394,6 +499,7 @@ export type Database = {
           root_cause?: string | null
           status?: string
           submitted_date?: string | null
+          tags?: string[]
           time_extension_days?: number
           title?: string
           updated_at?: string
