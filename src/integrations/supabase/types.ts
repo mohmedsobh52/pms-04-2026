@@ -412,6 +412,7 @@ export type Database = {
         Row: {
           approved_amount: number
           assigned_to: string | null
+          assignee: string | null
           claim_number: string
           claim_type: string
           claimed_amount: number
@@ -443,6 +444,7 @@ export type Database = {
         Insert: {
           approved_amount?: number
           assigned_to?: string | null
+          assignee?: string | null
           claim_number: string
           claim_type?: string
           claimed_amount?: number
@@ -474,6 +476,7 @@ export type Database = {
         Update: {
           approved_amount?: number
           assigned_to?: string | null
+          assignee?: string | null
           claim_number?: string
           claim_type?: string
           claimed_amount?: number
