@@ -320,6 +320,95 @@ export type Database = {
         }
         Relationships: []
       }
+      claims: {
+        Row: {
+          approved_amount: number
+          claim_number: string
+          claim_type: string
+          claimed_amount: number
+          contract_clause: string | null
+          contract_id: string | null
+          counterparty: string | null
+          created_at: string
+          currency: string
+          description: string | null
+          evidence_notes: string | null
+          id: string
+          notice_reference: string | null
+          priority: string
+          project_id: string | null
+          resolved_date: string | null
+          response_due_date: string | null
+          root_cause: string | null
+          status: string
+          submitted_date: string | null
+          time_extension_days: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approved_amount?: number
+          claim_number: string
+          claim_type?: string
+          claimed_amount?: number
+          contract_clause?: string | null
+          contract_id?: string | null
+          counterparty?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          evidence_notes?: string | null
+          id?: string
+          notice_reference?: string | null
+          priority?: string
+          project_id?: string | null
+          resolved_date?: string | null
+          response_due_date?: string | null
+          root_cause?: string | null
+          status?: string
+          submitted_date?: string | null
+          time_extension_days?: number
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approved_amount?: number
+          claim_number?: string
+          claim_type?: string
+          claimed_amount?: number
+          contract_clause?: string | null
+          contract_id?: string | null
+          counterparty?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          evidence_notes?: string | null
+          id?: string
+          notice_reference?: string | null
+          priority?: string
+          project_id?: string | null
+          resolved_date?: string | null
+          response_due_date?: string | null
+          root_cause?: string | null
+          status?: string
+          submitted_date?: string | null
+          time_extension_days?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claims_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comparison_reports: {
         Row: {
           comparison_data: Json
