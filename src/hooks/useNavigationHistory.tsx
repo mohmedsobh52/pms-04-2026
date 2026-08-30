@@ -44,6 +44,7 @@ const routeMap: Record<string, RouteInfo> = {
   "/historical-pricing": { labelEn: "Historical Pricing", labelAr: "الأسعار التاريخية", icon: "Clock" },
   "/compare-versions": { labelEn: "Compare Versions", labelAr: "مقارنة الإصدارات", icon: "Scale" },
   "/risk": { labelEn: "Risk Management", labelAr: "إدارة المخاطر", icon: "AlertTriangle" },
+  "/claims": { labelEn: "Claims", labelAr: "المطالبات", icon: "FileText" },
   "/contracts": { labelEn: "Contracts", labelAr: "العقود", icon: "FileText" },
   "/subcontractors": { labelEn: "Subcontractors", labelAr: "المقاولين", icon: "Users" },
   "/company-settings": { labelEn: "Company Settings", labelAr: "إعدادات الشركة", icon: "Building2" },
