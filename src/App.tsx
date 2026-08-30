@@ -49,6 +49,7 @@ const QuotationsPage = lazy(() => import("./pages/QuotationsPage"));
 const ContractsPage = lazy(() => import("./pages/ContractsPage"));
 const RiskPage = lazy(() => import("./pages/RiskPage"));
 const ClaimsPage = lazy(() => import("./pages/ClaimsPage"));
+const ClaimDetailPage = lazy(() => import("./pages/ClaimDetailPage"));
 // ReportsPage lazy import removed - now integrated in SavedProjectsPage
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const AnalysisToolsPage = lazy(() => import("./pages/AnalysisToolsPage"));
