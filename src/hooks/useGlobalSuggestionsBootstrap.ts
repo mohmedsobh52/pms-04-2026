@@ -45,6 +45,9 @@ import {
   buildVersioningBackupSuggestions,
   buildApprovalsSlaSuggestions,
   buildCurrencyFxSuggestions,
+  buildClaimsSuggestions,
+  buildAnalysisJobsSuggestions,
+  buildSharingCollaborationSuggestions,
 } from "@/lib/suggestion-generators";
 
 
@@ -1292,6 +1295,87 @@ export function useGlobalSuggestionsBootstrap() {
               ratesCount: rows.length,
               staleRates: rows.filter((r) => r.updated_at && now - new Date(r.updated_at).getTime() > 30 * 86400_000).length,
               missingUsd: rows.length > 0 && !rows.some((r) => String(r.code).toUpperCase() === "USD"),
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Claims health (portfolio-wide)
+      try {
+        const { data } = await supabase
+          .from("claims")
+          .select("id, status, response_due_date, contract_clause, evidence_notes, notice_reference, claimed_amount, approved_amount, time_extension_days, submitted_date, created_at")
+          .limit(1000);
+        if (!cancelled) {
+          replaceBySource("claims-global", buildClaimsSuggestions((data ?? []) as any[]));
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Analysis jobs health
+      try {
+        const { data } = await supabase
+          .from("analysis_jobs")
+          .select("id, status, created_at, started_at")
+          .order("created_at", { ascending: false })
+          .limit(500);
+        const jobs = (data ?? []) as any[];
+        const now = Date.now();
+        const st = (j: any) => String(j.status || "").toLowerCase();
+        const lastAt = jobs[0]?.created_at ? new Date(jobs[0].created_at).getTime() : null;
+        if (!cancelled) {
+          replaceBySource(
+            "analysis-jobs",
+            buildAnalysisJobsSuggestions({
+              total: jobs.length,
+              failed: jobs.filter((j) => ["failed", "error"].includes(st(j))).length,
+              stuck: jobs.filter(
+                (j) =>
+                  ["processing", "running"].includes(st(j)) &&
+                  j.started_at &&
+                  now - new Date(j.started_at).getTime() > 3600_000,
+              ).length,
+              pending: jobs.filter((j) => ["pending", "queued"].includes(st(j))).length,
+              lastRunDaysAgo: lastAt ? Math.floor((now - lastAt) / 86400_000) : null,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Sharing & external collaboration health
+      try {
+        const [sharesRes, commentsRes] = await Promise.all([
+          supabase
+            .from("shared_analyses")
+            .select("id, expires_at, is_active, viewer_count")
+            .limit(500),
+          supabase.from("analysis_comments").select("id, is_resolved").limit(1000),
+        ]);
+        const shares = (sharesRes.data ?? []) as any[];
+        const comments = (commentsRes.data ?? []) as any[];
+        const now = Date.now();
+        const exp = (s: any) => (s.expires_at ? new Date(s.expires_at).getTime() : null);
+        if (!cancelled) {
+          replaceBySource(
+            "sharing-collaboration",
+            buildSharingCollaborationSuggestions({
+              shares: shares.length,
+              activeShares: shares.filter((s) => s.is_active !== false).length,
+              expiringSoon: shares.filter((s) => {
+                const e = exp(s);
+                return e !== null && e > now && e - now < 7 * 86400_000;
+              }).length,
+              expired: shares.filter((s) => {
+                const e = exp(s);
+                return e !== null && e < now;
+              }).length,
+              neverViewed: shares.filter((s) => !s.viewer_count).length,
+              openComments: comments.filter((c) => !c.is_resolved).length,
             }),
           );
         }
