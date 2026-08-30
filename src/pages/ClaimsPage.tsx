@@ -254,8 +254,8 @@ export default function ClaimsPage() {
     };
 
     const { error } = editingId
-      ? await supabase.from("claims").update(payload).eq("id", editingId)
-      : await supabase.from("claims").insert(payload);
+      ? await (supabase.from("claims") as any).update(payload).eq("id", editingId)
+      : await (supabase.from("claims") as any).insert(payload);
     setSaving(false);
     if (error) {
       toast.error(error.message);
