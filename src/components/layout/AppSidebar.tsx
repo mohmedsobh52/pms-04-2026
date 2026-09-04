@@ -78,6 +78,10 @@ const systemGroups: NavGroup[] = [
       { titleEn: "EVM",           titleAr: "القيمة المكتسبة", url: "/cost-control-evm",   icon: FileBarChart },
       { titleEn: "Risks",         titleAr: "المخاطر",      url: "/risk",                  icon: AlertTriangle },
       { titleEn: "Claims",        titleAr: "المطالبات",    url: "/claims",                icon: Gavel },
+      { titleEn: "Claims Finance", titleAr: "تقارير المطالبات المالية", url: "/claims/reports",   icon: FileBarChart },
+      { titleEn: "Claims Inventory", titleAr: "المخزون المالي",       url: "/claims/inventory", icon: FileBarChart },
+      { titleEn: "Claims Monthly", titleAr: "التحليل الشهري",         url: "/claims/monthly",   icon: Calendar },
+      { titleEn: "Approvals Reports", titleAr: "تقارير الاعتماد",     url: "/approvals/reports", icon: FileText },
     ],
   },
 ];

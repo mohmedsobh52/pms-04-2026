@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Inbox, RefreshCw } from "lucide-react";
+import { Loader2, Inbox, RefreshCw, Gavel, FileBarChart } from "lucide-react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRoles } from "@/hooks/useUserRoles";
@@ -28,6 +29,7 @@ const ENTITY_LABEL: Record<string, string> = {
   progress_certificate: "شهادة إنجاز",
   contract_variation: "تغيير عقد",
   risk: "مخاطرة",
+  claim: "مطالبة",
 };
 
 export default function ApprovalsInboxPage() {
@@ -36,6 +38,7 @@ export default function ApprovalsInboxPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Row | null>(null);
+  const [claimNotices, setClaimNotices] = useState<any[]>([]);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -47,6 +50,15 @@ export default function ApprovalsInboxPage() {
       .in("status", ["pending", "in_progress"])
       .order("started_at", { ascending: false })
       .limit(100);
+
+    const { data: claimDecided } = await supabase
+      .from("workflow_instances")
+      .select("*")
+      .eq("entity_type", "claim")
+      .in("status", ["approved", "rejected"])
+      .order("completed_at", { ascending: false })
+      .limit(5);
+    setClaimNotices(claimDecided ?? []);
 
     const list = instances ?? [];
     if (list.length === 0) {
@@ -110,6 +122,35 @@ export default function ApprovalsInboxPage() {
         <h1 className="text-2xl font-bold">صندوق الموافقات</h1>
         <p className="text-sm text-muted-foreground">سير الأعمال المعلّقة بانتظار قرارك</p>
       </div>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Button asChild size="sm" variant="outline">
+          <Link to="/approvals/reports"><FileBarChart className="h-4 w-4 me-1" />تقارير الاعتماد</Link>
+        </Button>
+        <Button asChild size="sm" variant="outline">
+          <Link to="/claims"><Gavel className="h-4 w-4 me-1" />المطالبات</Link>
+        </Button>
+      </div>
+      {claimNotices.length > 0 && (
+        <Card className="p-4 mb-4 border-primary/30 bg-primary/5">
+          <div className="flex items-center gap-2 mb-2">
+            <Gavel className="h-4 w-4 text-primary" />
+            <h2 className="font-semibold text-sm">قرارات اعتماد المطالبات الأخيرة</h2>
+          </div>
+          <ul className="space-y-1 text-xs">
+            {claimNotices.map((n) => (
+              <li key={n.id} className="flex items-center justify-between gap-2">
+                <Link to={`/claims/${n.entity_id}`} className="text-primary hover:underline">
+                  مطالبة {String(n.entity_id).slice(0, 8)}
+                </Link>
+                <span className="text-muted-foreground">
+                  {n.status === "approved" ? "تم الاعتماد — أُغلقت المطالبة تلقائياً" : "تم الرفض"}
+                  {n.completed_at ? ` · ${new Date(n.completed_at).toLocaleDateString()}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
       <div className="grid gap-4 lg:grid-cols-[1fr_400px]">
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3">
