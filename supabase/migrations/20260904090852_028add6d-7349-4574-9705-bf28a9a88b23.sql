@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.trg_claim_workflow_sync() FROM PUBLIC, anon, authenticated;
