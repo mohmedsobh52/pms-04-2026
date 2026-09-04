@@ -50,6 +50,10 @@ const ContractsPage = lazy(() => import("./pages/ContractsPage"));
 const RiskPage = lazy(() => import("./pages/RiskPage"));
 const ClaimsPage = lazy(() => import("./pages/ClaimsPage"));
 const ClaimDetailPage = lazy(() => import("./pages/ClaimDetailPage"));
+const ClaimsFinancialReportsPage = lazy(() => import("./pages/ClaimsFinancialReportsPage"));
+const ClaimsInventoryPage = lazy(() => import("./pages/ClaimsInventoryPage"));
+const ClaimsMonthlyAnalysisPage = lazy(() => import("./pages/ClaimsMonthlyAnalysisPage"));
+const ApprovalsReportsPage = lazy(() => import("./pages/ApprovalsReportsPage"));
 // ReportsPage lazy import removed - now integrated in SavedProjectsPage
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const AnalysisToolsPage = lazy(() => import("./pages/AnalysisToolsPage"));
