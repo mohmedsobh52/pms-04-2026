@@ -499,6 +499,46 @@ export default function ClaimsPage() {
           </div></CardContent></Card>
         </div>
 
+        {/* Status distribution + timing */}
+        {filtered.length > 0 && (
+          <Card>
+            <CardContent className="pt-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">{isArabic ? "توزيع الحالات" : "Status distribution"}</span>
+                <span>
+                  {kpis.avgAge !== null && `${isArabic ? "متوسط العمر المفتوح" : "Avg open age"}: ${kpis.avgAge} ${isArabic ? "يوم" : "d"}`}
+                  {kpis.avgAge !== null && kpis.avgCycle !== null && " · "}
+                  {kpis.avgCycle !== null && `${isArabic ? "متوسط زمن الإغلاق" : "Avg cycle"}: ${kpis.avgCycle} ${isArabic ? "يوم" : "d"}`}
+                </span>
+              </div>
+              <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                {CLAIM_STATUSES.filter((s) => kpis.byStatus[s.value] > 0).map((s) => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    title={`${claimLabel(CLAIM_STATUSES, s.value, isArabic)}: ${kpis.byStatus[s.value]}`}
+                    onClick={() => set("status", filters.status === s.value ? "all" : s.value)}
+                    className={`${claimStatusClass(s.value)} border-0 bg-current transition-all hover:opacity-80`}
+                    style={{ width: `${(kpis.byStatus[s.value] / filtered.length) * 100}%` }}
+                  />
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {CLAIM_STATUSES.filter((s) => kpis.byStatus[s.value] > 0).map((s) => (
+                  <Badge
+                    key={s.value}
+                    variant="outline"
+                    className={`cursor-pointer ${claimStatusClass(s.value)} ${filters.status === s.value ? "ring-2 ring-ring" : ""}`}
+                    onClick={() => set("status", filters.status === s.value ? "all" : s.value)}
+                  >
+                    {claimLabel(CLAIM_STATUSES, s.value, isArabic)} · {kpis.byStatus[s.value]}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Filters */}
         <Card>
           <CardContent className="pt-4 space-y-3">
