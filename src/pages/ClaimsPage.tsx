@@ -191,12 +191,29 @@ export default function ClaimsPage() {
     const open = filtered.filter((c) => !CLOSED_STATUSES.includes(c.status)).length;
     const eot = filtered.reduce((s, c) => s + Number(c.time_extension_days || 0), 0);
     const levels = filtered.map((c) => claimSla(c).level);
+    const byStatus = Object.fromEntries(CLAIM_STATUSES.map((s) => [s.value, 0]));
+    filtered.forEach((c) => { byStatus[c.status] = (byStatus[c.status] ?? 0) + 1; });
+    const cycles = filtered
+      .filter((c) => c.submitted_date && c.resolved_date)
+      .map((c) =>
+        Math.round(
+          (new Date(`${c.resolved_date}T00:00:00`).getTime()
+            - new Date(`${c.submitted_date}T00:00:00`).getTime()) / 86400000,
+        ),
+      );
+    const ages = filtered
+      .filter((c) => !CLOSED_STATUSES.includes(c.status))
+      .map((c) => claimAgeDays(c))
+      .filter((a): a is number => a !== null);
     return {
       claimed, approved, open, eot,
       overdue: levels.filter((l) => l === "overdue").length,
       dueSoon: levels.filter((l) => l === "due_soon").length,
       missing: levels.filter((l) => l === "missing").length,
       recovery: claimed ? (approved / claimed) * 100 : 0,
+      byStatus,
+      avgCycle: cycles.length ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : null,
+      avgAge: ages.length ? Math.round(ages.reduce((a, b) => a + b, 0) / ages.length) : null,
     };
   }, [filtered]);
 
