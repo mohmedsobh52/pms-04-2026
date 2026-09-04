@@ -4830,3 +4830,160 @@ export function buildSharingCollaborationSuggestions(input: {
   }
   return out;
 }
+
+/* ------------------------------------------------------------------ */
+/* CLAIMS FINANCE HEALTH — collections, obligations, open accounts      */
+/* ------------------------------------------------------------------ */
+export function buildClaimsFinanceSuggestions(input: {
+  totalClaims: number;
+  receivedAmount: number;
+  openAmount: number;
+  overdueAmount: number;
+  overdueCount: number;
+  missingAmountCount: number;
+  missingDueDateCount: number;
+  collectionRate: number; // 0..1
+}, screen = "claims-finance"): Draft[] {
+  const out: Draft[] = [];
+  const route = "/claims/inventory";
+  if (input.totalClaims === 0) return out;
+
+  if (input.overdueCount > 0) {
+    out.push({
+      category: "workflow",
+      severity: "critical",
+      title: `${input.overdueCount} مطالبة متأخرة السداد`,
+      description: `إجمالي المتأخرات ${Math.round(input.overdueAmount).toLocaleString("ar-EG")} — راجع المخزون المالي وابدأ إجراءات التحصيل فوراً.`,
+      sourceScreen: screen,
+      sourceRoute: route,
+    });
+  }
+  if (input.collectionRate < 0.5 && input.openAmount > 0) {
+    out.push({
+      category: "reports",
+      severity: "warning",
+      title: `نسبة التحصيل منخفضة (${Math.round(input.collectionRate * 100)}%)`,
+      description: "افتح التحليل المالي الشهري لتحديد المشاريع والمقاولين الأبطأ في السداد ووضع خطة تحصيل.",
+      sourceScreen: screen,
+      sourceRoute: "/claims/monthly-analysis",
+    });
+  }
+  if (input.missingAmountCount > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${input.missingAmountCount} مطالبة بدون قيمة مالية`,
+      description: "المطالبات بدون مبلغ لا تظهر في التقارير المالية — أكمل القيم لضمان دقة الالتزامات.",
+      sourceScreen: screen,
+      sourceRoute: "/claims",
+    });
+  }
+  if (input.missingDueDateCount > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.missingDueDateCount} مطالبة بدون تاريخ استحقاق`,
+      description: "بدون تاريخ استحقاق لا يمكن قياس التأخير أو تفعيل تنبيهات مستوى الخدمة (SLA).",
+      sourceScreen: screen,
+      sourceRoute: "/claims",
+    });
+  }
+  if (input.openAmount > 0 && input.overdueCount === 0) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: "راجع التقارير المالية للمطالبات",
+      description: `لديك التزامات مفتوحة بقيمة ${Math.round(input.openAmount).toLocaleString("ar-EG")} — التقارير حسب المشروع والمقاول تساعد في التنبؤ بالتدفق النقدي.`,
+      sourceScreen: screen,
+      sourceRoute: "/claims/financial-reports",
+    });
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
+/* WORK METHOD & PROGRAM IMPROVEMENT — أسلوب وطريقة العمل               */
+/* ------------------------------------------------------------------ */
+export function buildWorkMethodSuggestions(input: {
+  savedProjects: number;
+  projectsWithoutBaseline: number;
+  templatesCount: number;
+  workflowDefinitions: number;
+  costCodes: number;
+  scheduledReports: number;
+  auditEnabled: boolean;
+}, screen = "program"): Draft[] {
+  const out: Draft[] = [];
+  if (input.savedProjects === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "ابدأ بحفظ أول مشروع",
+      description: "حفظ المشروع يفعّل التقارير، ومؤشرات الأداء، والاقتراحات الذكية عبر كل الشاشات.",
+      sourceScreen: screen,
+      sourceRoute: "/new-project",
+    });
+    return out;
+  }
+  if (input.projectsWithoutBaseline > 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: `${input.projectsWithoutBaseline} مشروع بدون خط أساس معتمد`,
+      description: "اعتماد خط أساس هو الأسلوب الصحيح لقياس الانحرافات (EV/CV/SV) بدلاً من المقارنة اليدوية.",
+      sourceScreen: screen,
+      sourceRoute: "/cost-control",
+    });
+  }
+  if (input.templatesCount === 0) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "وحّد أسلوب العمل بقوالب جداول الكميات",
+      description: "إنشاء قوالب يقلل وقت الإدخال ويضمن تناسق البنود والوحدات بين المشاريع.",
+      sourceScreen: screen,
+      sourceRoute: "/templates",
+    });
+  }
+  if (input.workflowDefinitions === 0) {
+    out.push({
+      category: "workflow",
+      severity: "warning",
+      title: "لا توجد مسارات اعتماد معرفة",
+      description: "عرّف مسارات اعتماد للعقود والمستخلصات والمطالبات لضبط الصلاحيات وتوثيق القرارات.",
+      sourceScreen: screen,
+      sourceRoute: "/approvals",
+    });
+  }
+  if (input.costCodes === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: "أنشئ شجرة أكواد تكاليف موحّدة",
+      description: "ترميز البنود يمكّن من مقارنة التكاليف بين المشاريع وبناء مكتبة أسعار تاريخية موثوقة.",
+      sourceScreen: screen,
+      sourceRoute: "/library",
+    });
+  }
+  if (input.scheduledReports === 0) {
+    out.push({
+      category: "reports",
+      severity: "info",
+      title: "أتمِت التقارير الدورية",
+      description: "جدولة التقارير الأسبوعية/الشهرية توفّر وقت الإعداد اليدوي وتضمن وصولها لأصحاب المصلحة.",
+      sourceScreen: screen,
+      sourceRoute: "/reports",
+    });
+  }
+  if (!input.auditEnabled) {
+    out.push({
+      category: "workflow",
+      severity: "info",
+      title: "فعّل متابعة سجل التدقيق",
+      description: "مراجعة سجل العمليات دورياً يحسّن الحوكمة ويسهّل تتبع التغييرات المالية.",
+      sourceScreen: screen,
+      sourceRoute: "/audit-logs",
+    });
+  }
+  return out;
+}

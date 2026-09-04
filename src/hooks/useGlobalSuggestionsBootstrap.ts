@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
 import {
   buildNotificationsSuggestions,
+  buildClaimsFinanceSuggestions,
+  buildWorkMethodSuggestions,
   buildAuditLogsSuggestions,
   buildBackupsSuggestions,
   buildIntegrationsSuggestions,
@@ -1376,6 +1378,67 @@ export function useGlobalSuggestionsBootstrap() {
               }).length,
               neverViewed: shares.filter((s) => !s.viewer_count).length,
               openComments: comments.filter((c) => !c.is_resolved).length,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Claims finance health + work method / program improvement
+      try {
+        const [claimsRes, projRes, tplRes, wfRes, ccRes, srRes] = await Promise.all([
+          supabase
+            .from("claims")
+            .select("id, status, claimed_amount, approved_amount, response_due_date")
+            .limit(1000),
+          supabase.from("saved_projects").select("id").limit(500),
+          supabase.from("boq_templates").select("id").limit(1),
+          supabase.from("workflow_definitions").select("id").limit(1),
+          supabase.from("cost_codes").select("id").limit(1),
+          supabase.from("scheduled_reports").select("id").limit(1),
+        ]);
+        const claims = (claimsRes.data ?? []) as any[];
+        const baselines = await supabase.from("cost_control_baselines").select("id").limit(1);
+        const now = Date.now();
+        const RECEIVED = ["approved", "partially_approved", "closed"];
+        const received = claims
+          .filter((c) => RECEIVED.includes(String(c.status)))
+          .reduce((s, c) => s + (Number(c.approved_amount) || 0), 0);
+        const openClaims = claims.filter(
+          (c) => !["rejected", "closed"].includes(String(c.status)),
+        );
+        const openAmount = openClaims.reduce((s, c) => s + (Number(c.claimed_amount) || 0), 0);
+        const overdue = openClaims.filter(
+          (c) => c.response_due_date && new Date(c.response_due_date).getTime() < now,
+        );
+        if (!cancelled && claims.length > 0) {
+          replaceBySource(
+            "claims-finance",
+            buildClaimsFinanceSuggestions({
+              totalClaims: claims.length,
+              receivedAmount: received,
+              openAmount,
+              overdueAmount: overdue.reduce((s, c) => s + (Number(c.claimed_amount) || 0), 0),
+              overdueCount: overdue.length,
+              missingAmountCount: claims.filter((c) => !Number(c.claimed_amount)).length,
+              missingDueDateCount: openClaims.filter((c) => !c.response_due_date).length,
+              collectionRate: received + openAmount > 0 ? received / (received + openAmount) : 0,
+            }),
+          );
+        }
+        if (!cancelled) {
+          const projects = (projRes.data ?? []) as any[];
+          replaceBySource(
+            "work-method",
+            buildWorkMethodSuggestions({
+              savedProjects: projects.length,
+              projectsWithoutBaseline: (baselines.data ?? []).length === 0 ? projects.length : 0,
+              templatesCount: (tplRes.data ?? []).length,
+              workflowDefinitions: (wfRes.data ?? []).length,
+              costCodes: (ccRes.data ?? []).length,
+              scheduledReports: (srRes.data ?? []).length,
+              auditEnabled: true,
             }),
           );
         }
