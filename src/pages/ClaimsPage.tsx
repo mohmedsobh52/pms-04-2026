@@ -517,7 +517,7 @@ export default function ClaimsPage() {
                     key={s.value}
                     type="button"
                     title={`${claimLabel(CLAIM_STATUSES, s.value, isArabic)}: ${kpis.byStatus[s.value]}`}
-                    onClick={() => set("status", filters.status === s.value ? "all" : s.value)}
+                    onClick={() => set("statusFilter", filters.statusFilter === s.value ? "all" : s.value)}
                     className={`${claimStatusClass(s.value)} border-0 bg-current transition-all hover:opacity-80`}
                     style={{ width: `${(kpis.byStatus[s.value] / filtered.length) * 100}%` }}
                   />
@@ -528,8 +528,8 @@ export default function ClaimsPage() {
                   <Badge
                     key={s.value}
                     variant="outline"
-                    className={`cursor-pointer ${claimStatusClass(s.value)} ${filters.status === s.value ? "ring-2 ring-ring" : ""}`}
-                    onClick={() => set("status", filters.status === s.value ? "all" : s.value)}
+                    className={`cursor-pointer ${claimStatusClass(s.value)} ${filters.statusFilter === s.value ? "ring-2 ring-ring" : ""}`}
+                    onClick={() => set("statusFilter", filters.statusFilter === s.value ? "all" : s.value)}
                   >
                     {claimLabel(CLAIM_STATUSES, s.value, isArabic)} · {kpis.byStatus[s.value]}
                   </Badge>
