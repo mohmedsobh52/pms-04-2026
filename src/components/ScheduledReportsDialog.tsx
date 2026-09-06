@@ -248,19 +248,8 @@ export function ScheduledReportsDialog({ projectId, projectName, reportData }: S
         body: { report_id: schedule.id },
       });
       if (error) throw error;
-      const legacy = { error: null } as { error: any };
-      if (false) await supabase.functions.invoke("send-scheduled-report", {
-        body: {
-          report_id: schedule.id,
-          recipient_emails: schedule.recipient_emails,
-          report_name: schedule.report_name,
-          report_type: schedule.report_type,
-          project_name: projectName,
-          report_data: reportData || { summary: { total_items: 0, analyzed_files: 0 } }
-        }
-      });
 
-      if (error) throw error;
+
 
       toast.success(isArabic ? "تم إرسال التقرير" : "Report sent successfully");
       fetchSchedules();
