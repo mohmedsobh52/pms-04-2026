@@ -14,6 +14,30 @@ export const CLAIMS_SECTIONS = [
   { to: "/projects/baselines", ar: "خط الأساس", en: "Baselines" },
 ];
 
+/** Section navigation bar shared by all claims / finance screens. */
+export function ClaimsSectionNav() {
+  const { isArabic } = useLanguage();
+  const { pathname } = useLocation();
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 border-b pb-2">
+      {CLAIMS_SECTIONS.map((s) => {
+        const active = pathname === s.to;
+        return (
+          <Button
+            key={s.to}
+            asChild
+            size="sm"
+            variant={active ? "secondary" : "ghost"}
+            className={cn("h-8 text-xs", active && "font-semibold text-primary")}
+          >
+            <Link to={s.to}>{isArabic ? s.ar : s.en}</Link>
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
+
 /** Unified header + section navigation used by all claims / finance report screens. */
 export function ClaimsPageHeader({
   title,
@@ -26,9 +50,6 @@ export function ClaimsPageHeader({
   actions?: React.ReactNode;
   icon?: any;
 }) {
-  const { isArabic } = useLanguage();
-  const { pathname } = useLocation();
-
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -44,22 +65,7 @@ export function ClaimsPageHeader({
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5 border-b pb-2">
-        {CLAIMS_SECTIONS.map((s) => {
-          const active = pathname === s.to;
-          return (
-            <Button
-              key={s.to}
-              asChild
-              size="sm"
-              variant={active ? "secondary" : "ghost"}
-              className={cn("h-8 text-xs", active && "font-semibold text-primary")}
-            >
-              <Link to={s.to}>{isArabic ? s.ar : s.en}</Link>
-            </Button>
-          );
-        })}
-      </div>
+      <ClaimsSectionNav />
     </div>
   );
 }

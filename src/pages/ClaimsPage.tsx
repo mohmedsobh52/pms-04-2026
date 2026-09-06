@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
 import { buildClaimsSuggestions } from "@/lib/suggestion-generators";
 import {
+import { ClaimsSectionNav } from "@/components/claims/ClaimsNav";
   Claim, CLAIM_STATUSES, CLAIM_TYPES, CLAIM_PRIORITIES, CLOSED_STATUSES,
   STATUS_TRANSITIONS, claimLabel, claimStatusClass, claimSla, slaClass, slaText, claimAgeDays,
   buildClaimsCsv, downloadCsv, logClaimEvent,
@@ -436,6 +437,7 @@ export default function ClaimsPage() {
   return (
     <PageLayout>
       <div className="space-y-4">
+        <ClaimsSectionNav />
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
