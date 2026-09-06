@@ -62,8 +62,8 @@ export default function ClaimsMonthlyAnalysisPage() {
     <AppShell>
       <ClaimsPageHeader
         icon={CalendarRange}
-        title={{isArabic ? "التحليل المالي الشهري للمطالبات" : "Claims Monthly Financial Analysis"}}
-        subtitle={{isArabic ? "المُستلم، المستحق، المتأخر ونسبة التحصيل حسب المشروع والمقاول" : "Received, due, overdue and collection rate by project and contractor"}}
+        title={isArabic ? "التحليل المالي الشهري للمطالبات" : "Claims Monthly Financial Analysis"}
+        subtitle={isArabic ? "المُستلم، المستحق، المتأخر ونسبة التحصيل حسب المشروع والمقاول" : "Received, due, overdue and collection rate by project and contractor"}
         actions={<>
           <Select value={month} onValueChange={setMonth}>
             <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>

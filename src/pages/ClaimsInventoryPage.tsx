@@ -90,8 +90,8 @@ export default function ClaimsInventoryPage() {
     <AppShell>
       <ClaimsPageHeader
         icon={Wallet}
-        title={{isArabic ? "المخزون المالي للمطالبات" : "Claims Financial Inventory"}}
-        subtitle={{isArabic ? "الالتزامات، المبالغ المُستلمة، والحسابات المفتوحة" : "Obligations, received amounts and open accounts"}}
+        title={isArabic ? "المخزون المالي للمطالبات" : "Claims Financial Inventory"}
+        subtitle={isArabic ? "الالتزامات، المبالغ المُستلمة، والحسابات المفتوحة" : "Obligations, received amounts and open accounts"}
         actions={<>
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />

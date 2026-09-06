@@ -66,8 +66,8 @@ export default function ClaimsFinancialReportsPage() {
     <AppShell>
       <ClaimsPageHeader
         icon={BarChart3}
-        title={{isArabic ? "التقارير المالية للمطالبات" : "Claims Financial Reports"}}
-        subtitle={{isArabic ? "توزيع المطالبات حسب المشروع والمقاول مع تقارير سنوية وشهرية" : "Distribution by project and contractor, with annual and monthly reports"}}
+        title={isArabic ? "التقارير المالية للمطالبات" : "Claims Financial Reports"}
+        subtitle={isArabic ? "توزيع المطالبات حسب المشروع والمقاول مع تقارير سنوية وشهرية" : "Distribution by project and contractor, with annual and monthly reports"}
         actions={<>
           <Select value={year} onValueChange={setYear}>
             <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>

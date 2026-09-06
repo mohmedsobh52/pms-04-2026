@@ -119,8 +119,8 @@ export default function ApprovalsReportsPage() {
     <AppShell>
       <ClaimsPageHeader
         icon={ClipboardCheck}
-        title={{isArabic ? "تقارير الاعتماد" : "Approvals Reports"}}
-        subtitle={{isArabic ? "طلبات الاعتماد المفتوحة والمعتمدة والمُستلمة مع مؤشرات الأداء" : "Open, approved and received approval requests with KPIs"}}
+        title={isArabic ? "تقارير الاعتماد" : "Approvals Reports"}
+        subtitle={isArabic ? "طلبات الاعتماد المفتوحة والمعتمدة والمُستلمة مع مؤشرات الأداء" : "Open, approved and received approval requests with KPIs"}
         actions={<>
           <Button asChild variant="outline" size="sm">
             <Link to="/approvals"><Inbox className="h-4 w-4 me-1" />{isArabic ? "صندوق الموافقات" : "Inbox"}</Link>
