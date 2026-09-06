@@ -20,6 +20,7 @@ import {
   FinanceClaim, loadClaimsFinance, isOpenClaim, isReceived, isOverdue, totals, rowsCsv, fmtMoney,
 } from "@/lib/claims-finance";
 import { KpiCard } from "@/components/claims/FinanceUI";
+import { ClaimsPageHeader } from "@/components/claims/ClaimsNav";
 
 type Bucket = "all" | "obligations" | "received" | "open_accounts";
 
@@ -87,23 +88,18 @@ export default function ClaimsInventoryPage() {
 
   return (
     <AppShell>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Wallet className="h-6 w-6 text-primary" />
-            {isArabic ? "المخزون المالي للمطالبات" : "Claims Financial Inventory"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {isArabic ? "الالتزامات، المبالغ المُستلمة، والحسابات المفتوحة" : "Obligations, received amounts and open accounts"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <ClaimsPageHeader
+        icon={Wallet}
+        title={{isArabic ? "المخزون المالي للمطالبات" : "Claims Financial Inventory"}}
+        subtitle={{isArabic ? "الالتزامات، المبالغ المُستلمة، والحسابات المفتوحة" : "Obligations, received amounts and open accounts"}}
+        actions={<>
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
           <Button size="sm" onClick={exportCsv}><Download className="h-4 w-4 me-1" />CSV</Button>
-        </div>
-      </div>
+        </>}
+      />
+      <div className="mb-4" />
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
         <KpiCard label={isArabic ? "إجمالي الالتزامات" : "Total obligations"} value={fmtMoney(t.due)} tone="warning" />

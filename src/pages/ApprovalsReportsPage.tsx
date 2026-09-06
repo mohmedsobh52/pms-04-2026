@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { downloadCsv } from "@/lib/claims";
 import { rowsCsv } from "@/lib/claims-finance";
 import { KpiCard } from "@/components/claims/FinanceUI";
+import { ClaimsPageHeader } from "@/components/claims/ClaimsNav";
 
 const ENTITY_LABEL: Record<string, { ar: string; en: string }> = {
   procurement_item: { ar: "بند مشتريات", en: "Procurement item" },
@@ -116,17 +117,11 @@ export default function ApprovalsReportsPage() {
 
   return (
     <AppShell>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ClipboardCheck className="h-6 w-6 text-primary" />
-            {isArabic ? "تقارير الاعتماد" : "Approvals Reports"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {isArabic ? "طلبات الاعتماد المفتوحة والمعتمدة والمُستلمة مع مؤشرات الأداء" : "Open, approved and received approval requests with KPIs"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <ClaimsPageHeader
+        icon={ClipboardCheck}
+        title={{isArabic ? "تقارير الاعتماد" : "Approvals Reports"}}
+        subtitle={{isArabic ? "طلبات الاعتماد المفتوحة والمعتمدة والمُستلمة مع مؤشرات الأداء" : "Open, approved and received approval requests with KPIs"}}
+        actions={<>
           <Button asChild variant="outline" size="sm">
             <Link to="/approvals"><Inbox className="h-4 w-4 me-1" />{isArabic ? "صندوق الموافقات" : "Inbox"}</Link>
           </Button>
@@ -134,8 +129,9 @@ export default function ApprovalsReportsPage() {
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
           <Button size="sm" onClick={exportCsv}><Download className="h-4 w-4 me-1" />CSV</Button>
-        </div>
-      </div>
+        </>}
+      />
+      <div className="mb-4" />
 
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-4">
         <KpiCard label={isArabic ? "إجمالي الطلبات" : "Total requests"} value={String(kpis.total)} tone="primary" />
