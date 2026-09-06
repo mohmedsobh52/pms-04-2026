@@ -48,6 +48,9 @@ interface ScheduledReport {
   is_active: boolean;
   last_sent_at: string | null;
   next_scheduled_at: string | null;
+  delivery_channel?: string;
+  file_format?: string;
+  last_run_status?: string | null;
 }
 
 interface ScheduledReportsDialogProps {
@@ -96,6 +99,7 @@ export function ScheduledReportsDialog({ projectId, projectName, reportData }: S
   const [recipientEmails, setRecipientEmails] = useState("");
   const [includeCharts, setIncludeCharts] = useState(true);
   const [includeComparison, setIncludeComparison] = useState(true);
+  const [deliveryChannel, setDeliveryChannel] = useState("both");
 
   useEffect(() => {
     if (isOpen && user) {
@@ -188,6 +192,8 @@ export function ScheduledReportsDialog({ projectId, projectName, reportData }: S
           recipient_emails: emails,
           include_charts: includeCharts,
           include_comparison: includeComparison,
+          delivery_channel: deliveryChannel,
+          file_format: "csv",
           next_scheduled_at: nextScheduled.toISOString(),
           is_active: true
         });
@@ -238,7 +244,12 @@ export function ScheduledReportsDialog({ projectId, projectName, reportData }: S
   const handleSendNow = async (schedule: ScheduledReport) => {
     setIsSending(schedule.id);
     try {
-      const { error } = await supabase.functions.invoke("send-scheduled-report", {
+      const { error } = await supabase.functions.invoke("run-scheduled-reports", {
+        body: { report_id: schedule.id },
+      });
+      if (error) throw error;
+      const legacy = { error: null } as { error: any };
+      if (false) await supabase.functions.invoke("send-scheduled-report", {
         body: {
           report_id: schedule.id,
           recipient_emails: schedule.recipient_emails,
@@ -300,6 +311,17 @@ export function ScheduledReportsDialog({ projectId, projectName, reportData }: S
                     onChange={(e) => setReportName(e.target.value)}
                     placeholder={isArabic ? "التقرير الأسبوعي" : "Weekly Report"}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>{isArabic ? "طريقة الإرسال" : "Delivery"}</Label>
+                  <Select value={deliveryChannel} onValueChange={setDeliveryChannel}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="email">{isArabic ? "بريد إلكتروني (مرفق CSV)" : "Email (CSV attachment)"}</SelectItem>
+                      <SelectItem value="in_app">{isArabic ? "إشعار داخل النظام" : "In-app notification"}</SelectItem>
+                      <SelectItem value="both">{isArabic ? "الاثنان معاً" : "Both"}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>{isArabic ? "نوع التقرير" : "Report Type"}</Label>
