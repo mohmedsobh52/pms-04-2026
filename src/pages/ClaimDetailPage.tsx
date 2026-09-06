@@ -25,6 +25,7 @@ import {
   CLOSED_STATUSES, STATUS_TRANSITIONS, claimAgeDays, claimLabel, claimSla, claimStatusClass,
   slaClass, slaText, buildClaimsCsv, downloadCsv, logClaimEvent,
 } from "@/lib/claims";
+import { ClaimAuditTrail } from "@/components/claims/ClaimAuditTrail";
 
 export default function ClaimDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -362,31 +363,10 @@ export default function ClaimDetailPage() {
           <TabsContent value="history" className="mt-3">
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2">
-                <History className="h-4 w-4" />{isArabic ? "سجل التدقيق الكامل" : "Full audit history"}
+                <History className="h-4 w-4" />{isArabic ? "سجل التدقيق الكامل" : "Full audit trail"}
               </CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                {events.length === 0 && (
-                  <p className="text-sm text-muted-foreground">{isArabic ? "لا يوجد سجل بعد" : "No history yet"}</p>
-                )}
-                {events.map((e) => (
-                  <div key={e.id} className="flex gap-3 border-b border-border/50 pb-2 last:border-0">
-                    <div className="mt-1 h-2 w-2 rounded-full bg-primary shrink-0" />
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">{e.event_type}</Badge>
-                        {e.from_status && e.to_status && (
-                          <span className="text-xs text-muted-foreground">
-                            {label(CLAIM_STATUSES, e.from_status)} → {label(CLAIM_STATUSES, e.to_status)}
-                          </span>
-                        )}
-                        <span className="text-xs text-muted-foreground ms-auto">
-                          {new Date(e.created_at).toLocaleString(isArabic ? "ar-SA" : "en-US")}
-                        </span>
-                      </div>
-                      {e.body && <p className="text-sm mt-1 whitespace-pre-wrap">{e.body}</p>}
-                    </div>
-                  </div>
-                ))}
+              <CardContent>
+                <ClaimAuditTrail events={events} />
               </CardContent>
             </Card>
           </TabsContent>

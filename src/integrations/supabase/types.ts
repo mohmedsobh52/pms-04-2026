@@ -2771,6 +2771,51 @@ export type Database = {
           },
         ]
       }
+      project_baselines: {
+        Row: {
+          created_at: string
+          currency: string
+          id: string
+          is_current: boolean
+          items_count: number
+          name: string
+          notes: string | null
+          project_id: string
+          snapshot: Json
+          total_value: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          id?: string
+          is_current?: boolean
+          items_count?: number
+          name: string
+          notes?: string | null
+          project_id: string
+          snapshot?: Json
+          total_value?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          id?: string
+          is_current?: boolean
+          items_count?: number
+          name?: string
+          notes?: string | null
+          project_id?: string
+          snapshot?: Json
+          total_value?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       project_data: {
         Row: {
           analysis_data: Json | null
@@ -3214,10 +3259,13 @@ export type Database = {
       scheduled_reports: {
         Row: {
           created_at: string
+          delivery_channel: string
+          file_format: string
           id: string
           include_charts: boolean | null
           include_comparison: boolean | null
           is_active: boolean | null
+          last_run_status: string | null
           last_sent_at: string | null
           next_scheduled_at: string | null
           project_id: string | null
@@ -3232,10 +3280,13 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          delivery_channel?: string
+          file_format?: string
           id?: string
           include_charts?: boolean | null
           include_comparison?: boolean | null
           is_active?: boolean | null
+          last_run_status?: string | null
           last_sent_at?: string | null
           next_scheduled_at?: string | null
           project_id?: string | null
@@ -3250,10 +3301,13 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          delivery_channel?: string
+          file_format?: string
           id?: string
           include_charts?: boolean | null
           include_comparison?: boolean | null
           is_active?: boolean | null
+          last_run_status?: string | null
           last_sent_at?: string | null
           next_scheduled_at?: string | null
           project_id?: string | null

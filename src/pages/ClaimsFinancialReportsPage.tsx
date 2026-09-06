@@ -17,6 +17,7 @@ import {
   totals, bucketsCsv, fmtMoney,
 } from "@/lib/claims-finance";
 import { KpiCard, BucketsTable } from "@/components/claims/FinanceUI";
+import { ClaimsPageHeader } from "@/components/claims/ClaimsNav";
 
 export default function ClaimsFinancialReportsPage() {
   const { isArabic } = useLanguage();
@@ -63,17 +64,11 @@ export default function ClaimsFinancialReportsPage() {
 
   return (
     <AppShell>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <BarChart3 className="h-6 w-6 text-primary" />
-            {isArabic ? "التقارير المالية للمطالبات" : "Claims Financial Reports"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {isArabic ? "توزيع المطالبات حسب المشروع والمقاول مع تقارير سنوية وشهرية" : "Distribution by project and contractor, with annual and monthly reports"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <ClaimsPageHeader
+        icon={BarChart3}
+        title={isArabic ? "التقارير المالية للمطالبات" : "Claims Financial Reports"}
+        subtitle={isArabic ? "توزيع المطالبات حسب المشروع والمقاول مع تقارير سنوية وشهرية" : "Distribution by project and contractor, with annual and monthly reports"}
+        actions={<>
           <Select value={year} onValueChange={setYear}>
             <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -87,8 +82,9 @@ export default function ClaimsFinancialReportsPage() {
           <Button asChild variant="outline" size="sm">
             <Link to="/claims"><Gavel className="h-4 w-4 me-1" />{isArabic ? "المطالبات" : "Claims"}</Link>
           </Button>
-        </div>
-      </div>
+        </>}
+      />
+      <div className="mb-4" />
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
         <KpiCard label={isArabic ? "إجمالي المطالب به" : "Total claimed"} value={fmtMoney(t.claimed)} icon={DollarSign} tone="primary" />

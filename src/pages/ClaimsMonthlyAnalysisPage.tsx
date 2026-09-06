@@ -20,6 +20,7 @@ import {
   claimPeriodDate, monthKey, totals, bucketsCsv, fmtMoney,
 } from "@/lib/claims-finance";
 import { KpiCard, BucketsTable } from "@/components/claims/FinanceUI";
+import { ClaimsPageHeader } from "@/components/claims/ClaimsNav";
 
 export default function ClaimsMonthlyAnalysisPage() {
   const { isArabic } = useLanguage();
@@ -59,17 +60,11 @@ export default function ClaimsMonthlyAnalysisPage() {
 
   return (
     <AppShell>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <CalendarRange className="h-6 w-6 text-primary" />
-            {isArabic ? "التحليل المالي الشهري للمطالبات" : "Claims Monthly Financial Analysis"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {isArabic ? "المُستلم، المستحق، المتأخر ونسبة التحصيل حسب المشروع والمقاول" : "Received, due, overdue and collection rate by project and contractor"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <ClaimsPageHeader
+        icon={CalendarRange}
+        title={isArabic ? "التحليل المالي الشهري للمطالبات" : "Claims Monthly Financial Analysis"}
+        subtitle={isArabic ? "المُستلم، المستحق، المتأخر ونسبة التحصيل حسب المشروع والمقاول" : "Received, due, overdue and collection rate by project and contractor"}
+        actions={<>
           <Select value={month} onValueChange={setMonth}>
             <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -80,8 +75,9 @@ export default function ClaimsMonthlyAnalysisPage() {
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
-        </div>
-      </div>
+        </>}
+      />
+      <div className="mb-4" />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <KpiCard label={isArabic ? "المُستلم" : "Received"} value={fmtMoney(t.received)} tone="success" />
