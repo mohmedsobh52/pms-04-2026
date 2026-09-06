@@ -31,8 +31,8 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { toast } from "sonner";
 import { useGlobalSuggestions } from "@/contexts/GlobalSuggestionsContext";
 import { buildClaimsSuggestions } from "@/lib/suggestion-generators";
-import {
 import { ClaimsSectionNav } from "@/components/claims/ClaimsNav";
+import {
   Claim, CLAIM_STATUSES, CLAIM_TYPES, CLAIM_PRIORITIES, CLOSED_STATUSES,
   STATUS_TRANSITIONS, claimLabel, claimStatusClass, claimSla, slaClass, slaText, claimAgeDays,
   buildClaimsCsv, downloadCsv, logClaimEvent,
