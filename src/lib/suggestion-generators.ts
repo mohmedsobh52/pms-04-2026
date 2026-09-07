@@ -4987,3 +4987,68 @@ export function buildWorkMethodSuggestions(input: {
   }
   return out;
 }
+
+// ============= Baseline Governance =============
+export function buildBaselineGovernanceSuggestions(input: {
+  projectsCount: number;
+  baselinesCount: number;
+  projectsWithBaseline: number;
+  staleCurrentBaselines: number; // current baseline older than 90 days
+  projectsMissingCurrent: number; // projects having baselines but none marked current
+}, screen = "project-baselines"): Draft[] {
+  const out: Draft[] = [];
+  if (input.projectsCount === 0) return out;
+  if (input.baselinesCount === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: "لا توجد خطوط أساس لأي مشروع",
+      description: "فعّل خط أساس لكل مشروع من شاشة خطوط الأساس لتمكين مقارنة التغييرات وقياس الانحرافات.",
+      sourceScreen: screen,
+      sourceRoute: "/projects/baselines",
+    });
+    return out;
+  }
+  const without = Math.max(0, input.projectsCount - input.projectsWithBaseline);
+  if (without > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "warning",
+      title: `${without} مشروع بدون خط أساس`,
+      description: "المشاريع بلا خط أساس لا يمكن قياس انحرافاتها بدقة. التقط خط الأساس من شاشة المشروع أو شاشة خطوط الأساس.",
+      sourceScreen: screen,
+      sourceRoute: "/projects/baselines",
+    });
+  }
+  if (input.projectsMissingCurrent > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.projectsMissingCurrent} مشروع بلا خط أساس حالي مُحدد`,
+      description: "حدد الخط الحالي لكل مشروع حتى تعمل المقارنات والتقارير على المرجعية الصحيحة.",
+      sourceScreen: screen,
+      sourceRoute: "/projects/baselines",
+    });
+  }
+  if (input.staleCurrentBaselines > 0) {
+    out.push({
+      category: "data-quality",
+      severity: "info",
+      title: `${input.staleCurrentBaselines} خط أساس حالي مضى عليه أكثر من 90 يوماً`,
+      description: "راجع خطوط الأساس القديمة بعد أوامر التغيير الكبيرة أو نهاية كل مرحلة للحفاظ على مرجعية دقيقة.",
+      sourceScreen: screen,
+      sourceRoute: "/projects/baselines",
+    });
+  }
+  if (without === 0 && input.staleCurrentBaselines === 0 && input.projectsMissingCurrent === 0) {
+    out.push({
+      category: "data-quality",
+      severity: "success",
+      title: "حوكمة خطوط الأساس مكتملة",
+      description: "جميع المشاريع لديها خط أساس حالي ومحدّث — استمر في تحديثها بعد كل تغيير جوهري.",
+      sourceScreen: screen,
+      sourceRoute: "/projects/baselines",
+    });
+  }
+  return out;
+}

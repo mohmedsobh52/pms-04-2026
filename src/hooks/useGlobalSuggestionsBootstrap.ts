@@ -5,6 +5,7 @@ import {
   buildNotificationsSuggestions,
   buildClaimsFinanceSuggestions,
   buildWorkMethodSuggestions,
+  buildBaselineGovernanceSuggestions,
   buildAuditLogsSuggestions,
   buildBackupsSuggestions,
   buildIntegrationsSuggestions,
@@ -1439,6 +1440,38 @@ export function useGlobalSuggestionsBootstrap() {
               costCodes: (ccRes.data ?? []).length,
               scheduledReports: (srRes.data ?? []).length,
               auditEnabled: true,
+            }),
+          );
+        }
+      } catch {
+        /* silent */
+      }
+
+      // Baseline governance health
+      try {
+        const [projs, bls] = await Promise.all([
+          supabase.from("saved_projects").select("id").limit(500),
+          supabase.from("project_baselines").select("project_id, is_current, created_at").limit(2000),
+        ]);
+        const projects = (projs.data ?? []) as any[];
+        const baselines = (bls.data ?? []) as any[];
+        const withBaseline = new Set(baselines.map((b) => String(b.project_id)));
+        const NINETY = 90 * 24 * 60 * 60 * 1000;
+        const stale = baselines.filter(
+          (b) => b.is_current && b.created_at && Date.now() - new Date(b.created_at).getTime() > NINETY,
+        ).length;
+        const missingCurrent = [...withBaseline].filter(
+          (pid) => !baselines.some((b) => String(b.project_id) === pid && b.is_current),
+        ).length;
+        if (!cancelled) {
+          replaceBySource(
+            "baseline-governance",
+            buildBaselineGovernanceSuggestions({
+              projectsCount: projects.length,
+              baselinesCount: baselines.length,
+              projectsWithBaseline: withBaseline.size,
+              staleCurrentBaselines: stale,
+              projectsMissingCurrent: missingCurrent,
             }),
           );
         }
