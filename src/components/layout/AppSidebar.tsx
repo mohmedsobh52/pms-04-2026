@@ -76,6 +76,7 @@ const systemGroups: NavGroup[] = [
       { titleEn: "Subcontractors", titleAr: "مقاولو الباطن", url: "/subcontractors",      icon: HardHat },
       { titleEn: "Certificates",  titleAr: "المستخلصات",   url: "/progress-certificates", icon: Award },
       { titleEn: "EVM",           titleAr: "القيمة المكتسبة", url: "/cost-control-evm",   icon: FileBarChart },
+      { titleEn: "Budgeting",     titleAr: "إدارة الميزانية", url: "/budgeting",          icon: Gauge },
       { titleEn: "Risks",         titleAr: "المخاطر",      url: "/risk",                  icon: AlertTriangle },
       { titleEn: "Claims",        titleAr: "المطالبات",    url: "/claims",                icon: Gavel },
       { titleEn: "Claims Finance", titleAr: "تقارير المطالبات المالية", url: "/claims/reports",   icon: FileBarChart },
