@@ -56,6 +56,7 @@ const ClaimsMonthlyAnalysisPage = lazy(() => import("./pages/ClaimsMonthlyAnalys
 const ApprovalsReportsPage = lazy(() => import("./pages/ApprovalsReportsPage"));
 const ClaimsAuditPage = lazy(() => import("./pages/ClaimsAuditPage"));
 const ProjectBaselinesPage = lazy(() => import("./pages/ProjectBaselinesPage"));
+const BudgetingPage = lazy(() => import("./pages/BudgetingPage"));
 // ReportsPage lazy import removed - now integrated in SavedProjectsPage
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const AnalysisToolsPage = lazy(() => import("./pages/AnalysisToolsPage"));
@@ -169,6 +170,7 @@ const App = () => (
                         <Route path="/approvals/reports" element={<ApprovalsReportsPage />} />
                         <Route path="/claims/audit" element={<ClaimsAuditPage />} />
                         <Route path="/projects/baselines" element={<ProjectBaselinesPage />} />
+                        <Route path="/budgeting" element={<BudgetingPage />} />
                         <Route path="/claims/:id" element={<ClaimDetailPage />} />
                         <Route path="/approvals" element={<ApprovalsInboxPage />} />
                         <Route path="/reports" element={<Navigate to="/projects?tab=reports" replace />} />
