@@ -148,6 +148,7 @@ const App = () => (
                         <Route path="/projects/new" element={<NewProjectPage />} />
                         <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
                         <Route path="/projects/:projectId/pricing" element={<TenderSummaryPage />} />
+                        <Route path="/projects/:projectId/claims" element={<ProjectClaimsPage />} />
                         <Route path="/about" element={<About />} />
                         <Route path="/cost-analysis" element={<CostAnalysisPage />} />
                         <Route path="/changelog" element={<Changelog />} />
