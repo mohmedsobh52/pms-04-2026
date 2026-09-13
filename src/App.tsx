@@ -72,6 +72,7 @@ const CalendarPage = lazy(() => import("./pages/CalendarPage"));
 // FastExtractionPage removed - now integrated in AttachmentsTab
 const LibraryPage = lazy(() => import("./pages/LibraryPage"));
 const ProjectDetailsPage = lazy(() => import("./pages/ProjectDetailsPage"));
+const ProjectClaimsPage = lazy(() => import("./pages/ProjectClaimsPage"));
 const NewProjectPage = lazy(() => import("./pages/NewProjectPage"));
 const TenderSummaryPage = lazy(() => import("./pages/TenderSummaryPage"));
 const CompanySettingsPage = lazy(() => import("./pages/CompanySettingsPage"));
@@ -147,6 +148,7 @@ const App = () => (
                         <Route path="/projects/new" element={<NewProjectPage />} />
                         <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
                         <Route path="/projects/:projectId/pricing" element={<TenderSummaryPage />} />
+                        <Route path="/projects/:projectId/claims" element={<ProjectClaimsPage />} />
                         <Route path="/about" element={<About />} />
                         <Route path="/cost-analysis" element={<CostAnalysisPage />} />
                         <Route path="/changelog" element={<Changelog />} />

@@ -51,7 +51,8 @@ import { BoqVersionPanel } from "@/components/boq/BoqVersionPanel";
 import { BoqImportExportBar } from "@/components/boq/BoqImportExportBar";
 import { ExecutionTaskList } from "@/components/execution/ExecutionTaskList";
 import { ExecutionTimeline } from "@/components/execution/ExecutionTimeline";
-import { Activity as ActivityIcon, BarChart3 as EvmIcon, GanttChartSquare, History as HistoryIcon } from "lucide-react";
+import { Activity as ActivityIcon, BarChart3 as EvmIcon, GanttChartSquare, History as HistoryIcon, Gavel } from "lucide-react";
+import { ProjectClaimsLedger } from "@/components/claims/ProjectClaimsLedger";
 import { 
   ProjectData, 
   ProjectItem, 
@@ -1350,7 +1351,7 @@ export default function ProjectDetailsPage() {
         )}
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="tabs-navigation-safe">
-          <TabsList className="grid w-full grid-cols-4 md:grid-cols-8 mb-6 h-auto">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-9 mb-6 h-auto">
             <TabsTrigger value="overview">
               {isArabic ? "نظرة عامة" : "Overview"}
             </TabsTrigger>
@@ -1372,6 +1373,10 @@ export default function ProjectDetailsPage() {
             <TabsTrigger value="activity" className="flex items-center gap-1">
               <HistoryIcon className="w-3.5 h-3.5" />
               {isArabic ? "النشاط" : "Activity"}
+            </TabsTrigger>
+            <TabsTrigger value="claims" className="flex items-center gap-1">
+              <Gavel className="w-3.5 h-3.5" />
+              {isArabic ? "المطالبات" : "Claims"}
             </TabsTrigger>
             <TabsTrigger value="documents">
               {isArabic ? "المستندات" : "Documents"}
@@ -1769,6 +1774,16 @@ export default function ProjectDetailsPage() {
                   {isArabic ? "رفع ملف BOQ" : "Upload BOQ"}
                 </Button>
               </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="claims" className="space-y-4">
+            {projectId && (
+              <ProjectClaimsLedger
+                projectId={projectId}
+                projectName={project?.name}
+                currency={project?.currency || "SAR"}
+              />
             )}
           </TabsContent>
 
