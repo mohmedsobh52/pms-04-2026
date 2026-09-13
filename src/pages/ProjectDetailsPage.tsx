@@ -1777,6 +1777,16 @@ export default function ProjectDetailsPage() {
             )}
           </TabsContent>
 
+          <TabsContent value="claims" className="space-y-4">
+            {projectId && (
+              <ProjectClaimsLedger
+                projectId={projectId}
+                projectName={project?.name}
+                currency={project?.currency || "SAR"}
+              />
+            )}
+          </TabsContent>
+
           <TabsContent value="documents" className="space-y-6">
             {projectId && <DocumentsManager projectId={projectId} />}
             <ProjectDocumentsTab
