@@ -1350,7 +1350,7 @@ export default function ProjectDetailsPage() {
         )}
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="tabs-navigation-safe">
-          <TabsList className="grid w-full grid-cols-4 md:grid-cols-8 mb-6 h-auto">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-9 mb-6 h-auto">
             <TabsTrigger value="overview">
               {isArabic ? "نظرة عامة" : "Overview"}
             </TabsTrigger>
@@ -1372,6 +1372,10 @@ export default function ProjectDetailsPage() {
             <TabsTrigger value="activity" className="flex items-center gap-1">
               <HistoryIcon className="w-3.5 h-3.5" />
               {isArabic ? "النشاط" : "Activity"}
+            </TabsTrigger>
+            <TabsTrigger value="claims" className="flex items-center gap-1">
+              <Gavel className="w-3.5 h-3.5" />
+              {isArabic ? "المطالبات" : "Claims"}
             </TabsTrigger>
             <TabsTrigger value="documents">
               {isArabic ? "المستندات" : "Documents"}
