@@ -51,7 +51,8 @@ import { BoqVersionPanel } from "@/components/boq/BoqVersionPanel";
 import { BoqImportExportBar } from "@/components/boq/BoqImportExportBar";
 import { ExecutionTaskList } from "@/components/execution/ExecutionTaskList";
 import { ExecutionTimeline } from "@/components/execution/ExecutionTimeline";
-import { Activity as ActivityIcon, BarChart3 as EvmIcon, GanttChartSquare, History as HistoryIcon } from "lucide-react";
+import { Activity as ActivityIcon, BarChart3 as EvmIcon, GanttChartSquare, History as HistoryIcon, Gavel } from "lucide-react";
+import { ProjectClaimsLedger } from "@/components/claims/ProjectClaimsLedger";
 import { 
   ProjectData, 
   ProjectItem, 
