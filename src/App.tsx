@@ -72,6 +72,7 @@ const CalendarPage = lazy(() => import("./pages/CalendarPage"));
 // FastExtractionPage removed - now integrated in AttachmentsTab
 const LibraryPage = lazy(() => import("./pages/LibraryPage"));
 const ProjectDetailsPage = lazy(() => import("./pages/ProjectDetailsPage"));
+const ProjectClaimsPage = lazy(() => import("./pages/ProjectClaimsPage"));
 const NewProjectPage = lazy(() => import("./pages/NewProjectPage"));
 const TenderSummaryPage = lazy(() => import("./pages/TenderSummaryPage"));
 const CompanySettingsPage = lazy(() => import("./pages/CompanySettingsPage"));
