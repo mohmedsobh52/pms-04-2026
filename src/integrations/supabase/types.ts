@@ -2287,6 +2287,54 @@ export type Database = {
           },
         ]
       }
+      payroll_entries: {
+        Row: {
+          counterparty: string
+          created_at: string
+          currency: string
+          entry_type: string
+          gross_amount: number
+          id: string
+          notes: string | null
+          paid_amount: number
+          paid_date: string | null
+          period_month: string
+          project_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          counterparty: string
+          created_at?: string
+          currency?: string
+          entry_type?: string
+          gross_amount?: number
+          id?: string
+          notes?: string | null
+          paid_amount?: number
+          paid_date?: string | null
+          period_month: string
+          project_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          counterparty?: string
+          created_at?: string
+          currency?: string
+          entry_type?: string
+          gross_amount?: number
+          id?: string
+          notes?: string | null
+          paid_amount?: number
+          paid_date?: string | null
+          period_month?: string
+          project_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       price_quotations: {
         Row: {
           ai_analysis: Json | null
