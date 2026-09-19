@@ -114,7 +114,6 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
           .order("item_number");
         
         if (!error && dbItems && dbItems.length > 0) {
-          console.log("✅ ExportTab: Using project_items (updated prices):", dbItems.length, "items");
           // Normalize prices to ensure numeric values
           const normalizedItems = normalizeItemPrices(dbItems);
           setDynamicItems(normalizedItems);
@@ -130,16 +129,13 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
       }
       
       // PRIORITY 2: Fallback to analysis_data (may have outdated/zero prices)
-      console.log("⚠️ ExportTab: No items in project_items table, falling back to analysis_data...");
       const analysisItems = getProjectItems(selectedProject);
       
       if (analysisItems.length > 0) {
-        console.log("⚠️ ExportTab: Using analysis_data (may have outdated prices):", analysisItems.length, "items");
         // Normalize prices from analysis_data as well
         const normalizedItems = normalizeItemPrices(analysisItems);
         setDynamicItems(normalizedItems);
       } else {
-        console.log("❌ ExportTab: No items found in any source");
         setDynamicItems([]);
       }
       
