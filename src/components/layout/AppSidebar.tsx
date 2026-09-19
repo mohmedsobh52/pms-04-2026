@@ -8,7 +8,7 @@ import {
   Home, FolderOpen, ListChecks, DollarSign, Gauge, Briefcase, Package, FileSignature,
   Users, AlertTriangle, Gavel, FileBarChart, BookOpen, Calendar, Settings, Shield, FileText,
   Layers, Truck, Award, Inbox, Search, LayoutDashboard, ClipboardList, GitCompare,
-  HardHat, Boxes, ScrollText, Building2, Sparkles,
+  HardHat, Boxes, ScrollText, Building2, Sparkles, Wallet,
 } from "lucide-react";
 import { useMemo } from "react";
 import { useLanguage } from "@/hooks/useLanguage";
