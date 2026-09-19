@@ -30,18 +30,41 @@ export default function ClaimsInventoryPage() {
   const { isArabic } = useLanguage();
   const { user } = useAuth();
   const [claims, setClaims] = useState<FinanceClaim[]>([]);
+  const [payroll, setPayroll] = useState<PayrollEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [bucket, setBucket] = useState<Bucket>("all");
 
   const load = async () => {
-    if (!user) { setClaims([]); setLoading(false); return; }
+    if (!user) { setClaims([]); setPayroll([]); setLoading(false); return; }
     setLoading(true);
-    try { setClaims(await loadClaimsFinance()); }
+    try {
+      const [c, p] = await Promise.all([loadClaimsFinance(), loadPayroll()]);
+      setClaims(c);
+      setPayroll(p);
+    }
     catch (e: any) { toast.error(e?.message ?? "Error"); }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [user]);
+
+  const payrollByName = useMemo(() => {
+    const m = new Map<string, number>();
+    payroll.forEach((p) => m.set(p.counterparty || "—", (m.get(p.counterparty || "—") ?? 0) + Number(p.paid_amount || 0)));
+    return m;
+  }, [payroll]);
+
+  const payrollByProjectId = useMemo(() => {
+    const m = new Map<string, number>();
+    payroll.forEach((p) => {
+      const k = p.project_id ?? "none";
+      m.set(k, (m.get(k) ?? 0) + Number(p.paid_amount || 0));
+    });
+    return m;
+  }, [payroll]);
+
+  const contractorBuckets = useMemo(() => byContractor(claims), [claims]);
+  const projectBuckets = useMemo(() => byProject(claims), [claims]);
 
   const t = useMemo(() => totals(claims), [claims]);
   const openBalance = useMemo(
