@@ -18,7 +18,9 @@ import { toast } from "sonner";
 import { downloadCsv, claimLabel, CLAIM_STATUSES, claimStatusClass } from "@/lib/claims";
 import {
   FinanceClaim, loadClaimsFinance, isOpenClaim, isReceived, isOverdue, totals, rowsCsv, fmtMoney,
+  byContractor, byProject,
 } from "@/lib/claims-finance";
+import { PayrollEntry, loadPayroll } from "@/lib/payroll";
 import { KpiCard } from "@/components/claims/FinanceUI";
 import { ClaimsPageHeader } from "@/components/claims/ClaimsNav";
 
