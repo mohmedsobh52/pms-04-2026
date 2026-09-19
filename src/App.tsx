@@ -60,6 +60,8 @@ const BudgetingPage = lazy(() => import("./pages/BudgetingPage"));
 const UnifiedBudgetPage = lazy(() => import("./pages/UnifiedBudgetPage"));
 const PayrollPage = lazy(() => import("./pages/PayrollPage"));
 const ClaimsPayrollPage = lazy(() => import("./pages/ClaimsPayrollPage"));
+const PayrollCertificatesPage = lazy(() => import("./pages/PayrollCertificatesPage"));
+const FinancialOverviewPage = lazy(() => import("./pages/FinancialOverviewPage"));
 const EvmMonthlyReportsPage = lazy(() => import("./pages/EvmMonthlyReportsPage"));
 // ReportsPage lazy import removed - now integrated in SavedProjectsPage
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
@@ -180,6 +182,8 @@ const App = () => (
                         <Route path="/budgeting/unified" element={<UnifiedBudgetPage />} />
                         <Route path="/payroll" element={<PayrollPage />} />
                         <Route path="/claims/payroll" element={<ClaimsPayrollPage />} />
+                        <Route path="/payroll/certificates" element={<PayrollCertificatesPage />} />
+                        <Route path="/financial-overview" element={<FinancialOverviewPage />} />
                         <Route path="/reports/evm-monthly" element={<EvmMonthlyReportsPage />} />
                         <Route path="/claims/:id" element={<ClaimDetailPage />} />
                         <Route path="/approvals" element={<ApprovalsInboxPage />} />

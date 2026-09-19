@@ -80,6 +80,8 @@ const systemGroups: NavGroup[] = [
       { titleEn: "Unified Budget", titleAr: "الميزانية الموحدة", url: "/budgeting/unified", icon: Gauge },
       { titleEn: "Payroll",       titleAr: "المرتبات",        url: "/payroll",            icon: Wallet },
       { titleEn: "Claims vs Payroll", titleAr: "المطالبات مقابل المرتبات", url: "/claims/payroll", icon: FileBarChart },
+      { titleEn: "Payroll vs Certificates", titleAr: "المرتبات مقابل المستخلصات", url: "/payroll/certificates", icon: Award },
+      { titleEn: "Financial Overview", titleAr: "لوحة المؤشرات المالية", url: "/financial-overview", icon: Gauge },
       { titleEn: "Monthly EVM",   titleAr: "القيمة المكتسبة الشهرية", url: "/reports/evm-monthly", icon: Calendar },
       { titleEn: "Risks",         titleAr: "المخاطر",      url: "/risk",                  icon: AlertTriangle },
       { titleEn: "Claims",        titleAr: "المطالبات",    url: "/claims",                icon: Gavel },
