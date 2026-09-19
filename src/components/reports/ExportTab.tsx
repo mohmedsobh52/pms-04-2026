@@ -98,11 +98,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   // Fetch items dynamically when project changes - PRIORITY: project_items table FIRST (has updated prices)
   useEffect(() => {
     const fetchItems = async () => {
-      console.log("📊 ExportTab: Fetching items for project:", selectedProject?.name);
-      console.log("📊 ExportTab: selectedProjectId:", selectedProjectId);
-      
       if (!selectedProject) {
-        console.log("⚠️ ExportTab: No project selected, clearing items");
         setDynamicItems([]);
         return;
       }
@@ -157,7 +153,6 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   const projectItems = dynamicItems;
   const hasData = projectItems.length > 0;
   
-  console.log("🎯 ExportTab State: projectItems:", projectItems.length, "hasData:", hasData, "isLoadingItems:", isLoadingItems);
 
   const handleExportBOQ = () => {
     console.log("🎯 handleExportBOQ called");
