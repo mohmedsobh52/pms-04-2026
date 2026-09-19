@@ -134,6 +134,52 @@ export default function ClaimsInventoryPage() {
         <KpiCard label={isArabic ? "متأخرة" : "Overdue"} value={fmtMoney(t.overdue)} tone="destructive" hint={`${t.overdueCount}`} />
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-2 mb-4">
+        {[
+          { title: isArabic ? "حسب المقاول" : "By contractor", first: isArabic ? "المقاول" : "Contractor", buckets: contractorBuckets, payrollOf: (k: string, label: string) => payrollByName.get(label) ?? 0 },
+          { title: isArabic ? "حسب المشروع" : "By project", first: isArabic ? "المشروع" : "Project", buckets: projectBuckets, payrollOf: (k: string) => payrollByProjectId.get(k) ?? 0 },
+        ].map((sec) => (
+          <Card key={sec.title}>
+            <CardHeader className="pb-2"><CardTitle className="text-base">{sec.title}</CardTitle></CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{sec.first}</TableHead>
+                      <TableHead>{isArabic ? "مستحق" : "Due"}</TableHead>
+                      <TableHead>{isArabic ? "معتمد" : "Approved"}</TableHead>
+                      <TableHead>{isArabic ? "مُستلم" : "Received"}</TableHead>
+                      <TableHead>{isArabic ? "مرتبات مدفوعة" : "Payroll paid"}</TableHead>
+                      <TableHead>{isArabic ? "نسبة التحصيل" : "Collection"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sec.buckets.length === 0 && (
+                      <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                        {isArabic ? "لا توجد بيانات" : "No data"}
+                      </TableCell></TableRow>
+                    )}
+                    {sec.buckets.map((b) => (
+                      <TableRow key={b.key}>
+                        <TableCell className="font-medium max-w-[180px] truncate">{b.label}</TableCell>
+                        <TableCell className="tabular-nums text-warning">{fmtMoney(b.due)}</TableCell>
+                        <TableCell className="tabular-nums">{fmtMoney(b.approved)}</TableCell>
+                        <TableCell className="tabular-nums text-success">{fmtMoney(b.received)}</TableCell>
+                        <TableCell className="tabular-nums">{fmtMoney(sec.payrollOf(b.key, b.label))}</TableCell>
+                        <TableCell className="tabular-nums">{b.collectionRate.toFixed(1)}%</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+
+
       <Card>
         <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
           <CardTitle className="text-base">
