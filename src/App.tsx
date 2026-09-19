@@ -177,6 +177,10 @@ const App = () => (
                         <Route path="/claims/audit" element={<ClaimsAuditPage />} />
                         <Route path="/projects/baselines" element={<ProjectBaselinesPage />} />
                         <Route path="/budgeting" element={<BudgetingPage />} />
+                        <Route path="/budgeting/unified" element={<UnifiedBudgetPage />} />
+                        <Route path="/payroll" element={<PayrollPage />} />
+                        <Route path="/claims/payroll" element={<ClaimsPayrollPage />} />
+                        <Route path="/reports/evm-monthly" element={<EvmMonthlyReportsPage />} />
                         <Route path="/claims/:id" element={<ClaimDetailPage />} />
                         <Route path="/approvals" element={<ApprovalsInboxPage />} />
                         <Route path="/reports" element={<Navigate to="/projects?tab=reports" replace />} />
