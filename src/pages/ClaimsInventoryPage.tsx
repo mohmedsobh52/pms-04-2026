@@ -18,7 +18,9 @@ import { toast } from "sonner";
 import { downloadCsv, claimLabel, CLAIM_STATUSES, claimStatusClass } from "@/lib/claims";
 import {
   FinanceClaim, loadClaimsFinance, isOpenClaim, isReceived, isOverdue, totals, rowsCsv, fmtMoney,
+  byContractor, byProject,
 } from "@/lib/claims-finance";
+import { PayrollEntry, loadPayroll } from "@/lib/payroll";
 import { KpiCard } from "@/components/claims/FinanceUI";
 import { ClaimsPageHeader } from "@/components/claims/ClaimsNav";
 
@@ -28,18 +30,41 @@ export default function ClaimsInventoryPage() {
   const { isArabic } = useLanguage();
   const { user } = useAuth();
   const [claims, setClaims] = useState<FinanceClaim[]>([]);
+  const [payroll, setPayroll] = useState<PayrollEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [bucket, setBucket] = useState<Bucket>("all");
 
   const load = async () => {
-    if (!user) { setClaims([]); setLoading(false); return; }
+    if (!user) { setClaims([]); setPayroll([]); setLoading(false); return; }
     setLoading(true);
-    try { setClaims(await loadClaimsFinance()); }
+    try {
+      const [c, p] = await Promise.all([loadClaimsFinance(), loadPayroll()]);
+      setClaims(c);
+      setPayroll(p);
+    }
     catch (e: any) { toast.error(e?.message ?? "Error"); }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [user]);
+
+  const payrollByName = useMemo(() => {
+    const m = new Map<string, number>();
+    payroll.forEach((p) => m.set(p.counterparty || "—", (m.get(p.counterparty || "—") ?? 0) + Number(p.paid_amount || 0)));
+    return m;
+  }, [payroll]);
+
+  const payrollByProjectId = useMemo(() => {
+    const m = new Map<string, number>();
+    payroll.forEach((p) => {
+      const k = p.project_id ?? "none";
+      m.set(k, (m.get(k) ?? 0) + Number(p.paid_amount || 0));
+    });
+    return m;
+  }, [payroll]);
+
+  const contractorBuckets = useMemo(() => byContractor(claims), [claims]);
+  const projectBuckets = useMemo(() => byProject(claims), [claims]);
 
   const t = useMemo(() => totals(claims), [claims]);
   const openBalance = useMemo(
@@ -108,6 +133,52 @@ export default function ClaimsInventoryPage() {
         <KpiCard label={isArabic ? "معتمد غير مُستلم" : "Approved not received"} value={fmtMoney(outstanding)} />
         <KpiCard label={isArabic ? "متأخرة" : "Overdue"} value={fmtMoney(t.overdue)} tone="destructive" hint={`${t.overdueCount}`} />
       </div>
+
+      <div className="grid gap-4 lg:grid-cols-2 mb-4">
+        {[
+          { title: isArabic ? "حسب المقاول" : "By contractor", first: isArabic ? "المقاول" : "Contractor", buckets: contractorBuckets, payrollOf: (k: string, label: string) => payrollByName.get(label) ?? 0 },
+          { title: isArabic ? "حسب المشروع" : "By project", first: isArabic ? "المشروع" : "Project", buckets: projectBuckets, payrollOf: (k: string) => payrollByProjectId.get(k) ?? 0 },
+        ].map((sec) => (
+          <Card key={sec.title}>
+            <CardHeader className="pb-2"><CardTitle className="text-base">{sec.title}</CardTitle></CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{sec.first}</TableHead>
+                      <TableHead>{isArabic ? "مستحق" : "Due"}</TableHead>
+                      <TableHead>{isArabic ? "معتمد" : "Approved"}</TableHead>
+                      <TableHead>{isArabic ? "مُستلم" : "Received"}</TableHead>
+                      <TableHead>{isArabic ? "مرتبات مدفوعة" : "Payroll paid"}</TableHead>
+                      <TableHead>{isArabic ? "نسبة التحصيل" : "Collection"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sec.buckets.length === 0 && (
+                      <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                        {isArabic ? "لا توجد بيانات" : "No data"}
+                      </TableCell></TableRow>
+                    )}
+                    {sec.buckets.map((b) => (
+                      <TableRow key={b.key}>
+                        <TableCell className="font-medium max-w-[180px] truncate">{b.label}</TableCell>
+                        <TableCell className="tabular-nums text-warning">{fmtMoney(b.due)}</TableCell>
+                        <TableCell className="tabular-nums">{fmtMoney(b.approved)}</TableCell>
+                        <TableCell className="tabular-nums text-success">{fmtMoney(b.received)}</TableCell>
+                        <TableCell className="tabular-nums">{fmtMoney(sec.payrollOf(b.key, b.label))}</TableCell>
+                        <TableCell className="tabular-nums">{b.collectionRate.toFixed(1)}%</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+
 
       <Card>
         <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">

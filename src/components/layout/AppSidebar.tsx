@@ -8,7 +8,7 @@ import {
   Home, FolderOpen, ListChecks, DollarSign, Gauge, Briefcase, Package, FileSignature,
   Users, AlertTriangle, Gavel, FileBarChart, BookOpen, Calendar, Settings, Shield, FileText,
   Layers, Truck, Award, Inbox, Search, LayoutDashboard, ClipboardList, GitCompare,
-  HardHat, Boxes, ScrollText, Building2, Sparkles,
+  HardHat, Boxes, ScrollText, Building2, Sparkles, Wallet,
 } from "lucide-react";
 import { useMemo } from "react";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -77,6 +77,10 @@ const systemGroups: NavGroup[] = [
       { titleEn: "Certificates",  titleAr: "المستخلصات",   url: "/progress-certificates", icon: Award },
       { titleEn: "EVM",           titleAr: "القيمة المكتسبة", url: "/cost-control-evm",   icon: FileBarChart },
       { titleEn: "Budgeting",     titleAr: "إدارة الميزانية", url: "/budgeting",          icon: Gauge },
+      { titleEn: "Unified Budget", titleAr: "الميزانية الموحدة", url: "/budgeting/unified", icon: Gauge },
+      { titleEn: "Payroll",       titleAr: "المرتبات",        url: "/payroll",            icon: Wallet },
+      { titleEn: "Claims vs Payroll", titleAr: "المطالبات مقابل المرتبات", url: "/claims/payroll", icon: FileBarChart },
+      { titleEn: "Monthly EVM",   titleAr: "القيمة المكتسبة الشهرية", url: "/reports/evm-monthly", icon: Calendar },
       { titleEn: "Risks",         titleAr: "المخاطر",      url: "/risk",                  icon: AlertTriangle },
       { titleEn: "Claims",        titleAr: "المطالبات",    url: "/claims",                icon: Gavel },
       { titleEn: "Claims Finance", titleAr: "تقارير المطالبات المالية", url: "/claims/reports",   icon: FileBarChart },
