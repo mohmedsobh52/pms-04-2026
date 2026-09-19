@@ -4369,6 +4369,7 @@ export type Database = {
       mark_all_notifications_read: { Args: never; Returns: number }
       mark_notifications_read: { Args: { _ids: string[] }; Returns: number }
       next_proposal_number: { Args: { _user: string }; Returns: string }
+      notify_overdue_claims: { Args: never; Returns: number }
       notify_user: {
         Args: {
           _body?: string
